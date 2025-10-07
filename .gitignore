@@ -17,6 +17,9 @@ coverage
 /cypress/videos/
 /cypress/screenshots/
 
+# Folder dependensi Composer
+/vendor/
+
 # Ignore environment files
 .env
 .env.local
@@ -24,6 +27,10 @@ coverage
 # Ignore custom config
 src/api/axios.js
 db.json
+
+# Log files
+*.log
+error_log
 
 # Editor directories and files
 .vscode/*
@@ -36,3 +43,6 @@ db.json
 *.sw?
 
 *.tsbuildinfo
+
+# Folder hasil build frontend
+/dist/

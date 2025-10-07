@@ -1,0 +1,110 @@
+/* src/assets/main.css */
+/*
+  Definisi Variabel Warna untuk Setiap Tema
+  HSL (Hue, Saturation, Lightness)
+*/
+:root[data-theme="terang"],
+:root { /* Default theme */
+  --color-text: 220 15 20;      /* Abu-abu kebiruan sangat gelap */
+  --color-background: 0 0 100;    /* Putih bersih */
+  --color-primary: 225 85 55;     /* Biru cerah (vibrant blue) */
+  --color-secondary: 220 20 95;   /* Abu-abu sangat terang */
+  --color-accent: 350 90 60;      /* Merah muda/oranye cerah */
+}
+
+/* 2. Tema Gelap (Cyberpunk Neon) - Kontras tinggi dengan warna neon */
+:root[data-theme="gelap"] {
+  --color-text: 230 15 88;      /* Abu-abu kebiruan terang */
+  --color-background: 230 15 12;  /* Biru sangat gelap (almost black) */
+  --color-primary: 190 90 60;     /* Cyan/biru elektrik */
+  --color-secondary: 230 15 25;   /* Abu-abu gelap */
+  --color-accent: 320 90 65;      /* Magenta/pink cerah */
+}
+
+/* 3. Tema Sepia (Warm & Refined) - Hangat dan nyaman dipandang */
+:root[data-theme="sepia"] {
+  --color-text: 35 40 20;       /* Coklat tua pekat */
+  --color-background: 44 38 95;   /* Krem (tan) */
+  --color-primary: 20 80 50;      /* Terracotta/oranye bata */
+  --color-secondary: 44 30 90;    /* Krem terang (beige) */
+  --color-accent: 0 70 50;       /* Merah marun lembut */
+}
+
+/* 4. Tema Gurun (Desert Oasis) - Kombinasi warna tanah dan air */
+:root[data-theme="gurun"] {
+  --color-text: 25 50 15;       /* Coklat tanah */
+  --color-background: 38 78 90;   /* Pasir hangat */
+  --color-primary: 180 70 40;     /* Pirus/hijau oasis */
+  --color-secondary: 38 20 65;    /* Abu-abu batu */
+  --color-accent: 30 95 55;       /* Oranye matahari terbenam */
+}
+
+/* 5. Tema Darah (Vampire) - Dramatis dan kontras tinggi */
+:root[data-theme="darah"] {
+  --color-text: 0 0 92;         /* Putih gading (ivory) */
+  --color-background: 0 0 10;     /* Hitam pekat */
+  --color-primary: 0 80 55;       /* Merah darah pekat (crimson) */
+  --color-secondary: 0 0 20;      /* Abu-abu arang (charcoal) */
+  --color-accent: 0 90 65;        /* Merah terang untuk highlight */
+}
+
+/* 6. Tema Hutan (Forest) - Nuansa alam yang sejuk */
+:root[data-theme="hutan"] {
+  --color-text: 40 30 90;       /* Krem terang */
+  --color-background: 120 25 15;  /* Hijau hutan gelap */
+  --color-primary: 80 70 55;      /* Hijau limau cerah */
+  --color-secondary: 30 30 25;    /* Coklat gelap */
+  --color-accent: 45 90 60;       /* Kuning safron */
+}
+
+/* 7. Tema Lautan (Ocean) - Biru yang dalam dan menenangkan */
+:root[data-theme="lautan"] {
+  --color-text: 190 100 95;      /* Putih kebiruan */
+  --color-background: 210 50 10;  /* Biru laut dalam */
+  --color-primary: 175 80 50;     /* Pirus/Turquoise */
+  --color-secondary: 200 15 30;   /* Abu-abu biru gelap */
+  --color-accent: 10 90 65;       /* Oranye koral */
+}
+
+/* 8. Tema Matahari Terbenam (Sunset) - Gradasi hangat dan cerah */
+:root[data-theme="sunset"] {
+  --color-text: 50 100 92;      /* Kuning pucat */
+  --color-background: 250 50 12;  /* Indigo gelap */
+  --color-primary: 25 95 60;      /* Oranye menyala */
+  --color-secondary: 260 40 25;   /* Ungu gelap */
+  --color-accent: 330 90 60;      /* Pink cerah */
+}
+
+/* 9. Tema Permen (Candy) - Warna pastel yang manis */
+:root[data-theme="permen"] {
+  --color-text: 270 20 25;      /* Ungu gelap */
+  --color-background: 330 100 98; /* Pink sangat pucat */
+  --color-primary: 340 90 65;     /* Pink permen */
+  --color-secondary: 150 50 90;   /* Hijau mint pucat */
+  --color-accent: 200 90 65;      /* Biru permen */
+}
+
+/* 10. Tema Retro - Neon tahun 80-an */
+:root[data-theme="retro"] {
+  --color-text: 0 0 95;         /* Putih cerah */
+  --color-background: 240 10 5;   /* Hampir hitam */
+  --color-primary: 310 100 55;    /* Magenta neon */
+  --color-secondary: 240 10 20;   /* Abu-abu gelap */
+  --color-accent: 70 100 50;      /* Hijau limau neon */
+}
+
+/* Style Override */
+:root {
+  --ms-bg: hsl(var(--color-background));
+  --ms-border-color: hsl(var(--color-secondary));
+  --ms-ring-color: hsl(var(--color-primary) / 0.3);
+  --ms-text-color: hsl(var(--color-text));
+  --ms-option-bg-pointed: hsl(var(--color-secondary));
+  --ms-option-bg-selected: hsl(var(--color-primary));
+  --ms-tag-bg: hsl(var(--color-primary));
+}
+
+/* @tailwind */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
