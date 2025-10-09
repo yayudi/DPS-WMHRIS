@@ -1,4 +1,4 @@
-// File: backend/config/db.js
+// backend/config/db.js
 
 import mysql from "mysql2/promise";
 import "dotenv/config"; // Cara ESM untuk memuat .env
@@ -13,4 +13,4 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
-export default pool; // Menggunakan export default
+export default pool;

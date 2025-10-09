@@ -2,11 +2,10 @@
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { RouterLink } from 'vue-router'
-import axios from 'axios'
-import { JSON_URL } from '@/api/config'
 import { useToast } from '@/composables/UseToast.js'
 import Tabs from '@/components/Tabs.vue'
 import { useAuthStore } from '@/stores/auth.js'
+import { fetchAllProducts as fetchProductsFromApi } from '@/api/helpers/wms.js'
 
 // --- STATE MANAGEMENT ---
 const activeView = ref('gudang')
@@ -63,53 +62,56 @@ function copyToClipboard(text, fieldName) {
     })
 }
 
+function transformProduct(rawProduct) {
+  const pajanganLocations = rawProduct.k.filter((loc) => loc.l.startsWith('A12'))
+  const stockPajangan = pajanganLocations.reduce((sum, loc) => sum + loc.q, 0)
+  const lokasiPajangan = pajanganLocations.map((loc) => loc.l).join(', ')
+
+  const gudangLocations = rawProduct.k.filter(
+    (loc) => loc.l.startsWith('A19') || loc.l.startsWith('A20'),
+  )
+  const stockGudang = gudangLocations.reduce((sum, loc) => sum + loc.q, 0)
+  const lokasiGudang = gudangLocations.map((loc) => loc.l).join(', ')
+
+  const ltcLocation = rawProduct.k.find((loc) => loc.l === 'LTC')
+  const stockLTC = ltcLocation ? ltcLocation.q : 0
+  const lokasiLTC = ltcLocation ? ltcLocation.l : 'N/A'
+
+  const randomIdealStock = Math.floor(Math.random() * 1000)
+  const stockPajanganMock = stockPajangan - randomIdealStock
+
+  return {
+    id: rawProduct.s,
+    sku: rawProduct.s,
+    name: rawProduct.n,
+    price: rawProduct.p,
+    stockPajangan,
+    stockPajanganMock,
+    lokasiPajangan,
+    pajanganLocations,
+    stockGudang,
+    lokasiGudang,
+    gudangLocations,
+    stockLTC,
+    lokasiLTC,
+  }
+}
+
 // --- API FETCHING ---
 async function fetchAllProducts() {
   loading.value = true
   error.value = null
   try {
-    const response = await axios.get(`${JSON_URL}wms/stok.json`)
+    const rawProducts = await fetchProductsFromApi()
 
-    allProducts.value = response.data.map((rawProduct) => {
-      const pajanganLocations = rawProduct.k.filter((loc) => loc.l.startsWith('A12'))
-      const stockPajangan = pajanganLocations.reduce((sum, loc) => sum + loc.q, 0)
-      const lokasiPajangan = pajanganLocations.map((loc) => loc.l).join(', ')
+    allProducts.value = rawProducts.map(transformProduct)
 
-      const gudangLocations = rawProduct.k.filter(
-        (loc) => loc.l.startsWith('A19') || loc.l.startsWith('A20'),
-      )
-      const stockGudang = gudangLocations.reduce((sum, loc) => sum + loc.q, 0)
-      const lokasiGudang = gudangLocations.map((loc) => loc.l).join(', ')
-
-      const ltcLocation = rawProduct.k.find((loc) => loc.l === 'LTC')
-      const stockLTC = ltcLocation ? ltcLocation.q : 0
-      const lokasiLTC = ltcLocation ? ltcLocation.l : 'N/A'
-
-      const randomIdealStock = Math.floor(Math.random() * 1000) // Angka acak antara 10 dan 50
-      const stockPajanganMock = stockPajangan - randomIdealStock
-
-      return {
-        id: rawProduct.s,
-        sku: rawProduct.s,
-        name: rawProduct.n,
-        price: rawProduct.p,
-        stockPajangan,
-        stockPajanganMock,
-        lokasiPajangan,
-        pajanganLocations, // Keep original array for tooltip
-        stockGudang,
-        lokasiGudang,
-        gudangLocations, // Keep original array for tooltip
-        stockLTC,
-        lokasiLTC,
-      }
-    })
     if (!auth.canViewPrices) {
       allProducts.value.forEach((product) => {
         delete product.price
       })
     }
-    resetAndLoad() // Muat data awal berdasarkan view default
+    resetAndLoad()
   } catch (err) {
     console.error('Error fetching WMS products:', err)
     error.value = 'Gagal memuat data produk.'
@@ -121,40 +123,12 @@ async function fetchAllProducts() {
 // --- AUTO REFETCH ---
 async function refetchProducts() {
   try {
-    const response = await axios.get(`${JSON_URL}wms/stok.json`)
-    allProducts.value = response.data.map((rawProduct) => {
-      // Logika transformasi yang sama
-      const pajanganLocations = rawProduct.k.filter((loc) => loc.l.startsWith('A12'))
-      const stockPajangan = pajanganLocations.reduce((sum, loc) => sum + loc.q, 0)
-      const lokasiPajangan = pajanganLocations.map((loc) => loc.l).join(', ')
-      const gudangLocations = rawProduct.k.filter(
-        (loc) => loc.l.startsWith('A19') || loc.l.startsWith('A20'),
-      )
-      const stockGudang = gudangLocations.reduce((sum, loc) => sum + loc.q, 0)
-      const lokasiGudang = gudangLocations.map((loc) => loc.l).join(', ')
-      const ltcLocation = rawProduct.k.find((loc) => loc.l === 'LTC')
-      const stockLTC = ltcLocation ? ltcLocation.q : 0
-      const lokasiLTC = ltcLocation ? ltcLocation.l : 'N/A'
-      const randomIdealStock = Math.floor(Math.random() * 41) + 10
-      const stockPajanganIdeal = stockPajangan + randomIdealStock
-      return {
-        id: rawProduct.s,
-        sku: rawProduct.s,
-        name: rawProduct.n,
-        price: rawProduct.p,
-        stockPajangan,
-        stockPajanganIdeal,
-        lokasiPajangan,
-        pajanganLocations,
-        stockGudang,
-        lokasiGudang,
-        gudangLocations,
-        stockLTC,
-        lokasiLTC,
-      }
-    })
+    // ✅ 4. Gunakan helper juga di sini untuk konsistensi
+    const rawProducts = await fetchProductsFromApi()
 
-    // Reset daftar tampilan untuk menunjukkan data baru dari atas
+    // Gunakan transformer yang sama, tidak ada duplikasi kode
+    allProducts.value = rawProducts.map(transformProduct)
+
     if (!searchTerm.value) {
       resetAndLoad()
     }
@@ -172,7 +146,7 @@ const currentViewProducts = computed(() => {
     let stockValue = 0
 
     if (activeView.value === 'pajangan') {
-      isRelevant = p.lokasiPajangan // Cek apakah produk ada di pajangan
+      isRelevant = p.lokasiPajangan
       stockValue = p.stockPajangan
     } else if (activeView.value === 'gudang') {
       isRelevant = p.lokasiGudang
@@ -182,9 +156,9 @@ const currentViewProducts = computed(() => {
       stockValue = p.stockLTC
     }
 
-    if (!isRelevant) return false // Abaikan jika produk tidak ada di view ini
-    if (showMinusStockOnly.value) return stockValue < 0 // Jika filter aktif, hanya tampilkan stok minus
-    return true // Jika filter tidak aktif, tampilkan semua yang relevan
+    if (!isRelevant) return false
+    if (showMinusStockOnly.value) return stockValue < 0
+    return true
   })
 })
 
@@ -219,14 +193,10 @@ const searchPlaceholder = computed(
 const filteredProducts = computed(() => {
   if (searchTerm.value) {
     const searchLower = searchTerm.value.toLowerCase()
-
-    // Mulai dengan semua produk
     let results = allProducts.value.filter((p) => {
       const targetField = searchBy.value === 'name' ? p.name : p.sku
       return targetField && targetField.toLowerCase().includes(searchLower)
     })
-
-    // Terapkan filter stok minus DI ATAS hasil pencarian
     if (showMinusStockOnly.value) {
       results = results.filter((p) => {
         if (activeView.value === 'pajangan') return p.stockPajangan < 0
@@ -270,13 +240,9 @@ onUnmounted(() => {
   if (observer) observer.disconnect()
 })
 
-// Reset lazy loading saat pencarian dihapus
 watch(loading, async (isLoading) => {
-  // Saat loading selesai (berubah ke false) dan tidak ada error
   if (!isLoading && !error.value) {
-    // Tunggu Vue selesai memperbarui DOM
     await nextTick()
-    // Sekarang loader.value dijamin sudah ada
     if (loader.value) {
       observer.observe(loader.value)
     }
@@ -604,154 +570,154 @@ function handleFileUpload(event) {
         </div>
       </div>
     </div>
-
-    <!-- MODAL -->
-    <transition
-      enter-active-class="transition ease-out duration-200"
-      enter-from-class="transform opacity-0 scale-95"
-      enter-to-class="transform opacity-100 scale-100"
-      leave-active-class="transition ease-in duration-100"
-      leave-from-class="transform opacity-100 scale-100"
-      leave-to-class="transform opacity-0 scale-95"
-    >
-      <div
-        v-if="isTransferModalOpen"
-        @click.self="closeTransferModal"
-        class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"
-      >
-        <div v-if="selectedProduct" class="bg-background rounded-lg shadow-xl w-full max-w-sm">
-          <div class="p-4 border-b border-secondary/20">
-            <h3 class="font-bold text-text">Transfer Stok</h3>
-            <p class="text-sm text-text/70">{{ selectedProduct.name }}</p>
-          </div>
-          <div class="p-4 space-y-4">
-            <div class="grid grid-cols-2 gap-4 text-center">
-              <div>
-                <label class="text-xs text-text/70">Dari Gudang</label>
-                <p class="text-2xl font-bold text-text">{{ selectedProduct.stockWarehouse }}</p>
-              </div>
-              <div>
-                <label class="text-xs text-text/70">Ke Display</label>
-                <p class="text-2xl font-bold text-text">{{ selectedProduct.stockDisplay }}</p>
-              </div>
-            </div>
-            <div>
-              <label for="transfer-amount" class="text-sm font-medium text-text/80"
-                >Jumlah Transfer</label
-              ><input
-                id="transfer-amount"
-                type="number"
-                v-model="transferAmount"
-                min="1"
-                :max="selectedProduct.stockWarehouse"
-                class="mt-1 w-full text-center text-lg p-2 bg-background border border-secondary/50 text-text rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition"
-              />
-            </div>
-          </div>
-          <div class="p-4 bg-secondary/10 flex justify-end gap-2 rounded-b-lg">
-            <button
-              @click="closeTransferModal"
-              class="bg-background border border-secondary/30 text-text/80 hover:bg-secondary/20 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-            >
-              Batal</button
-            ><button
-              @click="handleTransferConfirm"
-              class="bg-primary text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              Konfirmasi
-            </button>
-          </div>
-        </div>
-      </div>
-    </transition>
-    <transition
-      enter-active-class="transition ease-out duration-200"
-      enter-from-class="transform opacity-0 scale-95"
-      enter-to-class="transform opacity-100 scale-100"
-      leave-active-class="transition ease-in duration-100"
-      leave-from-class="transform opacity-100 scale-100"
-      leave-to-class="transform opacity-0 scale-95"
-    >
-      <div
-        v-if="isUploadModalOpen"
-        @click.self="closeUploadModal"
-        class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"
-      >
-        <div class="bg-background rounded-lg shadow-xl w-full max-w-md">
-          <div class="p-4 border-b border-secondary/20">
-            <h3 class="font-bold text-text">Import Data Perpindahan Stok</h3>
-            <p class="text-sm text-text/70">Upload file dari marketplace</p>
-          </div>
-          <div class="p-4 space-y-4">
-            <div>
-              <label class="text-sm font-medium text-text/80">Pilih Sumber</label>
-              <div class="mt-2 grid grid-cols-3 gap-2">
-                <button
-                  @click="uploadSource = 'tiktok'"
-                  :class="[
-                    'p-2 text-sm rounded-md border-2 transition-all',
-                    uploadSource === 'tiktok'
-                      ? 'border-primary bg-primary/10 text-primary font-bold'
-                      : 'border-secondary/30 bg-background hover:border-primary/50',
-                  ]"
-                >
-                  TikTok</button
-                ><button
-                  @click="uploadSource = 'shopee'"
-                  :class="[
-                    'p-2 text-sm rounded-md border-2 transition-all',
-                    uploadSource === 'shopee'
-                      ? 'border-primary bg-primary/10 text-primary font-bold'
-                      : 'border-secondary/30 bg-background hover:border-primary/50',
-                  ]"
-                >
-                  Shopee</button
-                ><button
-                  @click="uploadSource = 'lazada'"
-                  :class="[
-                    'p-2 text-sm rounded-md border-2 transition-all',
-                    uploadSource === 'lazada'
-                      ? 'border-primary bg-primary/10 text-primary font-bold'
-                      : 'border-secondary/30 bg-background hover:border-primary/50',
-                  ]"
-                >
-                  Lazada
-                </button>
-              </div>
-            </div>
-            <div>
-              <label
-                for="file-upload"
-                class="cursor-pointer mt-2 flex justify-center w-full px-6 pt-5 pb-6 border-2 border-secondary/30 border-dashed rounded-md hover:border-primary/50"
-                ><div class="space-y-1 text-center">
-                  <font-awesome-icon
-                    icon="fa-solid fa-cloud-arrow-up"
-                    class="mx-auto h-12 w-12 text-text/30"
-                  />
-                  <div class="flex text-sm text-text/60">
-                    <p class="pl-1">Klik untuk upload atau drag and drop</p>
-                  </div>
-                  <p class="text-xs text-text/50">CSV, XLS, atau XLSX</p>
-                </div>
-                <input
-                  id="file-upload"
-                  name="file-upload"
-                  type="file"
-                  class="sr-only"
-                  @change="handleFileUpload"
-              /></label>
-            </div>
-          </div>
-          <div class="p-4 bg-secondary/10 flex justify-end gap-2 rounded-b-lg">
-            <button
-              @click="closeUploadModal"
-              class="bg-background border border-secondary/30 text-text/80 hover:bg-secondary/20 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-            >
-              Batal
-            </button>
-          </div>
-        </div>
-      </div>
-    </transition>
   </div>
+
+  <!-- MODAL -->
+  <transition
+    enter-active-class="transition ease-out duration-200"
+    enter-from-class="transform opacity-0 scale-95"
+    enter-to-class="transform opacity-100 scale-100"
+    leave-active-class="transition ease-in duration-100"
+    leave-from-class="transform opacity-100 scale-100"
+    leave-to-class="transform opacity-0 scale-95"
+  >
+    <div
+      v-if="isTransferModalOpen"
+      @click.self="closeTransferModal"
+      class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"
+    >
+      <div v-if="selectedProduct" class="bg-background rounded-lg shadow-xl w-full max-w-sm">
+        <div class="p-4 border-b border-secondary/20">
+          <h3 class="font-bold text-text">Transfer Stok</h3>
+          <p class="text-sm text-text/70">{{ selectedProduct.name }}</p>
+        </div>
+        <div class="p-4 space-y-4">
+          <div class="grid grid-cols-2 gap-4 text-center">
+            <div>
+              <label class="text-xs text-text/70">Dari Gudang</label>
+              <p class="text-2xl font-bold text-text">{{ selectedProduct.stockWarehouse }}</p>
+            </div>
+            <div>
+              <label class="text-xs text-text/70">Ke Display</label>
+              <p class="text-2xl font-bold text-text">{{ selectedProduct.stockDisplay }}</p>
+            </div>
+          </div>
+          <div>
+            <label for="transfer-amount" class="text-sm font-medium text-text/80"
+              >Jumlah Transfer</label
+            ><input
+              id="transfer-amount"
+              type="number"
+              v-model="transferAmount"
+              min="1"
+              :max="selectedProduct.stockWarehouse"
+              class="mt-1 w-full text-center text-lg p-2 bg-background border border-secondary/50 text-text rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition"
+            />
+          </div>
+        </div>
+        <div class="p-4 bg-secondary/10 flex justify-end gap-2 rounded-b-lg">
+          <button
+            @click="closeTransferModal"
+            class="bg-background border border-secondary/30 text-text/80 hover:bg-secondary/20 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            Batal</button
+          ><button
+            @click="handleTransferConfirm"
+            class="bg-primary text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            Konfirmasi
+          </button>
+        </div>
+      </div>
+    </div>
+  </transition>
+  <transition
+    enter-active-class="transition ease-out duration-200"
+    enter-from-class="transform opacity-0 scale-95"
+    enter-to-class="transform opacity-100 scale-100"
+    leave-active-class="transition ease-in duration-100"
+    leave-from-class="transform opacity-100 scale-100"
+    leave-to-class="transform opacity-0 scale-95"
+  >
+    <div
+      v-if="isUploadModalOpen"
+      @click.self="closeUploadModal"
+      class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"
+    >
+      <div class="bg-background rounded-lg shadow-xl w-full max-w-md">
+        <div class="p-4 border-b border-secondary/20">
+          <h3 class="font-bold text-text">Import Data Perpindahan Stok</h3>
+          <p class="text-sm text-text/70">Upload file dari marketplace</p>
+        </div>
+        <div class="p-4 space-y-4">
+          <div>
+            <label class="text-sm font-medium text-text/80">Pilih Sumber</label>
+            <div class="mt-2 grid grid-cols-3 gap-2">
+              <button
+                @click="uploadSource = 'tiktok'"
+                :class="[
+                  'p-2 text-sm rounded-md border-2 transition-all',
+                  uploadSource === 'tiktok'
+                    ? 'border-primary bg-primary/10 text-primary font-bold'
+                    : 'border-secondary/30 bg-background hover:border-primary/50',
+                ]"
+              >
+                TikTok</button
+              ><button
+                @click="uploadSource = 'shopee'"
+                :class="[
+                  'p-2 text-sm rounded-md border-2 transition-all',
+                  uploadSource === 'shopee'
+                    ? 'border-primary bg-primary/10 text-primary font-bold'
+                    : 'border-secondary/30 bg-background hover:border-primary/50',
+                ]"
+              >
+                Shopee</button
+              ><button
+                @click="uploadSource = 'lazada'"
+                :class="[
+                  'p-2 text-sm rounded-md border-2 transition-all',
+                  uploadSource === 'lazada'
+                    ? 'border-primary bg-primary/10 text-primary font-bold'
+                    : 'border-secondary/30 bg-background hover:border-primary/50',
+                ]"
+              >
+                Lazada
+              </button>
+            </div>
+          </div>
+          <div>
+            <label
+              for="file-upload"
+              class="cursor-pointer mt-2 flex justify-center w-full px-6 pt-5 pb-6 border-2 border-secondary/30 border-dashed rounded-md hover:border-primary/50"
+              ><div class="space-y-1 text-center">
+                <font-awesome-icon
+                  icon="fa-solid fa-cloud-arrow-up"
+                  class="mx-auto h-12 w-12 text-text/30"
+                />
+                <div class="flex text-sm text-text/60">
+                  <p class="pl-1">Klik untuk upload atau drag and drop</p>
+                </div>
+                <p class="text-xs text-text/50">CSV, XLS, atau XLSX</p>
+              </div>
+              <input
+                id="file-upload"
+                name="file-upload"
+                type="file"
+                class="sr-only"
+                @change="handleFileUpload"
+            /></label>
+          </div>
+        </div>
+        <div class="p-4 bg-secondary/10 flex justify-end gap-2 rounded-b-lg">
+          <button
+            @click="closeUploadModal"
+            class="bg-background border border-secondary/30 text-text/80 hover:bg-secondary/20 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            Batal
+          </button>
+        </div>
+      </div>
+    </div>
+  </transition>
 </template>

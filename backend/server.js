@@ -1,18 +1,19 @@
+// backend\server.js
 import express from "express";
 import cors from "cors";
 import "dotenv/config";
+import path from "path";
+import { fileURLToPath } from "url";
+import db from "./config/db.js";
 
-// router
 import authRoutes from "./router/auth.js";
 import userRoutes from "./router/user.js";
 import adminRoutes from "./router/admin.js";
-import attendanceRouter from "./router/attendanceRouter.js";
+import attendanceRouter from "./router/attendanceRouter.js"; // Router baru kita
 
-// middleware
 import authenticateToken from "./middleware/authMiddleware.js";
 import { canAccess } from "./middleware/permissionMiddleware.js";
 
-// Konfigurasi Path ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -26,22 +27,29 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.use(express.json());
-
-// 3. Static File Server: Sajikan semua file dari folder 'public'.
-// URL-nya akan menjadi https://api.pusatpneumatic.com/namafile.json
 app.use(express.static(path.join(__dirname, "public")));
 
-// Rute Publik
-app.use("/api/auth", authRoutes);
+// Rute tes sederhana (tanpa /api)
+app.get("/test", async (req, res) => {
+  try {
+    // Coba lakukan query yang paling sederhana
+    const [rows] = await db.query("SELECT 1 + 1 AS solution");
+    console.log("Hasil tes DB:", rows);
+    res.status(200).json({ success: true, message: "Koneksi database berhasil!", data: rows[0] });
+  } catch (error) {
+    console.error("--- TES KONEKSI DB GAGAL ---", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Gagal terhubung ke database.", error: error.message });
+  }
+});
 
-// Rute Terlindungi
-app.use("/api/user", authenticateToken, userRoutes);
+// --- Rute Aplikasi (semua prefix /api dihapus) ---
+app.use("/auth", authRoutes);
+app.use("/user", authenticateToken, userRoutes);
+app.use("/admin/users", authenticateToken, canAccess("manage-users"), adminRoutes);
+app.use("/attendance", authenticateToken, attendanceRouter); // ✅ Rute baru ditambahkan
 
-app.use("/api/admin/users", authenticateToken, canAccess("manage-users"), adminRoutes);
-app.use("/attendance", authenticateToken, attendanceRouter);
-
-// --- Rute Catch-All untuk 404 ---
-// Jika request tidak cocok dengan rute statis atau API di atas, kirim 404.
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Endpoint tidak ditemukan." });
 });

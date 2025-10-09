@@ -51,15 +51,14 @@ const routes = [
   {
     path: '/admin',
     component: AdminLayout,
-    meta: { requiresAuth: true, requiresAdmin: true },
+    meta: { requiresAuth: true },
     children: [
       {
         path: 'users', // Akan menjadi /admin/users
         name: 'UserManagement',
         component: UserManagementView,
+        meta: { requiresPermission: 'manage-users' },
       },
-      // { path: 'roles', component: RoleManagementView },
-      // { path: 'settings', component: SettingsView }
     ],
   },
   {
@@ -78,7 +77,7 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const auth = useAuthStore()
 
-  // Langkah 0: Jika data user belum ada TAPI token ada,
+  // Jika data user belum ada TAPI token ada,
   // TUNGGU sampai proses fetchUser selesai.
   // Ini adalah kunci untuk menyelesaikan race condition.
   if (to.meta.requiresAuth && !auth.user && auth.token) {
@@ -88,24 +87,34 @@ router.beforeEach(async (to, from, next) => {
   // Sekarang, setelah data user (jika ada) sudah pasti dimuat,
   // kita bisa melanjutkan logika guard seperti biasa.
   const isLoggedIn = auth.isAuthenticated
-  const isUserAdmin = auth.isAdmin
 
-  // Prioritas 1: Rute butuh admin, tapi user bukan admin
-  if (to.meta.requiresAdmin && !isUserAdmin) {
-    next({ name: 'Home' })
+  // Rute butuh login, tapi user belum login
+  if (to.meta.requiresAuth && !isLoggedIn) {
+    return next({ name: 'Login' })
   }
-  // Prioritas 2: Rute butuh login, tapi user belum login
-  else if (to.meta.requiresAuth && !isLoggedIn) {
-    next({ name: 'Login' })
+
+  // ✅ PERBAIKAN: Logika baru untuk memeriksa izin spesifik
+  if (to.meta.requiresPermission) {
+    // Cek apakah pengguna memiliki izin yang diperlukan
+    const hasPermission = auth.user?.permissions?.includes(to.meta.requiresPermission)
+    if (hasPermission) {
+      return next() // Lanjutkan jika punya izin
+    } else {
+      // Alihkan ke halaman Home (atau halaman 'unauthorized') jika tidak punya izin
+      console.warn(
+        `Akses ditolak ke rute '${String(to.name)}'. Izin '${to.meta.requiresPermission}' tidak ditemukan.`,
+      )
+      return next({ name: 'Home' })
+    }
   }
+
   // Prioritas 3: User sudah login tapi mencoba akses halaman login
-  else if (to.name === 'Login' && isLoggedIn) {
-    next({ name: 'Home' })
+  if (to.name === 'Login' && isLoggedIn) {
+    return next({ name: 'Home' })
   }
+
   // Jika semua aman, lanjutkan
-  else {
-    next()
-  }
+  next()
 })
 
 export default router

@@ -1,3 +1,4 @@
+// backend\middleware\permissionMiddleware.js
 import db from "../config/db.js";
 
 // Fungsi ini adalah "middleware factory" (pabrik middleware)

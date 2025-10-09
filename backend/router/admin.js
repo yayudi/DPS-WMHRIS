@@ -1,8 +1,11 @@
 // File: backend/router/admin.js
 import express from "express";
+import bcrypt from "bcrypt";
 import db from "../config/db.js";
 
 const router = express.Router();
+
+console.log("✅ Router admin.js versi final berhasil dimuat.");
 
 // GET /api/admin/users - Mendapatkan semua user
 router.get("/", async (req, res) => {
@@ -11,7 +14,7 @@ router.get("/", async (req, res) => {
       SELECT u.id, u.username, u.role_id, r.name AS role_name
       FROM users u
       JOIN roles r ON u.role_id = r.id
-      ORDER BY u.id ASC
+      ORDER BY u.username ASC
     `;
     const [users] = await db.query(query);
     res.json({ success: true, users });
@@ -21,10 +24,47 @@ router.get("/", async (req, res) => {
   }
 });
 
+router.post("/", async (req, res) => {
+  console.log("[ADMIN ROUTER] Menerima request POST untuk membuat pengguna baru...");
+  const { username, password, role_id } = req.body;
+
+  // Validasi input
+  if (!username || !password || !role_id) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Semua field (username, password, role) wajib diisi." });
+  }
+
+  try {
+    // Hash password sebelum disimpan
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Simpan ke database
+    const [result] = await db.query(
+      "INSERT INTO users (username, password_hash, role_id) VALUES (?, ?, ?)",
+      [username, hashedPassword, role_id]
+    );
+
+    const newUser = {
+      id: result.insertId,
+      username,
+      role_id,
+    };
+
+    res.status(201).json({ success: true, message: "Pengguna berhasil dibuat.", data: newUser });
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ success: false, message: "Username sudah digunakan." });
+    }
+    console.error("Error creating user:", error);
+    res.status(500).json({ success: false, message: "Gagal membuat pengguna." });
+  }
+});
+
 // GET /api/admin/users/roles - Mendapatkan semua role yang tersedia
 router.get("/roles", async (req, res) => {
   try {
-    const [roles] = await db.query("SELECT id, name FROM roles ORDER BY id ASC");
+    const [roles] = await db.query("SELECT id, name FROM roles ORDER BY name ASC");
     res.json({ success: true, roles });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });

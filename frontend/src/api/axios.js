@@ -1,31 +1,29 @@
 // api/axios.js
 import axios from 'axios'
+import { API_URL } from './config'
 
-// Baca base URL dari environment variable Vite
-const baseURL = import.meta.env.VITE_API_BASE_URL
-
-// Buat instance Axios dengan baseURL yang dinamis
-const api = axios.create({
-  baseURL: baseURL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+const instance = axios.create({
+  baseURL: API_URL, // Ini akan menjadi 'http://localhost:3000/'
 })
 
-//  Interceptor untuk mengirim token secara otomatis di setiap request setelah login.
-api.interceptors.request.use(
+/**
+ * Interceptor (penjaga) untuk menambahkan token otentikasi
+ * secara otomatis ke setiap request yang dikirim.
+ */
+instance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken')
+    // Ambil token dari localStorage atau Pinia store
+    const token = localStorage.getItem('authToken') // Sesuaikan dengan cara Anda menyimpan token
     if (token) {
-      // Header standar untuk mengirim JWT adalah 'Authorization: Bearer <token>'
-      config.headers.Authorization = `Bearer ${token}`
+      // Jika token ada, tambahkan ke header Authorization
+      config.headers['Authorization'] = `Bearer ${token}`
     }
-    console.log('Mengirim request ke:', config.baseURL + config.url)
     return config
   },
   (error) => {
+    // Lakukan sesuatu dengan error request
     return Promise.reject(error)
   },
 )
 
-export default api
+export default instance

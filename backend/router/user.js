@@ -21,27 +21,25 @@ router.get("/profile", (req, res) => {
 // Untuk mengupdate data user (username atau password)
 router.put("/profile", async (req, res) => {
   const { currentPassword, newUsername, newPassword } = req.body;
-  const userId = req.user.id; // Ambil ID user dari token yang sudah diverifikasi
+  const userId = req.user.id;
 
-  // 1. Validasi: Password saat ini wajib ada untuk perubahan apapun
   if (!currentPassword) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Password saat ini diperlukan untuk melakukan perubahan." });
+    return res.status(400).json({ success: false, message: "Password saat ini diperlukan." });
   }
 
   try {
-    const [rows] = await db.query("SELECT password_hash FROM users WHERE id = ?", [userId]);
-    if (rows.length === 0)
+    const [userRows] = await db.query("SELECT * FROM users WHERE id = ?", [userId]);
+    if (userRows.length === 0)
       return res.status(404).json({ success: false, message: "User tidak ditemukan." });
-    const user = rows[0];
+
+    const user = userRows[0];
     const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
     if (!isMatch)
       return res.status(403).json({ success: false, message: "Password saat ini salah." });
 
     let updateFields = [],
       updateValues = [];
-    if (newUsername && newUsername !== req.user.username) {
+    if (newUsername && newUsername !== user.username) {
       updateFields.push("username = ?");
       updateValues.push(newUsername);
     }
@@ -50,19 +48,48 @@ router.put("/profile", async (req, res) => {
       updateFields.push("password_hash = ?");
       updateValues.push(hashedNewPassword);
     }
-    if (updateFields.length === 0)
-      return res.json({ success: true, message: "Tidak ada data yang diubah." });
 
-    const query = `UPDATE users SET ${updateFields.join(", ")} WHERE id = ?`;
-    updateValues.push(userId);
-    await db.query(query, updateValues);
-
-    let newToken = null;
-    if (newUsername) {
-      const payload = { id: userId, username: newUsername };
-      newToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
+    if (updateFields.length > 0) {
+      const query = `UPDATE users SET ${updateFields.join(", ")} WHERE id = ?`;
+      updateValues.push(userId);
+      await db.query(query, updateValues);
     }
-    res.json({ success: true, message: "Data akun berhasil diperbarui.", token: newToken });
+
+    // --- PEMBUATAN TOKEN BARU YANG SUDAH DIPERBAIKI ---
+    let newToken = null;
+    // Buat token baru jika username berubah ATAU jika tidak ada yang berubah (untuk konsistensi)
+    // Ini memastikan frontend selalu bisa memperbarui data user.
+    const [roleRows] = await db.query(
+      `
+            SELECT r.name as role, p.name as permission
+            FROM roles r
+            LEFT JOIN role_permission rp ON r.id = rp.role_id
+            LEFT JOIN permissions p ON rp.permission_id = p.id
+            WHERE r.id = ?
+        `,
+      [user.role_id]
+    );
+
+    const permissions = roleRows.map((row) => row.permission).filter((p) => p);
+    const role = roleRows[0]?.role || "user";
+
+    // Buat payload yang lengkap, sama seperti di auth.js
+    const updatedPayload = {
+      id: user.id,
+      username: newUsername || user.username, // Gunakan username baru jika ada
+      role: role,
+      role_id: user.role_id,
+      permissions: permissions,
+    };
+
+    newToken = jwt.sign(updatedPayload, process.env.JWT_SECRET, { expiresIn: "8h" });
+
+    res.json({
+      success: true,
+      message: "Data akun berhasil diperbarui.",
+      token: newToken,
+      user: updatedPayload, // Kirim juga data user yang sudah diperbarui
+    });
   } catch (err) {
     if (err.code === "ER_DUP_ENTRY")
       return res.status(409).json({ success: false, message: "Username baru sudah digunakan." });
