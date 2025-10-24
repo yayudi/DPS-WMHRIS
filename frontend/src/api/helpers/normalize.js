@@ -1,77 +1,102 @@
-// api/helpers/normalize.js
+/**
+ * Helper untuk mengubah format waktu "HH:mm:ss" menjadi total menit dari tengah malam.
+ * @param {string | null} timeStr - String waktu, e.g., "08:05:00".
+ * @returns {number | null} - Total menit, e.g., 485.
+ */
+function timeToMinutes(timeStr) {
+  if (!timeStr || typeof timeStr !== 'string') return null
+  const [hours, minutes] = timeStr.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+/**
+ * Memproses data mentah dari API SQL menjadi format terstruktur yang siap digunakan oleh komponen Vue.
+ * @param {object} raw - Objek data mentah dari API.
+ * @returns {Array} - Array pengguna dengan data log yang sudah dinormalisasi.
+ */
 export function normalizeLogs(raw) {
-  if (!raw || typeof raw !== "object") {
-    throw new Error("normalizeLogs: expected object {y,m,u}, got " + typeof raw)
-  }
-  if (!Array.isArray(raw.u)) {
-    throw new Error("normalizeLogs: property u missing/invalid")
+  if (!raw || !Array.isArray(raw.u)) {
+    console.warn("normalizeLogs: data mentah tidak valid atau properti 'u' tidak ditemukan.")
+    return []
   }
 
-  const { y: year, m: month, u: users } = raw
+  const { u: users } = raw
 
-  return users.map(user => {
+  return users.map((user) => {
     const days = Array.isArray(user.d) ? user.d : []
 
     const logs = days.map((info, idx) => {
       const tanggal = idx + 1
 
-      // Shortcut → number
-      if (typeof info === "number") {
-        const status = info
+      // KASUS 1: Hari libur atau absen (direpresentasikan sebagai angka)
+      if (typeof info === 'number') {
         return {
           tanggal,
           jamMasuk: null,
           jamKeluar: null,
           breaks: [],
-          status,
-          holiday: status === 2,
-          isEmpty: status === 1 // absen full day
+          status: info, // 1 for absen, 2 for libur
+          holiday: info === 2,
+          isEmpty: true,
+          lateness: 0,
+          overtime: 0,
         }
       }
 
-      // Object → detail log
-      const entries = info.l || []
-      let jamMasuk = null
-      let jamKeluar = null
+      // KASUS 2: Ada data absensi (direpresentasikan sebagai objek)
+      const jamMasuk = timeToMinutes(info.i)
+      const jamKeluar = timeToMinutes(info.o)
+      const rawLogs = info.raw || []
       const breaks = []
 
-      entries.forEach((log, i) => {
-        const [time, type] = log
-        if (type === 0 && jamMasuk === null) jamMasuk = time
-        if (type === 1) jamKeluar = time
+      // Proses log mentah untuk menemukan waktu istirahat
+      for (let i = 0; i < rawLogs.length - 1; i++) {
+        const currentLog = rawLogs[i]
+        const nextLog = rawLogs[i + 1]
 
-        if (i < entries.length - 1) {
-          const [nextTime, nextType] = entries[i + 1]
-          if (type === 2 && nextType === 3) {
-            const durasi = nextTime - time
-            if (durasi > 0) {
-              breaks.push({ start: time, end: nextTime, duration: durasi });
-            }
+        if (currentLog.type === 'break-in' && nextLog.type === 'break-out') {
+          const startTime = timeToMinutes(currentLog.time)
+          const endTime = timeToMinutes(nextLog.time)
+          if (startTime !== null && endTime !== null && endTime > startTime) {
+            breaks.push({
+              start: startTime,
+              end: endTime,
+              duration: endTime - startTime,
+            })
+            i++ // Lewati log berikutnya karena sudah dipasangkan
           }
         }
-      })
+      }
 
-      const status = info.s ?? 0
+      // Tentukan status berdasarkan data yang ada
+      let status = 1 // Default: Absen
+      if (jamMasuk && jamKeluar) {
+        status = 0 // Hadir
+      } else if (jamMasuk || jamKeluar) {
+        status = 3 // Tidak Lengkap
+      }
+
       return {
         tanggal,
         jamMasuk,
         jamKeluar,
         breaks,
         status,
-        holiday: status === 2,
-        isEmpty: (!jamMasuk && !jamKeluar) || status === 1
+        holiday: false, // API saat ini tidak mengirim info hari libur, jadi default-nya false
+        isEmpty: !jamMasuk && !jamKeluar,
+        lateness: info.t || 0, // Ambil data keterlambatan dari API
+        overtime: info.e || 0, // Ambil data lembur dari API
       }
     })
 
     return {
-      id: user.i,
+      id: user.i, // ID pengguna dari database
       nama: user.n,
-      year,
-      month,
       logs,
-      raw: {
-        summary: user.r ?? []
-      }
+      // Properti lain yang mungkin dibutuhkan oleh komponen lama
+      year: null,
+      month: null,
+      raw: { summary: [] },
     }
   })
 }

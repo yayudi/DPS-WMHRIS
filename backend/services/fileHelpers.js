@@ -1,3 +1,4 @@
+// backend\services\fileHelpers.js
 import fs from "fs/promises";
 import path from "path";
 
@@ -24,7 +25,7 @@ async function ensureDir(dirPath) {
 export async function loadHolidays(tahun) {
   const holidayFile = path.join(
     process.cwd(),
-    "public",
+    "assets",
     "json",
     "absensi",
     "holidays",
@@ -47,7 +48,7 @@ export async function loadHolidays(tahun) {
 }
 
 export async function generateJsonIndex() {
-  const baseDir = path.join(process.cwd(), "public", "json", "absensi");
+  const baseDir = path.join(process.cwd(), "assets", "json", "absensi");
   const index = {};
   try {
     await ensureDir(baseDir);
@@ -66,7 +67,7 @@ export async function generateJsonIndex() {
         index[tahun] = [...new Set(index[tahun])].sort();
       }
     }
-    const outputFile = path.join(process.cwd(), "public", "json", "list_index.json");
+    const outputFile = path.join(process.cwd(), "assets", "json", "list_index.json");
     await fs.writeFile(outputFile, JSON.stringify(index, null, 2));
   } catch (error) {
     console.error("Gagal membuat index JSON:", error);

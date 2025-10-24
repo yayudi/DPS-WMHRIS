@@ -1,7 +1,4 @@
 // frontend/src/api/config.js
-export const API_URL =
-  process.env.NODE_ENV === 'production' ? 'https://api.pusatpneumatic.com/' : '/api/'
-
 export const JAM_KERJA_MULAI = 480 // 08:00
 export const JAM_KERJA_SELESAI = 960 // 16:00
 export const JAM_KERJA_SELESAI_SABTU = 840 // 14:00

@@ -1,104 +1,123 @@
-import fs from "fs/promises";
-import path from "path";
+// backend\scripts\runCronJobs.js
+import dns from "dns";
+dns.setDefaultResultOrder("ipv4first");
+
+import "dotenv/config";
+import db from "../config/db.js";
+
+import { syncStockToDatabase } from "./tasks/syncStock.js";
+import { fetchAndCacheHolidays } from "./tasks/fetchHolidays.js";
+
+const JOB_TIMEOUT = 600000; // 10 menit
+const STUCK_JOB_TIMEOUT = "15 MINUTE"; // Waktu untuk menganggap job "nyantol"
+
+function log(msg) {
+  console.log(`[${new Date().toISOString()}] ${msg}`);
+}
 
 /**
- * Memastikan sebuah direktori ada, jika tidak, membuatnya.
- * Ini adalah fungsi pembantu untuk menjaga kode tetap bersih.
- * @param {string} dirPath Path ke direktori
+ * Fungsi baru untuk membersihkan tugas yang "nyantol".
+ * Menandai tugas yang statusnya 'processing' lebih dari 15 menit sebagai 'failed'.
  */
-async function ensureDir(dirPath) {
+async function cleanupStuckJobs() {
+  log("Mencari tugas yang 'nyantol'...");
+  let connection;
   try {
-    await fs.access(dirPath);
+    connection = await db.getConnection();
+    const [result] = await connection.query(
+      `UPDATE jobs SET status = 'failed', last_error = 'Timeout: Proses terhenti paksa atau melebihi batas waktu.' WHERE status = 'processing' AND started_processing_at < NOW() - INTERVAL ${STUCK_JOB_TIMEOUT}`
+    );
+    if (result.affectedRows > 0) {
+      log(`🧹 Membersihkan ${result.affectedRows} tugas yang 'nyantol'.`);
+    }
   } catch (error) {
-    // Jika error karena direktori tidak ada, buat secara rekursif
-    if (error.code === "ENOENT") {
-      await fs.mkdir(dirPath, { recursive: true });
+    log(`⚠️ Gagal membersihkan tugas yang 'nyantol': ${error.message}`);
+  } finally {
+    if (connection) connection.release();
+  }
+}
+
+async function processQueue() {
+  log("Memeriksa antrian untuk tugas baru...");
+  let connection;
+  let jobId = null;
+
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [jobs] = await connection.query(
+      "SELECT * FROM jobs WHERE status = 'pending' ORDER BY created_at ASC LIMIT 1 FOR UPDATE"
+    );
+
+    if (jobs.length === 0) {
+      log("Antrian kosong. Tidak ada yang perlu dikerjakan.");
+      await connection.commit();
+      return;
+    }
+
+    const job = jobs[0];
+    jobId = job.id;
+
+    // --- PERUBAHAN: Set started_processing_at saat mengambil tugas ---
+    await connection.query(
+      "UPDATE jobs SET status = 'processing', attempts = attempts + 1, started_processing_at = NOW() WHERE id = ?",
+      [jobId]
+    );
+
+    await connection.commit();
+    log(`Mengambil tugas '${job.task_name}' (ID: ${jobId}). Mulai memproses...`);
+
+    let taskPromise;
+    if (job.task_name === "stock") {
+      taskPromise = syncStockToDatabase();
+    } else if (job.task_name === "holidays") {
+      taskPromise = fetchAndCacheHolidays();
     } else {
-      // Lemparkan error lain jika bukan karena tidak ada
-      throw error;
-    }
-  }
-}
-
-/**
- * TUGAS 1: Mengambil data hari libur nasional dari API publik.
- * Ini adalah pengganti penuh untuk cron_holidays.php.
- */
-async function fetchAndCacheHolidays() {
-  const year = new Date().getFullYear();
-  const url = `https://libur.deno.dev/api?year=${year}`;
-
-  // Menggunakan process.cwd() untuk path yang konsisten
-  const outputDir = path.join(process.cwd(), "public", "json", "absensi", "holidays");
-  const outFile = path.join(outputDir, `${year}.json`);
-
-  console.log(`[CRON] Memulai pengambilan data hari libur untuk tahun ${year}...`);
-  try {
-    await ensureDir(outputDir);
-    const response = await fetch(url, { headers: { "User-Agent": "MyOffice-Cron/1.0" } });
-    if (!response.ok) {
-      throw new Error(`Gagal mengambil data. Status HTTP: ${response.status}`);
+      throw new Error(`Nama tugas tidak dikenal: ${job.task_name}`);
     }
 
-    const data = await response.json();
-    if (!Array.isArray(data)) {
-      throw new Error("Respons dari API bukan dalam format JSON array yang valid.");
-    }
+    await Promise.race([
+      taskPromise,
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Tugas melebihi batas waktu internal (10 menit)")),
+          JOB_TIMEOUT
+        )
+      ),
+    ]);
 
-    await fs.writeFile(outFile, JSON.stringify(data, null, 2));
-    console.log(`✅ [CRON] Data libur berhasil disimpan ke ${outFile} (${data.length} entri)`);
+    await connection.query(
+      "UPDATE jobs SET status = 'completed', processed_at = NOW(), started_processing_at = NULL WHERE id = ?",
+      [jobId]
+    );
+
+    log(`✅ Tugas '${job.task_name}' (ID: ${jobId}) berhasil diselesaikan.`);
   } catch (error) {
-    console.error(`❌ [CRON] Gagal saat mengambil data libur:`, error.message);
-    process.exit(1); // Keluar dengan kode error
+    log(`❌ Gagal memproses tugas (ID: ${jobId}). Error: ${error.message}`);
+    if (connection && jobId) {
+      await connection.query("UPDATE jobs SET status = 'failed', last_error = ? WHERE id = ?", [
+        error.message.substring(0, 1000),
+        jobId,
+      ]);
+    }
+  } finally {
+    if (connection) connection.release();
   }
 }
 
-/**
- * TUGAS 2: Mengambil data stok.
- * Ini adalah pengganti untuk fetch_stok.py.
- * TODO: Implementasikan logika pengambilan stok Anda yang sesungguhnya di sini.
- */
-async function fetchAndCacheStock() {
-  console.log("[CRON] Memulai pengambilan data stok...");
+// --- Runner Utama ---
+async function main() {
   try {
-    // --- GANTI DENGAN LOGIKA ANDA ---
-    // Contoh: Ambil data dari API lain atau file lain
-    // const response = await fetch('https://sumber.stok.com/api');
-    // const stockData = await response.json();
-
-    // Data placeholder untuk demonstrasi
-    const stockData = [
-      { sku: "CONTOH-001", name: "Produk Contoh", qty: 150 },
-      { sku: "CONTOH-002", name: "Produk Lain", qty: 75 },
-    ];
-    // ---------------------------------
-
-    const outputDir = path.join(process.cwd(), "public", "json", "wms");
-    await ensureDir(outputDir);
-    const outFile = path.join(outputDir, "stok.json");
-    await fs.writeFile(outFile, JSON.stringify(stockData, null, 2));
-    console.log(`✅ [CRON] Data stok berhasil disimpan ke ${outFile}`);
+    // --- PERUBAHAN: Jalankan pembersih terlebih dahulu ---
+    await cleanupStuckJobs();
+    await processQueue();
   } catch (error) {
-    console.error(`❌ [CRON] Gagal saat mengambil data stok:`, error.message);
-    process.exit(1);
+    log(`Error fatal pada worker: ${error.message}`);
+  } finally {
+    await db.end();
+    log("Worker selesai, koneksi ditutup.");
   }
 }
 
-// ===================================================================
-// == RUNNER UTAMA ==
-// ===================================================================
-
-// Ambil argumen dari command line untuk menentukan tugas mana yang akan dijalankan
-const args = process.argv.slice(2);
-
-// Jalankan tugas yang sesuai
-if (args.includes("holidays")) {
-  fetchAndCacheHolidays();
-} else if (args.includes("stock")) {
-  fetchAndCacheStock();
-} else {
-  console.log("Perintah tidak valid. Gunakan salah satu argumen berikut:");
-  console.log("  node scripts/runCronJobs.js holidays");
-  console.log("  node scripts/runCronJobs.js stock");
-  process.exit(1);
-}
+main();

@@ -5,17 +5,15 @@ import db from "../config/db.js";
 
 const router = express.Router();
 
-console.log("✅ Router admin.js versi final berhasil dimuat.");
-
 // GET /api/admin/users - Mendapatkan semua user
 router.get("/", async (req, res) => {
   try {
     const query = `
-      SELECT u.id, u.username, u.role_id, r.name AS role_name
+      SELECT u.id, u.username, u.nickname, u.role_id, r.name AS role_name
       FROM users u
-      JOIN roles r ON u.role_id = r.id
+      LEFT JOIN roles r ON u.role_id = r.id
       ORDER BY u.username ASC
-    `;
+    `; // FIX: Menggunakan LEFT JOIN agar lebih defensif terhadap data role yang tidak sinkron
     const [users] = await db.query(query);
     res.json({ success: true, users });
   } catch (err) {
@@ -26,7 +24,7 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   console.log("[ADMIN ROUTER] Menerima request POST untuk membuat pengguna baru...");
-  const { username, password, role_id } = req.body;
+  const { username, password, role_id, nickname } = req.body;
 
   // Validasi input
   if (!username || !password || !role_id) {
@@ -41,13 +39,14 @@ router.post("/", async (req, res) => {
 
     // Simpan ke database
     const [result] = await db.query(
-      "INSERT INTO users (username, password_hash, role_id) VALUES (?, ?, ?)",
-      [username, hashedPassword, role_id]
+      "INSERT INTO users (username, password_hash, role_id, nickname) VALUES (?, ?, ?, ?)",
+      [username, hashedPassword, role_id, nickname || null]
     );
 
     const newUser = {
       id: result.insertId,
       username,
+      nickname,
       role_id,
     };
 
@@ -73,23 +72,48 @@ router.get("/roles", async (req, res) => {
 
 // PUT /api/admin/users/:id - Mengupdate role user
 router.put("/:id", async (req, res) => {
-  const { role_id } = req.body;
   const { id } = req.params;
+  const { username, nickname, newPassword, role_id } = req.body;
 
-  if (!role_id || isNaN(parseInt(role_id))) {
-    return res.status(400).json({ success: false, message: "Role tidak valid." });
+  // Validasi dasar
+  if (!username || !role_id) {
+    return res.status(400).json({ success: false, message: "Username dan role wajib diisi." });
   }
 
   try {
-    await db.query("UPDATE users SET role_id = ? WHERE id = ?", [role_id, id]);
-    res.json({ success: true, message: "Role user berhasil diupdate." });
-  } catch (err) {
-    // Penanganan error jika role_id yang dikirim tidak ada di tabel 'roles'
-    if (err.code === "ER_NO_REFERENCED_ROW_2") {
-      return res.status(400).json({ success: false, message: "Role ID tidak ditemukan." });
+    const updateFields = [];
+    const updateValues = [];
+
+    // Bangun query secara dinamis
+    updateFields.push("username = ?");
+    updateValues.push(username);
+
+    updateFields.push("nickname = ?");
+    updateValues.push(nickname || null);
+
+    updateFields.push("role_id = ?");
+    updateValues.push(role_id);
+
+    // Hanya update password jika diisi
+    if (newPassword) {
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      updateFields.push("password_hash = ?");
+      updateValues.push(hashedPassword);
     }
-    console.error("Error updating user role:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+
+    const query = `UPDATE users SET ${updateFields.join(", ")} WHERE id = ?`;
+    updateValues.push(id);
+
+    await db.query(query, updateValues);
+    res.json({ success: true, message: "Data pengguna berhasil diperbarui." });
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") {
+      return res
+        .status(409)
+        .json({ success: false, message: `Username '${username}' sudah digunakan.` });
+    }
+    console.error("Error updating user:", error);
+    res.status(500).json({ success: false, message: "Gagal memperbarui data pengguna." });
   }
 });
 
@@ -109,6 +133,66 @@ router.delete("/:id", async (req, res) => {
     res.json({ success: true, message: "User berhasil dihapus." });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+/**
+ * --- ENDPOINT BARU ---
+ * GET /api/admin/users/:id/locations
+ * Mengambil ID lokasi yang diizinkan untuk pengguna tertentu.
+ */
+router.get("/:id/locations", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await db.query("SELECT location_id FROM user_locations WHERE user_id = ?", [id]);
+    const locationIds = rows.map((row) => row.location_id);
+    res.json({ success: true, data: locationIds });
+  } catch (error) {
+    console.error("Error fetching user locations:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+/**
+ * --- ENDPOINT BARU ---
+ * PUT /api/admin/users/:id/locations
+ * Mengatur atau memperbarui izin lokasi untuk pengguna tertentu.
+ */
+router.put("/:id/locations", async (req, res) => {
+  const { id } = req.params;
+  const { locationIds } = req.body; // Harapkan sebuah array ID lokasi, e.g., [1, 5, 12]
+
+  if (!Array.isArray(locationIds)) {
+    return res.status(400).json({ success: false, message: "Input harus berupa array ID lokasi." });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    await connection.query("DELETE FROM user_locations WHERE user_id = ?", [id]);
+
+    if (locationIds.length > 0) {
+      const values = locationIds.map((locationId) => [id, locationId]);
+      await connection.query("INSERT INTO user_locations (user_id, location_id) VALUES ?", [
+        values,
+      ]);
+    }
+
+    await connection.commit();
+    res.json({ success: true, message: "Izin lokasi pengguna berhasil diperbarui." });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    // Tangani jika location_id tidak valid
+    if (error.code === "ER_NO_REFERENCED_ROW_2") {
+      return res
+        .status(400)
+        .json({ success: false, message: "Satu atau lebih ID lokasi tidak valid." });
+    }
+    console.error("Error updating user locations:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  } finally {
+    if (connection) connection.release();
   }
 });
 

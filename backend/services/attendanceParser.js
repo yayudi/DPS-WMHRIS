@@ -1,228 +1,215 @@
 import fs from "fs";
-import path from "path";
 import csv from "csv-parser";
-import {
-  loadHolidays,
-  generateJsonIndex,
-  loadAndDecompactExistingData,
-  generateFinalJsonAndSave,
-  saveDebugLogs,
-  getDaysInMonth,
-} from "./fileHelpers.js";
+import db from "../config/db.js"; // Impor koneksi database
 
-const STATUS_H = 0;
-const STATUS_A = 1;
-const STATUS_L = 2;
-const STATUS_MT = 3;
+// --- LOGIKA BISNIS (Diambil dari skrip Anda) ---
+const JAM_KERJA_MULAI = 480; // 08:00
+const JAM_KERJA_SELESAI = 960; // 16:00
+const JAM_KERJA_SELESAI_SABTU = 840; // 14:00
+const TOLERANSI_MENIT = 5;
+const logTypeMap = { in: "in", out: "out", "break-in": "break-in", "break-out": "break-out" };
+// ---------------------------------------------
 
+/**
+ * Fungsi utama yang dipanggil oleh router.
+ * Direfaktor untuk memproses file CSV dan menyimpan hasilnya langsung ke dua tabel SQL.
+ */
 export async function processAttendanceFile(temporaryFilePath, originalFilename) {
+  let connection;
   try {
-    const {
-      data: newDataFromCsv,
-      firstDataRow,
-      debugRows,
-    } = await parseCsvToUserData(temporaryFilePath);
+    // 1. Parse CSV mentah menjadi struktur data yang lebih mudah diolah
+    const { data: parsedData } = await parseCsvToUserData(temporaryFilePath);
 
-    if (!firstDataRow) {
-      throw new Error("File tidak berisi baris data absensi yang valid.");
+    // 2. Ekstrak tahun dan bulan dari metadata di dalam file CSV
+    const { year, month } = await extractDateFromCsv(temporaryFilePath);
+
+    connection = await db.getConnection();
+    console.log(`[Parser] Koneksi DB berhasil, memproses data untuk ${year}-${month}...`);
+
+    let totalSummaryRecords = 0;
+    let totalRawRecords = 0;
+
+    // 3. Loop melalui setiap pengguna dari hasil parse CSV untuk diolah
+    for (const userId in parsedData) {
+      const user = parsedData[userId];
+      const username = user.nama;
+
+      for (const dayKey in user.days) {
+        const dayOfMonth = parseInt(dayKey);
+        const dailyLog = user.days[dayKey];
+        const date = `${year}-${String(month).padStart(2, "0")}-${String(dayOfMonth).padStart(
+          2,
+          "0"
+        )}`;
+        const dayOfWeek = new Date(date).getDay();
+
+        // Cari check-in paling awal dan check-out paling akhir dari log harian
+        const checkIns = dailyLog.l.filter((log) => log.y === "in").map((log) => log.m);
+        const earliestCheckIn = checkIns.length > 0 ? Math.min(...checkIns) : null;
+
+        const checkOuts = dailyLog.l.filter((log) => log.y === "out").map((log) => log.m);
+        const latestCheckOut = checkOuts.length > 0 ? Math.max(...checkOuts) : null;
+
+        // 4. Hitung keterlambatan dan lembur berdasarkan logika bisnis Anda
+        let lateness = 0;
+        if (earliestCheckIn) {
+          const lateThreshold = JAM_KERJA_MULAI + TOLERANSI_MENIT;
+          if (earliestCheckIn > lateThreshold) {
+            lateness = earliestCheckIn - JAM_KERJA_MULAI;
+          }
+        }
+
+        let overtime = 0;
+        if (latestCheckOut) {
+          const workEndTime = dayOfWeek === 6 ? JAM_KERJA_SELESAI_SABTU : JAM_KERJA_SELESAI_SABTU;
+          if (latestCheckOut > workEndTime) {
+            overtime = latestCheckOut - workEndTime;
+          }
+        }
+
+        const minutesToTime = (minutes) => {
+          if (minutes === null) return null;
+          const h = Math.floor(minutes / 60)
+            .toString()
+            .padStart(2, "0");
+          const m = (minutes % 60).toString().padStart(2, "0");
+          return `${h}:${m}:00`;
+        };
+
+        // 5. Simpan ke database dalam satu transaksi
+        await connection.beginTransaction();
+        try {
+          // Langkah 5a: Simpan/update ringkasan harian
+          const summarySql = `
+                INSERT INTO attendance_logs (username, date, check_in, check_out, lateness_minutes, overtime_minutes)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE check_in=VALUES(check_in), check_out=VALUES(check_out), lateness_minutes=VALUES(lateness_minutes), overtime_minutes=VALUES(overtime_minutes)
+            `;
+          const [summaryResult] = await connection.query(summarySql, [
+            username,
+            date,
+            minutesToTime(earliestCheckIn),
+            minutesToTime(latestCheckOut),
+            lateness,
+            overtime,
+          ]);
+
+          // Dapatkan ID dari baris ringkasan yang baru saja dimasukkan/diperbarui
+          const summaryId =
+            summaryResult.insertId ||
+            (
+              await connection.query(
+                "SELECT id FROM attendance_logs WHERE username = ? AND date = ?",
+                [username, date]
+              )
+            )[0][0].id;
+          totalSummaryRecords++;
+
+          // Langkah 5b: Hapus log mentah lama dan masukkan yang baru
+          await connection.query("DELETE FROM attendance_raw_logs WHERE attendance_log_id = ?", [
+            summaryId,
+          ]);
+
+          const rawLogsToInsert = dailyLog.l.map((log) => [
+            summaryId,
+            minutesToTime(log.m),
+            logTypeMap[log.y] || "unknown",
+          ]);
+
+          if (rawLogsToInsert.length > 0) {
+            const rawSql = `INSERT INTO attendance_raw_logs (attendance_log_id, log_time, log_type) VALUES ?`;
+            await connection.query(rawSql, [rawLogsToInsert]);
+            totalRawRecords += rawLogsToInsert.length;
+          }
+
+          await connection.commit();
+        } catch (err) {
+          await connection.rollback();
+          console.error(
+            `[Parser] Gagal memproses data DB untuk ${username} pada ${date}: ${err.message}`
+          );
+        }
+      }
     }
 
-    // --- Ekstrak Metadata dari Konten File ---
-    const fileContent = await fs.promises.readFile(temporaryFilePath, "utf8");
-    const lines = fileContent.split(/\r?\n/);
-
-    // ✅ PERBAIKAN 1: Baca dari baris ke-3 (index 2)
-    const metaLine = lines.length >= 3 ? lines[2] : "";
-
-    // ✅ PERBAIKAN 2: Sesuaikan Regex dengan format YYYY/MM/DD
-    const match = metaLine.match(/From (\d{4})\/(\d{2})\/(\d{2})/);
-
-    if (!match) {
-      throw new Error(
-        "Format file CSV tidak valid, tidak dapat menemukan rentang tanggal di baris ke-3."
-      );
-    }
-
-    const [, tahun, bulan, day] = match;
-
-    const holidayMap = await loadHolidays(tahun);
-
-    const outputFile = path.join(
-      process.cwd(),
-      "public",
-      "json",
-      "absensi",
-      tahun,
-      `${tahun}-${bulan}.json`
+    console.log(
+      `[Parser] Berhasil memproses ${totalSummaryRecords} ringkasan dan ${totalRawRecords} log mentah ke database.`
     );
-    const existingData = await loadAndDecompactExistingData(outputFile, tahun, bulan, holidayMap);
-    const mergedData = mergeUserData(existingData, newDataFromCsv);
-
-    const completedData = completeMonthlyData(mergedData, tahun, bulan, holidayMap);
-    const processedData = calculateStatusesAndSummaries(completedData);
-
-    const finalJson = await generateFinalJsonAndSave(
-      processedData,
-      tahun,
-      bulan,
-      holidayMap,
-      outputFile
-    );
-    await saveDebugLogs(processedData, debugRows);
-
-    await generateJsonIndex();
 
     return {
       success: true,
-      message: "Upload dan parsing berhasil.",
-      processed: { year: parseInt(tahun), month: parseInt(bulan) },
-      data: finalJson,
+      message: `Upload berhasil. ${totalSummaryRecords} data harian telah diproses.`,
+      processed: { year, month },
     };
+  } catch (error) {
+    console.error("[Parser] Terjadi error fatal:", error);
+    throw error;
   } finally {
+    if (connection) connection.release();
     try {
       await fs.promises.unlink(temporaryFilePath);
     } catch (e) {
-      console.error(`Gagal menghapus file temporary: ${temporaryFilePath}`, e);
+      console.error(`[Parser] Gagal menghapus file temporary: ${temporaryFilePath}`, e);
     }
   }
 }
 
 // ==================================================================
-// == FUNGSI-FUNGSI SPESIALIS ==
+// == FUNGSI-FUNGSI HELPER (Diadaptasi dari skrip Anda) ==
 // ==================================================================
 
 function parseCsvToUserData(filepath) {
   return new Promise((resolve, reject) => {
     const data = {};
-    let firstDataRow = null;
-    const debugRows = [];
 
     fs.createReadStream(filepath)
-      .pipe(
-        csv({
-          skipLines: 3,
-          mapHeaders: ({ header }) => header.replace(/\uFEFF/g, "").trim(),
-        })
-      )
+      .pipe(csv({ skipLines: 3, mapHeaders: ({ header }) => header.replace(/\uFEFF/g, "").trim() }))
       .on("data", (row) => {
         const id = row["User ID"]?.trim();
         const nama = row["Full Name"]?.trim();
         const datetime = row["Date/Time"]?.trim();
         if (!id || !nama || !datetime) return;
 
-        if (firstDataRow === null) firstDataRow = row;
-
         const [dateStr, timeStr] = datetime.split(" ");
-        // ✅ PERBAIKAN 3: Sesuaikan dengan format YYYY/MM/DD
         const [year, month, day] = dateStr.split("/");
         const dateObj = new Date(`${year}-${month}-${day}T${timeStr}`);
         if (isNaN(dateObj.getTime())) return;
 
         const dayKey = dateObj.getDate();
         const minutes = dateObj.getHours() * 60 + dateObj.getMinutes();
-        const type = determineLogType(minutes, dateObj.getDay(), data[id]?.days?.[dayKey]?.l || []);
-        if (!type) return;
 
         if (!data[id]) data[id] = { id: parseInt(id), nama, days: {} };
-        if (!data[id].days[dayKey]) {
-          data[id].days[dayKey] = { l: [], h: 0, s: STATUS_A };
+        if (!data[id].days[dayKey]) data[id].days[dayKey] = { l: [] };
+
+        const logType = determineLogType(minutes, dateObj.getDay(), data[id].days[dayKey].l);
+
+        if (logType) {
+          // Simpan waktu dalam menit ('m') dan tipe ('y')
+          data[id].days[dayKey].l.push({ m: minutes, y: logType });
         }
-        data[id].days[dayKey].l.push({ t: timeStr, y: type });
-        if (debugRows.length < 10) debugRows.push(row);
       })
-      .on("end", () => resolve({ data, firstDataRow, debugRows }))
+      .on("end", () => resolve({ data }))
       .on("error", (error) => reject(error));
   });
 }
 
-/**
- * Menggabungkan data lama (jika ada) dengan data baru dari CSV.
- * Bertindak sebagai "Spesialis Penggabungan Data".
- */
-function mergeUserData(existingData, newDataFromCsv) {
-  const merged = JSON.parse(JSON.stringify(existingData)); // Deep copy
-  for (const userId in newDataFromCsv) {
-    if (!merged[userId]) {
-      merged[userId] = newDataFromCsv[userId];
-    } else {
-      merged[userId].nama = newDataFromCsv[userId].nama; // Selalu update nama
-      for (const dayKey in newDataFromCsv[userId].days) {
-        const existingStatus = merged[userId].days?.[dayKey]?.s ?? STATUS_A;
-        if (existingStatus === STATUS_A) {
-          merged[userId].days[dayKey] = newDataFromCsv[userId].days[dayKey];
-        }
-      }
-    }
+async function extractDateFromCsv(filepath) {
+  const fileContent = await fs.promises.readFile(filepath, "utf8");
+  const lines = fileContent.split(/\r?\n/);
+  const metaLine = lines.length >= 3 ? lines[2] : "";
+  const match = metaLine.match(/From (\d{4})\/(\d{2})\/(\d{2})/);
+
+  if (!match) {
+    throw new Error("Format file CSV tidak valid, tidak dapat menemukan rentang tanggal.");
   }
-  return merged;
+  const [, year, month] = match;
+  return { year: parseInt(year), month: parseInt(month) };
 }
 
-/**
- * Melengkapi data untuk semua hari dalam sebulan bagi semua user.
- */
-function completeMonthlyData(userData, tahun, bulan, holidayMap) {
-  const daysInMonth = getDaysInMonth(tahun, bulan);
-  for (const userId in userData) {
-    for (let d = 1; d <= daysInMonth; d++) {
-      if (!userData[userId].days[d]) {
-        const ymd = `${tahun}-${String(bulan).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-        const dayOfWeek = new Date(ymd).getDay();
-        const isHoliday = !!holidayMap[ymd] || dayOfWeek === 0;
-        userData[userId].days[d] = {
-          l: [],
-          h: isHoliday ? 1 : 0,
-          s: isHoliday ? STATUS_L : STATUS_A,
-        };
-      }
-    }
-    const sortedDays = {};
-    Object.keys(userData[userId].days)
-      .sort((a, b) => a - b)
-      .forEach((key) => {
-        sortedDays[key] = userData[userId].days[key];
-      });
-    userData[userId].days = sortedDays;
-  }
-  return userData;
-}
-
-/**
- * Menghitung ulang semua status harian dan ringkasan bulanan.
- */
-function calculateStatusesAndSummaries(userData) {
-  for (const userId in userData) {
-    const summary = [0, 0, 0, 0, 0]; // [H, A, L, MT, H+L]
-    for (const dayKey in userData[userId].days) {
-      const day = userData[userId].days[dayKey];
-      const logs = day.l;
-
-      const hasIn = logs.some((l) => l.y === "in");
-      const hasOut = logs.some((l) => l.y === "out");
-
-      if (day.h) {
-        day.s = logs.length > 0 ? STATUS_H : STATUS_L;
-      } else {
-        if (hasIn && hasOut) day.s = STATUS_H;
-        else if (logs.length > 0) day.s = STATUS_MT;
-        else day.s = STATUS_A;
-      }
-
-      if (day.s !== STATUS_A) summary[day.s]++;
-      if (day.h && day.s === STATUS_H) summary[4]++;
-      if (day.s === STATUS_A && !day.h) summary[STATUS_A]++;
-      if (day.s === STATUS_L) summary[STATUS_L]++;
-    }
-    userData[userId].summary = summary;
-  }
-  return userData;
-}
-
-/**
- * Menentukan tipe log (in, out, break-in, break-out).
- */
 function determineLogType(minutes, dayOfWeek, existingLogs) {
   if (minutes >= 420 && minutes <= 600) return "in"; // 07:00 - 10:00
   if (minutes >= 690 && minutes <= 780) {
+    // 11:30 - 13:00
     const lastLog = existingLogs[existingLogs.length - 1];
     return lastLog && lastLog.y === "break-in" ? "break-out" : "break-in";
   }

@@ -7,20 +7,20 @@ const props = defineProps({
   },
   modelValue: {
     type: String,
-    required: true
-  }
+    required: true,
+  },
 })
 
-const emit = defineEmits(["update:modelValue"])
+const emit = defineEmits(['update:modelValue'])
 
 function selectTab(value) {
-  emit("update:modelValue", value)
+  emit('update:modelValue', value)
 }
 </script>
 
 <template>
   <!-- Main container with themed border -->
-  <div class="flex w-full md:w-auto bg-secondary/20 p-1 rounded-lg">
+  <div class="flex w-full md:w-auto bg-secondary p-1 rounded-lg">
     <button
       v-for="tab in tabs"
       :key="tab.value"
@@ -29,7 +29,7 @@ function selectTab(value) {
       :class="[
         modelValue === tab.value
           ? 'bg-primary text-white shadow' // Active state
-          : 'text-text/70 hover:bg-background/50' // Inactive state
+          : 'text-text/70 hover:bg-background/50', // Inactive state
       ]"
     >
       {{ tab.label }}

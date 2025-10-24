@@ -11,13 +11,10 @@ const dropdownContainer = ref(null)
 const auth = useAuthStore()
 
 const displayName = computed(() => {
-  // Cek apakah data user dan username ada di store
-  if (auth.user && auth.user.username) {
-    // Ambil username, ubah huruf pertama menjadi kapital
-    const username = auth.user.username
-    return username.charAt(0).toUpperCase() + username.slice(1)
+  if (auth.user && auth.user.nickname) {
+    const nickname = auth.user.nickname
+    return nickname.charAt(0).toUpperCase() + nickname.slice(1)
   }
-  // Teks fallback jika pengguna belum login atau data belum dimuat
   return 'Akun Saya'
 })
 
@@ -44,9 +41,7 @@ onUnmounted(() => {
 <template>
   <header class="bg-background/80 backdrop-blur-sm sticky top-0 z-40 border-b border-secondary/20">
     <nav class="container mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
-      <!-- Sisi Kiri: Logo & Menu Utama -->
       <div class="flex items-center gap-6">
-        <!-- Logo -->
         <RouterLink
           to="/"
           class="font-bold text-lg text-primary hover:opacity-80 transition-opacity"
@@ -54,7 +49,6 @@ onUnmounted(() => {
           Dunia Pratama Sejahtera
         </RouterLink>
 
-        <!-- Menu Utama -->
         <div class="hidden md:flex items-center gap-6 text-sm font-medium">
           <RouterLink
             to="/absensi"
@@ -73,14 +67,12 @@ onUnmounted(() => {
             v-if="auth.user?.permissions?.includes('manage-users')"
             class="border-b-2 text-text/80 hover:text-primary transition-colors"
             active-class="!text-primary text-lg font-bold border-primary"
-            >User Management</RouterLink
+            >Panel Admin</RouterLink
           >
         </div>
       </div>
 
-      <!-- Sisi Kanan: Dropdown Pengguna -->
       <div class="relative" ref="dropdownContainer">
-        <!-- Tombol Pemicu Dropdown -->
         <button
           @click="isDropdownOpen = !isDropdownOpen"
           class="flex items-center gap-2 px-3 text-text/80 hover:text-primary transition-colors"
@@ -94,7 +86,6 @@ onUnmounted(() => {
           />
         </button>
 
-        <!-- Panel Dropdown -->
         <div
           v-if="isDropdownOpen"
           class="absolute right-0 mt-2 w-64 bg-background border border-secondary/30 rounded-lg shadow-lg py-2 z-50"

@@ -1,0 +1,28 @@
+# backend\.htaccess
+# ===================================================================
+# == KONFIGURASI CORS UNTUK APACHE (Versi Spesifik untuk File) ==
+# ===================================================================
+# Aturan ini secara spesifik menargetkan file-file yang mungkin disajikan
+# langsung oleh Apache, dan memaksa penambahan header CORS.
+
+<IfModule mod_headers.c>
+    # Terapkan header CORS hanya untuk file-file tertentu
+    <FilesMatch "\.(json|js|css|woff2|woff|ttf)$">
+        Header set Access-Control-Allow-Origin "https://office.pusatpneumatic.com"
+        Header set Access-Control-Allow-Credentials "true"
+    </FilesMatch>
+</IfModule>
+
+# ===================================================================
+# == KONFIGURASI PHUSION PASSENGER (JANGAN DIUBAH) ==
+# ===================================================================
+# Jembatan dari Apache ke aplikasi Node.js Anda untuk request dinamis.
+
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/u1773579/officeBackend"
+PassengerBaseURI "/"
+PassengerNodejs "/home/u1773579/nodevenv/officeBackend/20/bin/node"
+PassengerAppType node
+PassengerStartupFile server.js
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+

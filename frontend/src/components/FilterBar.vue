@@ -1,19 +1,19 @@
 <!-- FilterBar.vue -->
 <script setup>
-import { reactive, watch } from "vue"
+import { reactive, watch } from 'vue'
 
 const props = defineProps({
   filters: {
     type: Array,
-    required: true
+    required: true,
   },
   modelValue: {
     type: Object,
-    default: () => ({})
-  }
+    default: () => ({}),
+  },
 })
 
-const emit = defineEmits(["update:modelValue", "change", "clear"])
+const emit = defineEmits(['update:modelValue', 'change', 'clear'])
 
 // local copy so it's reactive
 const localValues = reactive({ ...props.modelValue })
@@ -24,22 +24,24 @@ watch(
   (val) => {
     Object.assign(localValues, val)
   },
-  { deep: true }
+  { deep: true },
 )
 
 function emitChange() {
-  emit("update:modelValue", { ...localValues })
-  emit("change", { ...localValues })
+  emit('update:modelValue', { ...localValues })
+  emit('change', { ...localValues })
 }
 
 function emitClear() {
-  emit("clear")
+  emit('clear')
 }
 </script>
 
 <template>
   <!-- Main container with themed colors -->
-  <div class="flex flex-wrap gap-4 items-center bg-background p-3 rounded-lg shadow-sm border border-secondary/20">
+  <div
+    class="flex flex-wrap gap-4 items-center bg-background p-3 rounded-lg shadow-sm border border-secondary"
+  >
     <!-- Loop through filters -->
     <template v-for="(filter, index) in filters" :key="index">
       <!-- Date Input -->
@@ -54,7 +56,7 @@ function emitClear() {
         <input
           :id="filter.key"
           type="date"
-          class="px-3 py-2 bg-background border border-secondary/50 text-text rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-primary/50 focus:border-primary"
+          class="px-3 py-2 bg-background border border-secondary text-text rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-primary/50 focus:border-primary"
           v-model="localValues[filter.key]"
           @input="emitChange"
         />
@@ -62,13 +64,17 @@ function emitClear() {
 
       <!-- Select Input -->
       <div v-else-if="filter.type === 'select'" class="flex items-center gap-2">
-        <label v-if="filter.label" :for="filter.key" class="text-sm font-medium text-text/80 whitespace-nowrap">
+        <label
+          v-if="filter.label"
+          :for="filter.key"
+          class="text-sm font-medium text-text/80 whitespace-nowrap"
+        >
           {{ filter.label }}:
         </label>
         <select
           :id="filter.key"
           :multiple="filter.multiple || false"
-          class="px-3 py-2 bg-background border border-secondary/50 text-text rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-primary/50 focus:border-primary"
+          class="px-3 py-2 bg-background border border-secondary text-text rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-primary/50 focus:border-primary"
           v-model="localValues[filter.key]"
           @change="emitChange"
         >
@@ -77,13 +83,12 @@ function emitClear() {
           </option>
         </select>
       </div>
-
     </template>
 
     <!-- Clear Button -->
     <button
       type="button"
-      class="ml-auto px-3 py-2 bg-secondary/20 hover:bg-secondary/40 text-text/80 text-sm rounded-lg shadow-sm transition-colors"
+      class="ml-auto px-3 py-2 bg-secondary/60 hover:bg-secondary text-text/80 text-sm rounded-lg shadow-sm transition-colors"
       @click="emitClear"
     >
       Reset Filter

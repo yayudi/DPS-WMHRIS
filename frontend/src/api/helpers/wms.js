@@ -1,17 +1,34 @@
-import axios from '../axios' // Impor instance Axios terpusat kita
+// frontend/src/api/helpers/wms.js
+import axios from '../axios' // Pastikan instance axios ini sudah dikonfigurasi dengan baseURL: 'https://api.pusatpneumatic.com'
 
-export async function fetchAllProducts() {
+/**
+ * Mengambil produk dari API dengan filter, pagination, dan pencarian di sisi server.
+ * @param {object} params - Objek berisi parameter kueri.
+ * @param {number} params.page - Nomor halaman yang diminta.
+ * @param {number} params.limit - Jumlah item per halaman.
+ * @param {string} [params.search] - Kata kunci pencarian.
+ * @param {string} [params.searchBy] - Kolom untuk pencarian ('name' atau 'sku').
+ * @param {string} [params.location] - Filter lokasi ('pajangan', 'gudang', 'ltc').
+ * @param {boolean} [params.minusStockOnly] - Filter untuk stok minus.
+ * @returns {Promise<{products: Array, total: number}>} - Objek berisi produk untuk halaman saat ini dan jumlah total produk.
+ */
+export async function fetchProducts(params) {
   try {
-    const response = await axios.get('json/wms/stok.json')
+    // Mengirim parameter sebagai query string ke backend
+    const response = await axios.get('/products', { params })
 
-    if (Array.isArray(response.data)) {
-      return response.data
+    // Backend diharapkan mengembalikan struktur data seperti { data: [...], total: ... }
+    if (response.data && Array.isArray(response.data.data)) {
+      return {
+        products: response.data.data,
+        total: response.data.total || 0,
+      }
     } else {
-      console.warn('Data stok yang diterima bukan array:', response.data)
-      return []
+      console.warn('Struktur data dari API tidak sesuai:', response.data)
+      return { products: [], total: 0 }
     }
   } catch (error) {
-    console.error('Gagal mengambil produk WMS:', error)
+    console.error('Gagal mengambil produk dari API:', error)
     throw error
   }
 }

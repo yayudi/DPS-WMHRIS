@@ -1,10 +1,14 @@
-// backend/middleware/authMiddleware.js
-
 import jwt from "jsonwebtoken";
 
 function authenticateToken(req, res, next) {
+  let token;
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else if (req.query.token) {
+    token = req.query.token;
+  }
 
   if (!token) {
     return res
@@ -14,7 +18,9 @@ function authenticateToken(req, res, next) {
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({ success: false, message: "Token tidak valid." });
+      return res
+        .status(403)
+        .json({ success: false, message: "Token tidak valid atau kedaluwarsa." });
     }
     req.user = user;
     next();

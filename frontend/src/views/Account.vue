@@ -8,29 +8,32 @@ const { show } = useToast()
 const auth = useAuthStore()
 
 // State untuk form
-const currentUsername = ref('')
-const newUsername = ref('')
+const username = ref('') // Untuk ditampilkan (read-only)
+const nickname = ref('') // Untuk diubah
 const currentPassword = ref('')
 const newPassword = ref('')
 const confirmNewPassword = ref('')
 
 const loading = ref(false)
 
-// Mengambil data user saat ini
-onMounted(async () => {
+// Fungsi untuk mengisi data form dari auth store
+function populateForm() {
   if (auth.user) {
-    currentUsername.value = auth.user.username
-    newUsername.value = auth.user.username
-  } else {
-    // Jika data user belum ada di store, panggil API
-    await auth.fetchUser()
-    currentUsername.value = auth.user.username
-    newUsername.value = auth.user.username
+    username.value = auth.user.username
+    // Gunakan nickname jika ada, jika tidak, fallback ke username
+    nickname.value = auth.user.nickname || auth.user.username
   }
+}
+
+onMounted(async () => {
+  // Panggil fetchUser untuk memastikan data terbaru
+  if (!auth.user) {
+    await auth.fetchUser()
+  }
+  populateForm()
 })
 
 async function handleUpdate() {
-  // Validasi sederhana
   if (newPassword.value && newPassword.value !== confirmNewPassword.value) {
     show('Password baru dan konfirmasi tidak cocok.', 'warning')
     return
@@ -44,22 +47,33 @@ async function handleUpdate() {
   try {
     const payload = {
       currentPassword: currentPassword.value,
-      newUsername: newUsername.value,
-      newPassword: newPassword.value,
+      nickname: nickname.value,
+      newPassword: newPassword.value || null, // Kirim null jika kosong
     }
 
     const response = await api.put('/user/profile', payload)
 
     show('Data akun berhasil diperbarui!', 'success')
 
-    // Jika backend mengirim token baru (karena username berubah), update
-    if (response.data.token) {
-      auth.setToken(response.data.token)
-    }
+    // --- INVESTIGASI DIMULAI DI SINI ---
+    console.log('--- Memulai Investigasi Update Akun ---')
+    console.log('Respons dari server:', response.data)
+    console.log("Objek 'user' di auth store SEBELUM update:", JSON.parse(JSON.stringify(auth.user)))
+    // ------------------------------------
 
-    // Perbarui data user di store
-    await auth.fetchUser()
-    currentUsername.value = auth.user.username
+    if (auth.user && response.data.user) {
+      auth.user.nickname = response.data.user.nickname
+      localStorage.setItem('authUser', JSON.stringify(auth.user))
+
+      // --- INVESTIGASI LANJUTAN ---
+      console.log(
+        "Objek 'user' di auth store SETELAH update:",
+        JSON.parse(JSON.stringify(auth.user)),
+      )
+      console.log('Data di localStorage SETELAH update:', localStorage.getItem('authUser'))
+      console.log('--------------------------------------')
+      // -----------------------------
+    }
 
     // Kosongkan field password
     currentPassword.value = ''
@@ -82,16 +96,34 @@ async function handleUpdate() {
       class="max-w-2xl mx-auto bg-background p-8 rounded-xl shadow-md border border-secondary/20"
     >
       <form @submit.prevent="handleUpdate" class="space-y-6">
+        <!-- Bagian Informasi Akun -->
         <div>
-          <label for="username" class="block text-sm font-medium text-text/80 mb-1">Username</label>
+          <label for="username" class="block text-sm font-medium text-text/80 mb-1"
+            >Username (untuk Login)</label
+          >
           <input
             id="username"
-            v-model="newUsername"
+            :value="username"
+            type="text"
+            disabled
+            class="w-full px-3 py-2 bg-secondary/20 border border-secondary/30 rounded-lg text-text/60 cursor-not-allowed"
+          />
+          <p class="text-xs text-text/60 mt-1">Username tidak dapat diubah.</p>
+        </div>
+
+        <div>
+          <label for="nickname" class="block text-sm font-medium text-text/80 mb-1"
+            >Nickname (Nama Tampilan)</label
+          >
+          <input
+            id="nickname"
+            v-model="nickname"
             type="text"
             class="w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/50"
           />
         </div>
 
+        <!-- Bagian Ubah Password -->
         <div class="border-t border-secondary/20 pt-6 space-y-4">
           <h3 class="font-semibold text-lg text-text">Ubah Password</h3>
           <div>
@@ -119,6 +151,7 @@ async function handleUpdate() {
           </div>
         </div>
 
+        <!-- Bagian Verifikasi -->
         <div class="border-t border-secondary/20 pt-6 space-y-4">
           <h3 class="font-semibold text-lg text-text">Verifikasi Perubahan</h3>
           <p class="text-sm text-text/70">

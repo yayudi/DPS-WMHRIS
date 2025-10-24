@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted } from 'vue'
 
 const themes = [
   'terang',
@@ -9,20 +9,24 @@ const themes = [
   'darah',
   'hutan',
   'lautan',
+  'pantai',
   'sunset',
   'permen',
-  'retro'
-];
-const currentTheme = ref(localStorage.getItem('theme') || 'terang');
+  'retro',
+]
+const currentTheme = ref(localStorage.getItem('theme') || 'terang')
 
-watch(() => currentTheme.value, (newTheme, oldTheme) => {
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
-});
+watch(
+  () => currentTheme.value,
+  (newTheme, oldTheme) => {
+    document.documentElement.setAttribute('data-theme', newTheme)
+    localStorage.setItem('theme', newTheme)
+  },
+)
 
 onMounted(() => {
-  document.documentElement.setAttribute('data-theme', currentTheme.value);
-});
+  document.documentElement.setAttribute('data-theme', currentTheme.value)
+})
 </script>
 
 <template>

@@ -1,4 +1,4 @@
-// backend/router/user.js
+// backend\router\user.js
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -6,9 +6,7 @@ import db from "../config/db.js";
 
 const router = express.Router();
 
-console.log("--- MEMUAT FILE router/user.js VERSI TERBARU ---");
-
-// Rute yang sudah ada: GET /api/user/profile
+// GET /user/profile
 router.get("/profile", (req, res) => {
   res.json({
     success: true,
@@ -17,14 +15,15 @@ router.get("/profile", (req, res) => {
   });
 });
 
-// --- RUTE BARU: PUT /api/user/profile ---
-// Untuk mengupdate data user (username atau password)
+// PUT /user/profile
 router.put("/profile", async (req, res) => {
-  const { currentPassword, newUsername, newPassword } = req.body;
+  const { currentPassword, nickname, newPassword } = req.body;
   const userId = req.user.id;
 
   if (!currentPassword) {
-    return res.status(400).json({ success: false, message: "Password saat ini diperlukan." });
+    return res
+      .status(400)
+      .json({ success: false, message: "Password saat ini diperlukan untuk menyimpan perubahan." });
   }
 
   try {
@@ -39,10 +38,12 @@ router.put("/profile", async (req, res) => {
 
     let updateFields = [],
       updateValues = [];
-    if (newUsername && newUsername !== user.username) {
-      updateFields.push("username = ?");
-      updateValues.push(newUsername);
+
+    if (nickname !== undefined && nickname !== user.nickname) {
+      updateFields.push("nickname = ?");
+      updateValues.push(nickname);
     }
+
     if (newPassword) {
       const hashedNewPassword = await bcrypt.hash(newPassword, 10);
       updateFields.push("password_hash = ?");
@@ -55,46 +56,46 @@ router.put("/profile", async (req, res) => {
       await db.query(query, updateValues);
     }
 
-    // --- PEMBUATAN TOKEN BARU YANG SUDAH DIPERBAIKI ---
-    let newToken = null;
-    // Buat token baru jika username berubah ATAU jika tidak ada yang berubah (untuk konsistensi)
-    // Ini memastikan frontend selalu bisa memperbarui data user.
-    const [roleRows] = await db.query(
-      `
-            SELECT r.name as role, p.name as permission
-            FROM roles r
-            LEFT JOIN role_permission rp ON r.id = rp.role_id
-            LEFT JOIN permissions p ON rp.permission_id = p.id
-            WHERE r.id = ?
-        `,
-      [user.role_id]
+    // ✅ PERBAIKAN: Ambil juga 'nickname' dari database setelah update
+    const [updatedUserRows] = await db.query(
+      "SELECT id, username, nickname, role_id FROM users WHERE id = ?",
+      [userId]
     );
+    const updatedUser = updatedUserRows[0];
 
-    const permissions = roleRows.map((row) => row.permission).filter((p) => p);
-    const role = roleRows[0]?.role || "user";
-
-    // Buat payload yang lengkap, sama seperti di auth.js
-    const updatedPayload = {
-      id: user.id,
-      username: newUsername || user.username, // Gunakan username baru jika ada
-      role: role,
-      role_id: user.role_id,
-      permissions: permissions,
-    };
-
-    newToken = jwt.sign(updatedPayload, process.env.JWT_SECRET, { expiresIn: "8h" });
+    // Log untuk memastikan versi ini yang berjalan
+    console.log("[DEBUG] Mengirim kembali data user yang sudah diupdate:", updatedUser);
 
     res.json({
       success: true,
       message: "Data akun berhasil diperbarui.",
-      token: newToken,
-      user: updatedPayload, // Kirim juga data user yang sudah diperbarui
+      user: updatedUser, // Kirim data user yang sudah lengkap dan diperbarui
     });
   } catch (err) {
-    if (err.code === "ER_DUP_ENTRY")
-      return res.status(409).json({ success: false, message: "Username baru sudah digunakan." });
     console.error("Error saat update profil:", err);
     res.status(500).json({ success: false, message: "Terjadi kesalahan pada server." });
+  }
+});
+
+/**
+ * GET /api/user/my-locations
+ * Mengambil semua lokasi yang diizinkan untuk pengguna yang sedang login.
+ */
+router.get("/my-locations", async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const query = `
+        SELECT l.id, l.code, l.building, l.floor, l.name
+        FROM locations l
+        JOIN user_locations ul ON l.id = ul.location_id
+        WHERE ul.user_id = ?
+        ORDER BY l.code
+    `;
+    const [locations] = await db.query(query, [userId]);
+    res.json({ success: true, data: locations });
+  } catch (error) {
+    console.error(`Error saat mengambil lokasi untuk user ID ${userId}:`, error);
+    res.status(500).json({ success: false, message: "Gagal mengambil data lokasi." });
   }
 });
 
