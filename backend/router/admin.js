@@ -1,6 +1,6 @@
 // File: backend/router/admin.js
 import express from "express";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import db from "../config/db.js";
 
 const router = express.Router();

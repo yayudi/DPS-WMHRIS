@@ -2,7 +2,7 @@
 import express from "express";
 import db from "../config/db.js";
 import cache from "../config/cache.js";
-import { canAccess } from "../middleware/permissionMiddleware.js"; // Impor middleware izin
+import { canAccess } from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
@@ -149,31 +149,51 @@ router.get("/", async (req, res) => {
  */
 router.get("/search", async (req, res) => {
   try {
-    const { q, locationId } = req.query; // Ambil locationId di sini
-    const searchTerm = `%${q}%`;
+    const { q, locationId } = req.query;
+    // Ubah search term menjadi huruf kecil di sini
+    const searchTerm = `%${q ? q.toLowerCase() : ""}%`; // Tambahkan pengaman jika q kosong
+
+    // --- LOG DEBUG BARU ---
+    console.log("DEBUG: Menerima /search request:");
+    console.log("Query Parameter (q):", q, typeof q);
+    console.log("Query Parameter (locationId):", locationId, typeof locationId);
+    // --- AKHIR LOG DEBUG BARU ---
 
     let query;
     let queryParams;
 
-    if (locationId) {
-      // JIKA locationId ADA, query harus JOIN ke stock_locations
+    // Periksa locationId secara eksplisit terhadap nilai yang tidak diinginkan
+    if (locationId && locationId !== "null" && locationId !== "undefined" && locationId !== "") {
+      console.log("DEBUG: locationId terdeteksi, menjalankan query JOIN."); // Tambahkan log ini
+      // JIKA locationId ADA, query harus JOIN
       query = `
         SELECT p.id, p.sku, p.name, sl.quantity AS current_stock
         FROM products p
         JOIN stock_locations sl ON p.id = sl.product_id
-        WHERE sl.location_id = ? AND (p.name LIKE ? OR p.sku LIKE ?)
+        WHERE sl.location_id = ?
+          AND (LOWER(p.name) LIKE ? OR LOWER(p.sku) LIKE ?)
+          AND sl.quantity > 0
         LIMIT 10
       `;
+      // Pastikan search term juga huruf kecil
       queryParams = [locationId, searchTerm, searchTerm];
     } else {
-      // JIKA locationId TIDAK ADA, query standar (seperti yang berjalan sekarang)
+      console.log(
+        "DEBUG: locationId TIDAK terdeteksi atau tidak valid, menjalankan query standar."
+      ); // Tambahkan log ini
+      // JIKA locationId TIDAK ADA, query standar
       query = `
         SELECT id, sku, name FROM products
-        WHERE name LIKE ? OR sku LIKE ?
+        WHERE (LOWER(name) LIKE ? OR LOWER(sku) LIKE ?)
         LIMIT 10
       `;
+      // Pastikan search term juga huruf kecil
       queryParams = [searchTerm, searchTerm];
     }
+
+    console.log("DEBUG: Menjalankan query pencarian:");
+    console.log("SQL:", query);
+    console.log("Params:", queryParams);
 
     const [results] = await db.query(query, queryParams);
     res.json(results); // (atau { success: true, data: results })

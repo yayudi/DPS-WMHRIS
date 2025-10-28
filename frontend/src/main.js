@@ -5,11 +5,7 @@ import App from './App.vue'
 import router from './router'
 import './assets/main.css'
 import FontAwesomeIcon from './plugins/fontawesome.js'
-
-// aktifkan mock hanya kalau pakai env mock
-if (import.meta.env.VITE_USE_MOCK === 'true') {
-  await import('./api/mock')
-}
+import 'vue-multiselect/dist/vue-multiselect.css'
 
 const app = createApp(App)
 app.use(createPinia())

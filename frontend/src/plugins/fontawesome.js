@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import {
   faHome,
   faUser,
+  faUndo,
   faCog,
   faCogs,
   faSignOutAlt,
@@ -49,11 +50,14 @@ import {
   faFileAlt,
   faFileLines,
   faBoxesStacked,
+  faPlayCircle,
+  faTimesCircle,
 } from '@fortawesome/free-solid-svg-icons'
 
 library.add(
   faHome,
   faUser,
+  faUndo,
   faCog,
   faCogs,
   faSignOutAlt,
@@ -99,6 +103,8 @@ library.add(
   faFileAlt,
   faFileLines,
   faBoxesStacked,
+  faPlayCircle,
+  faTimesCircle,
 )
 
 export default FontAwesomeIcon

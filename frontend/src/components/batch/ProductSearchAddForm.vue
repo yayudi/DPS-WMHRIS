@@ -1,7 +1,8 @@
+<!-- frontend\src\components\batch\ProductSearchAddForm.vue -->
 <script setup>
 import { ref } from 'vue'
 import { useToast } from '@/composables/UseToast.js'
-import { searchProducts } from '@/api/helpers/products.js'
+import { searchProducts, fetchStockSampleForLocation } from '@/api/helpers/products.js'
 import Multiselect from 'vue-multiselect'
 
 const props = defineProps({
@@ -11,13 +12,12 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['add-product'])
-
 const { show } = useToast()
 
 // State internal untuk form ini
 const searchResults = ref([])
 const isSearching = ref(false)
-const selectedProduct = ref(null) // <-- Ref ini akan berisi info stok
+const selectedProduct = ref(null)
 const quantityToAdd = ref(1)
 
 let searchDebounceTimer = null
@@ -31,24 +31,28 @@ function onSearchChange(query) {
   isSearching.value = true
   searchDebounceTimer = setTimeout(async () => {
     try {
-      // Gunakan props.searchLocationId (akan null untuk Inbound/Return)
+      // 1. Jalankan pencarian Anda (yang kita tahu akan mengembalikan [])
       const results = await searchProducts(query, props.searchLocationId)
       searchResults.value = results
 
-      // --- INVESTIGASI LOG ---
-      // Kita log di sini untuk melihat data apa yang sebenarnya kembali dari API
+      // --- LOG INVESTIGASI BARU ---
+      // Ini akan mencetak "Array []"
       console.log(
-        'INVESTIGASI: Hasil pencarian produk (dari searchProducts):',
+        `INVESTIGASI: Hasil pencarian (JOIN) untuk "${query}" di lokasi ${props.searchLocationId}:`,
         JSON.parse(JSON.stringify(results)),
       )
-      if (results.length > 0) {
-        console.log('INVESTIGASI: Properti produk pertama:', Object.keys(results[0]))
+
+      // 2. Jika hasil pencarian kosong, mari kita lihat apa yang SEBENARNYA ada di lokasi itu
+      // Pastikan blok 'if' ini ada di kode Anda
+      if (results.length === 0 && props.searchLocationId) {
         console.log(
-          'INVESTIGASI: Apakah produk pertama memiliki current_stock?',
-          results[0].hasOwnProperty('current_stock'),
+          `INVESTIGASI: Hasil pencarian kosong. Memeriksa 10 SKU pertama yang TERCATAT di lokasi ${props.searchLocationId}...`,
         )
+        // Panggil helper baru kita
+        const stockSample = await fetchStockSampleForLocation(props.searchLocationId)
+        console.log('INVESTIGASI: 10 SKU di lokasi ini (SAMPEL):', stockSample)
       }
-      // --- AKHIR INVESTIGASI ---
+      // --- AKHIR LOG INVESTIGASI BARU ---
     } catch (error) {
       show('Gagal mencari produk.', 'error')
     } finally {

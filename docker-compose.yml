@@ -1,0 +1,47 @@
+# docker-compose.yml
+services:
+  # 1. Service Database (MySQL)
+  db:
+    image: mysql:8.0
+    container_name: dps-wmhris-db
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    environment:
+      # Ganti password ini
+      MYSQL_ROOT_PASSWORD: "hidupJOKOWI!!!1!"
+      MYSQL_DATABASE: "u1773579_office"
+      MYSQL_USER: "u1773579_kencrot"
+      MYSQL_PASSWORD: "%+o,x0B1V*Omg8yO?C"
+    volumes:
+      # Pastikan file ini berisi SEMUA skema tabel
+      - ./init_db.sql:/docker-entrypoint-initdb.d/init.sql
+      # Simpan data database secara permanen
+      - mysql_data:/var/lib/mysql
+    ports:
+      # Map port 3307 di laptop/server ke 3306 di container
+      - "3307:3306"
+
+  # 2. Service Backend (Node.js)
+  backend:
+    image: yayudi/dps-backend:latest
+    build:
+      context: ./backend # Path ke folder backend
+      dockerfile: Dockerfile
+    container_name: dps-wmhris
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env # Inject file .env lo
+    ports:
+      # Map port 3000 di laptop/server ke port 3000 di container
+      - "3000:3000"
+    volumes:
+      # Mount folder log, tmp, dan uploads
+      - ./backend/logs:/usr/src/app/logs
+      - ./backend/tmp:/usr/src/app/tmp
+      - ./backend/uploads:/usr/src/app/uploads
+    depends_on:
+      - db # Bilang ke Docker: "Jalankan DB dulu sebelum backend"
+
+# Definisikan volume yg kita pakai
+volumes:
+  mysql_data:

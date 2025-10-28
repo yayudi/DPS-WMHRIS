@@ -31,7 +31,6 @@ import { RouterView } from 'vue-router'
         <!-- Garis pemisah -->
         <hr class="border-secondary/20 my-4" />
 
-        <!-- Tautan Baru (Mock) -->
         <router-link
           to="/admin/products"
           class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors"

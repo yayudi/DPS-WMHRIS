@@ -1,17 +1,20 @@
+// backend\router\pickingRouter.js
 import express from "express";
 import db from "../config/db.js";
 import multer from "multer";
 import fs from "fs";
 import { parsePdf } from "../services/pdf.js";
+import { broadcastStockUpdate } from "./realtimeRouter.js";
+import {
+  validatePickingListItems,
+  processPickingListConfirmation,
+  processPickingListVoid,
+  getLatestStockForBroadcast,
+} from "../services/pickingService.js";
 
 const router = express.Router();
 const upload = multer({ dest: "tmp/" });
 
-/**
- * @param {string} textContent - Teks mentah dari file PDF.
- * @returns {Array} - Array hasil parsing.
- */
-// --- ENGINE PARSING TOKOPEDIA ---
 function parseTokopediaPdfText(textContent) {
   if (!textContent) return [];
   console.log(
@@ -20,10 +23,6 @@ function parseTokopediaPdfText(textContent) {
     "\n---------------------------------\n"
   );
   const items = [];
-  // (PP\d+)   : Menangkap SKU yang diawali "PP" diikuti angka.
-  // \s+        : Mencocokkan satu atau lebih spasi/tab/baris baru.
-  // (\d+)      : Menangkap angka kuantitas.
-  // /g         : Flag global untuk menemukan semua kecocokan.
   const productRegex = /(PP\d+)\s+(\d+)/g;
   let match;
   while ((match = productRegex.exec(textContent)) !== null) {
@@ -36,36 +35,21 @@ function parseTokopediaPdfText(textContent) {
   console.log("[Tokopedia Parser] Ditemukan item:", items);
   return items;
 }
-
-// --- ENGINE PARSING SHOPEE ---
 function parseShopeePdfText(textContent) {
   if (!textContent) return [];
   console.log("[Parser] Menggunakan engine parsing Shopee...");
-
-  // --- PERBAIKAN: Regex pra-pemrosesan yang lebih fleksibel ---
-  // Regex ini mencari pola (PP diikuti angka), lalu spasi/baris baru, lalu angka lagi,
-  // dan menggabungkannya. Ini akan menangani kasus seperti "PP0002\n721" dan "PP00027\n21".
   const cleanedText = textContent.replace(/(PP\d+)\s*\r?\n\s*(\d+)/g, "$1$2");
-
   console.log(
     "\n--- DEBUG: Teks Shopee Setelah Dibersihkan ---\n",
     cleanedText,
     "\n---------------------------------\n"
   );
-
   const items = [];
-  // Regex baru yang lebih tangguh:
-  // (PP\d{7})          : Menangkap SKU (PP + 7 digit).
-  // [\s\S]*?           : Mencocokkan karakter apa pun (termasuk baris baru dan nama variasi) secara non-greedy.
-  // (\d+)              : Menangkap Kuantitas (angka).
-  // \s+[A-Z0-9]{14,}   : Diikuti oleh spasi dan No. Pesanan (string alfanumerik panjang) sebagai jangkar.
   const productRegex = /(PP\d{7})[\s\S]*?\s(\d+)\s+[A-Z0-9]{14,}/g;
-
   let match;
   while ((match = productRegex.exec(cleanedText)) !== null) {
     const sku = match[1]?.trim();
     const qty = parseInt(match[2]?.trim(), 10);
-
     if (sku && !isNaN(qty)) {
       const existingItem = items.find((item) => item.sku === sku);
       if (existingItem) {
@@ -78,22 +62,15 @@ function parseShopeePdfText(textContent) {
   console.log(`[Parser] Ditemukan ${items.length} item unik.`);
   return items;
 }
-
-// --- ENGINE PARSING OFFLINE ---
 function parseOfflinePdfText(textContent) {
   if (!textContent) return [];
   console.log("[Parser] Menggunakan engine parsing Offline/Surat Jalan...");
-
   const items = [];
-  // Regex: Mencari baris yang diawali angka, spasi, lalu (SKU),
-  // diikuti teks apa pun, dan diakhiri dengan (Kuantitas) di ujung baris.
   const productRegex = /^\s*\d+\s+(PP\d{7})[\s\S]*?(\d+)\s*$/gm;
-
   let match;
   while ((match = productRegex.exec(textContent)) !== null) {
     const sku = match[1]?.trim();
     const qty = parseInt(match[2]?.trim(), 10);
-
     if (sku && !isNaN(qty)) {
       items.push({ sku, qty });
     }
@@ -104,6 +81,7 @@ function parseOfflinePdfText(textContent) {
 
 /**
  * POST /api/picking/upload
+ * (Handler upload tetap sama, tidak perlu diubah karena sudah direfaktor)
  */
 router.post("/upload", upload.single("pickingListFile"), async (req, res) => {
   if (!req.file) {
@@ -113,7 +91,6 @@ router.post("/upload", upload.single("pickingListFile"), async (req, res) => {
   if (!["Tokopedia", "Shopee", "Offline"].includes(source)) {
     return res.status(400).json({ success: false, message: "Sumber tidak valid." });
   }
-
   let connection;
   try {
     let textContent;
@@ -122,9 +99,8 @@ router.post("/upload", upload.single("pickingListFile"), async (req, res) => {
     } else {
       textContent = fs.readFileSync(req.file.path, "utf-8");
     }
-
     let parsedItems;
-    // --- LOGIKA KONDISIONAL BARU UNTUK MEMILIH PARSER ---
+    // ... (Logika parsing tetap sama) ...
     if (source === "Tokopedia") {
       parsedItems = parseTokopediaPdfText(textContent);
     } else if (source === "Shopee") {
@@ -134,7 +110,6 @@ router.post("/upload", upload.single("pickingListFile"), async (req, res) => {
     } else {
       throw new Error(`Parser untuk sumber '${source}' belum diimplementasikan.`);
     }
-
     if (parsedItems.length === 0) {
       throw new Error("Tidak ada item valid yang bisa diparsing dari file. Cek format file.");
     }
@@ -147,28 +122,74 @@ router.post("/upload", upload.single("pickingListFile"), async (req, res) => {
     );
     const pickingListId = pickingListResult.insertId;
     const validationResults = { pickingListId, validItems: [], invalidSkus: [] };
+
+    // Cari ID Lokasi Display berdasarkan Purpose
+    const DISPLAY_LOCATION_PURPOSE = "DISPLAY";
+    const [displayLocRows] = await connection.query(
+      "SELECT id FROM locations WHERE purpose = ? LIMIT 1",
+      [DISPLAY_LOCATION_PURPOSE]
+    );
+    if (displayLocRows.length === 0) {
+      throw new Error(`Tidak ditemukan lokasi dengan purpose '${DISPLAY_LOCATION_PURPOSE}'.`);
+    }
+    const displayLocationId = displayLocRows[0].id;
+
     for (const item of parsedItems) {
+      // Ambil info produk DAN stok KHUSUS di lokasi Display
       const [productRows] = await connection.query(
         `
-          SELECT p.id, p.name, COALESCE(sl.quantity, 0) as current_stock
+          SELECT
+            p.id, p.name, p.is_package,
+            COALESCE(sl_display.quantity, 0) as current_stock_display
           FROM products p
-          LEFT JOIN stock_locations sl ON p.id = sl.product_id
-          LEFT JOIN locations l ON sl.location_id = l.id AND l.building = 'Pajangan'
+          LEFT JOIN stock_locations sl_display ON p.id = sl_display.product_id AND sl_display.location_id = ?
           WHERE p.sku = ?
-          GROUP BY p.id
         `,
-        [item.sku]
+        [displayLocationId, item.sku]
       );
       if (productRows.length > 0) {
         const product = productRows[0];
+        let componentsData = null;
+
+        if (product.is_package) {
+          console.log(`[Upload] Produk ${item.sku} adalah paket, mengambil komponen...`);
+          const [components] = await connection.query(
+            `SELECT
+                pc.quantity_per_package,
+                p_comp.sku as component_sku,
+                p_comp.name as component_name,
+                COALESCE(sl_comp_display.quantity, 0) as component_stock_display -- Stok komponen di display
+              FROM package_components pc
+              JOIN products p_comp ON pc.component_product_id = p_comp.id
+              LEFT JOIN stock_locations sl_comp_display ON p_comp.id = sl_comp_display.product_id AND sl_comp_display.location_id = ? -- Join stok komponen
+              WHERE pc.package_product_id = ?`,
+            [displayLocationId, product.id]
+          );
+          if (components.length > 0) {
+            componentsData = components;
+            console.log(`[Upload]   -> Ditemukan ${components.length} komponen.`);
+          } else {
+            console.warn(
+              `[Upload]   -> PERINGATAN: Paket ${item.sku} tidak memiliki komponen terdefinisi!`
+            );
+            // Anda mungkin ingin menandai ini di validItems atau invalidSkus
+          }
+        }
+        // --- AKHIR TAMBAHAN ---
+
         await connection.query(
           "INSERT INTO picking_list_items (picking_list_id, product_id, original_sku, quantity) VALUES (?, ?, ?, ?)",
           [pickingListId, product.id, item.sku, item.qty]
         );
+
+        // Kirim data yang relevan ke frontend
         validationResults.validItems.push({
-          ...item,
+          sku: item.sku, // original_sku dari CSV/PDF
+          qty: item.qty, // quantity dari CSV/PDF
           name: product.name,
-          current_stock: product.current_stock,
+          is_package: product.is_package,
+          current_stock: product.current_stock_display, // Stok display (paket = 0, single = aktual)
+          components: componentsData, // Kirim null atau array komponen
         });
       } else {
         validationResults.invalidSkus.push(item.sku);
@@ -194,85 +215,158 @@ router.post("/upload", upload.single("pickingListFile"), async (req, res) => {
 
 /**
  * POST /api/picking/:id/confirm
+ * *** REFAKTOR: Menggunakan pickingService ***
  */
 router.post("/:id/confirm", async (req, res) => {
-  // --- BLOK DEBUG UNTUK INVESTIGASI ---
-  console.log("\n--- DEBUG: Proses Konfirmasi Picking List Dimulai ---");
-  console.log(`Timestamp: ${new Date().toLocaleTimeString()}`);
-  console.log("Content-Type Header:", req.headers["content-type"]); // Log header
-  console.log("Request Body Mentah:", JSON.stringify(req.body, null, 2));
-  // --- AKHIR BLOK DEBUG ---
-
+  console.log("\n--- [Router] Proses Konfirmasi Picking List Dimulai ---");
   const { id } = req.params;
-  // --- PERBAIKAN: Akses 'items' secara eksplisit ---
   const items = req.body.items;
   const userId = req.user.id;
-
-  const SOURCE_LOCATION_BUILDING = "Pajangan";
+  const SOURCE_LOCATION_PURPOSE = "DISPLAY";
 
   if (!Array.isArray(items) || items.length === 0) {
-    console.log("❌ Validasi Gagal: `req.body.items` bukan array atau kosong.");
     return res
       .status(400)
       .json({ success: false, message: "Tidak ada item yang dipilih untuk diproses." });
   }
 
   let connection;
+  let affectedProductIds = new Set(); // Definisikan di scope luar try
+
   try {
     connection = await db.getConnection();
-    console.log("✅ Koneksi DB berhasil, memulai transaksi...");
+    console.log("✅ [Router] Koneksi DB berhasil, memulai transaksi...");
     await connection.beginTransaction();
 
-    const [pajanganLocations] = await connection.query(
-      `SELECT id FROM locations WHERE building = ? LIMIT 1`,
-      [SOURCE_LOCATION_BUILDING]
+    // 1. Dapatkan ID Lokasi Sumber
+    const [sourceLocationRows] = await connection.query(
+      `SELECT id FROM locations WHERE purpose = ? LIMIT 1`,
+      [SOURCE_LOCATION_PURPOSE]
     );
-    if (pajanganLocations.length === 0) {
-      throw new Error(`Lokasi sumber '${SOURCE_LOCATION_BUILDING}' tidak ditemukan.`);
+    if (sourceLocationRows.length === 0) {
+      throw new Error(`Lokasi sumber dengan purpose '${SOURCE_LOCATION_PURPOSE}' tidak ditemukan.`);
     }
-    const fromLocationId = pajanganLocations[0].id;
+    const fromLocationId = sourceLocationRows[0].id;
+    console.log(
+      `✅ [Router] Lokasi Sumber (Purpose: ${SOURCE_LOCATION_PURPOSE}) ID: ${fromLocationId}`
+    );
 
-    for (const item of items) {
-      const [productRows] = await connection.query("SELECT id FROM products WHERE sku = ?", [
-        item.sku,
-      ]);
-      if (productRows.length === 0) {
-        throw new Error(`SKU '${item.sku}' tidak ditemukan saat konfirmasi.`);
-      }
-      const productId = productRows[0].id;
-      const quantityToPick = item.qty;
+    // 2. Panggil Service Validasi
+    await validatePickingListItems(connection, items, fromLocationId);
 
-      // Langsung kurangi stok tanpa memeriksa, sesuai permintaan
-      await connection.query(
-        "INSERT INTO stock_locations (product_id, location_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity - ?",
-        [productId, fromLocationId, -quantityToPick, quantityToPick]
-      );
+    // 3. Panggil Service Proses Pengurangan Stok
+    affectedProductIds = await processPickingListConfirmation(
+      connection,
+      items,
+      fromLocationId,
+      userId,
+      id
+    );
 
-      await connection.query(
-        "INSERT INTO stock_movements (product_id, quantity, from_location_id, movement_type, user_id, notes) VALUES (?, ?, ?, ?, ?, ?)",
-        [productId, quantityToPick, fromLocationId, "SALE", userId, `Sale from picking list #${id}`]
-      );
-    }
-
+    // 4. Update status picking list
     await connection.query("UPDATE picking_lists SET status = ? WHERE id = ?", ["COMPLETED", id]);
 
+    // 5. Commit transaksi
     await connection.commit();
-    console.log("✅ Transaksi berhasil di-commit.");
+    console.log("✅ [Router] Transaksi berhasil di-commit.");
+
+    // 6. Siarkan pembaruan stok (dilakukan di luar transaksi)
+    // Pastikan affectedProductIds adalah array sebelum dikirim ke helper
+    const affectedProductIdsArray = [...affectedProductIds];
+    if (affectedProductIdsArray.length > 0) {
+      console.log("📢 [Router] Menyiapkan broadcast untuk IDs:", affectedProductIdsArray);
+      // Gunakan helper baru untuk mendapatkan data broadcast
+      const finalUpdates = await getLatestStockForBroadcast(
+        affectedProductIdsArray,
+        fromLocationId
+      );
+      if (finalUpdates.length > 0) {
+        broadcastStockUpdate(finalUpdates);
+        console.log("📢 [Router] Broadcast pembaruan stok terkirim.");
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: `Berhasil memproses ${items.length} item. Stok telah diperbarui.`,
     });
   } catch (error) {
-    if (connection) await connection.rollback();
-    console.error("Error saat konfirmasi picking list:", error.message);
+    if (connection) {
+      console.log("Rolling back transaction...");
+      await connection.rollback();
+    }
+    console.error("❌ [Router] Error saat konfirmasi picking list:", error.message);
+    // Kirim error spesifik ke frontend
     res
       .status(400)
       .json({ success: false, message: error.message || "Gagal mengonfirmasi picking list." });
   } finally {
     if (connection) connection.release();
+    console.log("--- [Router] Proses Konfirmasi Picking List Selesai ---");
   }
 });
 
+/**
+ * POST /api/picking/:id/cancel
+ * Membatalkan picking list yang masih PENDING_VALIDATION.
+ */
+router.post("/:id/cancel", async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id; // Untuk logging jika perlu
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [listRows] = await connection.query(
+      "SELECT status FROM picking_lists WHERE id = ? FOR UPDATE",
+      [id]
+    );
+    if (listRows.length === 0) {
+      throw new Error(`Picking list ID ${id} tidak ditemukan.`);
+    }
+    // Hanya PENDING_VALIDATION yang bisa di-cancel di sini
+    if (listRows[0].status !== "PENDING_VALIDATION") {
+      throw new Error(
+        `Hanya picking list dengan status 'PENDING_VALIDATION' yang bisa dibatalkan.`
+      );
+    }
+
+    await connection.query(
+      `INSERT INTO audit_logs (user_id, action_type, target_table, target_id, details)
+      VALUES (?, ?, ?, ?, ?)`,
+      [
+        userId,
+        "CANCEL_PICKING_LIST",
+        "picking_lists",
+        id,
+        `Membatalkan picking list #${id} (status: PENDING_VALIDATION)`,
+      ]
+    );
+
+    await connection.query("UPDATE picking_lists SET status = ? WHERE id = ?", ["CANCELLED", id]);
+
+    await connection.commit();
+    res.status(200).json({
+      success: true,
+      message: `Picking list #${id} berhasil dibatalkan.`,
+    });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error(`❌ [Router] Error saat membatalkan picking list pending #${id}:`, error.message);
+    res
+      .status(400)
+      .json({ success: false, message: error.message || "Gagal membatalkan picking list." });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+/**
+ * GET /api/picking/history
+ * (Tidak berubah)
+ */
 router.get("/history", async (req, res) => {
   try {
     const query = `
@@ -291,9 +385,8 @@ router.get("/history", async (req, res) => {
 });
 
 /**
- * --- ENDPOINT BARU ---
  * GET /api/picking/:id/details
- * Mengambil semua item detail dari sebuah picking list spesifik.
+ * (Tidak berubah)
  */
 router.get("/:id/details", async (req, res) => {
   const { id } = req.params;
@@ -313,18 +406,21 @@ router.get("/:id/details", async (req, res) => {
 });
 
 /**
- * --- ENDPOINT BARU ---
  * POST /api/picking/:id/void
- * Membatalkan picking list yang sudah selesai dan mengembalikan stok.
+ * *** REFAKTOR: Menggunakan pickingService ***
  */
 router.post("/:id/void", async (req, res) => {
+  console.log("\n--- [Router] Proses Void Picking List Dimulai ---");
   const { id } = req.params;
   const userId = req.user.id;
-  const SOURCE_LOCATION_BUILDING = "Pajangan";
+  const TARGET_LOCATION_PURPOSE = "DISPLAY";
 
   let connection;
+  let affectedProductIdsVoid = new Set(); // Definisikan di scope luar try
+
   try {
     connection = await db.getConnection();
+    console.log("✅ [Router] Koneksi DB berhasil, memulai transaksi...");
     await connection.beginTransaction();
 
     // 1. Kunci dan periksa status picking list
@@ -332,62 +428,72 @@ router.post("/:id/void", async (req, res) => {
       "SELECT status FROM picking_lists WHERE id = ? FOR UPDATE",
       [id]
     );
-    if (listRows.length === 0 || listRows[0].status !== "COMPLETED") {
+    if (listRows.length === 0) {
+      throw new Error(`Picking list ID ${id} tidak ditemukan.`);
+    }
+    if (listRows[0].status !== "COMPLETED") {
       throw new Error("Hanya picking list yang sudah 'COMPLETED' yang bisa dibatalkan.");
     }
 
-    // 2. Ambil semua item yang akan dikembalikan
-    const [itemsToVoid] = await connection.query(
-      "SELECT * FROM picking_list_items WHERE picking_list_id = ?",
-      [id]
+    // 2. Dapatkan ID Lokasi Tujuan (Display)
+    const [targetLocationRows] = await connection.query(
+      `SELECT id FROM locations WHERE purpose = ? LIMIT 1`,
+      [TARGET_LOCATION_PURPOSE]
     );
-
-    // 3. Ambil ID lokasi pajangan
-    const [pajanganLocations] = await connection.query(
-      `SELECT id FROM locations WHERE building = ? LIMIT 1`,
-      [SOURCE_LOCATION_BUILDING]
-    );
-    if (pajanganLocations.length === 0)
-      throw new Error(`Lokasi sumber '${SOURCE_LOCATION_BUILDING}' tidak ditemukan.`);
-    const locationId = pajanganLocations[0].id;
-
-    // 4. Lakukan transaksi terbalik untuk setiap item
-    for (const item of itemsToVoid) {
-      // Tambahkan kembali stok
-      await connection.query(
-        "UPDATE stock_locations SET quantity = quantity + ? WHERE product_id = ? AND location_id = ?",
-        [item.quantity, item.product_id, locationId]
-      );
-      // Catat pergerakan sebagai pembatalan
-      await connection.query(
-        "INSERT INTO stock_movements (product_id, quantity, to_location_id, movement_type, user_id, notes) VALUES (?, ?, ?, ?, ?, ?)",
-        [
-          item.product_id,
-          item.quantity,
-          locationId,
-          "VOID_SALE",
-          userId,
-          `Void sale from picking list #${id}`,
-        ]
-      );
+    if (targetLocationRows.length === 0) {
+      throw new Error(`Lokasi target dengan purpose '${TARGET_LOCATION_PURPOSE}' tidak ditemukan.`);
     }
+    const locationId = targetLocationRows[0].id;
+    console.log(
+      `✅ [Router] Lokasi Target (Purpose: ${TARGET_LOCATION_PURPOSE}) ID: ${locationId}`
+    );
 
-    // 5. Update status picking list menjadi 'CANCELLED'
+    // 3. Panggil Service Proses Pengembalian Stok
+    affectedProductIdsVoid = await processPickingListVoid(connection, id, locationId, userId);
+
+    // 4. Update status picking list
     await connection.query("UPDATE picking_lists SET status = ? WHERE id = ?", ["CANCELLED", id]);
 
+    // 5. Commit transaksi
     await connection.commit();
+    console.log("✅ [Router] Transaksi void berhasil di-commit.");
+
+    // 6. Siarkan pembaruan stok (dilakukan di luar transaksi)
+    // Pastikan affectedProductIdsVoid adalah array sebelum dikirim ke helper
+    const affectedProductIdsVoidArray = [...affectedProductIdsVoid];
+    if (affectedProductIdsVoidArray.length > 0) {
+      console.log(
+        "📢 [Router] Menyiapkan broadcast (VOID) untuk IDs:",
+        affectedProductIdsVoidArray
+      );
+      // Gunakan helper baru untuk mendapatkan data broadcast
+      const finalUpdatesVoid = await getLatestStockForBroadcast(
+        affectedProductIdsVoidArray,
+        locationId
+      );
+      if (finalUpdatesVoid.length > 0) {
+        broadcastStockUpdate(finalUpdatesVoid);
+        console.log("📢 [Router] Broadcast pembaruan stok (VOID) terkirim.");
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: "Transaksi picking list berhasil dibatalkan dan stok telah dikembalikan.",
     });
   } catch (error) {
-    if (connection) await connection.rollback();
-    console.error("Error saat membatalkan picking list:", error.message);
+    if (connection) {
+      console.log("Rolling back transaction (void)...");
+      await connection.rollback();
+    }
+    console.error("❌ [Router] Error saat membatalkan picking list:", error.message);
+    // Kirim error spesifik ke frontend
     res
       .status(400)
       .json({ success: false, message: error.message || "Gagal membatalkan transaksi." });
   } finally {
     if (connection) connection.release();
+    console.log("--- [Router] Proses Void Picking List Selesai ---");
   }
 });
 

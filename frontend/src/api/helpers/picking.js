@@ -20,23 +20,26 @@ export async function uploadPickingList(formData) {
 }
 
 /**
- * Mengonfirmasi picking list yang sudah divalidasi untuk mengurangi stok.
- * @param {number} pickingListId - ID dari picking list yang akan dikonfirmasi.
- * @returns {Promise<object>} - Respons sukses dari server.
+ * Mengonfirmasi picking list dan mengurangi stok.
+ * @param {number|string} pickingListId - ID picking list.
+ * @param {object} payload - Objek payload LANGSUNG DARI FRONTEND. Contoh: { items: [{ sku: 'SKU1', qty: 5 }] }
+ * @returns {Promise<object>} - Respons dari backend.
  */
-export async function confirmPickingList(pickingListId, itemsToProcess) {
+// --- FIX: Ubah parameter kedua dan HAPUS pembungkusan ulang ---
+export const confirmPickingList = async (pickingListId, payload) => {
   try {
-    const payload = { items: itemsToProcess }
-    // --- PERBAIKAN: Secara eksplisit atur Content-Type header ---
+    // const payload = { items: itemsToProcess } // <-- HAPUS BARIS INI
     const response = await axios.post(`/picking/${pickingListId}/confirm`, payload, {
+      // Kirim payload apa adanya
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json', // Pastikan header benar
       },
     })
     return response.data
   } catch (error) {
     console.error('Error saat konfirmasi picking list:', error.response?.data || error.message)
-    throw error.response?.data || error
+    // Coba berikan pesan error yang lebih spesifik jika ada dari backend
+    throw new Error(error.response?.data?.message || 'Gagal mengonfirmasi picking list.')
   }
 }
 
@@ -62,16 +65,31 @@ export async function fetchPickingHistory() {
  * @param {number} pickingListId - ID dari picking list.
  * @returns {Promise<object>}
  */
-export async function fetchPickingListDetails(pickingListId) {
+export async function fetchPickingDetails(pickingListId) {
   try {
     const response = await axios.get(`/picking/${pickingListId}/details`)
     return response.data
   } catch (error) {
     console.error(
-      'Error saat mengambil detail picking list:',
+      `Error fetching picking details for ID ${pickingListId}:`,
       error.response?.data || error.message,
     )
-    throw error.response?.data || error
+    throw new Error(error.response?.data?.message || 'Gagal memuat detail picking list.')
+  }
+}
+
+/**
+ * Mengirim permintaan untuk membatalkan picking list yang PENDING.
+ * @param {number|string} pickingListId - ID picking list.
+ * @returns {Promise<object>} - Respons dari backend.
+ */
+export const cancelPickingList = async (pickingListId) => {
+  try {
+    const response = await api.post(`/picking/${pickingListId}/cancel`)
+    return response.data
+  } catch (error) {
+    console.error('Error cancelling picking list:', error.response?.data || error.message)
+    throw new Error(error.response?.data?.message || 'Gagal membatalkan picking list.')
   }
 }
 

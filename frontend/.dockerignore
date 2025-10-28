@@ -1,0 +1,9 @@
+# Jangan salin dependensi
+node_modules
+
+# Jangan salin file environment
+.env
+.env.*
+
+# Jangan salin build output (ini dibikin di dalam container)
+dist
