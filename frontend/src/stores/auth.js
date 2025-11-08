@@ -1,46 +1,72 @@
-// frontend\src\stores\auth.js
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/api/axios.js'
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref(localStorage.getItem('authToken'))
-  const user = ref(null) // Untuk menyimpan data user
+  const token = ref(localStorage.getItem('token')) // Ganti 'token' jadi 'token'
+  // ✅ PERBAIKAN: Baca 'authUser' dari localStorage saat inisialisasi
+  const user = ref(JSON.parse(localStorage.getItem('authUser')))
   const isLoadingUser = ref(false)
 
   function setToken(newToken) {
-    localStorage.setItem('authToken', newToken)
+    localStorage.setItem('token', newToken)
     token.value = newToken
   }
 
+  // ✅ BARU: Helper untuk sinkronisasi state DAN localStorage
+  function setUser(newUser) {
+    user.value = newUser
+    if (newUser) {
+      localStorage.setItem('authUser', JSON.stringify(newUser))
+    } else {
+      localStorage.removeItem('authUser')
+    }
+  }
+
   function clearToken() {
-    localStorage.removeItem('authToken')
+    localStorage.removeItem('token')
+    localStorage.removeItem('authUser') // Hapus authUser juga
     token.value = null
     user.value = null
   }
 
-  // Cek apakah user sudah login berdasarkan token
   const isAuthenticated = computed(() => !!token.value)
   const isAdmin = computed(() => user.value?.role_id === 1)
   const isSales = computed(() => user.value?.role_id === 2)
   const isGudang = computed(() => user.value?.role_id === 3)
   const username = computed(() => user.value?.username)
-  const canViewPrices = computed(() => isAdmin.value || isSales.value)
 
-  // Aksi baru untuk mengambil data user dari backend
+  // ✅ PERBAIKAN: Gunakan izin, bukan role
+  const canViewPrices = computed(() => hasPermission('view-prices'))
+
+  // ✅ BARU: Helper Izin (untuk RCAB WMS)
+  const hasPermission = (permissionName) => {
+    if (isAdmin.value) return true // Admin (role 1) selalu bisa
+    if (!user.value || !Array.isArray(user.value.permissions)) return false
+    return user.value.permissions.includes(permissionName)
+  }
+
   async function fetchUser() {
-    // Hanya fetch jika ada token dan user belum ada
-    if (token.value && !user.value) {
-      isLoadingUser.value = true // <-- SET LOADING JADI TRUE
+    // ✅ PERBAIKAN: Hapus '!user.value' agar data SELALU refresh
+    if (token.value) {
+      isLoadingUser.value = true
       try {
         const response = await api.get('/user/profile')
-        user.value = response.data.user
+        setUser(response.data.user) // Gunakan setUser
       } catch (error) {
-        console.error('Gagal mengambil data user, token mungkin expired.', error)
-        clearToken()
+        clearToken() // Logout jika token/sesi tidak valid
       } finally {
-        isLoadingUser.value = false // <-- SET LOADING JADI FALSE
+        isLoadingUser.value = false
       }
+    } else {
+    }
+  }
+
+  function updateUserNickname(newNickname) {
+    if (user.value) {
+      // ✅ PERBAIKAN: Gunakan setUser agar localStorage ikut ter-update
+      const updatedUser = { ...user.value, nickname: newNickname }
+      setUser(updatedUser)
     }
   }
 
@@ -49,6 +75,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isLoadingUser,
     setToken,
+    setUser, // Ekspor setUser
     clearToken,
     isAuthenticated,
     username,
@@ -57,5 +84,7 @@ export const useAuthStore = defineStore('auth', () => {
     isGudang,
     fetchUser,
     canViewPrices,
+    updateUserNickname,
+    hasPermission, // Ekspor hasPermission
   }
 })

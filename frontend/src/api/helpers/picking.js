@@ -1,13 +1,14 @@
-import axios from '../axios'
+// frontend\src\api\helpers\picking.js
+import api from '../axios'
 
 /**
- * Mengirim file picking list ke backend untuk di-parsing dan divalidasi.
+ * [DEPRECATED] Mengirim file picking list ke backend untuk di-parsing (Arsitektur Lama).
  * @param {FormData} formData - Objek FormData yang berisi file dan sumbernya.
  * @returns {Promise<object>} - Hasil validasi dari server.
  */
 export async function uploadPickingList(formData) {
   try {
-    const response = await axios.post('/picking/upload', formData, {
+    const response = await api.post('/picking/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -16,6 +17,52 @@ export async function uploadPickingList(formData) {
   } catch (error) {
     console.error('Error saat upload picking list:', error.response?.data || error.message)
     throw error.response?.data || error
+  }
+}
+
+/**
+ * [BARU - HYBRID] Mengirim data picking list batch (dari CSV) yang sudah di-parse oleh frontend.
+ * Ini adalah implementasi arsitektur hybrid untuk shared hosting.
+ * @param {Array<object>} groupedInvoices - Array invoice dari (pickingListParser.js)
+ * @returns {Promise<object>} - Respons dari backend (created, skipped)
+ */
+export async function uploadBatchPickingListJson(groupedInvoices) {
+  try {
+    // Kirim payload JSON ke endpoint backend BARU
+    // Endpoint ini HANYA menangani transaksi DB, bukan parsing file
+
+    const response = await api.post('/picking/upload-json', {
+      invoices: groupedInvoices,
+    })
+
+    return response.data // Misal: { success: true, message: "...", created: 5, skipped: 2 }
+  } catch (error) {
+    console.error('Error saat upload JSON batch picking list:', error)
+    throw error.response?.data || { success: false, message: 'Error tidak diketahui dari server.' }
+  }
+}
+
+/**
+ * Mengirim hasil parsing client-side ke backend untuk divalidasi dan disimpan.
+ * @param {object} payload - Objek berisi { source: string, items: Array<{sku: string, qty: number}> }.
+ * @returns {Promise<object>} - Hasil validasi dari server (termasuk pickingListId).
+ */
+export const validateParsedPickingList = async (payload) => {
+  try {
+    // Panggil endpoint backend BARU (misal /validate-parsed)
+    const response = await api.post('/picking/validate-parsed', payload, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    // Asumsi backend mengembalikan { success: true, data: { pickingListId, validItems, invalidSkus } }
+    return response.data
+  } catch (error) {
+    console.error(
+      'Error saat validasi picking list (parsed):',
+      error.response?.data || error.message,
+    )
+    throw new Error(error.response?.data?.message || 'Gagal mengirim data parsing ke server.')
   }
 }
 
@@ -29,7 +76,7 @@ export async function uploadPickingList(formData) {
 export const confirmPickingList = async (pickingListId, payload) => {
   try {
     // const payload = { items: itemsToProcess } // <-- HAPUS BARIS INI
-    const response = await axios.post(`/picking/${pickingListId}/confirm`, payload, {
+    const response = await api.post(`/picking/${pickingListId}/confirm`, payload, {
       // Kirim payload apa adanya
       headers: {
         'Content-Type': 'application/json', // Pastikan header benar
@@ -49,7 +96,7 @@ export const confirmPickingList = async (pickingListId, payload) => {
  */
 export async function fetchPickingHistory() {
   try {
-    const response = await axios.get('/picking/history')
+    const response = await api.get('/picking/history')
     return response.data.data || []
   } catch (error) {
     console.error(
@@ -67,7 +114,7 @@ export async function fetchPickingHistory() {
  */
 export async function fetchPickingDetails(pickingListId) {
   try {
-    const response = await axios.get(`/picking/${pickingListId}/details`)
+    const response = await api.get(`/picking/${pickingListId}/details`)
     return response.data
   } catch (error) {
     console.error(
@@ -100,7 +147,7 @@ export const cancelPickingList = async (pickingListId) => {
  */
 export async function voidPickingList(pickingListId) {
   try {
-    const response = await axios.post(`/picking/${pickingListId}/void`)
+    const response = await api.post(`/picking/${pickingListId}/void`)
     return response.data
   } catch (error) {
     console.error('Error saat membatalkan picking list:', error.response?.data || error.message)

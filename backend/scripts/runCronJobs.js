@@ -6,7 +6,7 @@ import "dotenv/config";
 import db from "../config/db.js";
 
 import { syncStockToDatabase } from "./tasks/syncStock.js";
-import { fetchAndCacheHolidays } from "./tasks/fetchHolidays.js";
+import { fetchAndCacheHolidays } from "./fetchHolidays.js";
 
 const JOB_TIMEOUT = 600000; // 10 menit
 const STUCK_JOB_TIMEOUT = "15 MINUTE"; // Waktu untuk menganggap job "nyantol"

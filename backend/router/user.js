@@ -7,12 +7,26 @@ import db from "../config/db.js";
 const router = express.Router();
 
 // GET /user/profile
-router.get("/profile", (req, res) => {
-  res.json({
-    success: true,
-    message: `Data profil untuk ${req.user.username} berhasil diambil.`,
-    user: req.user,
-  });
+router.get("/profile", async (req, res) => {
+  try {
+    // 1. Ambil data dasar dari token (req.user)
+    const tokenUser = req.user;
+    const [userRows] = await db.query("SELECT nickname FROM users WHERE id = ?", [tokenUser.id]);
+    const dbUser = userRows[0] || {}; // Default ke objek kosong jika tidak ditemukan
+    const completeUser = {
+      ...tokenUser, // (id, username, role_id, permissions, dll.)
+      nickname: dbUser.nickname, // (nickname terbaru dari DB)
+    };
+
+    res.json({
+      success: true,
+      message: `Data profil untuk ${completeUser.username} berhasil diambil.`,
+      user: completeUser, // Kirim data yang sudah digabung
+    });
+  } catch (error) {
+    console.error("Error saat mengambil profil lengkap user:", error);
+    res.status(500).json({ success: false, message: "Server error saat mengambil profil." });
+  }
 });
 
 // PUT /user/profile

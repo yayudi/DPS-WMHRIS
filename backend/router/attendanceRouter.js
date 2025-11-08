@@ -4,6 +4,7 @@ import { canAccess } from "../middleware/permissionMiddleware.js";
 import { processAttendanceFile } from "../services/attendanceParser.js";
 import db from "../config/db.js";
 import path from "path";
+import { loadHolidays } from "../services/fileHelpers.js";
 
 const router = express.Router();
 
@@ -11,6 +12,7 @@ const JAM_KERJA_SELESAI = 960; // 16:00
 const JAM_KERJA_SELESAI_SABTU = 840; // 14:00
 const JAM_KERJA_MULAI = 480; // 08:00
 
+// Endpoint ini (GET /indexes) sudah benar dan tidak perlu diubah.
 router.get("/indexes", async (req, res) => {
   try {
     const query = `
@@ -19,12 +21,9 @@ router.get("/indexes", async (req, res) => {
             ORDER BY year DESC, month DESC
         `;
     const [rows] = await db.query(query);
-
     const indexes = {};
     for (const row of rows) {
-      if (!indexes[row.year]) {
-        indexes[row.year] = [];
-      }
+      if (!indexes[row.year]) indexes[row.year] = [];
       if (!indexes[row.year].includes(row.month)) {
         indexes[row.year].push(row.month);
       }
@@ -36,6 +35,7 @@ router.get("/indexes", async (req, res) => {
   }
 });
 
+// Endpoint upload (POST /upload) juga sudah benar dan tidak perlu diubah.
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "tmp/"),
   filename: (req, file, cb) => {
@@ -44,7 +44,6 @@ const storage = multer.diskStorage({
   },
 });
 const upload = multer({ storage: storage });
-
 router.post(
   "/upload",
   canAccess("manage-attendance"),
@@ -63,6 +62,8 @@ router.post(
   }
 );
 
+// --- ✅ VERSI BERSIH (CARA NO. 2) ---
+// Versi ini mengirim data SQL mentah (TANPA artefak 'u', 'i', 'd')
 router.get("/:year/:month", async (req, res) => {
   const year = parseInt(req.params.year);
   const month = parseInt(req.params.month);
@@ -74,8 +75,14 @@ router.get("/:year/:month", async (req, res) => {
   }
 
   try {
-    // --- PERBAIKAN: Tambahkan JOIN ke tabel 'users' untuk mendapatkan user.id ---
-    const query = `
+    // 1. Ambil data libur
+    const holidayMap = await loadHolidays(year);
+
+    // 2. Ambil *semua* user. Kita butuh ini nanti di frontend (normalize)
+    const [allUsers] = await db.query("SELECT id, username FROM users WHERE is_active = TRUE");
+
+    // 3. Ambil semua log absensi untuk bulan ini
+    const logQuery = `
             SELECT
                 al.id, al.username, u.id as user_id, al.date, al.check_in, al.check_out,
                 al.lateness_minutes, al.overtime_minutes,
@@ -86,67 +93,36 @@ router.get("/:year/:month", async (req, res) => {
             WHERE YEAR(al.date) = ? AND MONTH(al.date) = ?
             ORDER BY al.username, al.date, arl.log_time;
         `;
-    const [rows] = await db.query(query, [year, month]);
+    const [logRows] = await db.query(logQuery, [year, month]);
 
-    if (rows.length === 0) {
-      return res.json({ u: [], i: {} });
-    }
-
-    const usersData = {};
-    for (const row of rows) {
-      if (!usersData[row.username]) {
-        // --- PERBAIKAN: Sertakan 'i' (user_id) di dalam objek user ---
-        usersData[row.username] = { i: row.user_id, n: row.username, d: [] };
-      }
-
-      const dayOfMonth = new Date(row.date).getDate();
-      if (!usersData[row.username].d[dayOfMonth - 1]) {
-        usersData[row.username].d[dayOfMonth - 1] = {
-          d: dayOfMonth,
-          i: row.check_in,
-          o: row.check_out,
-          t: row.lateness_minutes,
-          e: row.overtime_minutes,
-          raw: [],
-        };
-      }
-
-      if (row.log_time) {
-        usersData[row.username].d[dayOfMonth - 1].raw.push({
-          time: row.log_time,
-          type: row.log_type,
-        });
-      }
-    }
-
-    const finalUsersArray = Object.values(usersData).map((user) => {
-      const completedDays = [];
-      const daysInMonth = new Date(year, month, 0).getDate();
-      for (let i = 1; i <= daysInMonth; i++) {
-        completedDays.push(user.d[i - 1] || i);
-      }
-      user.d = completedDays;
-      return user;
-    });
-
-    let totalIdealWorkMinutes = 0;
+    // 4. Hitung Info Global
+    let totalIdealWorkMinutes = 0,
+      hariKerja = 0,
+      hariLibur = 0;
     const daysInMonth = new Date(year, month, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month - 1, day);
-      const dayOfWeek = date.getDay();
-
-      if (dayOfWeek === 0) continue;
-
-      if (dayOfWeek === 6) {
-        totalIdealWorkMinutes += JAM_KERJA_SELESAI_SABTU - JAM_KERJA_MULAI;
-      } else {
-        totalIdealWorkMinutes += JAM_KERJA_SELESAI - JAM_KERJA_MULAI;
+      const dayOfWeek = new Date(year, month - 1, day).getDay();
+      const ymd = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      if (dayOfWeek === 0 || holidayMap[ymd]) {
+        hariLibur++;
+        continue;
       }
+      hariKerja++;
+      if (dayOfWeek === 6) totalIdealWorkMinutes += JAM_KERJA_SELESAI_SABTU - JAM_KERJA_MULAI;
+      else totalIdealWorkMinutes += JAM_KERJA_SELESAI - JAM_KERJA_MULAI;
     }
 
+    // 5. Kirim respons yang bersih (tanpa 'u', 'i', 'd')
     const responseJson = {
-      u: finalUsersArray,
-      i: { m: totalIdealWorkMinutes },
+      allUsers: allUsers, // Mengirim daftar semua user
+      logRows: logRows, // Mengirim data SQL mentah
+      globalInfo: {
+        // Mengirim info global
+        idealMinutes: totalIdealWorkMinutes,
+        workDays: hariKerja,
+        holidayDays: hariLibur,
+        holidayMap: holidayMap, // Kirim holidayMap ke frontend
+      },
     };
 
     res.json(responseJson);

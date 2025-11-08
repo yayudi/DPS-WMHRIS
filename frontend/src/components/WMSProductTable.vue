@@ -1,4 +1,3 @@
-<!-- frontend\src\components\WMSProductTable.vue -->
 <script setup>
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth.js'
@@ -24,8 +23,9 @@ const props = defineProps({
 const emit = defineEmits(['copy', 'openAdjust', 'openTransfer', 'sort', 'openHistory'])
 const auth = useAuthStore()
 
+// ✅ UBAH: Gunakan grid-cols-12 agar konsisten dengan WmsProductRow
 const gridClass = computed(() => {
-  return auth.canViewPrices ? 'grid-cols-8' : 'grid-cols-7'
+  return 'grid-cols-12'
 })
 
 function handleSort(column) {
@@ -46,7 +46,12 @@ function sortIcon(column) {
       class="grid p-3 bg-secondary/10 border-b-2 border-primary/50 text-xs font-bold text-text/60 uppercase tracking-wider"
       :class="gridClass"
     >
-      <div @click="handleSort('name')" class="col-span-3 cursor-pointer hover:text-primary">
+      <!-- ✅ UBAH: Sesuaikan col-span header agar sama persis dengan col-span di WmsProductRow.vue -->
+      <div
+        @click="handleSort('name')"
+        class="cursor-pointer hover:text-primary"
+        :class="[auth.canViewPrices ? 'col-span-5' : 'col-span-6']"
+      >
         Produk <font-awesome-icon :icon="sortIcon('name')" />
       </div>
       <div
@@ -62,7 +67,7 @@ function sortIcon(column) {
       >
         Harga <font-awesome-icon :icon="sortIcon('price')" />
       </div>
-      <div class="col-span-1 text-center">Lokasi</div>
+      <div class="col-span-3 text-center">Lokasi</div>
       <div class="col-span-1 text-center">Stok</div>
       <div class="col-span-1 text-center">Aksi</div>
     </div>

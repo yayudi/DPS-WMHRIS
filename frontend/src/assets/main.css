@@ -1,3 +1,4 @@
+@import './multiselect-theme.css';
 /*
   Definisi Variabel Warna untuk Setiap Tema
   HSL (Hue, Saturation, Lightness)
@@ -90,9 +91,9 @@
 /* Pantai (Summer Beach) */
 :root[data-theme='pantai'] {
   --color-text: 25 50 15; /* Coklat gelap (kayu basah) */
-  --color-background: 45 100 97; /* Pasir sangat terang/putih */
-  --color-primary: 165 60 45; /* Hijau toska (sea glass) */
-  --color-secondary: 195 60 90; /* Biru pucat (busa laut) */
+  --color-background: 45 100 96; /* Pasir sangat terang/putih */
+  --color-primary: 195 70 45; /* Biru pucat (busa laut) */
+  --color-secondary: 140 60 85; /* Hijau toska (sea glass) */
   --color-accent: 310 80 60; /* Merah muda tropis (bunga/senja) */
   --color-success: 130 60 45; /* Hijau palem */
   --color-warning: 35 90 60; /* Oranye hangat */

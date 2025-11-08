@@ -11,7 +11,7 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const [locations] = await db.query(
-      "SELECT id, code, building, floor, name FROM locations ORDER BY building, code"
+      "SELECT id, code, building, floor, name, purpose FROM locations ORDER BY building, code"
     );
     res.json({ success: true, data: locations });
   } catch (error) {
@@ -25,14 +25,16 @@ router.get("/", async (req, res) => {
  * Membuat lokasi baru. Hanya untuk admin dengan izin 'manage-locations'.
  */
 router.post("/", canAccess("manage-locations"), async (req, res) => {
-  const { code, building, floor, name } = req.body;
-  if (!code || !building) {
-    return res.status(400).json({ success: false, message: "Kode dan Gedung wajib diisi." });
+  const { code, building, floor, name, purpose } = req.body;
+  if (!code || !building || !purpose) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Kode, Gedung, dan Purpose wajib diisi." });
   }
   try {
     const [result] = await db.query(
-      "INSERT INTO locations (code, building, floor, name) VALUES (?, ?, ?, ?)",
-      [code, building, floor || null, name || null]
+      "INSERT INTO locations (code, building, floor, name, purpose) VALUES (?, ?, ?, ?, ?)", // Tambahkan purpose
+      [code, building, floor || null, name || null, purpose] // Tambahkan purpose
     );
     res
       .status(201)
@@ -52,14 +54,17 @@ router.post("/", canAccess("manage-locations"), async (req, res) => {
  */
 router.put("/:id", canAccess("manage-locations"), async (req, res) => {
   const { id } = req.params;
-  const { code, building, floor, name } = req.body;
-  if (!code || !building) {
-    return res.status(400).json({ success: false, message: "Kode dan Gedung wajib diisi." });
+  const { code, building, floor, name, purpose } = req.body; // Tambahkan purpose
+  if (!code || !building || !purpose) {
+    // Tambahkan validasi purpose
+    return res
+      .status(400)
+      .json({ success: false, message: "Kode, Gedung, dan Purpose wajib diisi." });
   }
   try {
     const [result] = await db.query(
-      "UPDATE locations SET code = ?, building = ?, floor = ?, name = ? WHERE id = ?",
-      [code, building, floor || null, name || null, id]
+      "UPDATE locations SET code = ?, building = ?, floor = ?, name = ?, purpose = ? WHERE id = ?", // Tambahkan purpose
+      [code, building, floor || null, name || null, purpose, id] // Tambahkan purpose
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: "Lokasi tidak ditemukan." });

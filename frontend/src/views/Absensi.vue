@@ -11,6 +11,7 @@ import Multiselect from 'vue-multiselect'
 import 'vue-multiselect/dist/vue-multiselect.css'
 import { useToast } from '@/composables/UseToast.js'
 import { getAbsensiData, getAvailableIndexes, uploadAbsensiFile } from '@/api/helpers/attendance.js'
+import { fetchAllUsers } from '@/api/helpers/admin.js'
 
 // --- STATE ---
 const authStore = useAuthStore()
@@ -27,8 +28,10 @@ const filterValues = ref({
   month: '',
   name: [],
 })
+const allUsersForFilter = ref([])
 const dataNotFoundForCurrentUser = ref(false)
 const isLoadingIndexes = ref(true)
+const isLoadingUsers = ref(false)
 const canViewAll = computed(() => authStore.user?.permissions?.includes('view-other-attendance'))
 
 const displayedUsers = computed(() => {
@@ -40,13 +43,10 @@ const displayedUsers = computed(() => {
 })
 
 // --- WATCHERS & LIFECYCLE ---
-// ✅ PERBAIKAN: Watch sekarang juga bergantung pada authStore.user
-// Ini memastikan watcher hanya berjalan saat semua data yang dibutuhkan (filter & user) sudah siap.
 watch(
   [() => filterValues.value.year, () => filterValues.value.month, () => authStore.user],
   async ([year, month, user]) => {
-    // Jangan jalankan jika filter atau data user belum siap
-    if (!year || !month || !authStore.isAuthenticated) return
+    if (!year || !month || !user) return
 
     dataNotFoundForCurrentUser.value = false
 
@@ -76,9 +76,9 @@ watch(
 
 // Watcher untuk mengambil indeks (filter tahun/bulan) HANYA SETELAH login berhasil
 watch(
-  () => authStore.isAuthenticated,
-  async (isAuth) => {
-    if (isAuth) {
+  () => authStore.user,
+  async (user) => {
+    if (user) {
       isLoadingIndexes.value = true
       try {
         const indexes = await getAvailableIndexes()
@@ -90,21 +90,26 @@ watch(
       } finally {
         isLoadingIndexes.value = false
       }
+
+      if (canViewAll.value) {
+        isLoadingUsers.value = true
+        try {
+          const usersList = await fetchAllUsers()
+          allUsersForFilter.value = usersList.map((u) => ({
+            label: u.nickname || u.username,
+            value: u.id,
+          }))
+        } catch (err) {
+          show('Gagal memuat daftar nama user untuk filter.', 'error')
+          console.error('Gagal mengambil daftar user:', err)
+        } finally {
+          isLoadingUsers.value = false
+        }
+      }
     }
   },
   { immediate: true },
-) // 'immediate' akan menjalankan watcher ini saat komponen dimuat
-
-// onMounted(async () => {
-//   try {
-//     const indexes = await getAvailableIndexes()
-//     availableIndexes.value = indexes
-//     initializeFilters(indexes)
-//   } catch (err) {
-//     show('Gagal memuat index data.', 'error')
-//     console.error('Gagal fetch list_index.json:', err)
-//   }
-// })
+)
 
 // --- METHODS ---
 function initializeFilters(indexes) {
@@ -146,6 +151,7 @@ function updateFilterOptions(years, months) {
 
 function clearFilters() {
   initializeFilters(availableIndexes.value)
+  filterValues.value.name = []
 }
 
 // --- UPLOAD ---
@@ -204,8 +210,10 @@ async function handleUpload(formData) {
       <div v-if="canViewAll" class="w-1/2">
         <Multiselect
           v-model="filterValues.name"
-          :options="users.map((u) => ({ label: u.nama, value: u.id }))"
+          :options="allUsersForFilter"
           :multiple="true"
+          :loading="isLoadingUsers"
+          :disabled="isLoadingUsers"
           label="label"
           track-by="value"
           placeholder="Pilih satu atau beberapa nama..."

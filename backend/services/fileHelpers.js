@@ -1,6 +1,7 @@
 // backend\services\fileHelpers.js
 import fs from "fs/promises";
 import path from "path";
+import db from "../config/db.js";
 
 const STATUS_A = 1;
 const STATUS_L = 2;
@@ -23,26 +24,21 @@ async function ensureDir(dirPath) {
 }
 
 export async function loadHolidays(tahun) {
-  const holidayFile = path.join(
-    process.cwd(),
-    "assets",
-    "json",
-    "absensi",
-    "holidays",
-    `${tahun}.json`
-  );
   const holidayMap = {};
   try {
-    const data = await fs.readFile(holidayFile, "utf8");
-    const dataLibur = JSON.parse(data);
-    for (const row of dataLibur) {
-      if (row.date && !row.name?.toLowerCase().includes("cuti bersama")) {
-        holidayMap[row.date] = true;
+    const [rows] = await db.query("SELECT date, name FROM holidays WHERE YEAR(date) = ?", [tahun]);
+
+    for (const row of rows) {
+      // Ubah objek Tanggal SQL menjadi string YYYY-MM-DD
+      const dateString = row.date.toISOString().split("T")[0];
+
+      // Terapkan logika yang sama (abaikan cuti bersama)
+      if (dateString && !row.name?.toLowerCase().includes("cuti bersama")) {
+        holidayMap[dateString] = true;
       }
     }
   } catch (error) {
-    if (error.code !== "ENOENT")
-      console.warn(`Gagal memuat file libur untuk tahun ${tahun}:`, error.message);
+    console.warn(`Gagal memuat data libur dari SQL untuk tahun ${tahun}:`, error.message);
   }
   return holidayMap;
 }

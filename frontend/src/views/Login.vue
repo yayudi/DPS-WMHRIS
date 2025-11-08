@@ -49,7 +49,7 @@ async function runTest() {
   isTestLoading.value = true
   testResult.value = 'Menghubungi backend...'
   try {
-    const response = await api.get('/test')
+    const response = await api.get('/api/test')
     testResult.value = JSON.stringify(response.data, null, 2)
   } catch (error) {
     console.error('Error saat tes koneksi:', error)

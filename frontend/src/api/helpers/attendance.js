@@ -1,13 +1,12 @@
+// frontend\src\api\helpers\attendance.js
 import axios from '../axios'
 import { normalizeLogs } from './normalize.js'
 
 /**
  * Mengambil daftar tahun dan bulan yang tersedia dari API backend.
- * Menggantikan pembacaan list_index.json
  */
 export async function getAvailableIndexes() {
   try {
-    // Panggil endpoint baru di backend
     const response = await axios.get('/attendance/indexes')
     return response.data
   } catch (error) {
@@ -18,19 +17,18 @@ export async function getAvailableIndexes() {
 
 /**
  * Mengambil data absensi bulanan dari API backend.
- * Menggantikan pembacaan file-file seperti 2025-06.json
  */
 export async function getAbsensiData(year, month) {
   try {
-    // Panggil endpoint baru dengan parameter tahun dan bulan
     const url = `/attendance/${year}/${month}`
     const { data: raw } = await axios.get(url)
+    // raw = { allUsers: [...], logRows: [...], globalInfo: {...} }
 
-    // Logika normalisasi tetap di sini untuk mengubah data dari API menjadi
-    // format yang siap digunakan oleh komponen Vue (DetailView, SummaryView, dll).
+    // ✅ PERUBAHAN: Kirim data yang sudah bersih ke normalizeLogs
+    //    Kita mem-pass parameter yang dibutuhkan oleh normalize.js
     return {
-      summary: raw.i,
-      users: normalizeLogs(raw),
+      summary: raw.globalInfo, // Kirim globalInfo langsung
+      users: normalizeLogs(raw.allUsers, raw.logRows, raw.globalInfo.holidayMap, year, month),
     }
   } catch (error) {
     console.error('Gagal mengambil data absensi dari API:', error)
@@ -39,7 +37,6 @@ export async function getAbsensiData(year, month) {
 }
 
 // --- FUNGSI-FUNGSI LAIN (TIDAK BERUBAH) ---
-
 export async function uploadAbsensiFile(formData) {
   try {
     const url = `/attendance/upload`
@@ -53,7 +50,6 @@ export async function uploadAbsensiFile(formData) {
   }
 }
 
-// Aturan denda dan fungsi helper lainnya tetap sama
 const aturanDenda = [
   [5, 0],
   [15, 10000],

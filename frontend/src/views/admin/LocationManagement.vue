@@ -1,3 +1,4 @@
+<!-- frontend\src\views\admin\LocationManagement.vue -->
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useToast } from '@/composables/UseToast.js'
@@ -11,6 +12,8 @@ import Modal from '@/components/Modal.vue'
 
 const { show } = useToast()
 
+const purposeOptions = ref(['WAREHOUSE', 'DISPLAY', 'BRANCH', 'RECEIVING', 'WORKSHOP', 'TRANSIT'])
+
 const allLocations = ref([])
 const loading = ref(true)
 const isModalOpen = ref(false)
@@ -21,6 +24,7 @@ const selectedLocation = ref({
   building: '',
   floor: null,
   name: '',
+  purpose: 'WAREHOUSE',
 })
 
 async function loadLocations() {
@@ -38,7 +42,14 @@ onMounted(loadLocations)
 
 function openCreateModal() {
   isEditing.value = false
-  selectedLocation.value = { id: null, code: '', building: '', floor: null, name: '' }
+  selectedLocation.value = {
+    id: null,
+    code: '',
+    building: '',
+    floor: null,
+    name: '',
+    purpose: 'WAREHOUSE', // Tambahkan purpose
+  }
   isModalOpen.value = true
 }
 
@@ -107,6 +118,7 @@ async function handleDelete(locationId) {
             <th class="px-6 py-3">Gedung</th>
             <th class="px-6 py-3">Lantai</th>
             <th class="px-6 py-3">Nama/Deskripsi</th>
+            <th class="px-6 py-3">Purpose</th>
             <th class="px-6 py-3 text-center">Aksi</th>
           </tr>
         </thead>
@@ -120,6 +132,7 @@ async function handleDelete(locationId) {
             <td class="px-6 py-4">{{ loc.building }}</td>
             <td class="px-6 py-4">{{ loc.floor || '-' }}</td>
             <td class="px-6 py-4 text-text/80">{{ loc.name || '-' }}</td>
+            <td class="px-6 py-4 font-mono text-xs">{{ loc.purpose || '-' }}</td>
             <td class="px-6 py-4 text-center space-x-4">
               <button
                 @click="openEditModal(loc)"
@@ -168,6 +181,14 @@ async function handleDelete(locationId) {
         />
       </div>
       <div>
+        <label class="block text-sm font-medium text-text/80 mb-1">Purpose</label>
+        <select v-model="selectedLocation.purpose" required class="w-full input-field">
+          <option v-for="opt in purposeOptions" :key="opt" :value="opt">
+            {{ opt }}
+          </option>
+        </select>
+      </div>
+      <div>
         <label class="block text-sm font-medium text-text/80 mb-1">Lantai (Opsional)</label>
         <input
           v-model.number="selectedLocation.floor"
@@ -193,7 +214,7 @@ async function handleDelete(locationId) {
   </Modal>
 </template>
 
-<style scoped>
+<style lang="postcss" scoped>
 .input-field {
   @apply w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-primary focus:border-primary;
 }

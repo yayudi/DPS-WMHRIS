@@ -10,7 +10,9 @@ const router = express.Router();
  */
 router.get("/", async (req, res) => {
   try {
-    const [roles] = await db.query("SELECT id, name FROM roles ORDER BY name");
+    const [roles] = await db.query(
+      "SELECT id, name, description FROM roles ORDER BY name" // Tambahkan description
+    );
     res.json({ success: true, data: roles });
   } catch (error) {
     console.error("Error saat mengambil data peran:", error);
@@ -25,7 +27,7 @@ router.get("/", async (req, res) => {
 router.get("/permissions", async (req, res) => {
   try {
     const [permissions] = await db.query(
-      "SELECT id, name, description FROM permissions ORDER BY name"
+      "SELECT id, name, description, `group` FROM permissions ORDER BY `group`, name" // Tambahkan `group` dan order by
     );
     res.json({ success: true, data: permissions });
   } catch (error) {
@@ -93,6 +95,85 @@ router.put("/:id/permissions", async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   } finally {
     if (connection) connection.release();
+  }
+});
+
+/**
+ * POST /api/roles
+ * Membuat peran baru.
+ */
+router.post("/", async (req, res) => {
+  const { name, description } = req.body;
+  if (!name) {
+    return res.status(400).json({ success: false, message: "Nama peran wajib diisi." });
+  }
+  try {
+    const [result] = await db.query("INSERT INTO roles (name, description) VALUES (?, ?)", [
+      name,
+      description || null,
+    ]);
+    res
+      .status(201)
+      .json({ success: true, message: "Peran berhasil dibuat.", roleId: result.insertId });
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ success: false, message: "Nama peran sudah ada." });
+    }
+    console.error("Error saat membuat peran:", error);
+    res.status(500).json({ success: false, message: "Gagal membuat peran." });
+  }
+});
+
+/**
+ * PUT /api/roles/:id
+ * Mengedit nama/deskripsi peran.
+ */
+router.put("/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, description } = req.body;
+  if (!name) {
+    return res.status(400).json({ success: false, message: "Nama peran wajib diisi." });
+  }
+  try {
+    const [result] = await db.query("UPDATE roles SET name = ?, description = ? WHERE id = ?", [
+      name,
+      description || null,
+      id,
+    ]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Peran tidak ditemukan." });
+    }
+    res.json({ success: true, message: "Peran berhasil diperbarui." });
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ success: false, message: "Nama peran sudah digunakan." });
+    }
+    console.error("Error saat mengedit peran:", error);
+    res.status(500).json({ success: false, message: "Gagal mengedit peran." });
+  }
+});
+
+/**
+ * DELETE /api/roles/:id
+ * Menghapus peran.
+ */
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [result] = await db.query("DELETE FROM roles WHERE id = ?", [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Peran tidak ditemukan." });
+    }
+    res.json({ success: true, message: "Peran berhasil dihapus." });
+  } catch (error) {
+    if (error.code === "ER_ROW_IS_REFERENCED_2") {
+      return res.status(400).json({
+        success: false,
+        message: "Gagal menghapus: Peran ini masih digunakan oleh satu atau lebih pengguna.",
+      });
+    }
+    console.error("Error saat menghapus peran:", error);
+    res.status(500).json({ success: false, message: "Gagal menghapus peran." });
   }
 });
 

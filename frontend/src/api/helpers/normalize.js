@@ -10,90 +10,142 @@ function timeToMinutes(timeStr) {
 }
 
 /**
- * Memproses data mentah dari API SQL menjadi format terstruktur yang siap digunakan oleh komponen Vue.
- * @param {object} raw - Objek data mentah dari API.
+ * ✅ REFACTOR BESAR:
+ * Memproses data mentah dari API SQL (bukan JSON padat) menjadi format
+ * yang siap digunakan oleh komponen Vue.
+ *
+ * @param {Array} allUsers - Array user dari tabel `users` (misal: {id, username})
+ * @param {Array} logRows - Array log mentah dari `attendance_logs` JOIN `attendance_raw_logs`
+ * @param {object} holidayMap - Peta hari libur (misal: {'2025-12-25': true})
+ * @param {number} year - Tahun yang sedang dilihat
+ * @param {number} month - Bulan yang sedang dilihat (1-12)
  * @returns {Array} - Array pengguna dengan data log yang sudah dinormalisasi.
  */
-export function normalizeLogs(raw) {
-  if (!raw || !Array.isArray(raw.u)) {
-    console.warn("normalizeLogs: data mentah tidak valid atau properti 'u' tidak ditemukan.")
+export function normalizeLogs(allUsers, logRows, holidayMap, year, month) {
+  // Verifikasi input yang diterima dari attendance.js
+  if (!allUsers || !Array.isArray(allUsers)) {
+    console.warn("normalizeLogs: data 'allUsers' tidak lengkap atau bukan array.", allUsers)
+    return []
+  }
+  if (!logRows || !Array.isArray(logRows)) {
+    console.warn("normalizeLogs: data 'logRows' tidak lengkap atau bukan array.", logRows)
+    // Ini BUKAN error, bisa jadi bulan itu kosong. Lanjut saja.
+  }
+  if (!holidayMap || typeof holidayMap !== 'object') {
+    console.warn("normalizeLogs: data 'holidayMap' tidak lengkap atau bukan objek.", holidayMap)
     return []
   }
 
-  const { u: users } = raw
+  const daysInMonth = new Date(year, month, 0).getDate()
 
-  return users.map((user) => {
-    const days = Array.isArray(user.d) ? user.d : []
+  // 1. Proses data mentah SQL (logRows) ke dalam struktur Map untuk pencarian cepat
+  //    Struktur: Map<user_id, Map<day_of_month, { ...data_log... }>>
+  const userLogMap = new Map()
+  for (const row of logRows) {
+    if (!userLogMap.has(row.user_id)) {
+      userLogMap.set(row.user_id, new Map())
+    }
+    const dayMap = userLogMap.get(row.user_id)
+    const dayOfMonth = new Date(row.date).getDate() // Ambil tanggal dari data SQL
 
-    const logs = days.map((info, idx) => {
-      const tanggal = idx + 1
+    if (!dayMap.has(dayOfMonth)) {
+      // Buat objek hari berdasarkan data SQL
+      dayMap.set(dayOfMonth, {
+        jamMasuk: timeToMinutes(row.check_in),
+        jamKeluar: timeToMinutes(row.check_out),
+        breaks: [], // Akan diisi di loop 'raw'
+        status: 0, // Default 0 (Hadir)
+        holiday: false, // Akan dicek nanti
+        isEmpty: false, // Jelas tidak kosong
+        lateness: row.lateness_minutes || 0,
+        overtime: row.overtime_minutes || 0,
+        rawLogs: [], // Untuk menyimpan log mentah (break, dll)
+      })
+    }
 
-      // KASUS 1: Hari libur atau absen (direpresentasikan sebagai angka)
-      if (typeof info === 'number') {
-        return {
-          tanggal,
+    // Tambahkan log mentah (break-in/out) jika ada
+    if (row.log_time) {
+      dayMap.get(dayOfMonth).rawLogs.push({
+        time: row.log_time,
+        type: row.log_type,
+      })
+    }
+  }
+
+  // 2. Loop melalui 'allUsers' (dari tabel users) untuk membangun hasil akhir
+  return allUsers.map((user) => {
+    const userDays = userLogMap.get(user.id) // Ambil data log yang sudah di-grup
+    const logs = [] // Ini akan menjadi array 'logs' (dulu 'user.d')
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const logData = userDays ? userDays.get(day) : undefined
+
+      if (logData) {
+        // KASUS 1: ADA LOG (User masuk di hari ini)
+
+        // Proses 'breaks' dari 'rawLogs'
+        const breaks = []
+        for (let i = 0; i < logData.rawLogs.length - 1; i++) {
+          const currentLog = logData.rawLogs[i]
+          const nextLog = logData.rawLogs[i + 1]
+          if (currentLog.type === 'break-in' && nextLog.type === 'break-out') {
+            const startTime = timeToMinutes(currentLog.time)
+            const endTime = timeToMinutes(nextLog.time)
+            if (startTime !== null && endTime !== null && endTime > startTime) {
+              breaks.push({
+                start: startTime,
+                end: endTime,
+                duration: endTime - startTime,
+              })
+              i++ // Lewati log berikutnya
+            }
+          }
+        }
+
+        // Tentukan status akhir
+        let status = 1 // 1 (Absen)
+        if (logData.jamMasuk && logData.jamKeluar)
+          status = 0 // 0 (Hadir)
+        else if (logData.jamMasuk || logData.jamKeluar) status = 3 // 3 (Tidak Lengkap)
+
+        logs.push({
+          tanggal: day,
+          jamMasuk: logData.jamMasuk,
+          jamKeluar: logData.jamKeluar,
+          breaks: breaks,
+          status: status,
+          holiday: false, // Jika ada log, kita asumsikan BUKAN hari libur (meski dia lembur)
+          isEmpty: false,
+          lateness: logData.lateness,
+          overtime: logData.overtime,
+        })
+      } else {
+        // KASUS 2: TIDAK ADA LOG (User tidak masuk)
+        const ymd = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+        const dayOfWeek = new Date(year, month - 1, day).getDay()
+        const isHoliday = dayOfWeek === 0 || holidayMap[ymd]
+
+        logs.push({
+          tanggal: day,
           jamMasuk: null,
           jamKeluar: null,
           breaks: [],
-          status: info, // 1 for absen, 2 for libur
-          holiday: info === 2,
+          status: isHoliday ? 2 : 1, // 2 (Libur) atau 1 (Absen)
+          holiday: isHoliday,
           isEmpty: true,
           lateness: 0,
           overtime: 0,
-        }
+        })
       }
+    }
 
-      // KASUS 2: Ada data absensi (direpresentasikan sebagai objek)
-      const jamMasuk = timeToMinutes(info.i)
-      const jamKeluar = timeToMinutes(info.o)
-      const rawLogs = info.raw || []
-      const breaks = []
-
-      // Proses log mentah untuk menemukan waktu istirahat
-      for (let i = 0; i < rawLogs.length - 1; i++) {
-        const currentLog = rawLogs[i]
-        const nextLog = rawLogs[i + 1]
-
-        if (currentLog.type === 'break-in' && nextLog.type === 'break-out') {
-          const startTime = timeToMinutes(currentLog.time)
-          const endTime = timeToMinutes(nextLog.time)
-          if (startTime !== null && endTime !== null && endTime > startTime) {
-            breaks.push({
-              start: startTime,
-              end: endTime,
-              duration: endTime - startTime,
-            })
-            i++ // Lewati log berikutnya karena sudah dipasangkan
-          }
-        }
-      }
-
-      // Tentukan status berdasarkan data yang ada
-      let status = 1 // Default: Absen
-      if (jamMasuk && jamKeluar) {
-        status = 0 // Hadir
-      } else if (jamMasuk || jamKeluar) {
-        status = 3 // Tidak Lengkap
-      }
-
-      return {
-        tanggal,
-        jamMasuk,
-        jamKeluar,
-        breaks,
-        status,
-        holiday: false, // API saat ini tidak mengirim info hari libur, jadi default-nya false
-        isEmpty: !jamMasuk && !jamKeluar,
-        lateness: info.t || 0, // Ambil data keterlambatan dari API
-        overtime: info.e || 0, // Ambil data lembur dari API
-      }
-    })
-
+    // Kembalikan format yang diharapkan oleh 'summary.js'
     return {
-      id: user.i, // ID pengguna dari database
-      nama: user.n,
-      logs,
-      // Properti lain yang mungkin dibutuhkan oleh komponen lama
+      id: user.id,
+      nama: user.username,
+      logs: logs, // Array harian yang sudah lengkap
+
+      // Properti dummy (jika masih dibutuhkan oleh bagian lain)
       year: null,
       month: null,
       raw: { summary: [] },

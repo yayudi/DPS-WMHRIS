@@ -7,7 +7,7 @@ import api from '../api/axios' // Impor instance axios terpusat
 
 export const useAuthStore = defineStore('auth', () => {
   // --- STATE ---
-  const token = ref(localStorage.getItem('authToken') || null)
+  const token = ref(localStorage.getItem('token') || null)
   const user = ref(JSON.parse(localStorage.getItem('authUser')) || null)
 
   // --- GETTERS (Computed Properties) ---
@@ -26,14 +26,14 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function login(credentials) {
     try {
-      const response = await api.post('/auth/login', credentials)
+      const response = await api.post('/api/auth/login', credentials)
       if (response.data.success && response.data.token) {
-        const { token: authToken, user: userData } = response.data
+        const { token: token, user: userData } = response.data
 
         // Simpan ke state dan localStorage
-        token.value = authToken
+        token.value = token
         user.value = userData
-        localStorage.setItem('authToken', authToken)
+        localStorage.setItem('token', token)
         localStorage.setItem('authUser', JSON.stringify(userData))
 
         // Arahkan ke halaman utama setelah login berhasil
@@ -53,7 +53,7 @@ export const useAuthStore = defineStore('auth', () => {
   function logout() {
     token.value = null
     user.value = null
-    localStorage.removeItem('authToken')
+    localStorage.removeItem('token')
     localStorage.removeItem('authUser')
     router.push({ name: 'Login' })
   }
@@ -63,7 +63,7 @@ export const useAuthStore = defineStore('auth', () => {
    * Ini penting untuk menjaga state saat halaman di-refresh.
    */
   function fetchUser() {
-    const storedToken = localStorage.getItem('authToken')
+    const storedToken = localStorage.getItem('token')
     if (storedToken) {
       try {
         // Dekode token untuk mendapatkan payload (data user)

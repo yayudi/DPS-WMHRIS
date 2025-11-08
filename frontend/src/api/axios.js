@@ -1,8 +1,7 @@
-// api/axios.js
 import axios from 'axios'
 
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL, // Ini akan menjadi 'http://localhost:3000/'
+  baseURL: import.meta.env.VITE_API_BASE_URL, // Ini akan menjadi 'http://localhost:3000/api'
 })
 
 /**
@@ -11,8 +10,7 @@ const instance = axios.create({
  */
 instance.interceptors.request.use(
   (config) => {
-    // Ambil token dari localStorage atau Pinia store
-    const token = localStorage.getItem('authToken') // Sesuaikan dengan cara Anda menyimpan token
+    const token = localStorage.getItem('token')
     if (token) {
       // Jika token ada, tambahkan ke header Authorization
       config.headers['Authorization'] = `Bearer ${token}`
@@ -25,4 +23,6 @@ instance.interceptors.request.use(
   },
 )
 
+// ✅ PERBAIKAN: Pastikan Anda memiliki 'export default' ini.
+// Inilah yang menyebabkan error 'doesn't provide an export named: 'default''.
 export default instance

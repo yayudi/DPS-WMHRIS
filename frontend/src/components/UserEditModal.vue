@@ -1,3 +1,4 @@
+<!-- frontend\src\components\UserEditModal.vue -->
 <script setup>
 import { ref, watch } from 'vue'
 import { useToast } from '@/composables/UseToast.js'
@@ -11,7 +12,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'updated'])
-const { show: showToast } = useToast()
+const { show } = useToast()
 
 const editableUser = ref({})
 const isLoading = ref(false)
@@ -29,6 +30,7 @@ watch(
       }
     }
   },
+  { immediate: true },
 )
 
 async function handleSave() {
@@ -47,7 +49,7 @@ async function handleSave() {
 </script>
 
 <template>
-  <Modal :show="show" @close="emit('close')" :title="`Edit Pengguna: ${user?.username}`">
+  <Modal :show="props.show" @close="emit('close')" :title="`Edit Pengguna: ${user?.username}`">
     <div v-if="user" class="p-6 space-y-4">
       <div>
         <label class="block text-sm font-medium text-text/80 mb-1">Username</label>
@@ -82,7 +84,7 @@ async function handleSave() {
   </Modal>
 </template>
 
-<style scoped>
+<style lang="postcss" scoped>
 .input-field {
   @apply w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-primary focus:border-primary;
 }

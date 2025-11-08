@@ -1,237 +1,257 @@
 // backend\services\pickingService.js
-import db from "../config/db.js"; // Impor db jika perlu query mandiri (tapi sebaiknya connection dari router)
+import db from "../config/db.js"; // Impor db jika perlu query mandiri
 
 /**
- * Memvalidasi ketersediaan stok untuk semua item dalam picking list.
- * Melemparkan error jika stok tidak mencukupi.
+ * ✅ REFAKTOR FASE 3 (MULTI-LOKASI):
+ * Logika ini sekarang DISEDERHANAKAN.
+ * 'items' adalah payload "datar" (flat) yang HANYA berisi SKU single
+ * atau SKU komponen. Logika 'if (isPackage)' DIHAPUS.
+ *
  * @param {object} connection - Koneksi database yang aktif (dalam transaksi).
- * @param {Array<object>} items - Array item dari req.body ({ sku, qty }).
- * @param {number} fromLocationId - ID lokasi sumber pengambilan.
- * @throws {Error} Jika stok tidak cukup atau SKU tidak ditemukan.
- */
-export const validatePickingListItems = async (connection, items, fromLocationId) => {
-  console.log("--- [Service] Memulai Validasi Stok ---");
-  for (const item of items) {
-    const [productRows] = await connection.query(
-      "SELECT id, sku, is_package, name FROM products WHERE sku = ?",
-      [item.sku]
-    );
-    if (productRows.length === 0) {
-      throw new Error(`[Validasi] SKU '${item.sku}' tidak ditemukan.`);
-    }
-    const product = productRows[0];
-    const productId = product.id;
-    const isPackage = product.is_package;
-    const quantityToPick = item.qty;
-
-    if (isPackage) {
-      console.log(`📦 [Validasi] PAKET SKU ${item.sku}...`);
-      const [components] = await connection.query(
-        `SELECT pc.component_product_id, pc.quantity_per_package, p_comp.sku as component_sku, p_comp.name as component_name
-         FROM package_components pc
-         JOIN products p_comp ON pc.component_product_id = p_comp.id
-         WHERE pc.package_product_id = ?`,
-        [productId]
-      );
-      if (components.length === 0) {
-        console.warn(`⚠️ [Validasi] Paket SKU ${item.sku} tidak memiliki komponen. Dilewati.`);
-        continue; // Atau throw error jika paket tanpa komponen tidak valid
-      }
-
-      for (const component of components) {
-        const componentId = component.component_product_id;
-        const componentQtyNeeded = quantityToPick * component.quantity_per_package;
-        const [stockRows] = await connection.query(
-          "SELECT quantity FROM stock_locations WHERE product_id = ? AND location_id = ? FOR UPDATE",
-          [componentId, fromLocationId]
-        );
-        const currentStock = stockRows[0]?.quantity || 0;
-        console.log(
-          `  [Validasi] Komponen: ${component.component_sku}, Stok: ${currentStock}, Butuh: ${componentQtyNeeded}`
-        );
-        if (currentStock < componentQtyNeeded) {
-          throw new Error(
-            `Stok tidak cukup untuk komponen '${component.component_sku}' dari paket '${item.sku}'. Stok: ${currentStock}, Butuh: ${componentQtyNeeded}`
-          );
-        }
-      }
-    } else {
-      console.log(`🧱 [Validasi] SINGLE SKU ${item.sku}...`);
-      const [stockRows] = await connection.query(
-        "SELECT quantity FROM stock_locations WHERE product_id = ? AND location_id = ? FOR UPDATE",
-        [productId, fromLocationId]
-      );
-      const currentStock = stockRows[0]?.quantity || 0;
-      console.log(
-        `  [Validasi] Single: ${item.sku}, Stok: ${currentStock}, Butuh: ${quantityToPick}`
-      );
-      if (currentStock < quantityToPick) {
-        throw new Error(
-          `Stok tidak cukup untuk produk '${item.sku}'. Stok: ${currentStock}, Butuh: ${quantityToPick}`
-        );
-      }
-    }
-  }
-  console.log("--- [Service] Validasi Stok Selesai ---");
-};
-
-/**
- * Memproses pengurangan stok untuk item picking list yang sudah divalidasi.
- * @param {object} connection - Koneksi database yang aktif (dalam transaksi).
- * @param {Array<object>} items - Array item dari req.body ({ sku, qty }).
- * @param {number} fromLocationId - ID lokasi sumber pengambilan.
+ * @param {Array<object>} items - Array item "datar" ({ sku, qty, fromLocationId }).
  * @param {number} userId - ID pengguna yang melakukan aksi.
  * @param {number} pickingListId - ID picking list yang sedang diproses.
  * @returns {Set<number>} Set berisi ID produk yang stoknya terpengaruh.
  */
-export const processPickingListConfirmation = async (
-  connection,
-  items,
-  fromLocationId,
-  userId,
-  pickingListId
-) => {
-  console.log("--- [Service] Memulai Pengurangan Stok ---");
+export const processPickingListConfirmation = async (connection, items, userId, pickingListId) => {
+  console.log("--- [Service Fase 3] Memulai Pengurangan Stok (Datar & Patuh) ---");
   const affectedProductIds = new Set();
 
+  const [listRows] = await connection.query(
+    "SELECT original_filename FROM picking_lists WHERE id = ?",
+    [pickingListId]
+  );
+  console.log(
+    `[Service Debug] Mencari filename untuk ID ${pickingListId}. Hasil query:`,
+    listRows[0]?.original_filename
+  );
+  const filenameForNote = listRows[0]?.original_filename || `#${pickingListId}`;
+  console.log(`[Service Debug] Filename akhir yang digunakan:`, filenameForNote);
   for (const item of items) {
-    // Ambil info produk lagi
-    const [productRows] = await connection.query(
-      "SELECT id, is_package FROM products WHERE sku = ?",
-      [item.sku]
-    );
-    const product = productRows[0]; // Kita tahu produknya ada dari validasi
-    const productId = product.id;
-    const isPackage = product.is_package;
-    const quantityToPick = item.qty;
-    const movementNote = `Sale from picking list #${pickingListId} (SKU: ${item.sku})`;
-
-    if (isPackage) {
-      console.log(`📦 [Proses] Mengurangi komponen PAKET SKU ${item.sku}...`);
-      const [components] = await connection.query(
-        `SELECT component_product_id, quantity_per_package
-         FROM package_components
-         WHERE package_product_id = ?`,
-        [productId]
+    const { sku, qty, fromLocationId, invoiceNos, customerNames } = item;
+    console.group();
+    console.log();
+    console.log(sku);
+    console.log(qty);
+    console.log(fromLocationId);
+    console.log(invoiceNos);
+    console.log(customerNames);
+    console.groupEnd();
+    // Validasi payload (wajib ada)
+    if (!fromLocationId) {
+      throw new Error(
+        `[Service] Lokasi pengambilan (fromLocationId) tidak ditentukan untuk SKU: ${sku}.`
       );
-
-      for (const component of components) {
-        const componentId = component.component_product_id;
-        const componentQtyNeeded = quantityToPick * component.quantity_per_package;
-        console.log(`  -> [Proses] Komponen ID ${componentId}, Jumlah: ${componentQtyNeeded}`);
-
-        // Kurangi stok komponen
-        await connection.query(
-          "UPDATE stock_locations SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?",
-          [componentQtyNeeded, componentId, fromLocationId]
-        );
-
-        // Catat pergerakan
-        await connection.query(
-          "INSERT INTO stock_movements (product_id, quantity, from_location_id, movement_type, user_id, notes) VALUES (?, ?, ?, ?, ?, ?)",
-          [componentId, componentQtyNeeded, fromLocationId, "SALE_COMPONENT", userId, movementNote]
-        );
-        affectedProductIds.add(componentId);
-      }
-    } else {
-      console.log(`🧱 [Proses] Mengurangi SINGLE SKU ${item.sku}...`);
-      // Kurangi stok single
-      await connection.query(
-        "UPDATE stock_locations SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?",
-        [quantityToPick, productId, fromLocationId]
-      );
-      // Catat pergerakan
-      await connection.query(
-        "INSERT INTO stock_movements (product_id, quantity, from_location_id, movement_type, user_id, notes) VALUES (?, ?, ?, ?, ?, ?)",
-        [productId, quantityToPick, fromLocationId, "SALE", userId, movementNote]
-      );
-      affectedProductIds.add(productId);
     }
+    if (!sku || !qty) {
+      throw new Error(`[Service] Data item tidak lengkap (SKU/Qty kosong).`);
+    }
+
+    // 1. Dapatkan product_id dari SKU.
+    const [productRows] = await connection.query("SELECT id, name FROM products WHERE sku = ?", [
+      sku,
+    ]);
+    if (productRows.length === 0) {
+      throw new Error(`[Validasi Service] SKU '${sku}' tidak ditemukan.`);
+    }
+    const product = productRows[0];
+    const productId = product.id;
+
+    // const [itemRow] = await connection.query(
+    //   "SELECT id FROM picking_list_items WHERE picking_list_id = ? AND product_id = ?",
+    //   [pickingListId, productId]
+    // );
+    // if (itemRow.length === 0) {
+    //   throw new Error(
+    //     `[Service] Baris item tidak ditemukan di picking_list_items untuk SKU: ${sku}.`
+    //   );
+    // }
+    // const pickingListItemId = itemRow[0].id;
+
+    let pickingListItemId = null;
+    let isNewListStructure = false; // Flag untuk melacak versi list
+
+    // 1. Coba cari baris item (Struktur BARU, flat payload)
+    let [itemRow] = await connection.query(
+      "SELECT id FROM picking_list_items WHERE picking_list_id = ? AND product_id = ?",
+      [pickingListId, productId] // (misal: 417, 325)
+    );
+
+    if (itemRow.length > 0) {
+      // --- LOGIKA LIST BARU (BENAR) ---
+      pickingListItemId = itemRow[0].id;
+      isNewListStructure = true;
+    } else {
+      // --- FALLBACK LOGIC (List Lama) ---
+      console.warn(
+        `[Fallback] SKU ${sku} (ID ${productId}) tidak ditemukan. Mencoba mencari data Paket...`
+      );
+
+      // A. Cari semua Paket Induk untuk komponen ini
+      const [parentPackageRows] = await connection.query(
+        `SELECT package_product_id
+          FROM package_components
+          WHERE component_product_id = ?`,
+        [productId] // (misal: 325)
+      );
+
+      if (parentPackageRows.length > 0) {
+        const parentPackageIds = parentPackageRows.map((p) => p.package_product_id); // (misal: [289])
+
+        // B. Cek apakah salah satu Paket Induk itu ada di picking_list_items
+        [itemRow] = await connection.query(
+          `SELECT id FROM picking_list_items
+					  WHERE picking_list_id = ? AND product_id IN (?)`,
+          [pickingListId, parentPackageIds] // (misal: 417, [289])
+        );
+      }
+      // Jika itemRow masih kosong (fallback gagal), lempar error
+      if (itemRow.length === 0) {
+        throw new Error(
+          `[Service] Baris item (SKU: ${sku}) tidak ditemukan di list ${pickingListId}. (Sudah Cek Fallback)`
+        );
+      }
+    }
+
+    // 2. Kunci baris stok & Validasi (Ini adalah logika 'else' yg lama)
+    console.log(`🧱 [Proses] Mengurangi SKU ${sku} dari Lokasi ${fromLocationId}...`);
+
+    const [stockRows] = await connection.query(
+      "SELECT quantity FROM stock_locations WHERE product_id = ? AND location_id = ? FOR UPDATE",
+      [productId, fromLocationId]
+    );
+    const currentStock = stockRows[0]?.quantity || 0;
+
+    if (currentStock < qty) {
+      throw new Error(
+        `Stok tidak cukup untuk produk '${sku}' di lokasi ${fromLocationId}. Stok: ${currentStock}, Butuh: ${qty}`
+      );
+    }
+
+    // 3. Kurangi stok
+    await connection.query(
+      "UPDATE stock_locations SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?",
+      [qty, productId, fromLocationId]
+    );
+
+    // await connection.query("UPDATE picking_list_items SET confirmed_location_id = ? WHERE id = ?", [
+    //   fromLocationId,
+    //   pickingListItemId,
+    // ]);
+
+    // 3. Update 'picking_list_items' HANYA JIKA INI STRUKTUR BARU
+    if (isNewListStructure) {
+      await connection.query(
+        "UPDATE picking_list_items SET confirmed_location_id = ? WHERE id = ?",
+        [
+          fromLocationId,
+          pickingListItemId, // ID dari baris komponen
+        ]
+      );
+    } else {
+      console.warn(
+        `[Fallback] Melewatkan update confirmed_location_id untuk SKU ${sku} (List Lama).`
+      );
+    }
+
+    // 4. Catat pergerakan
+    const invoiceNote =
+      invoiceNos && invoiceNos.length > 0 ? `(Inv: ${invoiceNos.join(", ")})` : "";
+    const customerNote =
+      customerNames && customerNames.length > 0 ? `(Cust: ${customerNames.join(", ")})` : "";
+    const movementNote = `Sale from picking list ${filenameForNote} (SKU: ${sku}) ${invoiceNote} - ${customerNote}`;
+    await connection.query(
+      "INSERT INTO stock_movements (product_id, quantity, from_location_id, movement_type, user_id, notes) VALUES (?, ?, ?, ?, ?, ?)",
+      [productId, qty, fromLocationId, "SALE", userId, movementNote]
+    );
+
+    affectedProductIds.add(productId);
   }
-  console.log("--- [Service] Pengurangan Stok Selesai ---");
+
+  console.log("--- [Service Fase 3] Pengurangan Stok Selesai ---");
   return affectedProductIds;
 };
 
 /**
- * Memproses pengembalian stok (void) untuk item picking list.
+ * ✅ REFAKTOR FASE 3 (MULTI-LOKASI):
+ * Logika void disederhanakan untuk HANYA mencari movement_type = 'SALE'
+ * karena 'SALE_COMPONENT' tidak lagi dibuat.
+ *
  * @param {object} connection - Koneksi database yang aktif (dalam transaksi).
  * @param {number} pickingListId - ID picking list yang akan dibatalkan.
- * @param {number} locationId - ID lokasi tujuan pengembalian stok (misal Lokasi Display).
  * @param {number} userId - ID pengguna yang melakukan aksi.
  * @returns {Set<number>} Set berisi ID produk yang stoknya terpengaruh.
  */
-export const processPickingListVoid = async (connection, pickingListId, locationId, userId) => {
-  console.log("--- [Service] Memulai Pengembalian Stok (Void) ---");
+export const processPickingListVoid = async (connection, pickingListId, userId) => {
+  console.log("--- [Service Fase 3] Memulai Pengembalian Stok (Void) ---");
   const affectedProductIdsVoid = new Set();
 
-  // Ambil item asli dari picking list
-  const [itemsToVoid] = await connection.query(
-    `SELECT pli.product_id, pli.quantity, p.is_package, pli.original_sku
-     FROM picking_list_items pli
-     JOIN products p ON pli.product_id = p.id
-     WHERE pli.picking_list_id = ?`,
+  const [listRows] = await connection.query(
+    "SELECT original_filename FROM picking_lists WHERE id = ?",
     [pickingListId]
   );
+  const filenameForNote = listRows[0]?.original_filename || `#${pickingListId}`;
 
-  if (itemsToVoid.length === 0) {
-    console.warn(`⚠️ [Void] Tidak ada item ditemukan untuk picking list ID ${pickingListId}.`);
-    return affectedProductIdsVoid; // Kembalikan set kosong
+  // 1. Ambil SEMUA pergerakan stok 'SALE' yang terkait
+  // ✅ PERUBAHAN: 'SALE_COMPONENT' dihapus dari klausa IN()
+  const [movements] = await connection.query(
+    `SELECT product_id, quantity, from_location_id
+      FROM stock_movements
+      WHERE movement_type = 'SALE'
+       AND notes LIKE ?`, // Cari berdasarkan catatan
+    [`Sale from picking list ${filenameForNote}%`]
+  );
+
+  if (movements.length === 0) {
+    console.warn(
+      `⚠️ [Void] Tidak ada pergerakan 'SALE' ditemukan untuk picking list ID ${pickingListId}.`
+    );
+    return affectedProductIdsVoid;
   }
 
-  for (const item of itemsToVoid) {
-    const productId = item.product_id;
-    const quantityToReturn = item.quantity;
-    const isPackage = item.is_package;
-    const originalSku = item.original_sku;
-    const voidNote = `Void sale from picking list #${pickingListId} (SKU: ${originalSku})`;
+  // Sisa logika (dari baris 160 dst) 100% SAMA dan sudah benar
+  for (const move of movements) {
+    const productId = move.product_id;
+    const qtyToReturn = move.quantity;
+    const returnToLocationId = move.from_location_id;
+    const voidNote = `Void Sale from picking list pilsener ${filenameForNote}`;
 
-    if (isPackage) {
-      console.log(`📦 [Void] PAKET SKU ${originalSku}...`);
-      const [components] = await connection.query(
-        `SELECT component_product_id, quantity_per_package
-         FROM package_components
-         WHERE package_product_id = ?`,
-        [productId]
+    if (!returnToLocationId) {
+      console.error(
+        `❌ [Void] Gagal mengembalikan ${qtyToReturn} stok untuk Product ID ${productId}, 'from_location_id' adalah NULL.`
       );
-
-      for (const component of components) {
-        const componentId = component.component_product_id;
-        const componentQtyToReturn = quantityToReturn * component.quantity_per_package;
-        console.log(`  -> [Void] Komponen ID ${componentId}, Jumlah: ${componentQtyToReturn}`);
-
-        // Tambah stok komponen
-        await connection.query(
-          "INSERT INTO stock_locations (product_id, location_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity + ?",
-          [componentId, locationId, componentQtyToReturn, componentQtyToReturn]
-        );
-        // Catat pergerakan
-        await connection.query(
-          "INSERT INTO stock_movements (product_id, quantity, to_location_id, movement_type, user_id, notes) VALUES (?, ?, ?, ?, ?, ?)",
-          [componentId, componentQtyToReturn, locationId, "VOID_SALE_COMPONENT", userId, voidNote]
-        );
-        affectedProductIdsVoid.add(componentId);
-      }
-    } else {
-      console.log(`🧱 [Void] SINGLE SKU ${originalSku}...`);
-      // Tambah stok single
-      await connection.query(
-        "INSERT INTO stock_locations (product_id, location_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity + ?",
-        [productId, locationId, quantityToReturn, quantityToReturn]
-      );
-      // Catat pergerakan
-      await connection.query(
-        "INSERT INTO stock_movements (product_id, quantity, to_location_id, movement_type, user_id, notes) VALUES (?, ?, ?, ?, ?, ?)",
-        [productId, quantityToReturn, locationId, "VOID_SALE", userId, voidNote]
-      );
-      affectedProductIdsVoid.add(productId);
+      continue;
     }
+
+    // Kunci baris sebelum mengembalikan
+    await connection.query(
+      "SELECT quantity FROM stock_locations WHERE product_id = ? AND location_id = ? FOR UPDATE",
+      [productId, returnToLocationId]
+    );
+
+    // Tambah stok kembali
+    await connection.query(
+      "INSERT INTO stock_locations (product_id, location_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity + ?",
+      [productId, returnToLocationId, qtyToReturn, qtyToReturn]
+    );
+
+    // Catat pergerakan 'void' (pengembalian)
+    await connection.query(
+      "INSERT INTO stock_movements (product_id, quantity, to_location_id, movement_type, user_id, notes) VALUES (?, ?, ?, ?, ?, ?)",
+      [productId, qtyToReturn, returnToLocationId, "VOID_SALE", userId, voidNote]
+    );
+
+    affectedProductIdsVoid.add(productId);
   }
-  console.log("--- [Service] Pengembalian Stok (Void) Selesai ---");
+
+  console.log("--- [Service Fase 3] Pengembalian Stok (Void) Selesai ---");
   return affectedProductIdsVoid;
 };
 
 /**
  * Helper function untuk mengambil data stok terbaru dan memformatnya untuk broadcast.
+ * (Fungsi ini tidak perlu diubah)
+ *
  * @param {Array<number>} productIds - Array ID produk yang stoknya berubah.
  * @param {number} [relevantLocationId] - (Opsional) ID lokasi spesifik yang relevan (misal fromLocationId).
  * @returns {Promise<Array<object>>} - Array objek untuk broadcastStockUpdate.
@@ -244,8 +264,8 @@ export const getLatestStockForBroadcast = async (productIds, relevantLocationId 
     const [updatedStock] = await db.query(
       // Gunakan db.query karena ini di luar transaksi utama
       `SELECT sl.product_id, l.code as location_code, sl.quantity
-           FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
-           WHERE sl.product_id = ?`,
+             FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
+             WHERE sl.product_id = ?`,
       [prodId]
     );
 
@@ -262,9 +282,44 @@ export const getLatestStockForBroadcast = async (productIds, relevantLocationId 
         newStock: [{ product_id: prodId, location_code: locCode, quantity: 0 }],
       });
     } else {
-      // Jika tidak ada lokasi relevan, kirim array kosong (atau format lain sesuai kebutuhan frontend)
+      // Jika tidak ada lokasi relevan, kirim array kosong
       finalUpdates.push({ productId: prodId, newStock: [] });
     }
   }
   return finalUpdates;
+};
+
+/**
+ * Mengambil semua komponen untuk daftar Package ID yang diberikan.
+ * Digunakan oleh controller untuk memecah item paket.
+ * @param {object} connection Koneksi database yang sedang aktif
+ * @param {number[]} packageIds Array of product IDs (package)
+ * @returns {Promise<Map<number, object[]>>} Map: package_product_id -> [{ sku, qty, component_product_id }]
+ */
+export const fetchPackageComponents = async (connection, packageIds) => {
+  if (packageIds.length === 0) {
+    return new Map();
+  }
+
+  const [rows] = await connection.query(
+    `SELECT
+      pc.package_product_id,
+      pc.quantity_per_package as qty,
+      p_comp.sku as sku,
+      p_comp.id as component_product_id
+    FROM package_components pc
+    JOIN products p_comp ON pc.component_product_id = p_comp.id
+    WHERE pc.package_product_id IN (?)`,
+    [packageIds]
+  );
+
+  const componentsByProductId = new Map();
+  for (const row of rows) {
+    if (!componentsByProductId.has(row.package_product_id)) {
+      componentsByProductId.set(row.package_product_id, []);
+    }
+    componentsByProductId.get(row.package_product_id).push(row);
+  }
+
+  return componentsByProductId;
 };

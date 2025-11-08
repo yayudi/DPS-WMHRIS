@@ -7,7 +7,7 @@ import { EventSourcePolyfill } from 'event-source-polyfill'
 export function useWms() {
   const auth = useAuthStore()
   const allLocations = ref([])
-  const activeView = ref('gudang')
+  const activeView = ref('all') // Default ke 'all'
   const displayedProducts = ref([])
   const currentPage = ref(1)
   const totalProducts = ref(0)
@@ -24,7 +24,6 @@ export function useWms() {
   const sortBy = ref('name')
   const sortOrder = ref('asc')
   const isAutoRefetching = ref(true)
-  // --- STATE BARU: Untuk filter tanggal dari modal ---
   const startDate = ref('')
   const endDate = ref('')
 
@@ -40,21 +39,23 @@ export function useWms() {
     isAutoRefetching.value = !isAutoRefetching.value
   }
 
+  /**
+   * Mengubah data produk mentah dari API menjadi format yang siap
+   * ditampilkan oleh WmsProductRow.
+   */
   function transformProduct(apiProduct) {
     const locations = apiProduct.stock_locations || []
-    const pajanganLocations = locations.filter((loc) => loc.location_code.startsWith('A12'))
+
+    // Filter berdasarkan purpose untuk tab spesifik
+    const pajanganLocations = locations.filter((loc) => loc.purpose === 'DISPLAY')
     const stockPajangan = pajanganLocations.reduce((sum, loc) => sum + loc.quantity, 0)
     const lokasiPajangan = pajanganLocations.map((loc) => loc.location_code).join(', ')
-    const gudangLocations = locations.filter(
-      (loc) =>
-        loc.location_code.startsWith('A19') ||
-        loc.location_code.startsWith('A20') ||
-        loc.location_code.startsWith('B16') ||
-        loc.location_code.startsWith('OASIS'),
-    )
+
+    const gudangLocations = locations.filter((loc) => loc.purpose === 'WAREHOUSE')
     const stockGudang = gudangLocations.reduce((sum, loc) => sum + loc.quantity, 0)
     const lokasiGudang = gudangLocations.map((loc) => loc.location_code).join(', ')
-    const ltcLocation = locations.find((loc) => loc.location_code === 'LTC')
+
+    const ltcLocation = locations.find((loc) => loc.purpose === 'BRANCH')
     const stockLTC = ltcLocation ? ltcLocation.quantity : 0
     const lokasiLTC = ltcLocation ? ltcLocation.location_code : 'N/A'
 
@@ -63,6 +64,7 @@ export function useWms() {
       sku: apiProduct.sku,
       name: apiProduct.name,
       price: apiProduct.price,
+      // Data spesifik per tab
       stockPajangan,
       lokasiPajangan,
       pajanganLocations,
@@ -71,6 +73,11 @@ export function useWms() {
       gudangLocations,
       stockLTC,
       lokasiLTC,
+      // Data untuk tab 'All'
+      totalStock: apiProduct.total_stock,
+      allLocationsCode: apiProduct.all_locations_code,
+      // Data mentah untuk Tooltip
+      stock_locations: apiProduct.stock_locations,
     }
   }
 
@@ -102,9 +109,9 @@ export function useWms() {
         page: currentPage.value,
         limit: pageSize,
         search: searchTerm.value,
-        searchBy: searchBy.value,
+        searchBy: searchBy.value, // ✅ PERBAIKAN: Mengirim searchBy
         location: activeView.value,
-        minusStockOnly: showMinusStockOnly.value,
+        minusOnly: showMinusStockOnly.value, // ✅ PERBAIKAN: Menggunakan 'minusOnly'
         building: selectedBuilding.value,
         floor: selectedFloor.value,
         sortBy: sortBy.value,

@@ -9,7 +9,7 @@ services:
     environment:
       # Ganti password ini
       MYSQL_ROOT_PASSWORD: "hidupJOKOWI!!!1!"
-      MYSQL_DATABASE: "u1773579_office"
+      MYSQL_DATABASE: "dpvindon_wms"
       MYSQL_USER: "u1773579_kencrot"
       MYSQL_PASSWORD: "%+o,x0B1V*Omg8yO?C"
     volumes:

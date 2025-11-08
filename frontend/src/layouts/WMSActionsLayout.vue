@@ -51,7 +51,7 @@ const actionRoutes = [
   </div>
 </template>
 
-<style scoped>
+<style lang="postcss" scoped>
 /* Styling untuk link yang tidak aktif */
 a:not(.border-primary) {
   @apply text-text/60 border-transparent hover:border-secondary/50 hover:text-text;

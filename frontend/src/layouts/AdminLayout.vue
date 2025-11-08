@@ -83,7 +83,7 @@ import { RouterView } from 'vue-router'
   </div>
 </template>
 
-<style scoped>
+<style lang="postcss" scoped>
 /* Pastikan link yang tidak aktif memiliki warna hover yang bagus */
 a:not(.bg-primary\/10) {
   @apply text-text/70 hover:bg-secondary/20 hover:text-text;

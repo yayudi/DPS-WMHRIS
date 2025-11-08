@@ -1,0 +1,160 @@
+/*
+ * =============================================
+ * Global Vue-Multiselect Theme (Tailwind-like)
+ * =============================================
+ * Impor file ini di main.css atau main.js Anda
+ */
+
+/* Kotak input utama (pengganti <input>) */
+.multiselect__tags {
+  @apply bg-background border-2 border-primary/30 rounded-lg text-text;
+  @apply min-h-[44px] p-2 flex items-center;
+  /* 44px agar tingginy_a sama dengan input lain (py-2 + text) */
+}
+
+/* Placeholder (cth: "Pilih asal") */
+.multiselect__input::placeholder {
+  @apply text-text/50;
+}
+.multiselect__single {
+  @apply text-text/90 bg-transparent p-0 m-0;
+}
+
+/* Input saat mengetik */
+.multiselect__input {
+  @apply text-text bg-transparent p-0 m-0;
+}
+
+/* Menghapus outline biru bawaan saat fokus */
+.multiselect__tags:focus-within {
+  @apply ring-2 ring-primary/50 border-primary;
+  box-shadow: none !important;
+}
+
+/* Panah dropdown di kanan */
+.multiselect__select {
+  height: 2.6rem;
+}
+.multiselect__select:before {
+  @apply text-primary/50;
+  border-color: rgb(var(--color-primary) / 0.5) transparent transparent !important;
+}
+
+/* --- Wrapper Dropdown (Panel Opsi) --- */
+.multiselect__content-wrapper {
+  @apply bg-background border border-secondary/30 rounded-b-lg shadow-md;
+  border-top: none !important;
+  /* Pastikan z-index tinggi agar muncul di atas modal */
+  z-index: 60 !important;
+}
+
+/* Opsi individual */
+.multiselect__option {
+  @apply text-text text-sm;
+
+  /* ✅ 1. Jadikan 'relative' agar 'stok' bisa diposisikan */
+  position: relative;
+
+  /* ✅ 2. Beri padding kanan agar stok tidak menimpa nama */
+  padding-right: 6rem; /* 96px */
+}
+
+/* Opsi saat di-hover (highlight) */
+.multiselect__option--highlight {
+  @apply bg-secondary/20 text-text;
+}
+
+/* Opsi yang sedang dipilih */
+.multiselect__option--selected {
+  @apply bg-primary/10 text-primary font-semibold;
+}
+
+/* Opsi yang dipilih DAN di-hover */
+.multiselect__option--selected.multiselect__option--highlight {
+  @apply bg-primary/20 text-primary;
+}
+
+/* --- Helper untuk Template Kustom (Sesuai Gambar Anda) --- */
+
+/* Judul (cth: A12 - 2) */
+.option__title {
+  @apply font-semibold text-text/90;
+  /* Mencegah teks panjang merusak layout */
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Info stok (cth: Stok: 20) */
+.option__stock {
+  @apply text-xs text-text/60;
+
+  /* ✅ 3. SOLUSI RATA KANAN: Posisikan 'stok' secara absolut */
+  position: absolute;
+  right: 1.25rem; /* 20px (sesuaikan dengan padding .multiselect__option) */
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Info stok jika 0 (cth: Stok: 0) */
+.option__stock--low {
+  @apply text-accent font-semibold;
+}
+
+/*
+ * =============================================
+ * ✅ PERBAIKAN UX (Menghilangkan Helper Teks)
+ * =============================================
+ * Sembunyikan *semua* helper teks bawaan (cth: "Press enter to select")
+ * dan "Selected" secara paksa.
+ */
+
+/* 1. Sembunyikan banner "Press enter..." (yg solid) */
+.multiselect__option span[data-select],
+.multiselect__option span[data-deselect],
+.multiselect__option span[data-no-options],
+.multiselect__option span[data-no-results] {
+  display: none !important;
+  -webkit-appearance: none;
+}
+
+/* 2. Sembunyikan 'limit' (cth: "...and 3 more") */
+.multiselect__strong {
+  display: none !important;
+}
+
+/*
+ * 3. ✅ PERBAIKAN FINAL (Lebih Kuat)
+ * Sembunyikan banner "Selected" DAN "Press enter..."
+ * dengan menargetkan pseudo-element pada SEMUA status.
+ */
+.multiselect__option.multiselect__option--highlight::after,  /* ✅ TAMBAHAN */
+.multiselect__option.multiselect__option--highlight:after,   /* ✅ TAMBAHAN */
+.multiselect__option.multiselect__option--selected::after,
+.multiselect__option.multiselect__option--selected:after,
+.multiselect__option.multiselect__option--selected::before,
+.multiselect__option.multiselect__option--selected:before,
+.multiselect__option-label {
+  display: none !important;
+  content: '' !important;
+  font-size: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  -webkit-appearance: none;
+}
+
+/*
+ * =============================================
+ * 💡 TRIK DEBUGGING (Sementara)
+ * =============================================
+ * Hapus komentar di bawah ini untuk memaksa dropdown
+ * agar tetap terbuka. Berguna untuk inspect element.
+ */
+
+/*
+.multiselect--active .multiselect__content-wrapper {
+  display: block !important;
+  max-height: 1000px !important;
+}
+*/

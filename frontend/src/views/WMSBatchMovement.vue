@@ -18,21 +18,20 @@ const { show } = useToast()
 const myLocations = ref([])
 const allLocations = ref([])
 const isLoading = ref(false)
+// ✅ DIHAPUS: 'ADJUSTMENT' dari daftar tab
 const activeTab = ref('TRANSFER') // Tab default
 const batchList = ref([])
 
 // --- STATE FORM BATCH (untuk header) ---
 const fromLocation = ref(null)
 const toLocation = ref(null)
-const adjustmentLocation = ref(null)
+// ✅ DIHAPUS: adjustmentLocation
 const notes = ref('')
 
-// Ambil data lokasi (diperlukan oleh KEDUA mode, Batch & Detailed)
+// Ambil data lokasi
 onMounted(async () => {
   isLoading.value = true
   try {
-    // Kita butuh `allLocations` untuk 'Detailed Transfer'
-    // Kita butuh `myLocations` & `allLocations` untuk 'Batch'
     const [myLocs, allLocs] = await Promise.all([fetchMyLocations(), fetchAllLocations()])
     myLocations.value = myLocs
     allLocations.value = allLocs
@@ -43,7 +42,7 @@ onMounted(async () => {
   }
 })
 
-// --- Computed & Handler untuk Mode BATCH ---
+// --- Computed & Handler ---
 const isBatchLocationSelected = computed(() => {
   switch (activeTab.value) {
     case 'TRANSFER':
@@ -51,8 +50,7 @@ const isBatchLocationSelected = computed(() => {
     case 'INBOUND':
     case 'SALE_RETURN':
       return toLocation.value
-    case 'ADJUSTMENT':
-      return adjustmentLocation.value
+    // ✅ DIHAPUS: case 'ADJUSTMENT'
     default:
       return false
   }
@@ -60,7 +58,7 @@ const isBatchLocationSelected = computed(() => {
 
 const batchSearchLocationId = computed(() => {
   if (activeTab.value === 'TRANSFER') return fromLocation.value?.id
-  if (activeTab.value === 'ADJUSTMENT') return adjustmentLocation.value?.id
+  // ✅ DIHAPUS: case 'ADJUSTMENT'
   return null
 })
 
@@ -69,10 +67,7 @@ function handleAddProduct({ product, quantity }) {
     show('Pilih produk dan masukkan kuantitas yang valid.', 'warning')
     return
   }
-  if (activeTab.value === 'ADJUSTMENT' && quantity === 0) {
-    show('Kuantitas penyesuaian tidak boleh nol.', 'warning')
-    return
-  }
+  // ✅ DIHAPUS: Pengecekan quantity 0 untuk adjustment
 
   const existing = batchList.value.find((item) => item.sku === product.sku)
   if (existing) {
@@ -96,20 +91,14 @@ async function submitBatch() {
     show('Harap lengkapi semua field dan tambahkan setidaknya satu item.', 'error')
     return
   }
-  if (activeTab.value === 'ADJUSTMENT' && !notes.value.trim()) {
-    show('Catatan/alasan wajib diisi untuk penyesuaian stok.', 'error')
-    return
-  }
+  // ✅ DIHAPUS: Pengecekan notes untuk adjustment
 
   isLoading.value = true
   try {
     const payload = {
       type: activeTab.value,
       fromLocationId: fromLocation.value?.id || null,
-      toLocationId:
-        activeTab.value === 'ADJUSTMENT'
-          ? adjustmentLocation.value?.id
-          : toLocation.value?.id || null,
+      toLocationId: toLocation.value?.id || null, // ✅ Disederhanakan
       notes: notes.value,
       movements: batchList.value.map(({ sku, quantity }) => ({ sku, quantity })),
     }
@@ -122,7 +111,7 @@ async function submitBatch() {
       batchList.value = []
       fromLocation.value = null
       toLocation.value = null
-      adjustmentLocation.value = null
+      // ✅ DIHAPUS: adjustmentLocation
       notes.value = ''
     }
   } catch (error) {
@@ -136,33 +125,30 @@ async function submitBatch() {
 <template>
   <div class="p-6">
     <div class="flex justify-between items-center mb-4">
-      <h2 class="text-2xl font-bold text-text">Stock Movement Actions</h2>
+      <h2 class="text-2xl font-bold text-text">Stock Movement (Transfer / Inbound)</h2>
     </div>
 
     <div class="bg-background rounded-xl shadow-md border border-secondary/20 p-6 space-y-6">
       <!-- 1. Komponen Header (Tabs + Form Lokasi Batch) -->
-      <!-- Ini akan secara internal HANYA menampilkan form lokasi jika tab BUKAN 'DETAILED_TRANSFER' -->
       <BatchMovementHeader
         v-model:activeTab="activeTab"
         v-model:fromLocation="fromLocation"
         v-model:toLocation="toLocation"
-        v-model:adjustmentLocation="adjustmentLocation"
         v-model:notes="notes"
         :my-locations="myLocations"
         :all-locations="allLocations"
         :is-loading="isLoading"
+        :allow-adjustment="false"
       />
 
       <!-- 2. Panel Konten -->
-
-      <!-- Panel untuk 'DETAILED_TRANSFER' -->
       <MultiLocationTransferTab
         v-if="activeTab === 'DETAILED_TRANSFER'"
         :all-locations="allLocations"
         :is-loading-locations="isLoading"
       />
 
-      <!-- Panel untuk semua mode 'BATCH' ('TRANSFER', 'INBOUND', 'ADJUSTMENT') -->
+      <!-- Panel untuk semua mode 'BATCH' ('TRANSFER', 'INBOUND') -->
       <template v-else>
         <!-- Form Penambahan Item Batch -->
         <ProductSearchAddForm

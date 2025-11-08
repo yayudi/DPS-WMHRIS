@@ -9,7 +9,7 @@ ENV DB_PORT=3306
 ENV DB_HOST=localhost
 ENV DB_USER="u1773579_kencrot"
 ENV DB_PASS="%+o,x0B1V*Omg8yO?C"
-ENV DB_NAME="u1773579_office"
+ENV DB_NAME="dpvindon_wms"
 
 COPY . .
 EXPOSE 3000

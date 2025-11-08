@@ -13,15 +13,16 @@ defineProps({
 const activeTab = defineModel('activeTab')
 const fromLocation = defineModel('fromLocation')
 const toLocation = defineModel('toLocation')
-const adjustmentLocation = defineModel('adjustmentLocation')
 const notes = defineModel('notes')
 
-// Definisikan tab yang tersedia di sini
+// ✅ DIHAPUS: adjustmentLocation
+
+// ✅ DIHAPUS: Tab 'Adjustment'
 const tabs = [
   { label: 'Batch Transfer', value: 'TRANSFER' },
   { label: 'Detailed Transfer', value: 'DETAILED_TRANSFER' },
   { label: 'Inbound / Return', value: 'INBOUND' },
-  { label: 'Adjustment', value: 'ADJUSTMENT' },
+  { label: 'Sale Return', value: 'SALE_RETURN' },
 ]
 </script>
 
@@ -31,7 +32,6 @@ const tabs = [
     <Tabs :tabs="tabs" v-model:model-value="activeTab" />
 
     <!-- Header Kontekstual Berdasarkan Tab -->
-    <!-- PENTING: Bungkus seluruh form lokasi/catatan dalam v-if -->
     <div
       v-if="activeTab !== 'DETAILED_TRANSFER'"
       class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-secondary/20 pb-6 pt-6"
@@ -77,28 +77,11 @@ const tabs = [
         </div>
       </template>
 
-      <!-- ADJUSTMENT -->
-      <template v-if="activeTab === 'ADJUSTMENT'">
-        <div>
-          <label class="block text-sm font-medium text-text/90 mb-2"
-            >Lokasi Penyesuaian (Lokasi Anda)</label
-          >
-          <Multiselect
-            v-model="adjustmentLocation"
-            :options="myLocations"
-            placeholder="Pilih lokasi"
-            label="code"
-            track-by="id"
-            :disabled="isLoading"
-          ></Multiselect>
-        </div>
-      </template>
+      <!-- ✅ DIHAPUS: Template 'ADJUSTMENT' -->
 
       <!-- Catatan (Selalu ada di mode batch kecuali di Transfer) -->
       <div class="flex-grow" v-if="activeTab !== 'TRANSFER'">
-        <label class="block text-sm font-medium text-text/90 mb-2"
-          >Catatan / Alasan (Wajib untuk Adjustment)</label
-        >
+        <label class="block text-sm font-medium text-text/90 mb-2">Catatan / Alasan</label>
         <input
           v-model="notes"
           type="text"

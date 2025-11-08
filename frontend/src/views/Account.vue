@@ -26,10 +26,7 @@ function populateForm() {
 }
 
 onMounted(async () => {
-  // Panggil fetchUser untuk memastikan data terbaru
-  if (!auth.user) {
-    await auth.fetchUser()
-  }
+  await auth.fetchUser()
   populateForm()
 })
 
@@ -61,19 +58,24 @@ async function handleUpdate() {
     console.log("Objek 'user' di auth store SEBELUM update:", JSON.parse(JSON.stringify(auth.user)))
     // ------------------------------------
 
-    if (auth.user && response.data.user) {
-      auth.user.nickname = response.data.user.nickname
-      localStorage.setItem('authUser', JSON.stringify(auth.user))
+    // if (auth.user && response.data.user) {
+    //   auth.user.nickname = response.data.user.nickname
+    //   localStorage.setItem('authUser', JSON.stringify(auth.user))
 
-      // --- INVESTIGASI LANJUTAN ---
-      console.log(
-        "Objek 'user' di auth store SETELAH update:",
-        JSON.parse(JSON.stringify(auth.user)),
-      )
-      console.log('Data di localStorage SETELAH update:', localStorage.getItem('authUser'))
-      console.log('--------------------------------------')
-      // -----------------------------
-    }
+    //   // --- INVESTIGASI LANJUTAN ---
+    //   console.log(
+    //     "Objek 'user' di auth store SETELAH update:",
+    //     JSON.parse(JSON.stringify(auth.user)),
+    //   )
+    //   console.log('Data di localStorage SETELAH update:', localStorage.getItem('authUser'))
+    //   console.log('--------------------------------------')
+    //   // -----------------------------
+    // }
+
+    auth.updateUserNickname(response.data.user.nickname)
+
+    // --- INVESTIGASI LANJUTAN ---
+    console.log("Objek 'user' di auth store SETELAH update:", JSON.parse(JSON.stringify(auth.user)))
 
     // Kosongkan field password
     currentPassword.value = ''

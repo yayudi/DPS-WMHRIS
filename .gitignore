@@ -72,3 +72,6 @@ Ini penting agar data produksi tidak sengaja ter-commit.
 /backend/public/json/wms/
 
 File dump SQL (opsional, hapus '#' jika Anda ingin menyimpannya)
+/docker-compose.yml
+/backend/Dockerfile
+init_db.sql

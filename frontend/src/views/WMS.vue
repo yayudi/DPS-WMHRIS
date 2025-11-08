@@ -1,14 +1,14 @@
-<!-- frontend/src/views/WMS.vue -->
 <script setup>
 import { ref } from 'vue'
 import { useToast } from '@/composables/UseToast.js'
 import { useWms } from '@/composables/useWms.js'
-import { transferStock, adjustStock, batchTransferStock } from '@/api/helpers/stock.js'
+import { transferStock, adjustStock } from '@/api/helpers/stock.js'
 import WmsProductTable from '@/components/WmsProductTable.vue'
 import WmsControlPanel from '@/components/WmsControlPanel.vue'
 import WmsAdjustModal from '@/components/WMSAdjustModal.vue'
-import WmsTransferModal from '@/components/WmsTransferModal.vue'
+import WmsTransferModal from '@/components/WMSTransferModal.vue'
 import WmsHistoryModal from '@/components/WMSHistoryModal.vue'
+import { useAuthStore } from '@/stores/auth.js'
 
 const {
   activeView,
@@ -34,6 +34,8 @@ const {
   recentlyUpdatedProducts,
 } = useWms()
 
+// ✅ 2. Inisialisasi auth store
+const auth = useAuthStore()
 const { show } = useToast()
 const isHistoryModalOpen = ref(false)
 const isTransferModalOpen = ref(false)
@@ -43,8 +45,10 @@ const selectedProduct = ref(null)
 const transferAmount = ref(1)
 const adjustAmount = ref(0)
 const adjustReason = ref('')
+const searchTerm = ref('')
 
 const warehouseViews = [
+  { label: 'Semua', value: 'all' },
   { label: 'Gudang', value: 'gudang' },
   { label: 'Pajangan', value: 'pajangan' },
   { label: 'LTC', value: 'ltc' },
@@ -73,13 +77,19 @@ const floorFilterOptions = [
 
 function copyToClipboard({ text, fieldName }) {
   if (!text) return
-  navigator.clipboard
-    .writeText(text)
-    .then(() => show(`${fieldName} disalin ke clipboard!`, 'success'))
-    .catch((err) => {
-      console.error('Gagal menyalin:', err)
-      show('Gagal menyalin teks.', 'error')
-    })
+  // Gunakan document.execCommand untuk kompatibilitas iframe
+  const textArea = document.createElement('textarea')
+  textArea.value = text
+  document.body.appendChild(textArea)
+  textArea.select()
+  try {
+    document.execCommand('copy')
+    show(`${fieldName} disalin ke clipboard!`, 'success')
+  } catch (err) {
+    console.error('Gagal menyalin:', err)
+    show('Gagal menyalin teks.', 'error')
+  }
+  document.body.removeChild(textArea)
 }
 
 function openTransferModal(product) {
@@ -100,19 +110,20 @@ function openHistoryModal(product) {
   isHistoryModalOpen.value = true
 }
 
-function openBatchLogModal() {
-  isBatchLogModalOpen.value = true
-}
+// Fungsi-fungsi ini sekarang tidak terpakai di WMS.vue
+// function openBatchLogModal() {
+//   isBatchLogModalOpen.value = true
+// }
 
-function openBatchMovementModal() {
-  isBatchMovementModalOpen.value = true
-}
+// function openBatchMovementModal() {
+//   isBatchMovementModalOpen.value = true
+// }
 
 function closeModal() {
   isHistoryModalOpen.value = false
   isTransferModalOpen.value = false
-  isBatchLogModalOpen.value = false
-  isBatchMovementModalOpen.value = false
+  // isBatchLogModalOpen.value = false
+  // isBatchMovementModalOpen.value = false
   isUploadModalOpen.value = false
   isAdjustModalOpen.value = false
   selectedProduct.value = null
@@ -155,13 +166,26 @@ async function handleAdjustConfirm(payload) {
         <span>Warehouse Management</span>
       </h2>
 
+      <!-- ✅ 3. BAGIAN TOMBOL DIPERBARUI DENGAN RCAB -->
       <div class="flex items-center gap-3">
+        <!-- Tombol 1: Perpindahan (Movement) -->
         <router-link
+          v-if="auth.hasPermission('perform-batch-movement')"
           to="/wms/actions/batch-movement"
           class="px-4 py-2 text-sm font-semibold bg-primary/10 text-primary rounded-lg hover:bg-primary/30 transition-colors flex items-center gap-2"
         >
           <font-awesome-icon icon="fa-solid fa-boxes-stacked" />
-          <span>Manajemen Stok</span>
+          <span>Perpindahan Stok</span>
+        </router-link>
+
+        <!-- Tombol 2: Penyesuaian (Adjustment) - BARU -->
+        <router-link
+          v-if="auth.hasPermission('manage-stock-adjustment')"
+          to="/wms/actions/batch-adjustment"
+          class="px-4 py-2 text-sm font-semibold bg-amber-500/10 text-amber-600 rounded-lg hover:bg-amber-500/30 transition-colors flex items-center gap-2"
+        >
+          <font-awesome-icon icon="fa-solid fa-calculator" />
+          <span>Penyesuaian Stok</span>
         </router-link>
       </div>
     </div>
@@ -176,13 +200,14 @@ async function handleAdjustConfirm(payload) {
         :floor-filter-options="floorFilterOptions"
         :is-auto-refetching="isAutoRefetching"
         :sse-status="sseStatus"
+        @search="handleSearchInput"
+        @toggle-refetch="toggleAutoRefetch"
         v-model:search-by="searchBy"
+        v-model:searchValue="searchTerm"
         v-model:active-view="activeView"
         v-model:show-minus-stock-only="showMinusStockOnly"
         v-model:selected-building="selectedBuilding"
         v-model:selected-floor="selectedFloor"
-        @search="handleSearchInput"
-        @toggle-refetch="toggleAutoRefetch"
       />
 
       <div v-if="loading" class="text-center py-16">

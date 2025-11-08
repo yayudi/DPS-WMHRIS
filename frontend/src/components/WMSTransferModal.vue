@@ -83,7 +83,19 @@ function handleConfirm() {
           placeholder="Pilih lokasi tujuan"
           label="code"
           track-by="id"
-        ></Multiselect>
+        >
+          <template #option="{ option }">
+            <div class="flex justify-between items-center">
+              <!-- ✅ Gunakan kelas .option__title -->
+              <span class="option__title">{{ option.code }}</span>
+
+              <!-- ✅ Gunakan kelas .option__stock (dengan binding kelas) -->
+              <span class="option__stock" :class="{ 'option__stock--low': option.quantity === 0 }">
+                Stok: {{ option.quantity }}
+              </span>
+            </div>
+          </template>
+        </Multiselect>
       </div>
 
       <!-- Quantity -->

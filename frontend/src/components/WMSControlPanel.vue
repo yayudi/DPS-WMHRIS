@@ -1,8 +1,10 @@
 <script setup>
 import { computed } from 'vue'
 import Tabs from '@/components/Tabs.vue'
+import SearchInput from './global/SearchInput.vue'
 
 const props = defineProps({
+  searchValue: { type: String, default: '' },
   searchPlaceholder: { type: String, default: 'Cari produk...' },
   searchTabs: { type: Array, default: () => [] },
   warehouseViews: { type: Array, default: () => [] },
@@ -18,6 +20,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
+  'update:searchValue',
   'update:searchBy',
   'update:activeView',
   'update:showMinusStockOnly',
@@ -28,10 +31,11 @@ const emit = defineEmits([
 ])
 
 let debounceTimer = null
-function handleSearchInput(event) {
+function handleSearchInput(value) {
+  emit('update:searchValue', value)
   clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
-    emit('search', event.target.value)
+    emit('search', value)
   }, 400)
 }
 
@@ -46,7 +50,6 @@ const showFloorFilter = computed(() => {
   return props.activeView === 'gudang' || props.activeView === 'pajangan'
 })
 
-// --- LOGIKA BARU UNTUK TOMBOL GABUNGAN ---
 const syncButtonClass = computed(() => {
   if (props.sseStatus === 'connected') {
     return 'bg-success/15 border-success text-success'
@@ -54,9 +57,8 @@ const syncButtonClass = computed(() => {
   if (props.sseStatus === 'connecting') {
     return 'bg-warning/15 border-warning text-warning'
   }
-  // Jika disconnected
   if (props.isAutoRefetching) {
-    return 'bg-danger/15 border-danger text-danger' // Fallback aktif
+    return 'bg-danger/15 border-danger text-danger'
   }
   return 'bg-secondary/80 border-secondary text-text/80 hover:bg-secondary/50' // Semua mati
 })
@@ -85,18 +87,12 @@ const shouldIconSpin = computed(() => {
 <template>
   <div class="space-y-4 md:space-y-0 md:flex md:justify-between md:items-center md:gap-4">
     <div class="flex-grow w-full md:w-1/2 flex items-center gap-2">
-      <div class="relative flex-grow">
-        <font-awesome-icon
-          icon="fa-solid fa-search"
-          class="absolute left-3 top-1/2 -translate-y-1/2 text-text/40"
-        />
-        <input
-          type="text"
-          :placeholder="searchPlaceholder"
-          @input="handleSearchInput"
-          class="w-full pl-10 pr-4 py-2 bg-background border-2 border-primary/30 text-text rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition"
-        />
-      </div>
+      <SearchInput
+        :model-value="searchValue"
+        @update:modelValue="handleSearchInput"
+        :placeholder="searchPlaceholder"
+        class="flex-grow"
+      />
       <Tabs
         :tabs="searchTabs"
         :model-value="searchBy"
