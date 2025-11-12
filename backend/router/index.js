@@ -5,7 +5,6 @@ import { Router } from "express";
 import authRoutes from "./auth.js";
 import userRoutes from "./user.js";
 import adminRoutes from "./admin.js";
-import cronRouter from "./cronRouter.js";
 import attendanceRouter from "./attendanceRouter.js";
 import productRoutes from "./productRouter.js";
 import stockRoutes from "./stockRouter.js";
@@ -13,6 +12,9 @@ import locationRoutes from "./locationRouter.js";
 import realtimeRouter from "./realtimeRouter.js";
 import roleRoutes from "./roleRouter.js";
 import pickingRouter from "./pickingRouter.js";
+import statsRouter from "./statsRouter.js";
+import reportRouter from "./reportRouter.js";
+// import cronRouter from "./cronRouter.js";
 
 // Impor middleware yang diperlukan
 import authenticateToken from "../middleware/authMiddleware.js";
@@ -32,9 +34,11 @@ apiRouter.use("/attendance", authenticateToken, attendanceRouter);
 apiRouter.use("/user", authenticateToken, userRoutes);
 apiRouter.use("/admin/users", authenticateToken, canAccess("manage-users"), adminRoutes);
 apiRouter.use("/admin/roles", authenticateToken, canAccess("manage-roles"), roleRoutes);
-apiRouter.use("/cron", authenticateToken, cronRouter);
 apiRouter.use("/realtime", authenticateToken, realtimeRouter);
 apiRouter.use("/picking", authenticateToken, pickingRouter);
+apiRouter.use("/stats", authenticateToken, statsRouter);
+apiRouter.use("/reports", authenticateToken, reportRouter);
+// apiRouter.use("/cron", authenticateToken, cronRouter);
 
 // Rute tes "canary"
 apiRouter.get("/test", async (req, res) => {

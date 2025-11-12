@@ -1,15 +1,13 @@
+// frontend\src\router\index.js
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import AdminLayout from '../layouts/AdminLayout.vue'
 import WMSActionsLayout from '../layouts/WMSActionsLayout.vue'
-import HomeView from '../views/Home.vue'
 import LoginView from '../views/Login.vue'
 import AbsensiView from '../views/Absensi.vue'
 import WMSView from '../views/WMS.vue'
 import WMSBatchMovementView from '../views/WMSBatchMovement.vue'
-// ✅ 1. Impor komponen baru
 import WMSBatchAdjustmentView from '../views/WMSBatchAdjustment.vue'
-// import WMSProductTransferView from '../views/WMSProductTransferView.vue'
 import WMSBatchLogView from '../views/WMSBatchLogView.vue'
 import WMSPickingListView from '../views/WMSPickingListView.vue'
 import StatsView from '../views/Stats.vue'
@@ -24,7 +22,7 @@ import LogsView from '../views/admin/LogsView.vue'
 
 const routes = [
   { path: '/login', name: 'Login', component: LoginView },
-  { path: '/', name: 'Home', component: HomeView, meta: { requiresAuth: true } },
+  { path: '/', redirect: { name: 'WMS' } },
   { path: '/absensi', name: 'Absensi', component: AbsensiView, meta: { requiresAuth: true } },
   { path: '/wms', name: 'WMS', component: WMSView, meta: { requiresAuth: true } },
   {
@@ -132,7 +130,7 @@ router.beforeEach(async (to, from, next) => {
   const isLoggedIn = auth.isAuthenticated
 
   if (to.name === 'Login' && isLoggedIn) {
-    return next({ name: 'Home' })
+    return next({ name: 'WMS' })
   }
 
   if (to.meta.requiresAuth && !isLoggedIn) {
@@ -140,14 +138,14 @@ router.beforeEach(async (to, from, next) => {
   }
 
   if (to.meta.requiresPermission) {
-    // --- ✅ BLOK INVESTIGASI RCAB ---
+    // --- BLOK INVESTIGASI RCAB ---
     const requiredPermission = to.meta.requiresPermission
     const userPermissions = auth.user?.permissions || []
     const hasPermission = auth.hasPermission(requiredPermission)
     // --- AKHIR BLOK INVESTIGASI ---
 
     if (!hasPermission) {
-      return next({ name: 'Home' })
+      return next({ name: 'WMS' })
     }
   }
 

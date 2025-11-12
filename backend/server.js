@@ -1,4 +1,3 @@
-// backend\server.js
 import express from "express";
 import cors from "cors";
 import "dotenv/config";
@@ -38,6 +37,21 @@ app.use("/api", apiRouter);
 
 // --- Rute non-API (seperti aset) bisa tetap di luar ---
 app.use("/", assetsRouter);
+
+// ==================================================================
+// [FIX 404] Sajikan file yang diekspor secara statis
+// ==================================================================
+// Ini memberitahu Express:
+// "Jika ada permintaan yang dimulai dengan /exports, sajikan file itu
+// dari direktori 'backend/tmp/exports' di disk."
+const exportsDir = path.join(__dirname, "tmp", "exports");
+
+// **** TAMBAHAN DEBUGGING ****
+console.log(`[Server] Menyajikan file statis untuk '/exports' dari: ${exportsDir}`);
+// **** -------------------- ****
+
+app.use("/exports", express.static(exportsDir));
+// ==================================================================
 
 // Middleware untuk menangani 404 (harus di bagian paling akhir)
 app.use((req, res) => {

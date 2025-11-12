@@ -23,6 +23,10 @@ export default defineConfig({
         target: 'http://localhost:3000', // alamat backend Express/PHP
         changeOrigin: true,
       },
+      '/exports': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
     },
   },
 })

@@ -83,21 +83,32 @@ onUnmounted(() => {
             to="/absensi"
             class="border-b-2 text-text/80 hover:text-primary transition-colors"
             active-class="!text-primary text-lg font-bold border-primary"
-            >Absensi</RouterLink
           >
+            Absensi
+          </RouterLink>
           <RouterLink
             to="/wms"
             class="border-b-2 text-text/80 hover:text-primary transition-colors"
             active-class="!text-primary text-lg font-bold border-primary"
-            >WMS</RouterLink
           >
+            WMS
+          </RouterLink>
+          <RouterLink
+            to="/stats"
+            v-if="auth.user?.permissions?.includes('view-reports')"
+            class="border-b-2 text-text/80 hover:text-primary transition-colors"
+            active-class="!text-primary text-lg font-bold border-primary"
+          >
+            Stats & Reports
+          </RouterLink>
           <RouterLink
             to="/admin/users"
             v-if="auth.user?.permissions?.includes('manage-users')"
             class="border-b-2 text-text/80 hover:text-primary transition-colors"
             active-class="!text-primary text-lg font-bold border-primary"
-            >Panel Admin</RouterLink
           >
+            Panel Admin
+          </RouterLink>
         </div>
       </div>
 

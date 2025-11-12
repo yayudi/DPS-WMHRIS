@@ -1,3 +1,4 @@
+<!-- frontend\src\components\WMSControlPanel.vue -->
 <script setup>
 import { computed } from 'vue'
 import Tabs from '@/components/Tabs.vue'
