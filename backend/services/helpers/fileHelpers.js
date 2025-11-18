@@ -1,7 +1,7 @@
 // backend\services\fileHelpers.js
 import fs from "fs/promises";
 import path from "path";
-import db from "../config/db.js";
+import db from "../../config/db.js";
 
 const STATUS_A = 1;
 const STATUS_L = 2;

@@ -4,7 +4,7 @@ import { canAccess } from "../middleware/permissionMiddleware.js";
 import { processAttendanceFile } from "../services/attendanceParser.js";
 import db from "../config/db.js";
 import path from "path";
-import { loadHolidays } from "../services/fileHelpers.js";
+import { loadHolidays } from "../services/helpers/fileHelpers.js";
 
 const router = express.Router();
 

@@ -18,14 +18,12 @@ const { show } = useToast()
 const myLocations = ref([])
 const allLocations = ref([])
 const isLoading = ref(false)
-// ✅ DIHAPUS: 'ADJUSTMENT' dari daftar tab
 const activeTab = ref('TRANSFER') // Tab default
 const batchList = ref([])
 
 // --- STATE FORM BATCH (untuk header) ---
 const fromLocation = ref(null)
 const toLocation = ref(null)
-// ✅ DIHAPUS: adjustmentLocation
 const notes = ref('')
 
 // Ambil data lokasi
@@ -50,7 +48,6 @@ const isBatchLocationSelected = computed(() => {
     case 'INBOUND':
     case 'SALE_RETURN':
       return toLocation.value
-    // ✅ DIHAPUS: case 'ADJUSTMENT'
     default:
       return false
   }
@@ -58,7 +55,6 @@ const isBatchLocationSelected = computed(() => {
 
 const batchSearchLocationId = computed(() => {
   if (activeTab.value === 'TRANSFER') return fromLocation.value?.id
-  // ✅ DIHAPUS: case 'ADJUSTMENT'
   return null
 })
 
@@ -67,7 +63,6 @@ function handleAddProduct({ product, quantity }) {
     show('Pilih produk dan masukkan kuantitas yang valid.', 'warning')
     return
   }
-  // ✅ DIHAPUS: Pengecekan quantity 0 untuk adjustment
 
   const existing = batchList.value.find((item) => item.sku === product.sku)
   if (existing) {
@@ -91,14 +86,13 @@ async function submitBatch() {
     show('Harap lengkapi semua field dan tambahkan setidaknya satu item.', 'error')
     return
   }
-  // ✅ DIHAPUS: Pengecekan notes untuk adjustment
 
   isLoading.value = true
   try {
     const payload = {
       type: activeTab.value,
       fromLocationId: fromLocation.value?.id || null,
-      toLocationId: toLocation.value?.id || null, // ✅ Disederhanakan
+      toLocationId: toLocation.value?.id || null,
       notes: notes.value,
       movements: batchList.value.map(({ sku, quantity }) => ({ sku, quantity })),
     }
@@ -111,7 +105,6 @@ async function submitBatch() {
       batchList.value = []
       fromLocation.value = null
       toLocation.value = null
-      // ✅ DIHAPUS: adjustmentLocation
       notes.value = ''
     }
   } catch (error) {

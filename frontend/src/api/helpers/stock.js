@@ -148,3 +148,41 @@ export const processSingleTransfer = async (payload) => {
     throw new Error(error.response?.data?.message || 'Gagal memproses transfer')
   }
 }
+
+/**
+ * [BARU] Mengirim file CSV penyesuaian stok.
+ * Menggunakan FormData untuk mengirim file.
+ * @param {File} file - File .csv yang dipilih pengguna
+ * @returns {Promise<object>} Objek respons dari API
+ */
+export const requestAdjustmentUpload = async (file) => {
+  const formData = new FormData()
+  // 'adjustmentFile' HARUS cocok dengan nama field di upload.single() di backend
+  formData.append('adjustmentFile', file)
+
+  try {
+    const response = await axios.post('/stock/request-adjustment-upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data // Mengembalikan { success: true, message: "...", jobId: ... }
+  } catch (error) {
+    console.error('Error uploading stock adjustment file:', error)
+    throw error.response?.data || error
+  }
+}
+
+/**
+ * [BARU] Mengambil riwayat pekerjaan impor untuk pengguna saat ini.
+ * @returns {Promise<object>} Objek respons dari API
+ */
+export const getImportJobs = async () => {
+  try {
+    const response = await axios.get('/stock/import-jobs')
+    return response.data // Mengembalikan { success: true, data: [...] }
+  } catch (error) {
+    console.error('Error fetching user import jobs:', error)
+    throw error.response?.data || error
+  }
+}

@@ -3,8 +3,56 @@ import express from "express";
 import db from "../config/db.js";
 import cache from "../config/cache.js";
 import { broadcastStockUpdate } from "./realtimeRouter.js";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import { getTimestampString_YYMMDDHHSS } from "../services/helpers/sharedHelpers.js";
+import ExcelJS from "exceljs";
 
 const router = express.Router();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Path: backend/uploads/adjustments/
+const UPLOAD_DIR = path.join(__dirname, "..", "uploads", "adjustments");
+
+// Pastikan direktori ada
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  console.log(`[Multer] Membuat direktori upload di: ${UPLOAD_DIR}`);
+}
+
+// Konfigurasi Multer Storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOAD_DIR);
+  },
+  filename: (req, file, cb) => {
+    const originalName = path.parse(file.originalname).name; // "stock_opname"
+    const timestamp = getTimestampString_YYMMDDHHSS(); // "251113160530"
+    const ext = path.extname(file.originalname); // [DIUBAH] Ini sekarang akan .xlsx
+    cb(null, `${originalName}_${timestamp}${ext}`); // "stock_opname_251113160530.xlsx"
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const mimeType = file.mimetype;
+
+    if (
+      ext !== ".xlsx" ||
+      mimeType !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ) {
+      return cb(new Error("Hanya file .xlsx yang diizinkan"), false);
+    }
+    cb(null, true);
+  },
+});
 
 /**
  * POST /api/stock/transfer
@@ -157,6 +205,160 @@ router.post("/adjust", async (req, res) => {
   }
 });
 
+// [BARU] Endpoint untuk Langkah 1 Rencana Arsitektur v2
+// =======================================================
+/**
+ * GET /api/stock/download-adjustment-template
+ * Men-generasi file template Excel .xlsx untuk adjustment stok
+ * dengan validasi data dropdown dari tabel 'locations'.
+ */
+router.get("/download-adjustment-template", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  let connection;
+
+  try {
+    connection = await db.getConnection();
+
+    // 1. Ambil data lokasi untuk validasi dropdown
+    const [locations] = await connection.query("SELECT code FROM locations ORDER BY code ASC");
+    // Ubah hasil [ { code: 'A1' }, { code: 'B1' } ] menjadi [ 'A1', 'B1' ]
+    const locationCodes = locations.map((loc) => loc.code);
+
+    // 2. Buat Workbook Excel di memori
+    const workbook = new ExcelJS.Workbook();
+    const mainSheet = workbook.addWorksheet("Input Stok");
+    const validationSheet = workbook.addWorksheet("DataValidasi");
+
+    // 3. Sembunyikan sheet validasi
+    validationSheet.state = "hidden";
+
+    // 4. Isi sheet validasi dengan data lokasi
+    // Ini akan mengisi Kolom A di sheet "DataValidasi"
+    validationSheet.getColumn("A").values = locationCodes;
+
+    // 5. Atur Header di sheet utama ("Input Stok")
+    mainSheet.columns = [
+      { header: "SKU", key: "sku", width: 25 },
+      { header: "LT (Lokasi)", key: "location", width: 20 },
+      { header: "ACTUAL", key: "actual", width: 10 },
+      { header: "NOTES", key: "notes", width: 35 },
+    ];
+    // Beri styling pada header
+    mainSheet.getRow(1).font = { bold: true };
+
+    // 6. Terapkan Validasi Data (Dropdown)
+    // Rumus validasi menunjuk ke sheet tersembunyi
+    // Ini akan membuat "DataValidasi!$A$1:$A$[jumlah_lokasi]"
+    const validationFormula = `DataValidasi!$A$1:$A$${locationCodes.length}`;
+
+    // Terapkan validasi ke 1000 baris pertama di kolom B (LT)
+    for (let i = 2; i <= 1002; i++) {
+      // Mulai dari baris 2 (setelah header)
+      mainSheet.getCell(`B${i}`).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        formulae: [validationFormula],
+        showErrorMessage: true,
+        errorStyle: "warning",
+        errorTitle: "Lokasi Tidak Valid",
+        error: "Silakan pilih lokasi yang valid dari daftar dropdown.",
+      };
+    }
+
+    // 7. Atur Tipe Konten & Header untuk respons
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", "attachment; filename=Template_Adjustment_Stok.xlsx");
+
+    // 8. Kirim file Excel ke pengguna
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error saat generate template adjustment:", error);
+    res.status(500).json({ success: false, message: "Gagal membuat template." });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+/**
+ * POST /api/stock/request-adjustment-upload
+ * [DIUBAH] untuk Langkah 3 Rencana Arsitektur v2
+ * Menerima file .xlsx (sebelumnya .csv) untuk penyesuaian stok massal.
+ */
+router.post(
+  "/request-adjustment-upload",
+  upload.single("adjustmentFile"), // 'adjustmentFile' adalah nama field di form-data
+  async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const userId = req.user.id;
+    const file = req.file;
+    const { notes } = req.body; // [DIUBAH] 'delimiter' sudah tidak ada
+
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "File tidak ditemukan. Pastikan field name adalah 'adjustmentFile' dan tipenya .xlsx", // [DIUBAH] Teks error
+      });
+    }
+
+    let connection;
+    try {
+      const { originalname, path: serverFilePath } = file;
+
+      connection = await db.getConnection();
+
+      // [FIX & DIUBAH]
+      // 1. Menghapus 'delimiter' (sudah tidak ada di req.body)
+      // 2. [FIX] Menambahkan kolom 'notes' dan '?' ke query agar catatan pengguna tersimpan
+      const [result] = await connection.query(
+        `INSERT INTO import_jobs (user_id, job_type, original_filename, file_path, status, notes)
+         VALUES (?, 'ADJUST_STOCK', ?, ?, 'PENDING', ?)`, // [DIUBAH] Menambah 'notes' dan '?'
+        [userId, originalname, serverFilePath, notes || null] // [DIUBAH] Menambah 'notes'
+      );
+
+      res.status(202).json({
+        success: true,
+        message: "File diterima. Penyesuaian stok akan diproses di latar belakang.",
+        jobId: result.insertId,
+      });
+    } catch (error) {
+      console.error("Error saat request stock adjustment upload:", error);
+      res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server saat membuat job.",
+      });
+    } finally {
+      if (connection) connection.release();
+    }
+  }
+);
+
+/**
+ * GET /api/stock/import-jobs
+ * Mengambil riwayat pekerjaan impor untuk pengguna yang sedang login.
+ */
+router.get("/import-jobs", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    const userId = req.user.id;
+    const [jobs] = await db.query(
+      `SELECT id, status, job_type, original_filename, log_summary, created_at
+        FROM import_jobs
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 20`,
+      [userId]
+    );
+    res.status(200).json({ success: true, data: jobs });
+  } catch (error) {
+    console.error("Error saat getUserImportJobs:", error);
+    res.status(500).json({ success: false, message: "Gagal mengambil riwayat pekerjaan." });
+  }
+});
 router.post("/batch-process", async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   const { type, fromLocationId, toLocationId, notes, movements } = req.body;
@@ -196,8 +398,6 @@ router.post("/batch-process", async (req, res) => {
         }
       }
     }
-    // (Pengecekan untuk TRANSFER_MULTI akan dilakukan di dalam loop)
-    // --- AKHIR PERBAIKAN LOGIKA KEAMANAN ---
 
     const updatedProductIds = new Set();
 
