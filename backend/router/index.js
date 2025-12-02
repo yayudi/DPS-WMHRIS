@@ -12,6 +12,7 @@ import locationRoutes from "./locationRouter.js";
 import realtimeRouter from "./realtimeRouter.js";
 import roleRoutes from "./roleRouter.js";
 import pickingRouter from "./pickingRouter.js";
+import returnRouter from "./returnRouter.js";
 import statsRouter from "./statsRouter.js";
 import reportRouter from "./reportRouter.js";
 // import cronRouter from "./cronRouter.js";
@@ -36,6 +37,7 @@ apiRouter.use("/admin/users", authenticateToken, canAccess("manage-users"), admi
 apiRouter.use("/admin/roles", authenticateToken, canAccess("manage-roles"), roleRoutes);
 apiRouter.use("/realtime", authenticateToken, realtimeRouter);
 apiRouter.use("/picking", authenticateToken, pickingRouter);
+apiRouter.use("/return", authenticateToken, returnRouter);
 apiRouter.use("/stats", authenticateToken, statsRouter);
 apiRouter.use("/reports", authenticateToken, reportRouter);
 // apiRouter.use("/cron", authenticateToken, cronRouter);

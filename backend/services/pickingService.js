@@ -14,29 +14,15 @@ import db from "../config/db.js"; // Impor db jika perlu query mandiri
  * @returns {Set<number>} Set berisi ID produk yang stoknya terpengaruh.
  */
 export const processPickingListConfirmation = async (connection, items, userId, pickingListId) => {
-  console.log("--- [Service Fase 3] Memulai Pengurangan Stok (Datar & Patuh) ---");
   const affectedProductIds = new Set();
 
   const [listRows] = await connection.query(
     "SELECT original_filename FROM picking_lists WHERE id = ?",
     [pickingListId]
   );
-  console.log(
-    `[Service Debug] Mencari filename untuk ID ${pickingListId}. Hasil query:`,
-    listRows[0]?.original_filename
-  );
   const filenameForNote = listRows[0]?.original_filename || `#${pickingListId}`;
-  console.log(`[Service Debug] Filename akhir yang digunakan:`, filenameForNote);
   for (const item of items) {
     const { sku, qty, fromLocationId, invoiceNos, customerNames } = item;
-    console.group();
-    console.log();
-    console.log(sku);
-    console.log(qty);
-    console.log(fromLocationId);
-    console.log(invoiceNos);
-    console.log(customerNames);
-    console.groupEnd();
     // Validasi payload (wajib ada)
     if (!fromLocationId) {
       throw new Error(
@@ -47,7 +33,7 @@ export const processPickingListConfirmation = async (connection, items, userId, 
       throw new Error(`[Service] Data item tidak lengkap (SKU/Qty kosong).`);
     }
 
-    // 1. Dapatkan product_id dari SKU.
+    // Dapatkan product_id dari SKU.
     const [productRows] = await connection.query("SELECT id, name FROM products WHERE sku = ?", [
       sku,
     ]);
@@ -71,7 +57,7 @@ export const processPickingListConfirmation = async (connection, items, userId, 
     let pickingListItemId = null;
     let isNewListStructure = false; // Flag untuk melacak versi list
 
-    // 1. Coba cari baris item (Struktur BARU, flat payload)
+    // Coba cari baris item (Struktur BARU, flat payload)
     let [itemRow] = await connection.query(
       "SELECT id FROM picking_list_items WHERE picking_list_id = ? AND product_id = ?",
       [pickingListId, productId] // (misal: 417, 325)
@@ -113,9 +99,7 @@ export const processPickingListConfirmation = async (connection, items, userId, 
       }
     }
 
-    // 2. Kunci baris stok & Validasi (Ini adalah logika 'else' yg lama)
-    console.log(`🧱 [Proses] Mengurangi SKU ${sku} dari Lokasi ${fromLocationId}...`);
-
+    // Kunci baris stok & Validasi (Ini adalah logika 'else' yg lama)
     const [stockRows] = await connection.query(
       "SELECT quantity FROM stock_locations WHERE product_id = ? AND location_id = ? FOR UPDATE",
       [productId, fromLocationId]
@@ -128,7 +112,7 @@ export const processPickingListConfirmation = async (connection, items, userId, 
       );
     }
 
-    // 3. Kurangi stok
+    // Kurangi stok
     await connection.query(
       "UPDATE stock_locations SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?",
       [qty, productId, fromLocationId]
@@ -139,7 +123,7 @@ export const processPickingListConfirmation = async (connection, items, userId, 
     //   pickingListItemId,
     // ]);
 
-    // 3. Update 'picking_list_items' HANYA JIKA INI STRUKTUR BARU
+    // Update 'picking_list_items' HANYA JIKA INI STRUKTUR BARU
     if (isNewListStructure) {
       await connection.query(
         "UPDATE picking_list_items SET confirmed_location_id = ? WHERE id = ?",
@@ -154,7 +138,7 @@ export const processPickingListConfirmation = async (connection, items, userId, 
       );
     }
 
-    // 4. Catat pergerakan
+    // Catat pergerakan
     const invoiceNote =
       invoiceNos && invoiceNos.length > 0 ? `(Inv: ${invoiceNos.join(", ")})` : "";
     const customerNote =
@@ -167,8 +151,6 @@ export const processPickingListConfirmation = async (connection, items, userId, 
 
     affectedProductIds.add(productId);
   }
-
-  console.log("--- [Service Fase 3] Pengurangan Stok Selesai ---");
   return affectedProductIds;
 };
 
@@ -183,7 +165,6 @@ export const processPickingListConfirmation = async (connection, items, userId, 
  * @returns {Set<number>} Set berisi ID produk yang stoknya terpengaruh.
  */
 export const processPickingListVoid = async (connection, pickingListId, userId) => {
-  console.log("--- [Service Fase 3] Memulai Pengembalian Stok (Void) ---");
   const affectedProductIdsVoid = new Set();
 
   const [listRows] = await connection.query(
@@ -192,7 +173,7 @@ export const processPickingListVoid = async (connection, pickingListId, userId) 
   );
   const filenameForNote = listRows[0]?.original_filename || `#${pickingListId}`;
 
-  // 1. Ambil SEMUA pergerakan stok 'SALE' yang terkait
+  // Ambil SEMUA pergerakan stok 'SALE' yang terkait
   // ✅ PERUBAHAN: 'SALE_COMPONENT' dihapus dari klausa IN()
   const [movements] = await connection.query(
     `SELECT product_id, quantity, from_location_id
@@ -243,8 +224,6 @@ export const processPickingListVoid = async (connection, pickingListId, userId) 
 
     affectedProductIdsVoid.add(productId);
   }
-
-  console.log("--- [Service Fase 3] Pengembalian Stok (Void) Selesai ---");
   return affectedProductIdsVoid;
 };
 
@@ -264,8 +243,8 @@ export const getLatestStockForBroadcast = async (productIds, relevantLocationId 
     const [updatedStock] = await db.query(
       // Gunakan db.query karena ini di luar transaksi utama
       `SELECT sl.product_id, l.code as location_code, sl.quantity
-             FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
-             WHERE sl.product_id = ?`,
+        FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
+        WHERE sl.product_id = ?`,
       [prodId]
     );
 

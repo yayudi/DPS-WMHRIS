@@ -22,33 +22,26 @@ const LOCATION_PURPOSE = "DISPLAY"; // <-- GANTI INI jika tujuannya beda
  */
 async function runStockOpname() {
   let connection;
-  console.log(`[OPNAME] Memulai... Menargetkan lokasi dengan 'purpose' = '${LOCATION_PURPOSE}'`);
 
   try {
     connection = await db.getConnection();
-    console.log("[OPNAME] Koneksi DB berhasil.");
 
-    // 1. Mulai Transaksi
+    // Mulai Transaksi
     await connection.beginTransaction();
-    console.log("[OPNAME] Transaksi dimulai.");
 
-    // 2. Dapatkan semua ID lokasi yang ditargetkan
+    // Dapatkan semua ID lokasi yang ditargetkan
     const [locations] = await connection.query("SELECT id FROM locations WHERE purpose = ?", [
       LOCATION_PURPOSE,
     ]);
 
     if (locations.length === 0) {
-      console.log(
-        `[OPNAME] Tidak ada lokasi yang ditemukan dengan 'purpose' = '${LOCATION_PURPOSE}'. Dibatalkan.`
-      );
       await connection.rollback();
       return;
     }
 
     const locationIds = locations.map((loc) => loc.id);
-    console.log(`[OPNAME] Ditemukan ${locationIds.length} lokasi 'DISPLAY'.`);
 
-    // 3. Dapatkan SEMUA item di lokasi tersebut yang stoknya TIDAK 0
+    // Dapatkan SEMUA item di lokasi tersebut yang stoknya TIDAK 0
     const [stocksToAdjust] = await connection.query(
       `SELECT product_id, location_id, quantity
        FROM stock_locations
@@ -57,16 +50,14 @@ async function runStockOpname() {
     );
 
     if (stocksToAdjust.length === 0) {
-      console.log("[OPNAME] Semua stok 'DISPLAY' sudah 0. Tidak ada yang perlu diubah. Selesai.");
       await connection.rollback();
       return;
     }
 
-    console.log(`[OPNAME] Ditemukan ${stocksToAdjust.length} item stok yang akan di-nol-kan...`);
     let movementInserts = [];
     let locationUpdates = [];
 
-    // 4. Siapkan semua query (INSERT movement dan UPDATE location)
+    // Siapkan semua query (INSERT movement dan UPDATE location)
     for (const stock of stocksToAdjust) {
       const currentQty = stock.quantity;
       const movementQty = -Math.abs(currentQty); // Kuantitas yang dicatat adalah selisihnya
@@ -89,14 +80,14 @@ async function runStockOpname() {
       );
     }
 
-    // 5. Eksekusi semua query
+    // Eksekusi semua query
     console.log("[OPNAME] Mencatat `stock_movements`...");
     await Promise.all(movementInserts);
 
     console.log("[OPNAME] Mengatur `stock_locations` menjadi 0...");
     await Promise.all(locationUpdates);
 
-    // 6. Jika semua berhasil, commit transaksi
+    // Jika semua berhasil, commit transaksi
     await connection.commit();
     console.log(
       `[OPNAME] SUKSES! Transaksi di-commit. ${stocksToAdjust.length} item diatur menjadi 0.`
@@ -119,5 +110,4 @@ async function runStockOpname() {
   }
 }
 
-// Jalankan skrip
 runStockOpname();

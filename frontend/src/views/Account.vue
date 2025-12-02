@@ -52,30 +52,7 @@ async function handleUpdate() {
 
     show('Data akun berhasil diperbarui!', 'success')
 
-    // --- INVESTIGASI DIMULAI DI SINI ---
-    console.log('--- Memulai Investigasi Update Akun ---')
-    console.log('Respons dari server:', response.data)
-    console.log("Objek 'user' di auth store SEBELUM update:", JSON.parse(JSON.stringify(auth.user)))
-    // ------------------------------------
-
-    // if (auth.user && response.data.user) {
-    //   auth.user.nickname = response.data.user.nickname
-    //   localStorage.setItem('authUser', JSON.stringify(auth.user))
-
-    //   // --- INVESTIGASI LANJUTAN ---
-    //   console.log(
-    //     "Objek 'user' di auth store SETELAH update:",
-    //     JSON.parse(JSON.stringify(auth.user)),
-    //   )
-    //   console.log('Data di localStorage SETELAH update:', localStorage.getItem('authUser'))
-    //   console.log('--------------------------------------')
-    //   // -----------------------------
-    // }
-
     auth.updateUserNickname(response.data.user.nickname)
-
-    // --- INVESTIGASI LANJUTAN ---
-    console.log("Objek 'user' di auth store SETELAH update:", JSON.parse(JSON.stringify(auth.user)))
 
     // Kosongkan field password
     currentPassword.value = ''

@@ -1,7 +1,7 @@
 <!-- frontend\src\views\Login.vue -->
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import api from '@/api/axios.js'
 import { useToast } from '@/composables/UseToast.js'
 import { useAuthStore } from '@/stores/auth.js'
@@ -14,11 +14,18 @@ const loading = ref(false)
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const { show } = useToast()
 
 // --- Variabel untuk Tes Koneksi ---
 const testResult = ref(null)
 const isTestLoading = ref(false)
+
+onMounted(() => {
+  if (route.query.expired) {
+    show('Sesi Anda telah berakhir, silakan login kembali.', 'info')
+  }
+})
 
 // --- Fungsi untuk Login ---
 async function login() {

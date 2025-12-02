@@ -9,17 +9,11 @@ import api from '../axios' // Pastikan ini mengimpor instance axios Anda yang su
  * @returns {Promise<Array<object>>}
  */
 export const searchProducts = async (query, locationId) => {
-  // Log investigasi di awal helper
-  console.log('Helper searchProducts received locationId:', locationId, typeof locationId)
-
   try {
     const params = { q: query } // Buat objek params
     if (locationId) {
       params.locationId = locationId // Tambahkan locationId jika ada
     }
-
-    // Log investigasi sebelum request
-    console.log('Helper searchProducts sending request with params:', params)
 
     // Menggunakan path relatif jika baseURL sudah '/api'
     const response = await api.get('/products/search', { params })

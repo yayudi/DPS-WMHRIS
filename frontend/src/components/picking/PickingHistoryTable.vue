@@ -1,7 +1,8 @@
+<!-- frontend\src\components\picking\PickingHistoryTable.vue -->
 <script setup>
 import { computed } from 'vue'
+import { formatDate } from '@/api/helpers/time.js'
 
-// Props: Menerima data riwayat dan status loading
 const props = defineProps({
   historyItems: {
     type: Array,
@@ -14,187 +15,193 @@ const props = defineProps({
   },
 })
 
-// Emits: Memberi tahu parent tentang aksi user
 const emit = defineEmits(['refresh', 'view-details', 'void-item', 'cancel-item', 'resume-item'])
 
-// Computed property untuk menampilkan pesan saat tabel kosong
 const isEmpty = computed(() => !props.isLoading && props.historyItems.length === 0)
 
-// Methods untuk emit event (membungkus emit agar lebih jelas)
-function refreshHistory() {
-  emit('refresh')
-}
-
-function viewDetails(item) {
-  // Hanya lihat detail jika BUKAN PENDING (karena PENDING belum punya item tervalidasi)
-  if (item.status !== 'PENDING' && item.status !== 'PENDING_VALIDATION') {
-    emit('view-details', item)
+// Helper untuk status warna
+function getStatusClass(status) {
+  switch (status) {
+    case 'COMPLETED':
+      return 'bg-green-100 text-green-700 border-green-200'
+    case 'CANCEL':
+    case 'CANCELLED':
+      return 'bg-red-100 text-red-700 border-red-200'
+    case 'PENDING':
+    case 'PENDING_VALIDATION':
+      return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+    case 'SHIPPED':
+      return 'bg-blue-100 text-blue-700 border-blue-200'
+    default:
+      return 'bg-gray-100 text-gray-600 border-gray-200'
   }
 }
 
-function voidItem(itemId) {
-  emit('void-item', itemId)
+// [FIX] Helper untuk mendapatkan Invoice ID yang valid (Support Raw & Grouped Data)
+function getInvoiceId(item) {
+  // Prioritas 1: Data mentah dari backend (pl.original_invoice_id)
+  // Prioritas 2: Data hasil grouping (item.invoice)
+  // Fallback: Tanda tanya
+  return item.original_invoice_id || item.invoice || '(Tanpa ID)'
 }
 
-function cancelItem(itemId) {
-  emit('cancel-item', itemId)
-}
-
-function resumeItem(item) {
-  emit('resume-item', item)
+// Actions
+function viewDetails(item) {
+  if (!['PENDING', 'PENDING_VALIDATION'].includes(item.status)) {
+    emit('view-details', item)
+  }
 }
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex justify-between items-center mb-4">
-      <h3 class="text-lg font-semibold text-text">Riwayat Proses Picking List</h3>
+  <div class="space-y-4">
+    <div
+      class="flex justify-between items-center bg-white p-4 rounded-xl border border-secondary/20 shadow-sm"
+    >
+      <h3 class="font-bold text-text flex items-center gap-2">
+        <font-awesome-icon icon="fa-solid fa-clock-rotate-left" class="text-primary/70" />
+        Riwayat Proses
+      </h3>
       <button
-        @click="refreshHistory"
+        @click="$emit('refresh')"
         :disabled="isLoading"
-        class="text-primary text-sm hover:underline disabled:opacity-50 flex items-center gap-1"
+        class="text-sm font-bold text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
       >
-        <font-awesome-icon icon="fa-solid fa-sync" :class="{ 'animate-spin': isLoading }" />
-        Refresh
+        <font-awesome-icon icon="fa-solid fa-rotate" :class="{ 'animate-spin': isLoading }" />
+        Refresh Data
       </button>
     </div>
 
-    <!-- Tampilan Loading atau Kosong -->
-    <div v-if="isLoading && historyItems.length === 0" class="text-center p-8 text-text/60">
-      <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin mr-2" /> Memuat riwayat...
-    </div>
-    <div v-else-if="isEmpty" class="text-center p-8 text-text/60 italic">
-      Belum ada riwayat proses.
+    <div v-if="isLoading && historyItems.length === 0" class="py-20 text-center opacity-60">
+      <font-awesome-icon
+        icon="fa-solid fa-circle-notch"
+        class="text-4xl animate-spin text-primary mb-3"
+      />
+      <p class="text-sm">Memuat data...</p>
     </div>
 
-    <!-- Tabel Riwayat -->
-    <div v-else class="max-h-[70vh] overflow-y-auto border border-secondary/20 rounded-lg">
-      <table class="min-w-full text-sm">
-        <thead class="bg-secondary/10 sticky top-0 z-10">
-          <tr>
-            <th class="p-2 text-left">Waktu Proses</th>
-            <!-- ✅ UBAH: Header kolom diganti -->
-            <th class="p-2 text-left">Tagihan / File</th>
-            <th class="p-2 text-left">Sumber</th>
-            <th class="p-2 text-center">Status</th>
-            <th class="p-2 text-left">Oleh</th>
-            <th class="p-2 text-center">Aksi</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-secondary/20">
-          <tr
-            v-for="item in historyItems"
-            :key="item.id"
-            class="hover:bg-primary/5 transition-colors duration-150"
-            :class="{
-              'cursor-pointer': item.status !== 'PENDING' && item.status !== 'PENDING_VALIDATION',
-              'cursor-default': item.status === 'PENDING' || item.status === 'PENDING_VALIDATION',
-            }"
-            @click="viewDetails(item)"
+    <div
+      v-else-if="isEmpty"
+      class="py-20 text-center border-2 border-dashed border-secondary/20 rounded-xl bg-secondary/5"
+    >
+      <p class="text-text/40 italic">Belum ada data riwayat.</p>
+    </div>
+
+    <div v-else class="bg-white border border-secondary/20 rounded-xl shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead
+            class="bg-secondary/5 text-text/60 border-b border-secondary/10 uppercase text-xs tracking-wider font-bold"
           >
-            <td class="p-2 whitespace-nowrap">
-              {{
-                new Date(item.created_at).toLocaleString('id-ID', {
-                  dateStyle: 'short',
-                  timeStyle: 'medium',
-                })
-              }}
-            </td>
+            <tr>
+              <th class="p-4 w-40">Tanggal</th>
+              <th class="p-4">Invoice / File</th>
+              <th class="p-4 w-32">Sumber</th>
+              <th class="p-4 w-32 text-center">Status</th>
+              <th class="p-4 w-40 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-secondary/10">
+            <tr
+              v-for="item in historyItems"
+              :key="item.id"
+              class="hover:bg-primary/5 transition-colors group"
+              :class="{
+                'cursor-pointer': !['PENDING', 'PENDING_VALIDATION'].includes(item.status),
+              }"
+              @click="viewDetails(item)"
+            >
+              <td class="p-4 whitespace-nowrap text-text/70">
+                <div class="font-mono text-xs">
+                  {{ formatDate(item.created_at || item.order_date, true, true) }}
+                </div>
+              </td>
 
-            <!-- ✅ UBAH: Logika Tampilan Kolom Tagihan / File -->
-            <td class="p-2 max-w-xs">
-              <!-- Tampilan untuk Upload CSV (Hybrid) Baru -->
-              <!-- <div v-if="item.original_invoice_id" class="flex flex-col">
-                <span class="font-semibold truncate" :title="item.original_invoice_id">
-                  {{ item.original_invoice_id }}
-                </span>
-                <span class="text-xs text-text/70 truncate" :title="item.customer_name">
-                  {{ item.customer_name || 'N/A' }}
-                </span>
-              </div>
-              <!-- Tampilan untuk Upload PDF (Legacy) Lama -->
-              <!-- <span v-else class="truncate" :title="item.original_filename">
-                {{ item.original_filename || '(Legacy PDF)' }}
-              </span> -->
-              <span class="truncate" :title="item.original_filename">
-                {{ item.original_filename || '(Legacy PDF)' }}
-              </span>
-            </td>
-            <!-- ✅ AKHIR UBAHAN -->
+              <td class="p-4">
+                <div class="flex flex-col">
+                  <span
+                    class="font-bold text-text group-hover:text-primary transition-colors text-base"
+                  >
+                    {{ getInvoiceId(item) }}
+                  </span>
 
-            <td class="p-2">{{ item.source }}</td>
-            <td class="p-2 text-center">
-              <span
-                class="px-2.5 py-0.5 text-xs font-semibold rounded-full"
-                :class="{
-                  'bg-success/10 text-success': item.status === 'COMPLETED',
-                  'bg-accent/10 text-accent': item.status === 'CANCELLED',
+                  <span class="text-xs text-text/50 flex items-center gap-1 mt-0.5">
+                    <font-awesome-icon icon="fa-solid fa-user" class="text-[10px]" />
+                    {{ item.customer_name || 'Customer tidak diketahui' }}
+                  </span>
+                </div>
+              </td>
 
-                  // ✅ UBAH: Tambahkan status 'PENDING' di sini
-                  'bg-warning/10 text-warning':
-                    item.status === 'PENDING_VALIDATION' || item.status === 'PENDING',
-
-                  'bg-secondary/20 text-text/70': ![
-                    'COMPLETED',
-                    'CANCELLED',
-                    'PENDING_VALIDATION',
-                    'PENDING', // ✅ UBAH: Tambahkan juga di sini
-                  ].includes(item.status),
-                }"
-                >{{ item.status }}</span
-              >
-            </td>
-            <td class="p-2">{{ item.username }}</td>
-            <td class="p-2 text-center space-x-3">
-              <!-- Aksi untuk COMPLETED -->
-              <button
-                v-if="item.status === 'COMPLETED'"
-                @click.stop="voidItem(item.id)"
-                class="text-accent hover:text-accent/80 transition-colors"
-                title="Batalkan & Kembalikan Stok"
-              >
-                <font-awesome-icon icon="fa-solid fa-undo" />
-              </button>
-
-              <!-- ✅ UBAH: Aksi untuk PENDING_VALIDATION atau PENDING -->
-              <template v-if="item.status === 'PENDING_VALIDATION' || item.status === 'PENDING'">
-                <button
-                  @click.stop="resumeItem(item)"
-                  class="text-primary hover:text-primary/80 transition-colors"
-                  title="Lanjutkan Proses Validasi"
+              <td class="p-4">
+                <span
+                  class="px-2 py-1 rounded text-xs font-bold border"
+                  :class="{
+                    'bg-green-50 text-green-700 border-green-200': item.source === 'Tokopedia',
+                    'bg-orange-50 text-orange-700 border-orange-200': item.source === 'Shopee',
+                    'bg-blue-50 text-blue-700 border-blue-200': item.source === 'Offline',
+                  }"
                 >
-                  <font-awesome-icon icon="fa-solid fa-play-circle" />
-                </button>
-                <button
-                  @click.stop="cancelItem(item.id)"
-                  class="text-secondary hover:text-secondary/80 transition-colors"
-                  title="Batalkan Picking List"
-                >
-                  <font-awesome-icon icon="fa-solid fa-times-circle" />
-                </button>
-              </template>
+                  {{ item.source }}
+                </span>
+              </td>
 
-              <!-- ✅ UBAH: Fallback jika tidak ada aksi -->
-              <span
-                v-else-if="
-                  item.status !== 'COMPLETED' &&
-                  item.status !== 'PENDING_VALIDATION' &&
-                  item.status !== 'PENDING'
-                "
-                class="text-secondary/50"
-                title="Aksi tidak tersedia"
-              >
-                -
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              <td class="p-4 text-center">
+                <span
+                  class="px-2.5 py-1 rounded-full text-[10px] font-black border uppercase tracking-wide"
+                  :class="getStatusClass(item.status)"
+                >
+                  {{ item.status }}
+                </span>
+              </td>
+
+              <td class="p-4 text-center" @click.stop>
+                <div class="flex items-center justify-center gap-2">
+                  <button
+                    v-if="item.status === 'COMPLETED'"
+                    @click="$emit('void-item', item.id)"
+                    class="h-8 w-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all"
+                    title="Batalkan & Kembalikan Stok"
+                  >
+                    <font-awesome-icon icon="fa-solid fa-rotate-left" />
+                  </button>
+
+                  <template v-if="['PENDING', 'PENDING_VALIDATION'].includes(item.status)">
+                    <button
+                      @click="$emit('resume-item', item)"
+                      class="h-8 w-8 rounded-lg flex items-center justify-center text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-200 transition-all"
+                      title="Lanjutkan Validasi"
+                    >
+                      <font-awesome-icon icon="fa-solid fa-play" />
+                    </button>
+                    <button
+                      @click="$emit('cancel-item', item.id)"
+                      class="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                      title="Hapus"
+                    >
+                      <font-awesome-icon icon="fa-solid fa-xmark" />
+                    </button>
+                  </template>
+
+                  <button
+                    v-if="!['PENDING', 'PENDING_VALIDATION'].includes(item.status)"
+                    @click="viewDetails(item)"
+                    class="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primary/5 transition-all"
+                    title="Lihat Detail Barang"
+                  >
+                    <font-awesome-icon icon="fa-solid fa-eye" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </template>
+
 <style scoped>
-/* Targeting direct child rows for hover effect */
+/* Efek hover baris tabel */
 tbody > tr:hover {
   background-color: rgba(var(--color-primary), 0.05);
 }

@@ -1,3 +1,4 @@
+<!-- frontend\src\components\Modal.vue -->
 <script setup>
 defineProps({
   show: {

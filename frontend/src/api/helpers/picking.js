@@ -1,156 +1,122 @@
 // frontend\src\api\helpers\picking.js
-import api from '../axios'
+import api from '@/api/axios.js'
 
 /**
- * [DEPRECATED] Mengirim file picking list ke backend untuk di-parsing (Arsitektur Lama).
- * @param {FormData} formData - Objek FormData yang berisi file dan sumbernya.
- * @returns {Promise<object>} - Hasil validasi dari server.
+ * [LEGACY] Mengunggah laporan penjualan (Excel/CSV)
+ * Digunakan untuk fallback atau fitur upload lama.
  */
-export async function uploadPickingList(formData) {
-  try {
-    const response = await api.post('/picking/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-    return response.data
-  } catch (error) {
-    console.error('Error saat upload picking list:', error.response?.data || error.message)
-    throw error.response?.data || error
-  }
+export const uploadSalesReport = async (file, source, notes) => {
+  const formData = new FormData()
+  formData.append('salesReportFile', file)
+  formData.append('source', source)
+  if (notes) formData.append('notes', notes)
+
+  const response = await api.post('/picking/upload-sales-report', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return response.data
 }
 
 /**
- * [BARU - HYBRID] Mengirim data picking list batch (dari CSV) yang sudah di-parse oleh frontend.
- * Ini adalah implementasi arsitektur hybrid untuk shared hosting.
- * @param {Array<object>} groupedInvoices - Array invoice dari (pickingListParser.js)
- * @returns {Promise<object>} - Respons dari backend (created, skipped)
+ * [NEW] Validasi & Upload Batch (CSV/JSON)
+ * Digunakan oleh PickingUploadForm.vue untuk alur "Tagihan (CSV)"
+ * Payload diharapkan: { items: [...], source: 'Tagihan (CSV)', filename: '...' }
  */
-export async function uploadBatchPickingListJson(groupedInvoices) {
-  try {
-    // Kirim payload JSON ke endpoint backend BARU
-    // Endpoint ini HANYA menangani transaksi DB, bukan parsing file
-
-    const response = await api.post('/picking/upload-json', {
-      invoices: groupedInvoices,
-    })
-
-    return response.data // Misal: { success: true, message: "...", created: 5, skipped: 2 }
-  } catch (error) {
-    console.error('Error saat upload JSON batch picking list:', error)
-    throw error.response?.data || { success: false, message: 'Error tidak diketahui dari server.' }
-  }
+export const uploadBatchPickingListJson = async (payload) => {
+  // Kita menggunakan endpoint yang sama dengan validasi PDF karena logikanya sama (Batch Upload)
+  const response = await api.post('/picking/batch-upload', payload)
+  return response.data
 }
 
 /**
- * Mengirim hasil parsing client-side ke backend untuk divalidasi dan disimpan.
- * @param {object} payload - Objek berisi { source: string, items: Array<{sku: string, qty: number}> }.
- * @returns {Promise<object>} - Hasil validasi dari server (termasuk pickingListId).
+ * [NEW] Validasi Data Parsed (PDF)
+ * Digunakan oleh PickingUploadForm.vue untuk alur "Tokopedia/Shopee (PDF)"
+ * Payload diharapkan: { items: [...], source: 'Tokopedia', filename: '...' }
  */
 export const validateParsedPickingList = async (payload) => {
-  try {
-    // Panggil endpoint backend BARU (misal /validate-parsed)
-    const response = await api.post('/picking/validate-parsed', payload, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-    // Asumsi backend mengembalikan { success: true, data: { pickingListId, validItems, invalidSkus } }
-    return response.data
-  } catch (error) {
-    console.error(
-      'Error saat validasi picking list (parsed):',
-      error.response?.data || error.message,
-    )
-    throw new Error(error.response?.data?.message || 'Gagal mengirim data parsing ke server.')
-  }
+  const response = await api.post('/picking/batch-upload', payload)
+  return response.data
 }
 
 /**
- * Mengonfirmasi picking list dan mengurangi stok.
- * @param {number|string} pickingListId - ID picking list.
- * @param {object} payload - Objek payload LANGSUNG DARI FRONTEND. Contoh: { items: [{ sku: 'SKU1', qty: 5 }] }
- * @returns {Promise<object>} - Respons dari backend.
+ * [NEW] Mengambil Detail Item per Picking List
+ * Digunakan oleh PickingListDetailsModal.vue
  */
-// --- FIX: Ubah parameter kedua dan HAPUS pembungkusan ulang ---
-export const confirmPickingList = async (pickingListId, payload) => {
+export const fetchPickingDetails = async (pickingListId) => {
   try {
-    // const payload = { items: itemsToProcess } // <-- HAPUS BARIS INI
-    const response = await api.post(`/picking/${pickingListId}/confirm`, payload, {
-      // Kirim payload apa adanya
-      headers: {
-        'Content-Type': 'application/json', // Pastikan header benar
-      },
-    })
+    const response = await api.get(`/picking/${pickingListId}`)
     return response.data
   } catch (error) {
-    console.error('Error saat konfirmasi picking list:', error.response?.data || error.message)
-    // Coba berikan pesan error yang lebih spesifik jika ada dari backend
-    throw new Error(error.response?.data?.message || 'Gagal mengonfirmasi picking list.')
-  }
-}
-
-/**
- * Mengambil riwayat semua sesi upload picking list dari server.
- * @returns {Promise<Array>} - Array berisi objek riwayat picking list.
- */
-export async function fetchPickingHistory() {
-  try {
-    const response = await api.get('/picking/history')
-    return response.data.data || []
-  } catch (error) {
-    console.error(
-      'Error saat mengambil riwayat picking list:',
-      error.response?.data || error.message,
-    )
+    console.error(`Error fetching details for list #${pickingListId}:`, error)
     throw error.response?.data || error
   }
 }
 
 /**
- * Mengambil detail item dari sebuah picking list spesifik.
- * @param {number} pickingListId - ID dari picking list.
- * @returns {Promise<object>}
+ * Data ini berasal dari tabel 'picking_list_items' dengan status 'PENDING_VALIDATION'.
+ * @returns {Promise<Array>} Array of item objects
  */
-export async function fetchPickingDetails(pickingListId) {
+export const getPendingPickingItems = async () => {
   try {
-    const response = await api.get(`/picking/${pickingListId}/details`)
-    return response.data
+    const response = await api.get('/picking/pending-items')
+    return response.data.data // Mengembalikan array item
   } catch (error) {
-    console.error(
-      `Error fetching picking details for ID ${pickingListId}:`,
-      error.response?.data || error.message,
-    )
-    throw new Error(error.response?.data?.message || 'Gagal memuat detail picking list.')
+    console.error('Error fetching pending picking items:', error)
+    throw error.response?.data || error
   }
 }
 
 /**
- * Mengirim permintaan untuk membatalkan picking list yang PENDING.
- * @param {number|string} pickingListId - ID picking list.
- * @returns {Promise<object>} - Respons dari backend.
+ * Mengambil riwayat item yang SUDAH selesai atau diretur
+ * Digunakan untuk tab "Riwayat Picking"
+ */
+export const getHistoryPickingItems = async () => {
+  const response = await api.get('/picking/history-items')
+  return response.data.data
+}
+
+/**
+ * Menyelesaikan proses picking (Mengurangi stok fisik)
+ * @param {Array<number>} itemIds - Array ID dari picking_list_items yang dicentang
+ * @returns {Promise<Object>} Response sukses
+ */
+export const completePickingItems = async (itemIds) => {
+  try {
+    const response = await api.post('/picking/complete-items', { itemIds })
+    return response.data
+  } catch (error) {
+    console.error('Error completing picking items:', error)
+    throw error.response?.data || error
+  }
+}
+
+/**
+ * Mengambil khusus item yang statusnya RETURNED
+ * Digunakan untuk validasi retur (jika diperlukan terpisah)
+ * @returns {Promise<Array>} Array of item objects (retur)
+ */
+export const getReturnedItems = async () => {
+  try {
+    const response = await api.get('/picking/returned-items')
+    return response.data.data // Mengembalikan array item
+  } catch (error) {
+    console.error('Error fetching returned items:', error)
+    throw error.response?.data || error
+  }
+}
+
+/**
+ * Membatalkan picking list yang masih PENDING_VALIDATION
+ * Digunakan jika user perlu membatalkan picking list (misal: salah upload SKU)
+ * @param {number} pickingListId - ID dari picking list yang akan dibatalkan
+ * @returns {Promise<Object>} Response sukses
  */
 export const cancelPickingList = async (pickingListId) => {
   try {
-    const response = await api.post(`/picking/${pickingListId}/cancel`)
+    const response = await api.post(`/picking/cancel/${pickingListId}`)
     return response.data
   } catch (error) {
-    console.error('Error cancelling picking list:', error.response?.data || error.message)
-    throw new Error(error.response?.data?.message || 'Gagal membatalkan picking list.')
-  }
-}
-
-/**
- * Mengirim permintaan untuk membatalkan (void) sebuah picking list.
- * @param {number} pickingListId - ID dari picking list yang akan dibatalkan.
- * @returns {Promise<object>}
- */
-export async function voidPickingList(pickingListId) {
-  try {
-    const response = await api.post(`/picking/${pickingListId}/void`)
-    return response.data
-  } catch (error) {
-    console.error('Error saat membatalkan picking list:', error.response?.data || error.message)
+    console.error('Error cancelling picking list:', error)
     throw error.response?.data || error
   }
 }

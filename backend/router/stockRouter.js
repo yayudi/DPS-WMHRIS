@@ -20,8 +20,11 @@ const UPLOAD_DIR = path.join(__dirname, "..", "uploads", "adjustments");
 
 // Pastikan direktori ada
 if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-  console.log(`[Multer] Membuat direktori upload di: ${UPLOAD_DIR}`);
+  try {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  } catch (err) {
+    console.error("Gagal membuat folder upload adjustment:", err);
+  }
 }
 
 // Konfigurasi Multer Storage
@@ -32,7 +35,7 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const originalName = path.parse(file.originalname).name; // "stock_opname"
     const timestamp = getTimestampString_YYMMDDHHSS(); // "251113160530"
-    const ext = path.extname(file.originalname); // [DIUBAH] Ini sekarang akan .xlsx
+    const ext = path.extname(file.originalname); // Ini sekarang akan .xlsx
     cb(null, `${originalName}_${timestamp}${ext}`); // "stock_opname_251113160530.xlsx"
   },
 });
@@ -205,8 +208,6 @@ router.post("/adjust", async (req, res) => {
   }
 });
 
-// [BARU] Endpoint untuk Langkah 1 Rencana Arsitektur v2
-// =======================================================
 /**
  * GET /api/stock/download-adjustment-template
  * Men-generasi file template Excel .xlsx untuk adjustment stok
@@ -219,41 +220,27 @@ router.get("/download-adjustment-template", async (req, res) => {
   try {
     connection = await db.getConnection();
 
-    // 1. Ambil data lokasi untuk validasi dropdown
     const [locations] = await connection.query("SELECT code FROM locations ORDER BY code ASC");
-    // Ubah hasil [ { code: 'A1' }, { code: 'B1' } ] menjadi [ 'A1', 'B1' ]
     const locationCodes = locations.map((loc) => loc.code);
 
-    // 2. Buat Workbook Excel di memori
     const workbook = new ExcelJS.Workbook();
     const mainSheet = workbook.addWorksheet("Input Stok");
     const validationSheet = workbook.addWorksheet("DataValidasi");
 
-    // 3. Sembunyikan sheet validasi
     validationSheet.state = "hidden";
-
-    // 4. Isi sheet validasi dengan data lokasi
-    // Ini akan mengisi Kolom A di sheet "DataValidasi"
     validationSheet.getColumn("A").values = locationCodes;
 
-    // 5. Atur Header di sheet utama ("Input Stok")
     mainSheet.columns = [
       { header: "SKU", key: "sku", width: 25 },
       { header: "LT (Lokasi)", key: "location", width: 20 },
       { header: "ACTUAL", key: "actual", width: 10 },
       { header: "NOTES", key: "notes", width: 35 },
     ];
-    // Beri styling pada header
     mainSheet.getRow(1).font = { bold: true };
 
-    // 6. Terapkan Validasi Data (Dropdown)
-    // Rumus validasi menunjuk ke sheet tersembunyi
-    // Ini akan membuat "DataValidasi!$A$1:$A$[jumlah_lokasi]"
     const validationFormula = `DataValidasi!$A$1:$A$${locationCodes.length}`;
 
-    // Terapkan validasi ke 1000 baris pertama di kolom B (LT)
     for (let i = 2; i <= 1002; i++) {
-      // Mulai dari baris 2 (setelah header)
       mainSheet.getCell(`B${i}`).dataValidation = {
         type: "list",
         allowBlank: true,
@@ -265,14 +252,12 @@ router.get("/download-adjustment-template", async (req, res) => {
       };
     }
 
-    // 7. Atur Tipe Konten & Header untuk respons
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
     res.setHeader("Content-Disposition", "attachment; filename=Template_Adjustment_Stok.xlsx");
 
-    // 8. Kirim file Excel ke pengguna
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
@@ -285,57 +270,49 @@ router.get("/download-adjustment-template", async (req, res) => {
 
 /**
  * POST /api/stock/request-adjustment-upload
- * [DIUBAH] untuk Langkah 3 Rencana Arsitektur v2
  * Menerima file .xlsx (sebelumnya .csv) untuk penyesuaian stok massal.
  */
-router.post(
-  "/request-adjustment-upload",
-  upload.single("adjustmentFile"), // 'adjustmentFile' adalah nama field di form-data
-  async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    const userId = req.user.id;
-    const file = req.file;
-    const { notes } = req.body; // [DIUBAH] 'delimiter' sudah tidak ada
+router.post("/request-adjustment-upload", upload.single("adjustmentFile"), async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const userId = req.user.id;
+  const file = req.file;
+  const { notes } = req.body;
 
-    if (!file) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "File tidak ditemukan. Pastikan field name adalah 'adjustmentFile' dan tipenya .xlsx", // [DIUBAH] Teks error
-      });
-    }
-
-    let connection;
-    try {
-      const { originalname, path: serverFilePath } = file;
-
-      connection = await db.getConnection();
-
-      // [FIX & DIUBAH]
-      // 1. Menghapus 'delimiter' (sudah tidak ada di req.body)
-      // 2. [FIX] Menambahkan kolom 'notes' dan '?' ke query agar catatan pengguna tersimpan
-      const [result] = await connection.query(
-        `INSERT INTO import_jobs (user_id, job_type, original_filename, file_path, status, notes)
-         VALUES (?, 'ADJUST_STOCK', ?, ?, 'PENDING', ?)`, // [DIUBAH] Menambah 'notes' dan '?'
-        [userId, originalname, serverFilePath, notes || null] // [DIUBAH] Menambah 'notes'
-      );
-
-      res.status(202).json({
-        success: true,
-        message: "File diterima. Penyesuaian stok akan diproses di latar belakang.",
-        jobId: result.insertId,
-      });
-    } catch (error) {
-      console.error("Error saat request stock adjustment upload:", error);
-      res.status(500).json({
-        success: false,
-        message: "Terjadi kesalahan pada server saat membuat job.",
-      });
-    } finally {
-      if (connection) connection.release();
-    }
+  if (!file) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "File tidak ditemukan. Pastikan field name adalah 'adjustmentFile' dan tipenya .xlsx",
+    });
   }
-);
+
+  let connection;
+  try {
+    const { originalname, path: serverFilePath } = file;
+
+    connection = await db.getConnection();
+
+    const [result] = await connection.query(
+      `INSERT INTO import_jobs (user_id, job_type, original_filename, file_path, status, notes)
+         VALUES (?, 'ADJUST_STOCK', ?, ?, 'PENDING', ?)`,
+      [userId, originalname, serverFilePath, notes || null]
+    );
+
+    res.status(202).json({
+      success: true,
+      message: "File diterima. Penyesuaian stok akan diproses di latar belakang.",
+      jobId: result.insertId,
+    });
+  } catch (error) {
+    console.error("Error saat request stock adjustment upload:", error);
+    res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan pada server saat membuat job.",
+    });
+  } finally {
+    if (connection) connection.release();
+  }
+});
 
 /**
  * GET /api/stock/import-jobs
@@ -345,8 +322,9 @@ router.get("/import-jobs", async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   try {
     const userId = req.user.id;
+    // [CRITICAL FIX]: Menambahkan kolom 'error_log' agar frontend bisa membaca download_url
     const [jobs] = await db.query(
-      `SELECT id, status, job_type, original_filename, log_summary, created_at
+      `SELECT id, status, job_type, original_filename, log_summary, error_log, created_at, notes
         FROM import_jobs
         WHERE user_id = ?
         ORDER BY created_at DESC
@@ -359,13 +337,45 @@ router.get("/import-jobs", async (req, res) => {
     res.status(500).json({ success: false, message: "Gagal mengambil riwayat pekerjaan." });
   }
 });
+
+/**
+ * POST /api/stock/import-jobs/:id/cancel
+ * Membatalkan job import yang masih dalam antrian (PENDING).
+ */
+router.post("/import-jobs/:id/cancel", async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const [result] = await db.query(
+      "UPDATE import_jobs SET status = 'CANCELLED' WHERE id = ? AND status = 'PENDING' AND user_id = ?",
+      [id, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Gagal membatalkan. Job mungkin sudah diproses atau bukan milik Anda.",
+      });
+    }
+
+    res.json({ success: true, message: "Antrian berhasil dibatalkan." });
+  } catch (error) {
+    console.error("Error cancelling job:", error);
+    res.status(500).json({ success: false, message: "Gagal membatalkan job." });
+  }
+});
+
+/**
+ * POST /api/stock/batch-process
+ * Memproses batch pergerakan stok (TRANSFER, INBOUND, RETURN, ADJUSTMENT, TRANSFER_MULTI).
+ */
 router.post("/batch-process", async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   const { type, fromLocationId, toLocationId, notes, movements } = req.body;
   const userId = req.user.id;
   const userRoleId = req.user.role_id;
 
-  // Validasi input dasar
   if (!type || !Array.isArray(movements) || movements.length === 0) {
     return res
       .status(400)
@@ -377,13 +387,9 @@ router.post("/batch-process", async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // --- PERBAIKAN LOGIKA KEAMANAN RBAC ---
-    // Keamanan RBAC: Periksa izin untuk lokasi asal jika relevan
+    // Keamanan RBAC
     if (type === "TRANSFER" || type === "ADJUSTMENT") {
-      // Tipe yang mengurangi stok
       if (userRoleId !== 1) {
-        // Admin (role_id 1) dilewati
-        // 'ADJUSTMENT' menggunakan toLocationId, 'TRANSFER' menggunakan fromLocationId
         const locationToCheck = type === "TRANSFER" ? fromLocationId : toLocationId;
         if (!locationToCheck) {
           throw new Error("Lokasi (asal atau tujuan) wajib diisi untuk operasi ini.");
@@ -409,31 +415,25 @@ router.post("/batch-process", async (req, res) => {
       const productId = productRows[0].id;
       updatedProductIds.add(productId);
 
-      // Logika berbeda untuk setiap tipe pergerakan
       switch (type) {
         case "TRANSFER":
           if (!fromLocationId || !toLocationId)
             throw new Error("Lokasi asal dan tujuan wajib diisi untuk transfer.");
-          // Kurangi dari asal
           await connection.query(
             "UPDATE stock_locations SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?",
             [quantity, productId, fromLocationId]
           );
-          // Tambah ke tujuan
           await connection.query(
             "INSERT INTO stock_locations (product_id, location_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity + ?",
             [productId, toLocationId, quantity, quantity]
           );
-          // Catat di buku besar
           await connection.query(
             "INSERT INTO stock_movements (product_id, quantity, from_location_id, to_location_id, movement_type, user_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [productId, quantity, fromLocationId, toLocationId, "TRANSFER", userId, notes]
           );
           break;
 
-        // --- BLOK BARU UNTUK MENANGANI "TRANSFER RINCI" ---
         case "TRANSFER_MULTI":
-          // Ambil ID lokasi dari dalam item movement
           const { fromLocationId: itemFromLocId, toLocationId: itemToLocId } = movement;
 
           if (!itemFromLocId || !itemToLocId) {
@@ -442,7 +442,6 @@ router.post("/batch-process", async (req, res) => {
             );
           }
 
-          // Keamanan RBAC (di dalam loop)
           if (userRoleId !== 1) {
             const [permissionRows] = await connection.query(
               "SELECT 1 FROM user_locations WHERE user_id = ? AND location_id = ?",
@@ -453,33 +452,27 @@ router.post("/batch-process", async (req, res) => {
             }
           }
 
-          // Kurangi dari asal (itemFromLocId)
           await connection.query(
             "UPDATE stock_locations SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?",
             [quantity, productId, itemFromLocId]
           );
-          // Tambah ke tujuan (itemToLocId)
           await connection.query(
             "INSERT INTO stock_locations (product_id, location_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity + ?",
             [productId, itemToLocId, quantity, quantity]
           );
-          // Catat di buku besar (tipe di DB tetap 'TRANSFER')
           await connection.query(
             "INSERT INTO stock_movements (product_id, quantity, from_location_id, to_location_id, movement_type, user_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [productId, quantity, itemFromLocId, itemToLocId, "TRANSFER", userId, notes]
           );
           break;
-        // --- AKHIR BLOK BARU ---
 
         case "INBOUND":
-        case "SALE_RETURN":
+        case "RETURN":
           if (!toLocationId) throw new Error("Lokasi tujuan wajib diisi untuk inbound/return.");
-          // Tambah ke tujuan
           await connection.query(
             "INSERT INTO stock_locations (product_id, location_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity + ?",
             [productId, toLocationId, quantity, quantity]
           );
-          // Catat di buku besar
           await connection.query(
             "INSERT INTO stock_movements (product_id, quantity, from_location_id, to_location_id, movement_type, user_id, notes) VALUES (?, ?, NULL, ?, ?, ?, ?)",
             [productId, quantity, toLocationId, type, userId, notes]
@@ -489,12 +482,10 @@ router.post("/batch-process", async (req, res) => {
         case "ADJUSTMENT":
           if (!toLocationId || !notes)
             throw new Error("Lokasi dan catatan wajib diisi untuk penyesuaian.");
-          // Tambah atau kurangi stok di satu lokasi
           await connection.query(
             "INSERT INTO stock_locations (product_id, location_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity + ?",
             [productId, toLocationId, quantity, quantity]
           );
-          // Catat di buku besar
           await connection.query(
             "INSERT INTO stock_movements (product_id, quantity, to_location_id, movement_type, user_id, notes) VALUES (?, ?, ?, ?, ?, ?)",
             [productId, Math.abs(quantity), toLocationId, "ADJUSTMENT", userId, notes]
@@ -509,13 +500,12 @@ router.post("/batch-process", async (req, res) => {
     await connection.commit();
     cache.flushAll();
 
-    // Siarkan pembaruan stok untuk semua produk yang terpengaruh
     const finalUpdates = [];
     for (const productId of updatedProductIds) {
       const [updatedStock] = await db.query(
         `SELECT sl.product_id, l.code as location_code, sl.quantity
-   FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
-   WHERE sl.product_id = ?`,
+         FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
+         WHERE sl.product_id = ?`,
         [productId]
       );
       finalUpdates.push({ productId, newStock: updatedStock });
@@ -596,10 +586,7 @@ router.post("/batch-transfer", async (req, res) => {
   try {
     connection = await db.getConnection();
 
-    // --- LANGKAH KEAMANAN BARU ---
-    // Periksa apakah pengguna adalah admin (role_id 1)
     if (userRoleId !== 1) {
-      // Jika bukan admin, periksa izin lokasi
       const [permissionRows] = await connection.query(
         "SELECT 1 FROM user_locations WHERE user_id = ? AND location_id = ?",
         [userId, fromLocationId]
@@ -611,7 +598,6 @@ router.post("/batch-transfer", async (req, res) => {
         });
       }
     }
-    // --- AKHIR LANGKAH KEAMANAN ---
 
     await connection.beginTransaction();
     const updatedProductIds = new Set();
@@ -657,8 +643,8 @@ router.post("/batch-transfer", async (req, res) => {
     for (const productId of updatedProductIds) {
       const [updatedStock] = await db.query(
         `SELECT sl.product_id, l.code as location_code, sl.quantity
-                 FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
-                 WHERE sl.product_id = ?`,
+          FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
+          WHERE sl.product_id = ?`,
         [productId]
       );
       finalUpdates.push({ productId, newStock: updatedStock });
@@ -719,6 +705,80 @@ router.get("/batch-log", async (req, res) => {
   } catch (error) {
     console.error(`Error saat mengambil log batch:`, error);
     res.status(500).json({ success: false, message: "Gagal mengambil log batch." });
+  }
+});
+
+/**
+ * POST /api/stock/validate-return
+ */
+router.post("/validate-return", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const { pickingListItemId, returnToLocationId } = req.body;
+  const userId = req.user.id;
+
+  if (!pickingListItemId || !returnToLocationId) {
+    return res.status(400).json({
+      success: false,
+      message: "pickingListItemId dan returnToLocationId wajib diisi.",
+    });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [itemRows] = await connection.query(
+      `SELECT product_id, quantity
+       FROM picking_list_items
+       WHERE id = ? AND status = 'RETURNED'
+       FOR UPDATE`,
+      [pickingListItemId]
+    );
+
+    if (itemRows.length === 0) {
+      throw new Error("Item retur tidak ditemukan atau sudah divalidasi/dibatalkan.");
+    }
+
+    const itemToReturn = itemRows[0];
+    const { product_id, quantity } = itemToReturn;
+
+    await connection.query(
+      "INSERT INTO stock_locations (product_id, location_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity + ?",
+      [product_id, returnToLocationId, quantity, quantity]
+    );
+
+    await connection.query(
+      `INSERT INTO stock_movements (product_id, quantity, from_location_id, to_location_id, movement_type, user_id, notes)
+       VALUES (?, ?, ?, ?, 'RETURN', ?, ?)`,
+      [
+        product_id,
+        quantity,
+        null,
+        returnToLocationId,
+        userId,
+        `Validasi Retur Item ID: ${pickingListItemId}`,
+      ]
+    );
+
+    await connection.query(
+      "UPDATE picking_list_items SET status = 'COMPLETED_RETURN' WHERE id = ?",
+      [pickingListItemId]
+    );
+
+    await connection.commit();
+    cache.flushAll();
+
+    res.status(200).json({
+      success: true,
+      message: `Item (ID: ${pickingListItemId}) berhasil divalidasi dan stok dikembalikan.`,
+    });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error("Error saat /validate-return:", error);
+    res.status(400).json({ success: false, message: error.message });
+  } finally {
+    if (connection) connection.release();
   }
 });
 

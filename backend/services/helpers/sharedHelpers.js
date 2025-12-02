@@ -1,9 +1,10 @@
+// backend\services\helpers\sharedHelpers.js
 /**
  * Helper terpusat untuk fungsi-fungsi yang digunakan bersama.
  */
 
 /**
- * [BARU] Helper untuk format tanggal YYMMDDHHmmSS (untuk Impor)
+ * Helper untuk format tanggal YYMMDDHHmmSS (untuk Impor)
  * Contoh: 251113160530
  */
 export const getTimestampString_YYMMDDHHSS = () => {
@@ -18,7 +19,7 @@ export const getTimestampString_YYMMDDHHSS = () => {
 };
 
 /**
- * [BARU] Helper untuk format tanggal YYYY-MM-DD_HH-mm (untuk Ekspor)
+ * Helper untuk format tanggal YYYY-MM-DD_HH-mm (untuk Ekspor)
  * Contoh: 2025-11-13_16-05
  */
 export const getFormattedDateTime = () => {

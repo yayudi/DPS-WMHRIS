@@ -71,10 +71,10 @@ router.put("/:id/permissions", async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // 1. Hapus semua izin lama untuk peran ini
+    // Hapus semua izin lama untuk peran ini
     await connection.query("DELETE FROM role_permission WHERE role_id = ?", [id]);
 
-    // 2. Jika ada izin baru, masukkan semuanya
+    // Jika ada izin baru, masukkan semuanya
     if (permissionIds.length > 0) {
       const values = permissionIds.map((permissionId) => [id, permissionId]);
       await connection.query("INSERT INTO role_permission (role_id, permission_id) VALUES ?", [

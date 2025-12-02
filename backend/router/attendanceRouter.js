@@ -75,13 +75,13 @@ router.get("/:year/:month", async (req, res) => {
   }
 
   try {
-    // 1. Ambil data libur
+    // Ambil data libur
     const holidayMap = await loadHolidays(year);
 
-    // 2. Ambil *semua* user. Kita butuh ini nanti di frontend (normalize)
+    // Ambil *semua* user. Kita butuh ini nanti di frontend (normalize)
     const [allUsers] = await db.query("SELECT id, username FROM users WHERE is_active = TRUE");
 
-    // 3. Ambil semua log absensi untuk bulan ini
+    // Ambil semua log absensi untuk bulan ini
     const logQuery = `
             SELECT
                 al.id, al.username, u.id as user_id, al.date, al.check_in, al.check_out,
@@ -95,7 +95,7 @@ router.get("/:year/:month", async (req, res) => {
         `;
     const [logRows] = await db.query(logQuery, [year, month]);
 
-    // 4. Hitung Info Global
+    // Hitung Info Global
     let totalIdealWorkMinutes = 0,
       hariKerja = 0,
       hariLibur = 0;
@@ -112,7 +112,7 @@ router.get("/:year/:month", async (req, res) => {
       else totalIdealWorkMinutes += JAM_KERJA_SELESAI - JAM_KERJA_MULAI;
     }
 
-    // 5. Kirim respons yang bersih (tanpa 'u', 'i', 'd')
+    // Kirim respons yang bersih (tanpa 'u', 'i', 'd')
     const responseJson = {
       allUsers: allUsers, // Mengirim daftar semua user
       logRows: logRows, // Mengirim data SQL mentah

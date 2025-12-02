@@ -25,14 +25,12 @@ async function migrateMasterProducts() {
     await connection.beginTransaction();
     log("✅ Koneksi database berhasil dan transaksi dimulai.");
 
-    // 1. (Opsional) Ambil data dari Google Sheets
+    // (Opsional) Ambil data dari Google Sheets
     log("⬇️  Mengambil data dari SPREADSHEET_MASTER...");
     const skuMasterData = await fetchSheet(SPREADSHEET_MASTER, RANGE_MASTER);
-    log(
-      `👍 Data MASTER berhasil diambil. ${skuMasterData.length} baris MASTER.`
-    );
+    log(`👍 Data MASTER berhasil diambil. ${skuMasterData.length} baris MASTER.`);
 
-    // 2. Kosongkan HANYA tabel products
+    // Kosongkan HANYA tabel products
     log("🗑️  Membersihkan tabel products...");
     await connection.query("SET FOREIGN_KEY_CHECKS=0");
     await connection.query("TRUNCATE TABLE products");
@@ -41,7 +39,7 @@ async function migrateMasterProducts() {
     let productsCreated = 0;
     const productsToInsert = [];
 
-    // 3. Loop melalui SEMUA produk dari SPREADSHEET_MASTER
+    // Loop melalui SEMUA produk dari SPREADSHEET_MASTER
     for (const productData of skuMasterData) {
       const sku = productData.SKU?.trim();
       const name = productData.NAMA?.trim();
@@ -55,13 +53,12 @@ async function migrateMasterProducts() {
       }
     }
 
-    // 4. Lakukan satu kali INSERT besar (Bulk Insert)
+    // Lakukan satu kali INSERT besar (Bulk Insert)
     if (productsToInsert.length > 0) {
       log(`🔄 Memasukkan ${productsToInsert.length} produk ke database...`);
-      await connection.query(
-        "INSERT INTO products (sku, name, price, is_active) VALUES ?",
-        [productsToInsert]
-      );
+      await connection.query("INSERT INTO products (sku, name, price, is_active) VALUES ?", [
+        productsToInsert,
+      ]);
     }
 
     await connection.commit();

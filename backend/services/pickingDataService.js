@@ -1,394 +1,259 @@
-// backend\services\pickingDataService.js
+// backend/services/pickingDataService.js
 import db from "../config/db.js";
+import { WMS_STATUS, MP_STATUS } from "../config/wmsConstants.js";
+import { processImportData } from "./pickingImportService.js"; // Kita pisahkan logika import biar rapi
+
+// ==============================================================================
+// 1. READ OPERATIONS (Untuk Frontend UI)
+// ==============================================================================
 
 /**
- * Fungsi inti yang menjalankan semua validasi, pencarian lokasi,
- * dan pembuatan picking list di database.
- * @param {object} data - Payload untuk validasi.
- * @param {Array<object>} data.items - Array item ( {sku, qty} )
- * @param {number} data.userId - ID pengguna
- * @param {string} data.source - Sumber ('Tokopedia', 'CSV_BATCH', dll)
- * @param {string} data.originalFilename - Nama file asli
- * @returns {Promise<object>} - Objek validationResults untuk frontend
+ * Mengambil daftar item yang harus dipicking (Status PENDING/VALIDATED)
  */
-export async function performPickingValidation({
-  items,
-  userId,
-  source,
-  originalFilename,
-  originalInvoiceId,
-  customerName,
-}) {
-  let connection;
+export const getPendingPickingItemsService = async () => {
+  const query = `
+    SELECT
+      pli.id, pli.picking_list_id, pli.product_id, pli.original_sku as sku, pli.quantity, pli.status,
+
+      COALESCE(loc_picked.code, loc_suggested.code) as location_code,
+
+      p.name as product_name,
+      pl.original_invoice_id, pl.source, pl.order_date, pl.created_at, pl.customer_name,
+      pl.marketplace_status,
+
+      -- [FIX] Ambil Stok Tersedia berdasarkan ProductID + LocationID
+      (
+        SELECT sl.quantity
+        FROM stock_locations sl
+        WHERE sl.location_id = pli.suggested_location_id
+          AND sl.product_id = pli.product_id
+        LIMIT 1
+      ) as available_stock
+
+    FROM picking_list_items pli
+    JOIN picking_lists pl ON pli.picking_list_id = pl.id
+    LEFT JOIN products p ON pli.product_id = p.id
+    LEFT JOIN locations loc_suggested ON pli.suggested_location_id = loc_suggested.id
+    LEFT JOIN locations loc_picked ON pli.picked_from_location_id = loc_picked.id
+
+    WHERE pl.status IN (?, ?) -- PENDING, VALIDATED
+      AND pl.is_active = 1
+      AND pli.status NOT IN (?, ?) -- COMPLETED, CANCEL
+    ORDER BY pl.created_at DESC, location_code ASC
+  `;
+
+  const [rows] = await db.query(query, [
+    WMS_STATUS.PENDING,
+    WMS_STATUS.VALIDATED,
+    WMS_STATUS.VALIDATED,
+    WMS_STATUS.CANCEL,
+  ]);
+  return rows;
+};
+
+/**
+ * Mengambil riwayat picking list (Arsip)
+ */
+export const getHistoryPickingItemsService = async (limit = 1000) => {
+  const query = `
+    SELECT
+      pl.id as picking_list_id,
+      pl.original_invoice_id,
+      pl.source,
+      pl.status,
+      pl.marketplace_status,
+      pl.customer_name,
+      pl.created_at,
+      pl.order_date,
+
+      -- [NEW] Data Item Detail
+      pli.id as item_id,
+      pli.original_sku as sku,
+      pli.quantity,
+      pli.status as item_status,
+      p.name as product_name
+
+    FROM picking_lists pl
+    JOIN picking_list_items pli ON pl.id = pli.picking_list_id
+    LEFT JOIN products p ON pli.product_id = p.id
+
+    -- Filter: Ambil yang BUKAN status aktif (PENDING/VALIDATED)
+    WHERE pl.status NOT IN (?, ?)
+
+    -- Urutkan dari terbaru
+    ORDER BY pl.created_at DESC, pl.id DESC
+    LIMIT ?
+  `;
+
+  const [rows] = await db.query(query, [WMS_STATUS.PENDING, WMS_STATUS.VALIDATED, limit]);
+  return rows;
+};
+
+/**
+ * Mengambil detail satu picking list (untuk Modal Detail)
+ */
+export const fetchPickingListDetails = async (pickingListId) => {
+  const query = `
+    SELECT
+        pli.original_sku as sku,
+        pli.quantity as qty,
+        p.name,
+        pli.status
+    FROM picking_list_items pli
+    JOIN products p ON pli.product_id = p.id
+    WHERE pli.picking_list_id = ?
+  `;
+  const [items] = await db.query(query, [pickingListId]);
+  return items;
+};
+
+// ==============================================================================
+// 2. WRITE OPERATIONS (Aksi User Gudang)
+// ==============================================================================
+
+/**
+ * Membatalkan Picking List (Manual oleh User)
+ */
+export const cancelPickingListService = async (pickingListId, userId, reason) => {
+  const connection = await db.getConnection();
   try {
-    // 1. Dapatkan Koneksi (Di Luar Transaksi)
-    connection = await db.getConnection();
+    await connection.beginTransaction();
 
-    const skus = items.map((item) => item.sku);
-    const qtyMap = new Map(items.map((item) => [item.sku, item.qty])); // 2. Operasi Baca (SELECT)
-
-    const [productRows] = await connection.query(
-      `SELECT id, sku, name, is_package
-         FROM products
-         WHERE sku IN (?) AND is_active = TRUE`,
-      [skus]
+    // Soft Delete Header (Set Active NULL, Status CANCEL)
+    const [res] = await connection.query(
+      `UPDATE picking_lists
+        SET status = ?, is_active = NULL, updated_at = NOW()
+        WHERE id = ?`,
+      [WMS_STATUS.CANCEL, pickingListId]
     );
 
-    const validProductMap = new Map(productRows.map((p) => [p.sku, p]));
-    const packageProductIds = productRows.filter((p) => p.is_package).map((p) => p.id);
-    const singleProductIds = productRows.filter((p) => !p.is_package).map((p) => p.id);
+    if (res.affectedRows === 0)
+      throw new Error("Picking List tidak ditemukan atau sudah diproses.");
 
-    const [singleLocationRows] = await connection.query(
-      `SELECT sl.product_id, sl.location_id, l.code, sl.quantity
-         FROM stock_locations sl
-         JOIN locations l ON sl.location_id = l.id
-         WHERE sl.product_id IN (?) AND l.purpose = 'DISPLAY'
-         ORDER BY sl.product_id, sl.quantity ASC`,
-      [singleProductIds.length > 0 ? singleProductIds : [0]]
-    );
-
-    const [componentInfoRows] = await connection.query(
-      `SELECT
-            pc.package_product_id, pc.quantity_per_package, pc.component_product_id,
-            p_comp.sku as component_sku, p_comp.name as component_name,
-            COALESCE(sl_comp.quantity, 0) as component_stock_display
-         FROM package_components pc
-         JOIN products p_comp ON pc.component_product_id = p_comp.id
-         LEFT JOIN (
-           SELECT sl.product_id, SUM(sl.quantity) as quantity
-           FROM stock_locations sl
-           JOIN locations l ON sl.location_id = l.id
-           WHERE l.purpose = 'DISPLAY'
-           GROUP BY sl.product_id
-         ) sl_comp ON p_comp.id = sl_comp.product_id
-         WHERE pc.package_product_id IN (?)`,
-      [packageProductIds.length > 0 ? packageProductIds : [0]]
-    );
-
-    const allComponentProductIds = [
-      ...new Set(componentInfoRows.map((c) => c.component_product_id)),
-    ];
-
-    console.log("--- TES RESTART SERVER v2 --- MEMBACA FILE BARU ---");
-    // Pancing nodemon v3
-    const [componentLocationRows] = await connection.query(
-      `SELECT sl.product_id, sl.location_id, l.code, sl.quantity
-         FROM stock_locations sl
-         JOIN locations l ON sl.location_id = l.id
-         WHERE sl.product_id IN (?) AND l.purpose = 'DISPLAY'
-         ORDER BY sl.product_id, sl.quantity ASC`,
-      [allComponentProductIds.length > 0 ? allComponentProductIds : [0]]
-    ); // 3. Proses Data (Map)
-
-    const locationsByProductId = new Map();
-    for (const loc of singleLocationRows) {
-      if (!locationsByProductId.has(loc.product_id)) locationsByProductId.set(loc.product_id, []);
-      locationsByProductId.get(loc.product_id).push(loc);
-    }
-
-    const componentsByPackageId = new Map();
-    for (const comp of componentInfoRows) {
-      if (!componentsByPackageId.has(comp.package_product_id))
-        componentsByPackageId.set(comp.package_product_id, []);
-      componentsByPackageId.get(comp.package_product_id).push(comp);
-    }
-
-    const locationsByComponentId = new Map();
-    for (const loc of componentLocationRows) {
-      if (!locationsByComponentId.has(loc.product_id))
-        locationsByComponentId.set(loc.product_id, []);
-      locationsByComponentId.get(loc.product_id).push(loc);
-    } // 4. Mulai Transaksi (Operasi Tulis)
-
-    await connection.beginTransaction(); // 4a. Buat Picking List
-
-    const [pickingListResult] = await connection.query(
-      "INSERT INTO picking_lists (user_id, source, original_filename, status) VALUES (?, ?, ?, ?)",
-      [userId, source, originalFilename, "PENDING_VALIDATION", originalInvoiceId, customerName]
-    );
-    const pickingListId = pickingListResult.insertId;
-
-    const validationResults = { pickingListId, validItems: [], invalidSkus: [] }; // 4b. Loop & Bangun Respons
-
-    for (const item of items) {
-      const product = validProductMap.get(item.sku);
-      const qtyNeeded = qtyMap.get(item.sku);
-
-      if (product) {
-        let allLocations = [];
-        let suggestedLocationId = null;
-        let isItemValid = true;
-        let errorMessage = "";
-        let enrichedComponents = null;
-
-        if (product.is_package) {
-          const componentsData = componentsByPackageId.get(product.id);
-          if (!componentsData || componentsData.length === 0) {
-            isItemValid = false;
-            errorMessage = `${item.sku} (Paket tidak memiliki komponen)`;
-          } else {
-            enrichedComponents = [];
-            for (const comp of componentsData) {
-              const componentQtyNeeded = qtyNeeded * comp.quantity_per_package;
-              const compLocations = locationsByComponentId.get(comp.component_product_id) || [];
-              const availableCompLocations = compLocations.filter(
-                (loc) => loc.quantity >= componentQtyNeeded
-              );
-              const suggestedCompLocId =
-                availableCompLocations.length > 0 ? availableCompLocations[0].location_id : null;
-
-              enrichedComponents.push({
-                ...comp,
-                availableLocations: compLocations,
-                suggestedLocationId: suggestedCompLocId,
-              });
-            }
-          }
-        } else {
-          // Item Tunggal
-          allLocations = locationsByProductId.get(product.id) || [];
-          const availableLocations = allLocations.filter((loc) => loc.quantity >= qtyNeeded);
-          suggestedLocationId =
-            availableLocations.length > 0 ? availableLocations[0].location_id : null;
-        }
-
-        if (!isItemValid) {
-          validationResults.invalidSkus.push(errorMessage);
-          continue;
-        }
-
-        validationResults.validItems.push({
-          sku: item.sku,
-          qty: qtyNeeded,
-          name: product.name,
-          is_package: product.is_package,
-          components: enrichedComponents,
-          availableLocations: allLocations,
-          suggestedLocationId: suggestedLocationId,
-          invoiceNos: item.invoiceNos || null,
-          customerNames: item.customerNames || null,
-        });
-      } else {
-        validationResults.invalidSkus.push(`${item.sku} (SKU tidak ditemukan di database)`);
-      }
-    } // 4c. Buat Payload 'itemsToInsert' (Flat Payload)
-
-    const itemsToInsert = [];
-    for (const item of validationResults.validItems) {
-      if (item.is_package) {
-        // Jika paket, masukkan komponen-komponennya
-        if (item.components) {
-          item.components.forEach((comp) => {
-            itemsToInsert.push([
-              pickingListId,
-              comp.component_product_id, // ID Produk Komponen
-              item.sku, // original_sku (SKU Paket)
-              item.qty * comp.quantity_per_package, // quantity (Qty Komponen)
-              comp.suggestedLocationId, // suggested_location_id
-            ]);
-          });
-        }
-      } else {
-        // Jika item tunggal, masukkan seperti biasa
-        const product = validProductMap.get(item.sku);
-        if (product) {
-          itemsToInsert.push([
-            pickingListId,
-            product.id, // ID Produk
-            item.sku, // SKU
-            item.qty, // Qty
-            item.suggestedLocationId, // Saran Lokasi
-          ]);
-        }
-      }
-    } // 4d. Bulk Insert Item
-
-    if (itemsToInsert.length > 0) {
-      await connection.query(
-        "INSERT INTO picking_list_items (picking_list_id, product_id, original_sku, quantity, suggested_location_id) VALUES ?",
-        [itemsToInsert]
-      );
-    } // 5. SELESAI TRANSAKSI
+    // Update Status Item jadi CANCEL juga
+    await connection.query(`UPDATE picking_list_items SET status = ? WHERE picking_list_id = ?`, [
+      WMS_STATUS.CANCEL,
+      pickingListId,
+    ]);
 
     await connection.commit();
-    return validationResults;
+    return { success: true, message: "Picking List dibatalkan." };
   } catch (error) {
-    if (connection) await connection.rollback();
-    console.error("Error selama performPickingValidation:", error);
-    throw error; // Lempar error agar bisa ditangkap oleh (req, res) handler
+    await connection.rollback();
+    throw error;
   } finally {
-    if (connection) connection.release();
+    connection.release();
   }
-}
+};
 
 /**
- * Mengambil detail item dari sebuah picking list untuk fungsi Resume/View.
- * @param {number} pickingListId - ID dari picking list.
- * @returns {Promise<Array>} - Array 'detailedItems'
+ * Menyelesaikan Item Picking (Checklist barang)
  */
-export async function fetchPickingListDetails(pickingListId) {
-  let connection;
+export const completePickingItemsService = async (itemIds, userId) => {
+  const connection = await db.getConnection();
   try {
-    connection = await db.getConnection(); // 1. Dapatkan item dari list (SKU Fisik yang disimpan)
+    await connection.beginTransaction();
+    if (!itemIds?.length) throw new Error("Tidak ada item dipilih.");
 
-    const [items] = await connection.query(
-      `SELECT pli.original_sku, pli.quantity, p.id as product_id, p.is_package
-        FROM picking_list_items pli
-        JOIN products p ON pli.product_id = p.id
-        WHERE pli.picking_list_id = ?`,
-      [pickingListId]
+    const placeholders = itemIds.map(() => "?").join(",");
+
+    // 1. Tandai Item Selesai (Disini kita bisa pakai status khusus atau flag)
+    // Sesuai diskusi, kita pakai 'VALIDATED' sebagai "Ready to Pack",
+    // tapi jika ini tahap akhir ("Selesai Pick"), mungkin butuh status 'PICKED' atau tetap 'VALIDATED' dan hilangkan dari view.
+    // Asumsi: Status 'COMPLETED' digunakan untuk menandai selesai picking secara internal item.
+
+    // UPDATE: Menggunakan status 'VALIDATED' (atau status baru 'PICKED' jika mau spesifik)
+    // Untuk saat ini saya gunakan 'VALIDATED' + Logic Query Frontend filter out.
+    // Atau jika Anda ingin status COMPLETED untuk internal item:
+    const COMPLETED_ITEM_STATUS = "COMPLETED"; // Bisa diubah di constants
+
+    await connection.query(
+      `UPDATE picking_list_items SET status = ? WHERE id IN (${placeholders})`,
+      [COMPLETED_ITEM_STATUS, ...itemIds]
     );
-    if (items.length === 0) return []; // Daftar unik original_sku (untuk grouping)
 
-    const skus = [...new Set(items.map((item) => item.original_sku))]; // 2. Dapatkan info produk (berdasarkan original_sku/SKU Paket)
-
-    const [productRows] = await connection.query(
-      `SELECT id, sku, name, is_package
-        FROM products
-        WHERE sku IN (?) AND is_active = TRUE`,
-      [skus]
+    // 2. Cek Header Auto-Complete
+    const [headers] = await connection.query(
+      `SELECT DISTINCT picking_list_id FROM picking_list_items WHERE id IN (${placeholders})`,
+      itemIds
     );
 
-    const validProductMap = new Map(productRows.map((p) => [p.sku, p]));
-    const packageProductIdsInList = productRows.filter((p) => p.is_package).map((p) => p.id); // 3. Dapatkan info KOMPONEN (Resep)
-    const [componentRows] = await connection.query(
-      `SELECT
-           pc.package_product_id, pc.quantity_per_package,
-           pc.component_product_id AS component_id,
-           p_comp.sku as component_sku, p_comp.name as component_name,
-           COALESCE(sl_comp.quantity, 0) as component_stock_display
-         FROM package_components pc
-         JOIN products p_comp ON pc.component_product_id = p_comp.id
-         LEFT JOIN (
-           SELECT sl.product_id, SUM(sl.quantity) as quantity
-           FROM stock_locations sl
-           JOIN locations l ON sl.location_id = l.id
-           WHERE l.purpose = 'DISPLAY'
-           GROUP BY sl.product_id
-         ) sl_comp ON p_comp.id = sl_comp.product_id
-         WHERE pc.package_product_id IN (?)`,
-      [packageProductIdsInList.length > 0 ? packageProductIdsInList : [0]]
-    ); // 4. Dapatkan SEMUA ID produk fisik (termasuk komponen) dari list
+    for (const { picking_list_id } of headers) {
+      const [remaining] = await connection.query(
+        `SELECT COUNT(*) as count FROM picking_list_items
+          WHERE picking_list_id = ? AND status != ? AND status != ?`,
+        [picking_list_id, COMPLETED_ITEM_STATUS, WMS_STATUS.CANCEL]
+      );
 
-    // const allPhysicalProductIds = [...new Set(items.map((item) => item.product_id))]; // 5. Dapatkan lokasi untuk SEMUA produk fisik yang terlibat
-
-    const singleProductIds = items
-      .filter((item) => !item.is_package)
-      .map((item) => item.product_id);
-
-    const allComponentIds = componentRows.map((comp) => comp.component_id);
-
-    const allPhysicalProductIds = [...new Set([...singleProductIds, ...allComponentIds])];
-    console.log("--- TES RESTART v3 --- MENJALANKAN fetchPickingListDetails ---");
-
-    const [locationRows] = await connection.query(
-      `SELECT sl.product_id, sl.location_id, l.code, sl.quantity
-        FROM stock_locations sl
-        JOIN locations l ON sl.location_id = l.id
-        WHERE sl.product_id IN (?) AND l.purpose = 'DISPLAY'
-        ORDER BY sl.product_id, sl.quantity ASC`,
-      [allPhysicalProductIds.length > 0 ? allPhysicalProductIds : [0]]
-    ); // 6. Proses Pemetaan Data // Map Lokasi (untuk Item Tunggal dan Komponen)
-
-    const locationsByProductId = new Map();
-    for (const loc of locationRows) {
-      if (!locationsByProductId.has(loc.product_id)) locationsByProductId.set(loc.product_id, []);
-      locationsByProductId.get(loc.product_id).push(loc);
-    } // Map Info Komponen (Resep)
-
-    const componentsByProductId = new Map();
-    for (const comp of componentRows) {
-      if (!componentsByProductId.has(comp.package_product_id))
-        componentsByProductId.set(comp.package_product_id, []);
-      componentsByProductId.get(comp.package_product_id).push(comp);
-    } // 7. Loop Terakhir (Membangun Respons)
-
-    const detailedItems = []; // Gunakan 'skus' (daftar unik original_sku) untuk membangun respons
-    for (const sku of skus) {
-      const product = validProductMap.get(sku);
-      if (!product) continue; // Lewati jika SKU paket/induk tidak ditemukan
-
-      let finalComponents = componentsByProductId.get(product.id) || null;
-      let allLocations = [];
-      let suggestedLocationId = null;
-      let qtyNeeded = 0; // Akan dihitung
-
-      if (product.is_package && finalComponents) {
-        // Enrichment untuk Komponen Paket
-        finalComponents = finalComponents.map((comp) => {
-          const componentId = comp.component_id || comp.component_product_id; // Ambil qty komponen yang TEPAT dari 'items'
-          let itemRow = items.find(
-            (i) => i.product_id === componentId && i.original_sku === product.sku
-          );
-          // const componentQtyNeeded = itemRow ? itemRow.quantity : 0;
-          const compLocations = locationsByProductId.get(componentId) || [];
-
-          let componentQtyNeeded = 0;
-          if (itemRow) {
-            // --- LOGIKA LIST BARU (BENAR) ---
-            componentQtyNeeded = itemRow.quantity;
-          } else {
-            // --- FALLBACK LIST LAMA (RUSAK) ---
-            // Jika itemRow tidak ada, kemungkinan ini list lama yg menyimpan ID Paket.
-            const oldPackageRow = items.find((i) => i.original_sku === product.sku && i.is_package);
-            if (oldPackageRow) {
-              // Hitung qty komponen berdasarkan qty paket yg lama
-              componentQtyNeeded = oldPackageRow.quantity * comp.quantity_per_package;
-            }
-          }
-
-          const availableCompLocations = compLocations.filter(
-            (loc) => loc.quantity >= componentQtyNeeded
-          );
-          const suggestedCompLocId =
-            availableCompLocations.length > 0 ? availableCompLocations[0].location_id : null;
-
-          return {
-            ...comp,
-            qty_needed: componentQtyNeeded, // Kirim qty komponen yg sebenarnya
-            availableLocations: compLocations,
-            suggestedLocationId: suggestedCompLocId,
-          };
-        }); // Hitung Qty Paket (dibutuhkan untuk header)
-        if (finalComponents.length > 0) {
-          // Cek dulu apakah ini list lama
-          const oldPackageRow = items.find((i) => i.original_sku === product.sku && i.is_package);
-          if (oldPackageRow) {
-            qtyNeeded = oldPackageRow.quantity;
-          } else {
-            // Jika bukan, hitung dari komponen (logika list BARU)
-            const firstComp = finalComponents[0];
-            if (firstComp.quantity_per_package > 0) {
-              qtyNeeded = firstComp.qty_needed / firstComp.quantity_per_package;
-            }
-          }
-        }
-      } else if (!product.is_package) {
-        // Info Lokasi Item Tunggal
-        const itemRow = items.find((i) => i.product_id === product.id);
-        qtyNeeded = itemRow ? itemRow.quantity : 0;
-        allLocations = locationsByProductId.get(product.id) || [];
-        const availableLocations = allLocations.filter((loc) => loc.quantity >= qtyNeeded);
-        suggestedLocationId =
-          availableLocations.length > 0 ? availableLocations[0].location_id : null;
+      // Jika semua item selesai/batal, arsipkan header
+      if (remaining[0].count === 0) {
+        await connection.query(
+          `UPDATE picking_lists SET status = ?, is_active = NULL, updated_at = NOW() WHERE id = ?`,
+          ["COMPLETED", picking_list_id] // Status Akhir Header
+        );
       }
+    }
 
-      detailedItems.push({
-        sku: product.sku, // Gunakan original_sku (product.sku)
-        name: product.name,
-        qty: qtyNeeded, // Qty Paket atau Qty Item Tunggal
-        is_package: product.is_package,
-        components: finalComponents,
-        availableLocations: allLocations,
-        suggestedLocationId: suggestedLocationId,
+    // TODO: Insert STOCK_MOVEMENTS di sini jika pengurangan stok terjadi saat picking
+
+    await connection.commit();
+    return { success: true, message: `${itemIds.length} item berhasil diselesaikan.` };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+// ==============================================================================
+// 3. IMPORT ORCHESTRATOR (Logic Hybrid Baru)
+// ==============================================================================
+
+/**
+ * Menerima data hasil parsing Excel, lalu menyimpannya ke DB dengan logika Hybrid
+ */
+export const performPickingValidation = async (payload) => {
+  const { items, userId, source, originalFilename } = payload;
+
+  console.log(`[ORCHESTRATOR] Menerima ${items.length} baris data.`);
+
+  // 1. Grouping Data per Invoice (Format Map untuk helper processImportData)
+  const groupedOrders = new Map();
+
+  items.forEach((item) => {
+    if (!item.invoiceId) return;
+
+    if (!groupedOrders.has(item.invoiceId)) {
+      groupedOrders.set(item.invoiceId, {
+        invoiceId: item.invoiceId,
+        customer: item.customer,
+        orderDate: item.orderDate,
+        status: item.status, // MP_STATUS dari parser
+        source: source,
+        items: [],
       });
     }
 
-    return detailedItems;
-  } catch (error) {
-    console.error(`Error saat mengambil detail picking list #${pickingListId}:`, error);
-    throw error; // Lempar error agar bisa ditangkap oleh (req, res) handler
-  } finally {
-    if (connection) connection.release();
-  }
-}
+    groupedOrders.get(item.invoiceId).items.push({
+      sku: item.sku,
+      qty: item.qty,
+    });
+  });
+
+  console.log(`[ORCHESTRATOR] Terdeteksi ${groupedOrders.size} Invoice unik.`);
+
+  // 2. Panggil Service Import Khusus (Logika Hybrid ada di sini)
+  // Pastikan Anda sudah membuat file 'pickingImportService.js' dengan kode 'processImportData' sebelumnya
+  const summary = await processImportData(groupedOrders, userId);
+
+  console.log(
+    `[ORCHESTRATOR] Selesai. Processed: ${summary.processed}, New: ${summary.new}, Updated: ${summary.updated}`
+  );
+
+  return {
+    processedInvoices: summary.processed,
+    validItems: [], // Frontend mungkin butuh ini untuk feedback visual, bisa disesuaikan
+    invalidSkus: summary.errors.map((e) => `[${e.invoice}] ${e.error}`),
+  };
+};

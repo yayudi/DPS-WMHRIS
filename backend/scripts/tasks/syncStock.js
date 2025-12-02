@@ -24,9 +24,6 @@ function logToFile(msg) {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${msg}\n`;
 
-  // Cetak ke konsol seperti biasa
-  console.log(`[${timestamp}] ${msg}`);
-
   // Tambahkan ke file log
   fs.appendFileSync(logFilePath, logMessage);
 }

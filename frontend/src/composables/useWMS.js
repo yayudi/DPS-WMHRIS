@@ -1,3 +1,4 @@
+// frontend\src\composables\useWMS.js
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { fetchProducts as fetchProductsFromApi } from '@/api/helpers/wms.js'
@@ -7,7 +8,7 @@ import { EventSourcePolyfill } from 'event-source-polyfill'
 export function useWms() {
   const auth = useAuthStore()
   const allLocations = ref([])
-  const activeView = ref('all') // Default ke 'all'
+  const activeView = ref('all')
   const displayedProducts = ref([])
   const currentPage = ref(1)
   const totalProducts = ref(0)
@@ -39,32 +40,53 @@ export function useWms() {
     isAutoRefetching.value = !isAutoRefetching.value
   }
 
-  /**
-   * Mengubah data produk mentah dari API menjadi format yang siap
-   * ditampilkan oleh WmsProductRow.
-   */
+  function matchesFilters(loc) {
+    let buildingMatch = true
+    if (selectedBuilding.value !== 'all') {
+      if (loc.building) {
+        buildingMatch = loc.building === selectedBuilding.value
+      } else if (loc.location_code) {
+        buildingMatch = loc.location_code.startsWith(selectedBuilding.value)
+      }
+    }
+
+    let floorMatch = true
+    if (selectedFloor.value !== 'all') {
+      if (loc.floor !== undefined && loc.floor !== null) {
+        floorMatch = String(loc.floor) === String(selectedFloor.value)
+      }
+    }
+
+    return buildingMatch && floorMatch
+  }
+
   function transformProduct(apiProduct) {
     const locations = apiProduct.stock_locations || []
 
-    // Filter berdasarkan purpose untuk tab spesifik
-    const pajanganLocations = locations.filter((loc) => loc.purpose === 'DISPLAY')
+    const filteredLocations = locations.filter(matchesFilters)
+
+    const pajanganLocations = filteredLocations.filter((loc) => loc.purpose === 'DISPLAY')
     const stockPajangan = pajanganLocations.reduce((sum, loc) => sum + loc.quantity, 0)
     const lokasiPajangan = pajanganLocations.map((loc) => loc.location_code).join(', ')
 
-    const gudangLocations = locations.filter((loc) => loc.purpose === 'WAREHOUSE')
+    const gudangLocations = filteredLocations.filter((loc) => loc.purpose === 'WAREHOUSE')
     const stockGudang = gudangLocations.reduce((sum, loc) => sum + loc.quantity, 0)
     const lokasiGudang = gudangLocations.map((loc) => loc.location_code).join(', ')
 
-    const ltcLocation = locations.find((loc) => loc.purpose === 'BRANCH')
+    const ltcLocation = filteredLocations.find((loc) => loc.purpose === 'BRANCH')
     const stockLTC = ltcLocation ? ltcLocation.quantity : 0
     const lokasiLTC = ltcLocation ? ltcLocation.location_code : 'N/A'
+
+    const filteredTotalStock = filteredLocations.reduce((sum, loc) => sum + loc.quantity, 0)
+    const filteredAllLocationsCode = filteredLocations.map((loc) => loc.location_code).join(', ')
 
     return {
       id: apiProduct.id,
       sku: apiProduct.sku,
       name: apiProduct.name,
       price: apiProduct.price,
-      // Data spesifik per tab
+      is_package: Boolean(apiProduct.is_package),
+
       stockPajangan,
       lokasiPajangan,
       pajanganLocations,
@@ -73,11 +95,9 @@ export function useWms() {
       gudangLocations,
       stockLTC,
       lokasiLTC,
-      // Data untuk tab 'All'
-      totalStock: apiProduct.total_stock,
-      allLocationsCode: apiProduct.all_locations_code,
-      // Data mentah untuk Tooltip
-      stock_locations: apiProduct.stock_locations,
+      totalStock: filteredTotalStock,
+      allLocationsCode: filteredAllLocationsCode,
+      stock_locations: filteredLocations,
     }
   }
 
@@ -109,9 +129,9 @@ export function useWms() {
         page: currentPage.value,
         limit: pageSize,
         search: searchTerm.value,
-        searchBy: searchBy.value, // ✅ PERBAIKAN: Mengirim searchBy
+        searchBy: searchBy.value,
         location: activeView.value,
-        minusOnly: showMinusStockOnly.value, // ✅ PERBAIKAN: Menggunakan 'minusOnly'
+        minusOnly: showMinusStockOnly.value,
         building: selectedBuilding.value,
         floor: selectedFloor.value,
         sortBy: sortBy.value,
@@ -128,7 +148,24 @@ export function useWms() {
       const response = await fetchProductsFromApi(params)
       const newProducts = response.products || []
       const total = response.total || 0
-      const transformed = newProducts.map(transformProduct)
+
+      let transformed = newProducts.map(transformProduct)
+
+      const isMasterView =
+        activeView.value === 'all' &&
+        selectedBuilding.value === 'all' &&
+        selectedFloor.value === 'all'
+
+      if (!isMasterView) {
+        transformed = transformed.filter((p) => {
+          let stockToCheck = 0
+          if (activeView.value === 'all') stockToCheck = p.totalStock
+          else if (activeView.value === 'gudang') stockToCheck = p.stockGudang
+          else if (activeView.value === 'pajangan') stockToCheck = p.stockPajangan
+          else if (activeView.value === 'ltc') stockToCheck = p.stockLTC
+          return stockToCheck !== 0
+        })
+      }
 
       if (!auth.canViewPrices) {
         transformed.forEach((product) => delete product.price)
@@ -157,34 +194,50 @@ export function useWms() {
     if (!token) return
 
     sseStatus.value = 'connecting'
-    console.log('[SSE] Mencoba terhubung...')
-
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
     eventSource = new EventSource(`${apiBaseUrl}/realtime/stock-updates?token=${token}`)
 
     eventSource.onopen = () => {
       sseStatus.value = 'connected'
-      console.log('[SSE] Berhasil terhubung.')
     }
 
     eventSource.onmessage = (event) => {
-      const updatedProducts = JSON.parse(event.data)
-      updatedProducts.forEach((update) => {
-        const productInView = displayedProducts.value.find((p) => p.id === update.productId)
-        if (productInView) {
-          const updatedProductData = { ...productInView, stock_locations: update.newStock }
-          const newTransformedProduct = transformProduct(updatedProductData)
-          Object.assign(productInView, newTransformedProduct)
-          recentlyUpdatedProducts.value.add(update.productId)
-          setTimeout(() => {
-            recentlyUpdatedProducts.value.delete(update.productId)
-          }, 2000)
+      try {
+        const parsedData = JSON.parse(event.data)
+
+        // Abaikan jika pesan hanyalah status koneksi (Handshake)
+        if (parsedData.status === 'connected') {
+          return
         }
-      })
+
+        // Pastikan data adalah Array sebelum di-loop (forEach)
+        if (Array.isArray(parsedData)) {
+          parsedData.forEach((update) => {
+            const productInView = displayedProducts.value.find((p) => p.id === update.productId)
+            if (productInView) {
+              const updatedProductData = {
+                ...productInView,
+                stock_locations: update.newStock,
+              }
+              const newTransformedProduct = transformProduct(updatedProductData)
+              Object.assign(productInView, newTransformedProduct)
+
+              recentlyUpdatedProducts.value.add(update.productId)
+              setTimeout(() => {
+                recentlyUpdatedProducts.value.delete(update.productId)
+              }, 2000)
+            }
+          })
+        } else {
+          console.warn('[SSE] Received non-array data:', parsedData)
+        }
+      } catch (err) {
+        console.error('[SSE] Error parsing message:', err)
+      }
     }
 
     eventSource.onerror = (err) => {
-      console.error('[SSE] Error koneksi, akan mencoba lagi dalam 5 detik...', err)
+      console.error('[SSE] Error connection', err)
       sseStatus.value = 'disconnected'
       eventSource.close()
       reconnectTimer = setTimeout(setupRealtimeUpdates, 5000)
@@ -270,9 +323,7 @@ export function useWms() {
   )
 
   watch(loader, (newLoader) => {
-    if (observer && newLoader) {
-      observer.observe(newLoader)
-    }
+    if (observer && newLoader) observer.observe(newLoader)
   })
 
   watch(
@@ -324,5 +375,6 @@ export function useWms() {
     handleSort,
     toggleAutoRefetch,
     resetAndRefetch,
+    fetchProducts, // Exposed so we can refresh after Edit/Create
   }
 }

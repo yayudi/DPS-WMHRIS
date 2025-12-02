@@ -1,3 +1,4 @@
+// frontend\src\api\helpers\stock.js
 import axios from '../axios'
 
 /**
@@ -150,7 +151,7 @@ export const processSingleTransfer = async (payload) => {
 }
 
 /**
- * [BARU] Mengirim file CSV penyesuaian stok.
+ * Mengirim file CSV penyesuaian stok.
  * Menggunakan FormData untuk mengirim file.
  * @param {File} file - File .csv yang dipilih pengguna
  * @returns {Promise<object>} Objek respons dari API
@@ -174,15 +175,42 @@ export const requestAdjustmentUpload = async (file) => {
 }
 
 /**
- * [BARU] Mengambil riwayat pekerjaan impor untuk pengguna saat ini.
+ * Mengambil riwayat pekerjaan impor untuk pengguna saat ini.
  * @returns {Promise<object>} Objek respons dari API
  */
 export const getImportJobs = async () => {
   try {
-    const response = await axios.get('/stock/import-jobs')
+    const response = await axios.get(`/stock/import-jobs?t=${new Date().getTime()}`)
     return response.data // Mengembalikan { success: true, data: [...] }
   } catch (error) {
     console.error('Error fetching user import jobs:', error)
+    throw error.response?.data || error
+  }
+}
+
+export async function cancelImportJob(jobId) {
+  try {
+    const response = await axios.post(`/stock/import-jobs/${jobId}/cancel`)
+    return response.data
+  } catch (error) {
+    console.error('Error cancelling import job:', error)
+    throw error.response?.data || error
+  }
+}
+
+/**
+ * [FASE 5b] Memvalidasi item retur dan mengembalikan stok ke lokasi spesifik.
+ * @param {object} payload
+ * @param {number} payload.pickingListItemId - ID dari item di picking_list_items
+ * @param {number} payload.returnToLocationId - ID lokasi tujuan pengembalian stok
+ * @returns {Promise<object>}
+ */
+export async function validateStockReturn(payload) {
+  try {
+    const response = await axios.post('/stock/validate-return', payload)
+    return response.data
+  } catch (error) {
+    console.error('Error validating return:', error)
     throw error.response?.data || error
   }
 }

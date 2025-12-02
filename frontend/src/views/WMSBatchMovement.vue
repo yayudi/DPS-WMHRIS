@@ -46,7 +46,7 @@ const isBatchLocationSelected = computed(() => {
     case 'TRANSFER':
       return fromLocation.value && toLocation.value
     case 'INBOUND':
-    case 'SALE_RETURN':
+    case 'RETURN':
       return toLocation.value
     default:
       return false

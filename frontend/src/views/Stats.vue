@@ -50,7 +50,7 @@ const reportsMenu = [
     key: 'dead-stock',
     label: 'Laporan Stok Mati',
     group: 'Laporan Utama',
-    icon: 'fa-solid fa-box-open',
+    icon: 'fa-solid fa-skull',
   },
   {
     key: 'inventory-value',
@@ -96,9 +96,7 @@ async function loadKpiData() {
 async function loadReportFilters() {
   try {
     const response = await fetchReportFilters()
-    // console.log('[DEBUG] loadReportFilters response:', response)
     if (response) {
-      // console.log('[DEBUG] Mengisi state reportFilters dengan:', response)
       reportFilters.value.allBuildings = response.allBuildings || []
       reportFilters.value.purposes = response.purposes || []
       reportFilters.value.buildingsByPurpose = response.buildingsByPurpose || {}
@@ -158,7 +156,6 @@ async function handleRequestExport() {
     stockStatus: selectedFilters.value.stockStatus || 'all',
   }
   // Ini adalah log yang kita perlukan untuk debugging
-  // console.log('[Stats.vue] Mengirim filters ke backend:', JSON.stringify(filters))
   isRequesting.value = true
   try {
     // Panggil API baru (POST) yang hanya mengirim permintaan
@@ -492,7 +489,6 @@ const formatCurrency = (num) => {
                           download
                           class="text-primary font-medium hover:underline"
                         >
-                          {{ console.log(job.download_url) }}
                           Unduh
                         </a>
                         <span

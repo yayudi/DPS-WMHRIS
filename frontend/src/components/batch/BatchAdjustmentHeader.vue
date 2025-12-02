@@ -32,7 +32,7 @@ const notes = defineModel('notes')
 
     <!-- Catatan -->
     <div class="flex-grow">
-      <label class="block text-sm font-medium text-text/90 mb-2">Catatan / Alasan (Wajib)</label>
+      <label class="block text-sm font-medium text-text mb-2">Catatan / Alasan (Wajib)</label>
       <input
         v-model="notes"
         type="text"

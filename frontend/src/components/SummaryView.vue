@@ -36,7 +36,7 @@ function closeModal() {
       <span>
         <span class="text-lg font-bold text-text mb-2 mr-1">Ringkasan Bulanan</span>
         ( Waktu Kerja Ideal:
-        <!-- ✅ UBAH: Gunakan 'idealMinutes' dari globalInfo baru -->
+        <!--  Gunakan 'idealMinutes' dari globalInfo baru -->
         <strong class="font-semibold text-text">{{
           formatJamMenit(globalInfo.idealMinutes)
         }}</strong>
@@ -48,7 +48,7 @@ function closeModal() {
       class="border border-secondary/30 rounded-lg bg-background shadow-sm flex flex-col max-h-[70vh]"
     >
       <!-- Table Header -->
-      <!-- ✅ UBAH: Gunakan :class dinamis, hapus grid-cols-7 -->
+      <!--  Gunakan :class dinamis, hapus grid-cols-7 -->
       <div
         class="grid gap-4 bg-secondary/10 p-3 font-bold text-xs text-text/80 uppercase hidden md:grid flex-shrink-0"
         :class="gridClass"
@@ -59,7 +59,7 @@ function closeModal() {
         <div class="text-center">Telat</div>
         <div class="text-center">Early Out</div>
         <div class="text-center">Absen</div>
-        <!-- ✅ UBAH: Sembunyikan kolom ini jika bukan admin -->
+        <!--  Sembunyikan kolom ini jika bukan admin -->
         <div v-if="auth.isAdmin" class="text-right">Uang Lembur</div>
       </div>
 
@@ -67,7 +67,7 @@ function closeModal() {
       <div class="divide-y divide-secondary/20 overflow-y-auto">
         <template v-for="s in summaries" :key="s.id">
           <div @click="showDetails(s)" class="cursor-pointer hover:bg-primary/10 transition-colors">
-            <!-- ✅ UBAH: Gunakan :class dinamis, hapus md:grid-cols-7 -->
+            <!--  Gunakan :class dinamis, hapus md:grid-cols-7 -->
             <div class="grid grid-cols-2 md:grid gap-4 items-center text-sm p-3" :class="gridClass">
               <div class="md:col-span-1 col-span-2 font-semibold text-text">{{ s.nama }}</div>
               <div class="md:text-center">
@@ -85,7 +85,7 @@ function closeModal() {
               <div class="md:text-center">
                 <span class="md:hidden text-xs text-text/70">Absen: </span>{{ s.absenceDays }} hari
               </div>
-              <!-- ✅ UBAH: Sembunyikan kolom ini jika bukan admin -->
+              <!--  Sembunyikan kolom ini jika bukan admin -->
               <div v-if="auth.isAdmin" class="md:text-right font-semibold text-primary">
                 <span class="md:hidden text-xs text-text/70">Uang Lembur: </span>Rp
                 {{ s.uangLembur.toLocaleString('id-ID') }}

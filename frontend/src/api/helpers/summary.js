@@ -93,7 +93,7 @@ export function calculateSummaryForUser(user, year, month, globalInfo, auth) {
     .map((day) => day.tanggal) // Ambil tanggalnya saja
   const calculatedAbsenceDays = absenPerHari.length
 
-  // ✅ UBAH: Logika Uang Lembur sekarang dicek berdasarkan 'auth'
+  //  Logika Uang Lembur sekarang dicek berdasarkan 'auth'
   let uangLemburKotor = 0
   let uangLembur = 0
 

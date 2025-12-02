@@ -61,7 +61,7 @@ router.post("/login", async (req, res) => {
     };
 
     // JWT_SECRET dari .env
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "8h" });
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1d" });
 
     res.json({
       success: true,

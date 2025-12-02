@@ -1,155 +1,190 @@
-<!-- frontend\src\components\WMSControlPanel.vue -->
 <script setup>
 import { computed } from 'vue'
-import Tabs from '@/components/Tabs.vue'
-import SearchInput from './global/SearchInput.vue'
 
 const props = defineProps({
-  searchValue: { type: String, default: '' },
-  searchPlaceholder: { type: String, default: 'Cari produk...' },
+  // Data
+  searchPlaceholder: { type: String, default: 'Cari...' },
   searchTabs: { type: Array, default: () => [] },
   warehouseViews: { type: Array, default: () => [] },
   buildingFilterOptions: { type: Array, default: () => [] },
   floorFilterOptions: { type: Array, default: () => [] },
-  searchBy: { type: String, default: 'name' },
-  activeView: { type: String, default: 'gudang' },
-  showMinusStockOnly: { type: Boolean, default: false },
-  selectedBuilding: { type: String, default: 'all' },
-  selectedFloor: { type: String, default: 'all' },
-  isAutoRefetching: { type: Boolean, default: true },
-  sseStatus: { type: String, default: 'disconnected' },
+
+  // Status
+  isAutoRefetching: Boolean,
+  sseStatus: String,
+
+  // v-models
+  searchBy: String,
+  searchValue: String,
+  activeView: String,
+  showMinusStockOnly: Boolean,
+  selectedBuilding: String,
+  selectedFloor: String,
 })
 
 const emit = defineEmits([
-  'update:searchValue',
   'update:searchBy',
+  'update:searchValue',
   'update:activeView',
   'update:showMinusStockOnly',
   'update:selectedBuilding',
   'update:selectedFloor',
-  'toggle-refetch',
   'search',
+  'toggle-refetch',
 ])
 
-let debounceTimer = null
-function handleSearchInput(value) {
-  emit('update:searchValue', value)
-  clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => {
-    emit('search', value)
-  }, 400)
+function onSearchInput(e) {
+  emit('update:searchValue', e.target.value)
+  emit('search', e.target.value)
 }
 
-const showBuildingFilter = computed(() => {
-  return props.activeView === 'gudang'
-})
-
-const showFloorFilter = computed(() => {
-  if (props.activeView === 'ltc') {
-    return false
-  }
-  return props.activeView === 'gudang' || props.activeView === 'pajangan'
-})
-
-const syncButtonClass = computed(() => {
-  if (props.sseStatus === 'connected') {
-    return 'bg-success/15 border-success text-success'
-  }
-  if (props.sseStatus === 'connecting') {
-    return 'bg-warning/15 border-warning text-warning'
-  }
-  if (props.isAutoRefetching) {
-    return 'bg-danger/15 border-danger text-danger'
-  }
-  return 'bg-secondary/80 border-secondary text-text/80 hover:bg-secondary/50' // Semua mati
-})
-
-const syncButtonTitle = computed(() => {
-  if (props.sseStatus === 'connected') {
-    return 'Koneksi real-time aktif. Klik untuk mematikan semua pembaruan otomatis.'
-  }
-  if (props.sseStatus === 'connecting') {
-    return 'Menyambungkan koneksi real-time...'
-  }
-  if (props.isAutoRefetching) {
-    return 'Koneksi real-time gagal. Beralih ke pembaruan setiap 1 menit. Klik untuk mematikan.'
-  }
-  return 'Semua pembaruan otomatis mati. Klik untuk mengaktifkan pembaruan setiap 1 menit.'
-})
-
-const shouldIconSpin = computed(() => {
-  return (
-    props.sseStatus === 'connecting' ||
-    (props.sseStatus === 'disconnected' && props.isAutoRefetching)
-  )
-})
+// [BARU] Fungsi untuk membersihkan search
+function clearSearch() {
+  emit('update:searchValue', '') // Kosongkan v-model
+  emit('search', '') // Trigger search ulang dengan string kosong
+}
 </script>
 
 <template>
-  <div class="space-y-4 md:space-y-0 md:flex md:justify-between md:items-center md:gap-4">
-    <div class="flex-grow w-full md:w-1/2 flex items-center gap-2">
-      <SearchInput
-        :model-value="searchValue"
-        @update:modelValue="handleSearchInput"
+  <div class="flex flex-col xl:flex-row gap-3 xl:items-center">
+    <div class="relative flex-grow group w-full xl:w-auto">
+      <span
+        class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text/40 group-focus-within:text-primary transition-colors"
+      >
+        <font-awesome-icon icon="fa-solid fa-search" />
+      </span>
+
+      <input
+        :value="searchValue"
+        @input="onSearchInput"
+        type="text"
         :placeholder="searchPlaceholder"
-        class="flex-grow"
+        class="w-full pl-10 pr-10 py-2 bg-secondary/5 border border-secondary/20 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 text-text transition-all placeholder-text/30 h-[42px]"
       />
-      <Tabs
-        :tabs="searchTabs"
-        :model-value="searchBy"
-        @update:modelValue="(value) => emit('update:searchBy', value)"
-      />
+
+      <button
+        v-if="searchValue"
+        @click="clearSearch"
+        class="absolute inset-y-0 right-0 pr-3 flex items-center text-text/40 hover:text-danger cursor-pointer transition-colors"
+        title="Bersihkan pencarian"
+      >
+        <font-awesome-icon icon="fa-solid fa-times-circle" />
+      </button>
     </div>
 
-    <!-- KANAN: SEMUA FILTER GABUNGAN -->
-    <div class="flex items-center justify-start md:justify-end gap-2 w-full md:w-auto flex-wrap">
-      <Tabs
-        :tabs="warehouseViews"
-        :model-value="activeView"
-        @update:modelValue="(value) => emit('update:activeView', value)"
-      />
-      <select
-        v-if="showBuildingFilter"
-        :value="selectedBuilding"
-        @change="emit('update:selectedBuilding', $event.target.value)"
-        class="bg-background border-2 border-primary/30 text-text text-sm rounded-lg focus:ring-primary/50 focus:border-primary block p-2"
-      >
-        <option v-for="option in buildingFilterOptions" :key="option.value" :value="option.value">
-          {{ option.label }}
-        </option>
-      </select>
-      <select
-        v-if="showFloorFilter"
-        :value="selectedFloor"
-        @change="emit('update:selectedFloor', $event.target.value)"
-        class="bg-background border-2 border-primary/30 text-text text-sm rounded-lg focus:ring-primary/50 focus:border-primary block p-2"
-      >
-        <option v-for="option in floorFilterOptions" :key="option.value" :value="option.value">
-          {{ option.label }}
-        </option>
-      </select>
-      <button
-        @click="emit('update:showMinusStockOnly', !showMinusStockOnly)"
-        :class="[
-          'px-3 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2 border whitespace-nowrap',
-          showMinusStockOnly
-            ? 'bg-accent/15 border-accent text-accent shadow-sm'
-            : 'bg-secondary/80 border-secondary text-text/80 hover:bg-secondary/50 hover:border-secondary/50 hover:text-text',
-        ]"
-      >
-        <span>Stok Minus</span>
-      </button>
+    <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center shrink-0">
+      <div class="flex bg-secondary/10 p-1 rounded-lg h-[42px] shrink-0">
+        <button
+          v-for="tab in searchTabs"
+          :key="tab.value"
+          @click="emit('update:searchBy', tab.value)"
+          class="flex-1 md:flex-none px-4 py-1 rounded text-xs font-bold transition-all duration-200 flex items-center justify-center"
+          :class="[
+            searchBy === tab.value
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-text/60 hover:text-text hover:bg-secondary/10',
+          ]"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
 
-      <button
-        @click="emit('toggle-refetch')"
-        :class="[
-          'px-3 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2 border whitespace-nowrap',
-          syncButtonClass,
-        ]"
-        :title="syncButtonTitle"
+      <div
+        class="flex bg-secondary/5 p-1 rounded-lg h-[42px] overflow-x-auto no-scrollbar shrink-0"
       >
-        <font-awesome-icon icon="fa-solid fa-sync" :class="{ 'animate-spin': shouldIconSpin }" />
-      </button>
+        <button
+          v-for="view in warehouseViews"
+          :key="view.value"
+          @click="emit('update:activeView', view.value)"
+          class="flex-1 px-4 py-1 rounded text-xs font-medium whitespace-nowrap transition-all flex items-center justify-center"
+          :class="[
+            activeView === view.value
+              ? 'bg-primary text-white shadow-sm font-bold'
+              : 'text-text/60 hover:text-text hover:bg-secondary/10',
+          ]"
+        >
+          {{ view.label }}
+        </button>
+      </div>
+
+      <div
+        v-if="activeView === 'gudang'"
+        class="flex gap-2 w-full lg:w-auto animate-fade-in shrink-0"
+      >
+        <select
+          :value="selectedBuilding"
+          @change="emit('update:selectedBuilding', $event.target.value)"
+          class="flex-1 lg:w-32 px-3 py-1.5 bg-secondary/5 border border-secondary/20 rounded-lg text-sm text-text focus:border-primary focus:outline-none"
+        >
+          <option v-for="opt in buildingFilterOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+
+        <select
+          :value="selectedFloor"
+          @change="emit('update:selectedFloor', $event.target.value)"
+          class="flex-1 lg:w-24 px-3 py-1.5 bg-secondary/5 border border-secondary/20 rounded-lg text-sm text-text focus:border-primary focus:outline-none"
+        >
+          <option v-for="opt in floorFilterOptions" :key="opt.value" :value="opt.value">
+            Lantai {{ opt.label }}
+          </option>
+        </select>
+      </div>
+
+      <div class="flex gap-2 shrink-0">
+        <button
+          @click="emit('update:showMinusStockOnly', !showMinusStockOnly)"
+          class="px-4 rounded-lg text-xs font-bold border transition-all flex items-center gap-2 h-[42px] whitespace-nowrap"
+          :class="[
+            showMinusStockOnly
+              ? 'bg-danger/10 border-danger text-danger'
+              : 'bg-danger/5 border-danger/30 text-danger hover:bg-danger/10',
+          ]"
+        >
+          <font-awesome-icon icon="fa-solid fa-arrow-trend-down" />
+          <span>Stok Minus</span>
+        </button>
+
+        <button
+          @click="emit('toggle-refetch')"
+          class="w-[42px] h-[42px] flex items-center justify-center rounded-lg border transition-all"
+          :class="[
+            isAutoRefetching
+              ? 'bg-success/10 border-success/50 text-success'
+              : 'bg-success/5 border-success/30 text-success/70 hover:text-success',
+          ]"
+          :title="isAutoRefetching ? 'Auto-sync Aktif' : 'Auto-sync Mati'"
+        >
+          <font-awesome-icon
+            icon="fa-solid fa-sync"
+            :class="{ 'animate-spin': isAutoRefetching && sseStatus === 'connected' }"
+          />
+        </button>
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+</style>

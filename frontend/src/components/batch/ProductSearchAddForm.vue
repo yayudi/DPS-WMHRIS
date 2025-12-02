@@ -31,26 +31,15 @@ function onSearchChange(query) {
   isSearching.value = true
   searchDebounceTimer = setTimeout(async () => {
     try {
-      // 1. Jalankan pencarian Anda (yang kita tahu akan mengembalikan [])
+      // Jalankan pencarian Anda (yang kita tahu akan mengembalikan [])
       const results = await searchProducts(query, props.searchLocationId)
       searchResults.value = results
 
-      // --- LOG INVESTIGASI BARU ---
-      // Ini akan mencetak "Array []"
-      console.log(
-        `INVESTIGASI: Hasil pencarian (JOIN) untuk "${query}" di lokasi ${props.searchLocationId}:`,
-        JSON.parse(JSON.stringify(results)),
-      )
-
-      // 2. Jika hasil pencarian kosong, mari kita lihat apa yang SEBENARNYA ada di lokasi itu
+      // Jika hasil pencarian kosong, mari kita lihat apa yang SEBENARNYA ada di lokasi itu
       // Pastikan blok 'if' ini ada di kode Anda
       if (results.length === 0 && props.searchLocationId) {
-        console.log(
-          `INVESTIGASI: Hasil pencarian kosong. Memeriksa 10 SKU pertama yang TERCATAT di lokasi ${props.searchLocationId}...`,
-        )
         // Panggil helper baru kita
         const stockSample = await fetchStockSampleForLocation(props.searchLocationId)
-        console.log('INVESTIGASI: 10 SKU di lokasi ini (SAMPEL):', stockSample)
       }
       // --- AKHIR LOG INVESTIGASI BARU ---
     } catch (error) {

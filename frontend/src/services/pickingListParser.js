@@ -25,7 +25,6 @@ function cleanRow(row) {
  * @returns {Array<object>} - Array dari invoice yang sudah di-grup
  */
 function groupInvoices(csvData) {
-  console.log(`[CSV Parser Frontend] Memulai grouping ${csvData.length} baris CSV...`)
   const invoicesMap = new Map()
 
   for (const row of csvData) {
@@ -51,8 +50,6 @@ function groupInvoices(csvData) {
       invoicesMap.get(invoiceNo).items.push(item)
     }
   }
-  console.log(`[CSV Parser Frontend] Grouping selesai. Ditemukan ${invoicesMap.size} invoice unik.`)
-
   // Ubah Map menjadi Array untuk dikirim sebagai JSON
   return Array.from(invoicesMap.values())
 }

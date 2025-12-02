@@ -1,3 +1,4 @@
+// backend\router\realtimeRouter.js
 import express from "express";
 import db from "../config/db.js";
 
@@ -11,13 +12,30 @@ let clients = [];
  * Klien akan terhubung ke sini untuk mendapatkan pembaruan stok.
  */
 router.get("/stock-updates", (req, res) => {
-  // 1. Siapkan header untuk koneksi SSE
+  // ==================================================================
+  // [FIX V5] Header Khusus Shared Hosting & CORS
+  // ==================================================================
+
+  // Force CORS untuk route ini spesifik (Safety Net)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  // Header standar SSE
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
+
+  // [CRITICAL] Matikan Buffering Nginx/LiteSpeed
+  // Tanpa ini, shared hosting akan menahan data sampai buffer penuh,
+  // menyebabkan browser timeout atau error CORS palsu.
+  res.setHeader("X-Accel-Buffering", "no");
+
   res.flushHeaders(); // Kirim header segera
 
-  // 2. Tambahkan klien ini ke daftar pendengar
+  // Kirim data awal agar browser tahu koneksi sukses
+  res.write('data: {"status":"connected"}\n\n');
+
+  // Tambahkan klien ini ke daftar pendengar
   const clientId = Date.now();
   const newClient = {
     id: clientId,
@@ -26,12 +44,15 @@ router.get("/stock-updates", (req, res) => {
   clients.push(newClient);
   console.log(`[SSE] Klien baru terhubung. Total: ${clients.length}`);
 
-  // 3. Kirim pesan "keep-alive" setiap 20 detik untuk menjaga koneksi
+  // Kirim pesan "keep-alive" setiap 20 detik
   const keepAliveInterval = setInterval(() => {
-    res.write(": keep-alive\n\n");
+    // Cek apakah koneksi masih bisa ditulis
+    if (!res.writableEnded) {
+      res.write(": keep-alive\n\n");
+    }
   }, 20000);
 
-  // 4. Hapus klien dari daftar jika koneksi terputus
+  // Bersihkan saat koneksi putus
   req.on("close", () => {
     clearInterval(keepAliveInterval);
     clients = clients.filter((client) => client.id !== clientId);
@@ -41,8 +62,6 @@ router.get("/stock-updates", (req, res) => {
 
 /**
  * Fungsi untuk menyiarkan pembaruan stok ke semua klien yang terhubung.
- * Fungsi ini akan dipanggil dari stockRouter.js setelah ada perubahan.
- * @param {Array} updatedProducts - Array produk yang stoknya baru saja berubah.
  */
 export function broadcastStockUpdate(updatedProducts) {
   if (clients.length === 0) return;
@@ -52,7 +71,12 @@ export function broadcastStockUpdate(updatedProducts) {
   );
   const message = `data: ${JSON.stringify(updatedProducts)}\n\n`;
 
-  clients.forEach((client) => client.res.write(message));
+  clients.forEach((client) => {
+    // Pastikan koneksi belum mati sebelum menulis
+    if (!client.res.writableEnded) {
+      client.res.write(message);
+    }
+  });
 }
 
 export default router;

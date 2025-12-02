@@ -59,9 +59,9 @@
   --color-primary: 0 80 55; /* Merah darah pekat (crimson) */
   --color-secondary: 0 0 20; /* Abu-abu arang (charcoal) */
   --color-accent: 0 90 65; /* Merah terang untuk highlight */
-  --color-success: 120 50 40; /* Hijau gelap (kontras) */
+  --color-success: 120 50 20; /* Hijau gelap (kontras) */
   --color-warning: 45 80 60; /* Emas/kuning tua */
-  --color-danger: 0 90 65; /* Merah terang (sama dengan accent) */
+  --color-danger: 270 100 50; /* Merah terang (sama dengan accent) */
 }
 
 /* Tema Hutan (Forest) */
@@ -71,9 +71,9 @@
   --color-primary: 80 70 55; /* Hijau limau cerah */
   --color-secondary: 30 30 25; /* Coklat gelap */
   --color-accent: 45 90 60; /* Kuning safron */
-  --color-success: 80 70 55; /* Hijau limau (sama dengan primary) */
+  --color-success: 80 70 30; /* Hijau limau (sama dengan primary) */
   --color-warning: 45 90 60; /* Kuning safron (sama dengan accent) */
-  --color-danger: 15 60 45; /* Merah kecoklatan */
+  --color-danger: 0 90 65; /* Merah kecoklatan */
 }
 
 /* Tema Lautan (Ocean) */

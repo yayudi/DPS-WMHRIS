@@ -1,10 +1,11 @@
+// backend\scripts\devExportWorker.js
 import processQueue from "./processExportQueue.js"; // Impor fungsi
 import db from "../config/db.js"; // Impor db untuk rilis koneksi
 
 const INTERVAL_MS = 10000; // Cek setiap 10 detik
 let isWorking = false; // "flock" versi lokal
 
-console.log("[DevWorker] Simulator CRON dimulai. Mengecek setiap 10 detik...");
+console.log("[DevWorker] CRON setiap 10 detik...");
 
 const runWorker = async () => {
   if (isWorking) {
@@ -14,11 +15,11 @@ const runWorker = async () => {
 
   try {
     isWorking = true;
-    console.log("[DevWorker] Menjalankan processQueue...");
+    // console.log("[DevWorker] run processQueue...");
     await processQueue(); // Panggil fungsi yang di-impor
-    console.log("[DevWorker] processQueue selesai.");
+    // console.log("[DevWorker] processQueue finish");
   } catch (err) {
-    console.error("[DevWorker] Error menjalankan processQueue:", err);
+    console.error("[DevWorker] processQueue:", err);
   } finally {
     isWorking = false;
   }

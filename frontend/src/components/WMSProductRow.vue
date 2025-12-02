@@ -1,94 +1,116 @@
 <script setup>
-// ✅ Import ref, onMounted, onUnmounted untuk logika klik
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth.js'
 import { formatCurrency } from '@/utils/formatters.js'
 
 const props = defineProps({
-  product: {
-    type: Object,
-    required: true,
-  },
-  activeView: {
-    type: String,
-    required: true,
-  },
-  isUpdated: {
-    type: Boolean,
-    default: false,
-  },
+  product: { type: Object, required: true },
+  activeView: { type: String, required: true },
+  isUpdated: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['copy', 'openAdjust', 'openTransfer', 'openHistory'])
-
+const emit = defineEmits([
+  'copy',
+  'openAdjust',
+  'openTransfer',
+  'openHistory',
+  'openEdit',
+  'delete',
+])
 const auth = useAuthStore()
 
-// --- ✅ LOGIKA UNTUK TOOLTIP (DIUBAH) ---
-const isTooltipVisible = ref(false)
-const tooltipContainer = ref(null) // Ref untuk elemen DOM (selnya)
+// --- STATE ---
+const tooltipContainer = ref(null)
+const menuContainer = ref(null)
 
-// Refs baru untuk koordinat posisi absolute (fixed)
+// Tooltip State
+const isTooltipVisible = ref(false)
 const tooltipX = ref(0)
 const tooltipY = ref(0)
 
-/**
- * Menghitung posisi tooltip dan menampilkannya saat diklik.
- */
+// Menu State
+const isMenuVisible = ref(false)
+const menuX = ref(0)
+const menuY = ref(0)
+
+// --- TOOLTIP LOGIC ---
 function handleToggleTooltip() {
   if (showTooltip.value) {
+    // Tutup menu jika terbuka
+    isMenuVisible.value = false
+
     if (isTooltipVisible.value) {
-      isTooltipVisible.value = false // Tutup jika sudah terbuka
+      isTooltipVisible.value = false
       return
     }
-
-    // Hitung posisi baru berdasarkan elemen yang diklik
-    // Kita menargetkan sel Lokasi yang memiliki class col-span-3
-    const targetElement = tooltipContainer.value.querySelector('.col-span-3')
+    const targetElement = tooltipContainer.value.querySelector('.location-cell')
     if (targetElement) {
       const rect = targetElement.getBoundingClientRect()
-
-      // X: Posisikan di tengah sel lokasi
       tooltipX.value = rect.left + rect.width / 2
-
-      // Y: Posisikan tepat di atas (bottom-full) sel lokasi
-      // rect.top adalah koordinat Y dari bagian atas sel
       tooltipY.value = rect.top
     }
-
-    isTooltipVisible.value = true // Buka
+    isTooltipVisible.value = true
   }
 }
 
-/**
- * Closes the tooltip if a click occurs outside of its container element.
- */
+// --- MENU LOGIC ---
+function handleToggleMenu(event) {
+  // Tutup tooltip jika terbuka
+  isTooltipVisible.value = false
+
+  if (isMenuVisible.value) {
+    isMenuVisible.value = false
+    return
+  }
+
+  // Hitung posisi menu berdasarkan tombol titik tiga
+  const rect = event.currentTarget.getBoundingClientRect()
+  // X: Geser ke kiri sedikit agar menu tidak keluar layar
+  menuX.value = rect.left - 120
+  // Y: Tepat di bawah tombol
+  menuY.value = rect.bottom + 5
+
+  isMenuVisible.value = true
+}
+
+// Handle Klik Luar (Untuk menutup tooltip & menu)
 function handleClickOutside(event) {
+  // Tutup Tooltip
   if (
     tooltipContainer.value &&
     !tooltipContainer.value.contains(event.target) &&
-    // Tambahkan pengecualian untuk elemen tooltip yang sudah di-teleport.
     !event.target.closest('.tooltip-teleported')
   ) {
     isTooltipVisible.value = false
   }
+
+  // Tutup Menu
+  if (
+    !event.target.closest('.action-btn') && // Tombol pemicu
+    !event.target.closest('.menu-teleported') // Menu itu sendiri
+  ) {
+    isMenuVisible.value = false
+  }
 }
 
-// Tambahkan listener saat komponen dipasang
+function handleMenuAction(action) {
+  // Helper untuk emit dan tutup menu otomatis
+  emit(action, props.product)
+  isMenuVisible.value = false
+}
+
 onMounted(() => {
   document.addEventListener('mousedown', handleClickOutside)
 })
-
-// Hapus listener saat komponen dilepas untuk mencegah memory leak
 onUnmounted(() => {
   document.removeEventListener('mousedown', handleClickOutside)
 })
-// --- AKHIR LOGIKA TOOLTIP ---
 
 function copyToClipboard(text, fieldName) {
   emit('copy', { text, fieldName })
 }
 
-// Computed property untuk STOK berdasarkan tab aktif
+// --- COMPUTED DATA ---
 const currentStock = computed(() => {
   if (props.activeView === 'all') return props.product.totalStock
   if (props.activeView === 'gudang') return props.product.stockGudang
@@ -97,7 +119,6 @@ const currentStock = computed(() => {
   return 0
 })
 
-// Computed property untuk LOKASI berdasarkan tab aktif
 const currentLocation = computed(() => {
   if (props.activeView === 'all') return props.product.allLocationsCode || '-'
   if (props.activeView === 'gudang') return props.product.lokasiGudang || '-'
@@ -106,21 +127,16 @@ const currentLocation = computed(() => {
   return '-'
 })
 
-// Computed property untuk data di dalam Tooltip
 const locationsForTooltip = computed(() => {
   const allLocations = props.product.stock_locations || []
   let filtered = []
-
-  // Filter lokasi berdasarkan tab yang aktif
   if (props.activeView === 'all') {
-    filtered = allLocations.filter((loc) => loc.quantity !== 0) // Hanya tampilkan yang ada stok
+    filtered = allLocations.filter((loc) => loc.quantity !== 0)
   } else if (props.activeView === 'gudang') {
     filtered = allLocations.filter((loc) => loc.purpose === 'WAREHOUSE' && loc.quantity !== 0)
   } else if (props.activeView === 'pajangan') {
     filtered = allLocations.filter((loc) => loc.purpose === 'DISPLAY' && loc.quantity !== 0)
   }
-  // Tidak perlu tooltip untuk LTC (hanya 1 lokasi)
-
   return filtered
 })
 
@@ -132,40 +148,69 @@ const showTooltip = computed(() => {
 <template>
   <div
     ref="tooltipContainer"
-    class="grid items-center p-3 transition-colors duration-500 grid-cols-12 border-b border-secondary"
+    class="grid items-center p-3 transition-colors duration-500 grid-cols-12 gap-4 border-b border-secondary"
     :class="[isUpdated ? 'bg-success/20' : 'hover:bg-primary/10']"
   >
-    <div class="group relative" :class="[auth.canViewPrices ? 'col-span-5' : 'col-span-6']">
-      <span
-        @click="copyToClipboard(product.name, 'Nama Produk')"
-        class="font-semibold text-sm text-text cursor-pointer hover:text-primary transition-colors"
-      >
-        {{ product.name }}
-      </span>
+    <!-- NAME (4 Cols) -->
+    <div
+      class="group relative flex flex-col justify-center"
+      :class="[auth.canViewPrices ? 'col-span-4' : 'col-span-6']"
+    >
+      <div class="flex items-center gap-2">
+        <span
+          @click="copyToClipboard(product.name, 'Nama Produk')"
+          class="font-semibold text-sm text-text cursor-pointer hover:text-primary transition-colors truncate"
+          :title="product.name"
+        >
+          {{ product.name }}
+        </span>
+        <span
+          v-if="product.is_package"
+          class="shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-accent/10 text-accent border border-accent/20 tracking-wide"
+        >
+          PAKET
+        </span>
+      </div>
     </div>
 
-    <div class="col-span-1 text-center text-sm text-text/70 font-mono group relative">
-      <span @click="copyToClipboard(product.sku, 'SKU')" class="cursor-pointer">
+    <!-- SKU (2 Cols) -->
+    <div class="col-span-2 text-left text-xs text-text/70 font-mono group relative truncate">
+      <span
+        @click="copyToClipboard(product.sku, 'SKU')"
+        class="cursor-pointer hover:text-primary bg-secondary/5 px-1.5 py-0.5 rounded border border-secondary/10"
+      >
         {{ product.sku }}
       </span>
     </div>
 
-    <div v-if="auth.canViewPrices" class="col-span-1 text-right text-sm text-text/70 font-mono">
-      <span @click="copyToClipboard(product.price, 'Harga')" class="cursor-pointer">
+    <!-- PRICE (2 Cols) -->
+    <div
+      v-if="auth.canViewPrices"
+      class="col-span-2 text-right text-sm text-text/70 font-mono truncate"
+    >
+      <span
+        @click="copyToClipboard(product.price, 'Harga')"
+        class="cursor-pointer hover:text-primary"
+      >
         {{ formatCurrency(product.price) }}
       </span>
     </div>
 
+    <!-- LOCATION (2 Cols) -->
     <div
-      class="col-span-3 text-center text-sm text-text/70 font-mono relative"
-      :class="{ 'cursor-pointer hover:text-primary': showTooltip }"
+      class="location-cell text-center text-xs text-text/70 font-mono relative"
+      :class="[
+        auth.canViewPrices ? 'col-span-2' : 'col-span-3',
+        { 'cursor-pointer hover:text-primary text-primary font-bold': showTooltip },
+      ]"
       @click="handleToggleTooltip"
     >
-      <span class="truncate">{{ currentLocation }}</span>
+      <span class="truncate block w-full" :title="currentLocation">{{ currentLocation }}</span>
     </div>
 
+    <!-- STOCK (1 Col) -->
     <div
-      class="col-span-1 text-center text-lg font-mono font-bold"
+      class="col-span-1 text-center text-sm font-mono font-bold"
       :class="{
         'text-accent': currentStock < 0,
         'text-primary': currentStock > 0,
@@ -175,58 +220,130 @@ const showTooltip = computed(() => {
       {{ currentStock || 0 }}
     </div>
 
-    <div class="col-span-1 flex justify-center items-center gap-3 text-text/60">
+    <!-- ACTIONS (1 Col) -->
+    <div class="col-span-1 flex justify-center items-center relative">
       <button
-        v-if="auth.hasPermission('manage-stock-adjustment')"
-        @click="emit('openAdjust', product)"
-        class="hover:text-primary transition-colors"
-        title="Sesuaikan Stok"
+        @click="handleToggleMenu"
+        class="action-btn w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary/20 text-text/60 hover:text-primary transition-colors"
       >
-        <font-awesome-icon icon="fa-solid fa-pencil" />
-      </button>
-      <button
-        @click="emit('openTransfer', product)"
-        class="hover:text-primary transition-colors"
-        title="Transfer Stok"
-      >
-        <font-awesome-icon icon="fa-solid fa-right-left" />
-      </button>
-      <button
-        @click="emit('openHistory', product)"
-        class="hover:text-primary transition-colors"
-        title="Riwayat Stok"
-      >
-        <font-awesome-icon icon="fa-solid fa-history" />
+        <font-awesome-icon icon="fa-solid fa-ellipsis-vertical" />
       </button>
     </div>
   </div>
 
+  <!-- TELEPORT: LOCATION TOOLTIP -->
   <Teleport to="body">
     <div
       v-if="showTooltip && isTooltipVisible"
-      class="tooltip-teleported fixed z-[99999] w-48 bg-gray-900 text-white text-xs rounded-lg shadow-2xl p-3"
+      class="tooltip-teleported fixed z-[99999] w-48 bg-background text-primary text-xs rounded-lg shadow-xl p-3 border border-primary backdrop-blur-sm"
       :style="{
         left: tooltipX + 'px',
         top: tooltipY + 'px',
-        // Geser kembali 50% lebar agar berada di tengah posisi X
-        // Geser 100% ke atas (bottom-full) agar bagian bawah tooltip berada di Y yang dihitung
         transform: 'translateX(-50%) translateY(-100%)',
+        marginTop: '-8px',
       }"
-      @click.stop="() => {}"
     >
-      <ul class="space-y-1">
+      <div
+        class="font-bold text-primary mb-2 uppercase text-[10px] tracking-wider border-b border-primary pb-1"
+      >
+        Detail Lokasi
+      </div>
+      <ul class="space-y-1.5">
         <li
           v-for="loc in locationsForTooltip"
           :key="loc.location_code"
-          class="flex justify-between"
+          class="flex justify-between items-center"
         >
-          <span>{{ loc.location_code }}:</span>
-          <span class="font-bold">{{ loc.quantity }}</span>
+          <span class="font-mono text-primary-light">{{ loc.location_code }}</span>
+          <span class="font-bold bg-primary/10 text-primary px-1.5 rounded">{{
+            loc.quantity
+          }}</span>
         </li>
       </ul>
+      <!-- Arrow -->
       <div
         class="absolute left-1/2 -translate-x-1/2 bottom-[-5px] w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[5px] border-t-gray-900"
       ></div>
     </div>
   </Teleport>
+
+  <!-- TELEPORT: ACTION MENU -->
+  <Teleport to="body">
+    <div
+      v-if="isMenuVisible"
+      class="menu-teleported fixed z-[99999] text-text w-48 bg-background rounded-lg shadow-xl border border-secondary py-1 text-sm overflow-hidden animate-scale-in"
+      :style="{
+        left: menuX + 'px',
+        top: menuY + 'px',
+      }"
+    >
+      <!-- Operasional -->
+      <button
+        v-if="auth.hasPermission('manage-stock-adjustment')"
+        @click="handleMenuAction('openAdjust')"
+        class="w-full text-left px-4 py-2.5 hover:bg-primary/10 hover:text-primary flex items-center gap-3 transition-colors"
+      >
+        <font-awesome-icon icon="fa-solid fa-calculator" class="w-4 text-center" />
+        Sesuaikan Stok
+      </button>
+
+      <button
+        @click="handleMenuAction('openTransfer')"
+        class="w-full text-left px-4 py-2.5 hover:bg-primary/10 hover:text-primary flex items-center gap-3 transition-colors"
+      >
+        <font-awesome-icon icon="fa-solid fa-right-left" class="w-4 text-center" />
+        Transfer Stok
+      </button>
+
+      <div class="h-px bg-primary/10 my-1"></div>
+
+      <!-- Master Data -->
+      <button
+        v-if="auth.hasPermission('manage-products')"
+        @click="handleMenuAction('openEdit')"
+        class="w-full text-left px-4 py-2.5 hover:bg-warning/10 hover:text-warning flex items-center gap-3 transition-colors"
+      >
+        <font-awesome-icon icon="fa-solid fa-pencil" class="w-4 text-center" />
+        Edit Produk
+      </button>
+
+      <button
+        @click="handleMenuAction('openHistory')"
+        class="w-full text-left px-4 py-2.5 hover:bg-info/10 hover:text-info flex items-center gap-3 transition-colors"
+      >
+        <font-awesome-icon icon="fa-solid fa-clock-rotate-left" class="w-4 text-center" />
+        Riwayat
+      </button>
+
+      <div v-if="auth.hasPermission('manage-products')" class="h-px bg-secondary/10 my-1"></div>
+
+      <!-- Danger Zone -->
+      <button
+        v-if="auth.hasPermission('manage-products')"
+        @click="handleMenuAction('delete')"
+        class="w-full text-left px-4 py-2.5 text-danger hover:bg-danger/10 flex items-center gap-3 transition-colors"
+      >
+        <font-awesome-icon icon="fa-solid fa-trash" class="w-4 text-center" />
+        Hapus Produk
+      </button>
+    </div>
+  </Teleport>
 </template>
+
+<style scoped>
+.animate-scale-in {
+  animation: scaleIn 0.1s ease-out forwards;
+  transform-origin: top right;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+</style>

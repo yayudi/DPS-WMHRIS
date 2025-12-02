@@ -1,13 +1,16 @@
+<!-- frontend\src\views\WMS.vue -->
 <script setup>
 import { ref } from 'vue'
 import { useToast } from '@/composables/UseToast.js'
 import { useWms } from '@/composables/useWms.js'
 import { transferStock, adjustStock } from '@/api/helpers/stock.js'
+import axios from '@/api/axios.js'
 import WmsProductTable from '@/components/WmsProductTable.vue'
 import WmsControlPanel from '@/components/WmsControlPanel.vue'
 import WmsAdjustModal from '@/components/WMSAdjustModal.vue'
 import WmsTransferModal from '@/components/WMSTransferModal.vue'
 import WmsHistoryModal from '@/components/WMSHistoryModal.vue'
+import WmsProductFormModal from '@/components/WmsProductFormModal.vue' // ✅ NEW
 import { useAuthStore } from '@/stores/auth.js'
 
 const {
@@ -32,9 +35,9 @@ const {
   resetAndRefetch,
   sseStatus,
   recentlyUpdatedProducts,
+  fetchProducts, // ✅ We need this to refresh after create/edit
 } = useWms()
 
-// ✅ 2. Inisialisasi auth store
 const auth = useAuthStore()
 const { show } = useToast()
 const isHistoryModalOpen = ref(false)
@@ -46,6 +49,10 @@ const transferAmount = ref(1)
 const adjustAmount = ref(0)
 const adjustReason = ref('')
 const searchTerm = ref('')
+
+// ✅ PRODUCT FORM MODAL STATE
+const isProductFormOpen = ref(false)
+const productFormMode = ref('create')
 
 const warehouseViews = [
   { label: 'Semua', value: 'all' },
@@ -77,7 +84,6 @@ const floorFilterOptions = [
 
 function copyToClipboard({ text, fieldName }) {
   if (!text) return
-  // Gunakan document.execCommand untuk kompatibilitas iframe
   const textArea = document.createElement('textarea')
   textArea.value = text
   document.body.appendChild(textArea)
@@ -110,22 +116,42 @@ function openHistoryModal(product) {
   isHistoryModalOpen.value = true
 }
 
-// Fungsi-fungsi ini sekarang tidak terpakai di WMS.vue
-// function openBatchLogModal() {
-//   isBatchLogModalOpen.value = true
-// }
+// ✅ NEW: Master Data Functions
+function openCreateProductModal() {
+  productFormMode.value = 'create'
+  selectedProduct.value = null
+  isProductFormOpen.value = true
+}
 
-// function openBatchMovementModal() {
-//   isBatchMovementModalOpen.value = true
-// }
+function openEditProductModal(product) {
+  productFormMode.value = 'edit'
+  selectedProduct.value = product
+  isProductFormOpen.value = true
+}
+
+async function handleDeleteProduct(product) {
+  if (!confirm(`Yakin ingin menghapus "${product.name}"?`)) return
+  try {
+    const response = await axios.delete(`/products/${product.id}`)
+    if (response.data.success) {
+      show('Produk berhasil dihapus', 'success')
+      resetAndRefetch() // Refresh list
+    }
+  } catch (err) {
+    show(err.response?.data?.message || 'Gagal menghapus produk', 'error')
+  }
+}
+
+function handleProductSaved() {
+  resetAndRefetch() // Refresh list after create/edit
+}
 
 function closeModal() {
   isHistoryModalOpen.value = false
   isTransferModalOpen.value = false
-  // isBatchLogModalOpen.value = false
-  // isBatchMovementModalOpen.value = false
   isUploadModalOpen.value = false
   isAdjustModalOpen.value = false
+  isProductFormOpen.value = false // ✅ Close form
   selectedProduct.value = null
 }
 
@@ -161,32 +187,66 @@ async function handleAdjustConfirm(payload) {
 <template>
   <div class="bg-secondary/20 min-h-screen p-4 sm:p-6">
     <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-      <h2 class="text-2xl font-bold text-text flex items-center gap-3">
-        <font-awesome-icon icon="fa-solid fa-warehouse" />
-        <span>Warehouse Management</span>
-      </h2>
+      <div>
+        <h2 class="text-2xl font-bold text-text flex items-center gap-3">
+          <font-awesome-icon icon="fa-solid fa-warehouse" />
+          <span>Warehouse Management</span>
+        </h2>
+        <p class="text-text/60 text-sm mt-1 ml-9">Monitor stok, mutasi, dan opname.</p>
+      </div>
 
-      <!-- ✅ 3. BAGIAN TOMBOL DIPERBARUI DENGAN RCAB -->
-      <div class="flex items-center gap-3">
-        <!-- Tombol 1: Perpindahan (Movement) -->
+      <!-- ACTION BUTTON GROUP -->
+      <div
+        class="bg-background p-1.5 rounded-xl border border-secondary/20 shadow-sm flex gap-2 overflow-x-auto max-w-full items-center"
+      >
+        <!-- Tombol 1: Perpindahan -->
         <router-link
           v-if="auth.hasPermission('perform-batch-movement')"
           to="/wms/actions/batch-movement"
-          class="px-4 py-2 text-sm font-semibold bg-primary/10 text-primary rounded-lg hover:bg-primary/30 transition-colors flex items-center gap-2"
+          class="px-4 py-2 text-sm font-bold text-primary hover:bg-primary/10 rounded-lg transition-all flex items-center gap-2 whitespace-nowrap"
+          title="Pindah Stok Antar Lokasi"
         >
           <font-awesome-icon icon="fa-solid fa-boxes-stacked" />
-          <span>Perpindahan Stok</span>
+          <span>Pindah</span>
         </router-link>
 
-        <!-- Tombol 2: Penyesuaian (Adjustment) - BARU -->
+        <div class="w-px h-6 bg-secondary/20"></div>
+
+        <!-- Tombol 2: Penyesuaian -->
         <router-link
           v-if="auth.hasPermission('manage-stock-adjustment')"
           to="/wms/actions/batch-adjustment"
-          class="px-4 py-2 text-sm font-semibold bg-amber-500/10 text-amber-600 rounded-lg hover:bg-amber-500/30 transition-colors flex items-center gap-2"
+          class="px-4 py-2 text-sm font-bold text-warning hover:bg-warning/10 rounded-lg transition-all flex items-center gap-2 whitespace-nowrap"
+          title="Stock Opname / Penyesuaian"
         >
           <font-awesome-icon icon="fa-solid fa-calculator" />
-          <span>Penyesuaian Stok</span>
+          <span>Opname</span>
         </router-link>
+
+        <div class="w-px h-6 bg-secondary/20"></div>
+
+        <!-- Tombol 3: Retur -->
+        <router-link
+          v-if="auth.hasPermission('manage-stock-adjustment')"
+          to="/wms/actions/return"
+          class="px-4 py-2 text-sm font-bold text-danger hover:bg-danger/10 rounded-lg transition-all flex items-center gap-2 whitespace-nowrap"
+          title="Validasi Barang Retur"
+        >
+          <font-awesome-icon icon="fa-solid fa-rotate-left" />
+          <span>Retur</span>
+        </router-link>
+
+        <!-- ✅ NEW BUTTON: Tambah Produk (Admin Only) -->
+        <div v-if="auth.hasPermission('manage-products')" class="w-px h-6 bg-secondary/20"></div>
+        <button
+          v-if="auth.hasPermission('manage-products')"
+          @click="openCreateProductModal"
+          class="px-4 py-2 text-sm font-bold text-success hover:bg-success/10 rounded-lg transition-all flex items-center gap-2 whitespace-nowrap"
+          title="Tambah Produk Baru"
+        >
+          <font-awesome-icon icon="fa-solid fa-plus" />
+          <span>Produk</span>
+        </button>
       </div>
     </div>
 
@@ -232,6 +292,8 @@ async function handleAdjustConfirm(payload) {
           @openTransfer="openTransferModal"
           @openAdjust="openAdjustModal"
           @openHistory="openHistoryModal"
+          @openEdit="openEditProductModal"
+          @delete="handleDeleteProduct"
           @sort="handleSort"
         />
 
@@ -263,6 +325,15 @@ async function handleAdjustConfirm(payload) {
   />
 
   <WmsHistoryModal :show="isHistoryModalOpen" :product="selectedProduct" @close="closeModal" />
+
+  <!-- ✅ NEW: Master Data Modal -->
+  <WmsProductFormModal
+    :show="isProductFormOpen"
+    :mode="productFormMode"
+    :product-data="selectedProduct"
+    @close="closeModal"
+    @refresh="handleProductSaved"
+  />
 </template>
 
 <style scoped>

@@ -9,7 +9,7 @@ const router = express.Router();
 // GET /user/profile
 router.get("/profile", async (req, res) => {
   try {
-    // 1. Ambil data dasar dari token (req.user)
+    // Ambil data dasar dari token (req.user)
     const tokenUser = req.user;
     const [userRows] = await db.query("SELECT nickname FROM users WHERE id = ?", [tokenUser.id]);
     const dbUser = userRows[0] || {}; // Default ke objek kosong jika tidak ditemukan

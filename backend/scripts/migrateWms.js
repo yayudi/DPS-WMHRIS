@@ -25,12 +25,12 @@ async function migrateWmsData() {
     await connection.beginTransaction();
     log("✅ Koneksi database berhasil dan transaksi dimulai.");
 
-    // 1. Ambil semua data lokasi dari DB untuk pemetaan
+    // Ambil semua data lokasi dari DB untuk pemetaan
     const [locations] = await connection.query("SELECT id, code FROM locations");
     const locationMap = new Map(locations.map((loc) => [loc.code.toUpperCase(), loc.id]));
     log(`🗺️  Berhasil memuat ${locationMap.size} lokasi dari database.`);
 
-    // 2. Ambil data dari Google Sheets
+    // Ambil data dari Google Sheets
     log("⬇️  Mengambil data dari Google Sheets...");
     const [rekapData, skuMasterData] = await Promise.all([
       fetchSheet(SPREADSHEET_REKAP, RANGE_REKAP),
@@ -40,11 +40,11 @@ async function migrateWmsData() {
       `👍 Data Google Sheets berhasil diambil. ${rekapData.length} baris REKAP, ${skuMasterData.length} baris MASTER.`
     );
 
-    // 3. Buat Peta Stok dari REKAP untuk pencarian cepat
+    // Buat Peta Stok dari REKAP untuk pencarian cepat
     const rekapMap = new Map(rekapData.map((row) => [row.SKU?.trim().toUpperCase(), row]));
     log(`🔄 Peta stok dari REKAP berhasil dibuat.`);
 
-    // 4. Kosongkan tabel produk dan stok untuk memulai dari awal
+    // Kosongkan tabel produk dan stok untuk memulai dari awal
     log("🗑️  Membersihkan tabel products dan stock_locations...");
     await connection.query("SET FOREIGN_KEY_CHECKS=0");
     await connection.query("TRUNCATE TABLE stock_locations");
@@ -55,7 +55,7 @@ async function migrateWmsData() {
     let stockLocationsCreated = 0;
 
     // --- PERBAIKAN LOGIKA UTAMA ---
-    // 5. Loop melalui SEMUA produk dari SPREADSHEET_MASTER
+    // Loop melalui SEMUA produk dari SPREADSHEET_MASTER
     for (const productData of skuMasterData) {
       const sku = productData.SKU?.trim();
       const name = productData.NAMA?.trim();

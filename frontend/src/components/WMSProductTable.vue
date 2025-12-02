@@ -1,3 +1,4 @@
+<!-- frontend\src\components\WMSProductTable.vue -->
 <script setup>
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth.js'
@@ -20,12 +21,19 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['copy', 'openAdjust', 'openTransfer', 'sort', 'openHistory'])
+const emit = defineEmits([
+  'copy',
+  'openAdjust',
+  'openTransfer',
+  'sort',
+  'openHistory',
+  'openEdit',
+  'delete',
+])
 const auth = useAuthStore()
 
-// ✅ UBAH: Gunakan grid-cols-12 agar konsisten dengan WmsProductRow
 const gridClass = computed(() => {
-  return 'grid-cols-12'
+  return 'grid-cols-12 gap-4' // ✅ Added gap-4 for breathing room
 })
 
 function handleSort(column) {
@@ -40,40 +48,50 @@ function sortIcon(column) {
 </script>
 
 <template>
-  <div class="w-full text-left border-collapse">
+  <div class="w-full text-left border-collapse min-w-[800px]">
+    <!-- Added min-w to prevent crushing on mobile -->
     <!-- HEADER TABEL -->
     <div
-      class="grid p-3 bg-secondary/10 border-b-2 border-primary/50 text-xs font-bold text-text/60 uppercase tracking-wider"
+      class="grid p-3 bg-secondary/10 border-b-2 border-primary/50 text-xs font-bold text-text/60 uppercase tracking-wider items-center"
       :class="gridClass"
     >
-      <!-- ✅ UBAH: Sesuaikan col-span header agar sama persis dengan col-span di WmsProductRow.vue -->
+      <!-- NAME: Reduced to 4 cols -->
       <div
         @click="handleSort('name')"
-        class="cursor-pointer hover:text-primary"
-        :class="[auth.canViewPrices ? 'col-span-5' : 'col-span-6']"
+        class="cursor-pointer hover:text-primary flex items-center gap-2"
+        :class="[auth.canViewPrices ? 'col-span-4' : 'col-span-6']"
       >
         Produk <font-awesome-icon :icon="sortIcon('name')" />
       </div>
+
+      <!-- SKU: Increased to 2 cols -->
       <div
         @click="handleSort('sku')"
-        class="col-span-1 text-center cursor-pointer hover:text-primary"
+        class="col-span-2 cursor-pointer hover:text-primary flex items-center gap-2"
       >
         SKU <font-awesome-icon :icon="sortIcon('sku')" />
       </div>
+
+      <!-- PRICE: Increased to 2 cols -->
       <div
         v-if="auth.canViewPrices"
         @click="handleSort('price')"
-        class="col-span-1 text-right cursor-pointer hover:text-primary"
+        class="col-span-2 text-right cursor-pointer hover:text-primary flex items-center justify-end gap-2"
       >
         Harga <font-awesome-icon :icon="sortIcon('price')" />
       </div>
-      <div class="col-span-3 text-center">Lokasi</div>
+
+      <!-- LOCATION: Reduced to 2 cols (if prices shown) -->
+      <div class="text-center" :class="[auth.canViewPrices ? 'col-span-2' : 'col-span-3']">
+        Lokasi
+      </div>
+
       <div class="col-span-1 text-center">Stok</div>
       <div class="col-span-1 text-center">Aksi</div>
     </div>
 
     <!-- BODY TABEL -->
-    <div>
+    <div class="divide-y divide-secondary/10">
       <WmsProductRow
         v-for="product in products"
         :key="product.id"
@@ -84,6 +102,8 @@ function sortIcon(column) {
         @openAdjust="(product) => emit('openAdjust', product)"
         @openTransfer="(product) => emit('openTransfer', product)"
         @openHistory="(product) => emit('openHistory', product)"
+        @openEdit="(product) => emit('openEdit', product)"
+        @delete="(product) => emit('delete', product)"
       />
     </div>
   </div>

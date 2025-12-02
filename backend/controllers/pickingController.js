@@ -1,371 +1,369 @@
+// backend/controllers/pickingController.js
 import db from "../config/db.js";
-import { broadcastStockUpdate } from "../router/realtimeRouter.js";
-import {
-  processPickingListConfirmation,
-  processPickingListVoid,
-  getLatestStockForBroadcast,
-} from "../services/pickingService.js";
-// Impor service baru kita
-import {
-  performPickingValidation,
-  fetchPickingListDetails,
-} from "../services/pickingDataService.js";
+import path from "path";
+import fs from "fs";
+import ExcelJS from "exceljs";
+import { fileURLToPath } from "url";
+import * as pickingService from "../services/pickingDataService.js";
 
-// =================================================================================
-// CONTROLLERS (YANG SUDAH DI-REFACTOR)
-// =================================================================================
+// ============================================================================
+// READ OPERATIONS (GET)
+// ============================================================================
 
-/**
- * [HYBRID CSV] Menerima data JSON 'Tagihan (CSV)' yang sudah di-parse.
- */
-export const uploadJsonInvoices = async (req, res) => {
-  const userId = req.user?.id;
-  if (!userId) {
-    return res.status(401).json({ success: false, message: "Unauthorized" });
-  }
-
-  const { invoices, filename } = req.body;
-  if (!invoices || !Array.isArray(invoices) || invoices.length === 0) {
-    return res.status(400).json({ success: false, message: "Data invoice tidak valid." });
-  }
-
+export const getPendingItems = async (req, res) => {
   try {
-    // 1. Agregasi Item
-    const aggregatedItemsMap = new Map();
-    let source = "CSV_BATCH";
+    const items = await pickingService.getPendingPickingItemsService();
+    res.json({ success: true, data: items });
+  } catch (error) {
+    console.error("[Controller] Get Pending Items Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
-    const primaryInvoiceId = invoices[0]?.invoiceNo || null;
-    const primaryCustomerName = invoices[0]?.customerName || null;
+export const getHistoryItems = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 1000;
+    const items = await pickingService.getHistoryPickingItemsService(limit);
+    res.json({ success: true, data: items });
+  } catch (error) {
+    console.error("[Controller] Get History Items Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
-    if (invoices.length > 0 && invoices[0].source) {
-      source = invoices[0].source;
+export const getPickingDetail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const items = await pickingService.fetchPickingListDetails(id);
+    res.json({ success: true, data: items });
+  } catch (error) {
+    console.error("[Controller] Get Detail Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================================================
+// UPLOAD & PROCESS OPERATIONS (POST)
+// ============================================================================
+
+export const uploadAndValidate = async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      throw new Error("Tidak ada file yang diunggah.");
     }
-    for (const invoiceData of invoices) {
-      const invoiceNo = invoiceData.invoiceNo;
-      const customerName = invoiceData.customerName;
-      for (const item of invoiceData.items) {
-        const sku = item.sku;
-        const qty = Number(item.quantity);
-        if (isNaN(qty) || qty <= 0) continue;
-        // const existingQty = aggregatedItemsMap.get(item.sku) || 0;
-        // aggregatedItemsMap.set(item.sku, existingQty + qty);
 
-        const existing = aggregatedItemsMap.get(sku) || {
-          qty: 0,
-          invoiceNos: [],
-          customerNames: [],
-        };
-        const newQty = existing.qty + qty;
-        const newInvoiceNos = existing.invoiceNos;
-        const newCustomerNames = existing.customerNames;
+    const userId = req.user?.id || 1;
+    const source = req.body.source || "Tokopedia";
+    const jobType = `IMPORT_SALES_${source.toUpperCase()}`;
 
-        // Tambahkan invoiceNo *jika* ada DAN belum ada
-        if (invoiceNo && !newInvoiceNos.includes(invoiceNo)) {
-          newInvoiceNos.push(invoiceNo);
+    const { ParserEngine } = await import("../services/ParserEngine.js");
+    const parser = new ParserEngine();
+
+    const batchSummary = {
+      totalFiles: req.files.length,
+      processedFiles: 0,
+      successInvoices: 0,
+      errors: [],
+    };
+
+    // LOOP PER FILE
+    for (const file of req.files) {
+      let jobId = null;
+      let fileErrors = []; // Array data lengkap untuk Excel Repair
+      let parsedItems = [];
+
+      try {
+        jobId = await createImportJobLog(userId, file.originalname, jobType, "PROCESSING");
+
+        // 1. PARSING
+        const parseResult = await parser.run(file.path, source);
+
+        // 2. TANGKAP ERROR PARSING (Format baris salah)
+        if (parseResult.errors && parseResult.errors.length > 0) {
+          parseResult.errors.forEach((e) => {
+            fileErrors.push({
+              // 👇 GUNAKAN DATA ASLI JIKA ADA, BARU FALLBACK KE "PARSING_ERROR"
+              invoiceId: e.invoiceId || "PARSING_ERROR",
+              customer: e.customer || "-",
+              sku: e.sku || "ROW " + (e.row || "?"),
+              qty: e.qty || 0,
+              status: e.status || "-",
+              message: e.message,
+            });
+          });
         }
 
-        if (customerName && !newCustomerNames.includes(customerName)) {
-          newCustomerNames.push(customerName);
-        }
+        // 3. FLATTEN DATA (Siapkan untuk Validasi & Insert)
+        parseResult.orders.forEach((orderData) => {
+          orderData.items.forEach((item) => {
+            parsedItems.push({
+              invoiceId: orderData.invoiceId,
+              customer: orderData.customer, // Penting untuk Excel Repair
+              orderDate: orderData.orderDate,
+              source: source,
+              status: orderData.status,
 
-        aggregatedItemsMap.set(sku, {
-          qty: newQty,
-          invoiceNos: newInvoiceNos,
-          customerNames: newCustomerNames,
+              sku: item.sku,
+              qty: item.qty,
+              row: item.row,
+              // product_name (opsional, jika parser mendukung di masa depan)
+            });
+          });
         });
-      }
-    }
 
-    // const items = Array.from(aggregatedItemsMap, ([sku, qty]) => ({ sku, qty }));
-    const items = Array.from(aggregatedItemsMap, ([sku, data]) => ({
-      sku,
-      qty: data.qty,
-      invoiceNos: data.invoiceNos,
-      customerNames: data.customerNames,
-    }));
-    if (items.length === 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Tidak ada item valid untuk diproses." });
-    }
+        // 4. VALIDASI LOGIC & INSERT DB
+        let processResult = { processedInvoices: 0, validItems: [], invalidSkus: [] };
 
-    // 2. Panggil Service Validasi
-    const originalFilename =
-      filename || `Batch ${source} - ${new Date().toLocaleDateString("id-ID")}`;
-
-    const validationResults = await performPickingValidation({
-      items,
-      userId,
-      source,
-      originalFilename,
-      originalInvoiceId: primaryInvoiceId,
-      customerName: primaryCustomerName,
-    });
-
-    // 3. Kirim Respons
-    res.status(200).json({ success: true, data: validationResults });
-  } catch (error) {
-    console.error("Error di uploadJsonInvoices:", error.message);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Gagal memproses data invoice.",
-    });
-  }
-};
-
-/**
- * [HYBRID PDF] Menerima hasil parsing PDF (Tokopedia/Shopee) dari client-side.
- */
-export const validateParsedData = async (req, res) => {
-  const { source, items, filename } = req.body;
-  const userId = req.user.id;
-
-  if (!source || !["Tokopedia", "Shopee"].includes(source)) {
-    return res.status(400).json({ success: false, message: "Sumber tidak valid." });
-  }
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ success: false, message: "Daftar item tidak boleh kosong." });
-  }
-
-  try {
-    const originalFilename = filename || `parsed_${source}_${Date.now()}`;
-
-    // Panggil Service Validasi
-    const validationResults = await performPickingValidation({
-      items,
-      userId,
-      source,
-      originalFilename,
-      originalInvoiceId: null,
-      customerName: null,
-    });
-
-    res.status(200).json({ success: true, data: validationResults });
-  } catch (error) {
-    console.error("Error di validateParsedData:", error.message);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Gagal validasi data picking list di server.",
-    });
-  }
-};
-
-/**
- * Mengambil detail item dari sebuah picking list.
- */
-export const getPickingListDetails = async (req, res) => {
-  const { id } = req.params;
-  try {
-    // Panggil Service Data
-    const detailedItems = await fetchPickingListDetails(id);
-    res.json({ success: true, data: detailedItems });
-  } catch (error) {
-    console.error(`Error saat mengambil detail picking list #${id}:`, error.message);
-    res.status(500).json({ success: false, message: "Gagal mengambil detail item." });
-  }
-};
-
-// =================================================================================
-// CONTROLLER LAINNYA (Hanya memanggil Service)
-// =================================================================================
-
-/**
- * Konfirmasi picking list dan kurangi stok dari lokasi 'DISPLAY'.
- */
-export const confirmPickingList = async (req, res) => {
-  const { id } = req.params;
-  const items = req.body.items;
-  const userId = req.user.id;
-  const SOURCE_LOCATION_PURPOSE = "DISPLAY";
-
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ success: false, message: "Tidak ada item untuk diproses." });
-  }
-
-  let connection;
-  try {
-    connection = await db.getConnection();
-    await connection.beginTransaction();
-
-    // (Satu-satunya kueri yang tersisa di controller adalah untuk broadcast)
-    const [sourceLocationRows] = await connection.query(
-      `SELECT id FROM locations WHERE purpose = ?`,
-      [SOURCE_LOCATION_PURPOSE]
-    );
-    if (sourceLocationRows.length === 0) {
-      throw new Error(`Lokasi sumber '${SOURCE_LOCATION_PURPOSE}' tidak ditemukan.`);
-    }
-    const allDisplayLocationIds = sourceLocationRows.map((loc) => loc.id);
-
-    // Panggil Service Konfirmasi
-    const affectedProductIds = await processPickingListConfirmation(connection, items, userId, id);
-
-    await connection.query("UPDATE picking_lists SET status = ? WHERE id = ?", ["COMPLETED", id]);
-    await connection.commit();
-
-    // Broadcast (Logika ini tetap di controller)
-    const affectedProductIdsArray = [...affectedProductIds];
-    if (affectedProductIdsArray.length > 0) {
-      for (const locId of allDisplayLocationIds) {
-        const finalUpdates = await getLatestStockForBroadcast(affectedProductIdsArray, locId);
-        if (finalUpdates.length > 0) {
-          broadcastStockUpdate(finalUpdates);
+        if (parsedItems.length > 0) {
+          processResult = await pickingService.performPickingValidation({
+            items: parsedItems,
+            userId,
+            source,
+            originalFilename: file.originalname,
+          });
         }
-      }
-    }
-    res.status(200).json({
-      success: true,
-      message: `Berhasil memproses ${items.length} item. Stok telah diperbarui.`,
-    });
-  } catch (error) {
-    if (connection) await connection.rollback();
-    console.error("Error saat konfirmasi picking list:", error.message);
-    res
-      .status(400)
-      .json({ success: false, message: error.message || "Gagal mengonfirmasi picking list." });
-  } finally {
-    if (connection) connection.release();
-  }
-};
 
-/**
- * Membatalkan (void) picking list yang sudah 'COMPLETED' dan kembalikan stok.
- */
-export const voidPickingList = async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
-  const TARGET_LOCATION_PURPOSE = "DISPLAY";
+        // 5. TANGKAP ERROR LOGIC (Stok Kurang / SKU Tidak Dikenal)
+        if (processResult.invalidSkus && processResult.invalidSkus.length > 0) {
+          processResult.invalidSkus.forEach((msg) => {
+            // msg format: "[INV-123] Error message"
+            const match = msg.match(/^\[(.*?)\] (.*)/);
+            const invId = match ? match[1] : null;
+            const errMsg = match ? match[2] : msg;
 
-  let connection;
-  try {
-    connection = await db.getConnection();
-    await connection.beginTransaction();
+            // Cari data asli dari parsedItems untuk mengisi kolom Excel secara lengkap
+            // Kita cari item yang cocok dengan Invoice ID ini
+            const originalItems = parsedItems.filter((i) => i.invoiceId === invId);
 
-    const [listRows] = await connection.query(
-      "SELECT status FROM picking_lists WHERE id = ? FOR UPDATE",
-      [id]
-    );
-    if (listRows.length === 0) throw new Error(`Picking list ID ${id} tidak ditemukan.`);
-    if (listRows[0].status !== "COMPLETED")
-      throw new Error("Hanya picking list 'COMPLETED' yang bisa di-void.");
+            // Jika ketemu, masukkan semua item dalam invoice itu ke file repair
+            // (atau spesifik item yang error jika pesan error menyebut SKU)
+            if (originalItems.length > 0) {
+              originalItems.forEach((orig) => {
+                // Jika pesan error spesifik menyebut SKU, filter hanya SKU itu
+                if (errMsg.includes(orig.sku) || errMsg.includes("Komponen")) {
+                  fileErrors.push({
+                    invoiceId: orig.invoiceId,
+                    customer: orig.customer,
+                    sku: orig.sku,
+                    qty: orig.qty,
+                    status: orig.status,
+                    message: errMsg, // Pesan Error
+                  });
+                } else {
+                  // Error umum per invoice
+                  fileErrors.push({ ...orig, message: errMsg });
+                }
+              });
+            } else {
+              // Fallback jika data asli tidak ketemu
+              fileErrors.push({
+                invoiceId: invId || "UNKNOWN",
+                sku: "UNKNOWN",
+                qty: 0,
+                message: errMsg,
+              });
+            }
+          });
+        }
 
-    const [targetLocationRows] = await connection.query(
-      `SELECT id FROM locations WHERE purpose = ?`,
-      [TARGET_LOCATION_PURPOSE]
-    );
-    if (targetLocationRows.length === 0) {
-      throw new Error(`Lokasi target '${TARGET_LOCATION_PURPOSE}' tidak ditemukan.`);
-    }
-    const allDisplayLocationIds = targetLocationRows.map((loc) => loc.id);
+        // 6. FINALIZE & GENERATE REPAIR FILE
+        batchSummary.processedFiles++;
+        batchSummary.successInvoices += processResult.processedInvoices;
 
-    // Panggil Service Void
-    const affectedProductIdsVoid = await processPickingListVoid(connection, id, userId);
+        if (fileErrors.length > 0) {
+          // Generate Excel dengan format asli + kolom error
+          const downloadUrl = await generateErrorExcel(file.originalname, fileErrors, source);
 
-    await connection.query("UPDATE picking_lists SET status = ? WHERE id = ?", ["CANCELLED", id]);
-    await connection.commit();
+          const logPayload = {
+            summary: `${processResult.processedInvoices} Sukses, ${fileErrors.length} Baris Bermasalah.`,
+            download_url: downloadUrl,
+            errors: fileErrors.slice(0, 50),
+          };
 
-    // Broadcast
-    const affectedProductIdsVoidArray = [...affectedProductIdsVoid];
-    if (affectedProductIdsVoidArray.length > 0) {
-      for (const locId of allDisplayLocationIds) {
-        const finalUpdatesVoid = await getLatestStockForBroadcast(
-          affectedProductIdsVoidArray,
-          locId
+          await updateImportJobLog(jobId, "COMPLETED_WITH_ERRORS", logPayload.summary, logPayload);
+
+          batchSummary.errors.push({
+            filename: file.originalname,
+            message: "Sebagian data gagal. Download file perbaikan.",
+            downloadUrl,
+          });
+        } else {
+          const successMsg = `Sukses. ${processResult.processedInvoices} Invoice diproses.`;
+          await updateImportJobLog(jobId, "COMPLETED", successMsg, {
+            processed: processResult.processedInvoices,
+          });
+        }
+      } catch (err) {
+        console.error(`Fatal Error file ${file.originalname}:`, err);
+        const fatalMsg = err.message || "Kesalahan Sistem";
+
+        // Coba generate excel meski fatal (jika memungkinkan)
+        const downloadUrl = await generateErrorExcel(
+          file.originalname,
+          [{ invoiceId: "SYSTEM", message: fatalMsg }],
+          source
         );
-        if (finalUpdatesVoid.length > 0) {
-          broadcastStockUpdate(finalUpdatesVoid);
+
+        batchSummary.errors.push({ filename: file.originalname, message: fatalMsg });
+        if (jobId) {
+          await updateImportJobLog(jobId, "FAILED", `System Error: ${fatalMsg}`, {
+            download_url: downloadUrl,
+          });
         }
       }
     }
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "Transaksi picking list berhasil di-void dan stok telah dikembalikan.",
+      message: `Batch selesai. ${batchSummary.successInvoices} Invoice masuk.`,
+      data: batchSummary,
     });
   } catch (error) {
-    if (connection) await connection.rollback();
-    console.error("Error saat void picking list:", error.message);
-    res
-      .status(400)
-      .json({ success: false, message: error.message || "Gagal membatalkan transaksi." });
-  } finally {
-    if (connection) connection.release();
+    console.error("[Controller] Upload Error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-/**
- * [BARU] Menambahkan kembali endpoint 'cancel' yang hilang
- */
-export const cancelPendingPickingList = async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
-
-  let connection;
+export const cancelPickingList = async (req, res) => {
   try {
-    connection = await db.getConnection();
-    await connection.beginTransaction();
-
-    const [listRows] = await connection.query(
-      "SELECT status FROM picking_lists WHERE id = ? FOR UPDATE",
-      [id]
-    );
-    if (listRows.length === 0) {
-      throw new Error(`Picking list ID ${id} tidak ditemukan.`);
-    }
-
-    const currentStatus = listRows[0].status;
-    if (currentStatus !== "PENDING" && currentStatus !== "PENDING_VALIDATION") {
-      throw new Error(
-        `Hanya list dengan status 'PENDING' atau 'PENDING_VALIDATION' yang bisa dibatalkan.`
-      );
-    }
-
-    await connection.query(
-      `INSERT INTO audit_logs (user_id, action_type, target_table, target_id, details)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        userId,
-        "CANCEL_PICKING_LIST",
-        "picking_lists",
-        id,
-        `Membatalkan picking list #${id} (status: ${currentStatus})`,
-      ]
-    );
-
-    await connection.query("UPDATE picking_lists SET status = ? WHERE id = ?", ["CANCELLED", id]);
-    await connection.commit();
-
-    res.status(200).json({
-      success: true,
-      message: `Picking list #${id} berhasil dibatalkan.`,
-    });
+    const { id } = req.params;
+    const userId = req.user?.id || 1;
+    await pickingService.cancelPickingListService(id, userId);
+    res.json({ success: true, message: "Picking List dibatalkan." });
   } catch (error) {
-    if (connection) await connection.rollback();
-    console.error(`Error saat membatalkan picking list pending #${id}:`, error.message);
-    res
-      .status(400)
-      .json({ success: false, message: error.message || "Gagal membatalkan picking list." });
-  } finally {
-    if (connection) connection.release();
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-/**
- * Mengambil riwayat picking list.
- */
-export const getPickingHistory = async (req, res) => {
+export const completeItems = async (req, res) => {
   try {
-    const query = `
-        SELECT pl.id, pl.source, pl.status, pl.created_at, u.username, pl.original_filename
-        FROM picking_lists pl
-        JOIN users u ON pl.user_id = u.id
-        ORDER BY pl.created_at DESC
-        LIMIT 100;
-      `;
-    const [history] = await db.query(query.trim()); // [PERBAIKAN] Memanggil .trim()
-    res.json({ success: true, data: history });
+    const { itemIds } = req.body;
+    const userId = req.user?.id || 1;
+    const result = await pickingService.completePickingItemsService(itemIds, userId);
+    res.json(result);
   } catch (error) {
-    console.error("Error saat mengambil riwayat picking list:", error);
-    res.status(500).json({ success: false, message: "Gagal mengambil riwayat." });
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================================================
+// PRIVATE HELPERS
+// ============================================================================
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const UPLOAD_DIR_ERRORS = path.join(__dirname, "..", "uploads", "error_reports");
+
+if (!fs.existsSync(UPLOAD_DIR_ERRORS)) fs.mkdirSync(UPLOAD_DIR_ERRORS, { recursive: true });
+
+// --- [NEW] DEFINISI HEADER SESUAI FORMAT ASLI MARKETPLACE ---
+// Ini memetakan data internal kita (key) ke Header Asli Marketplace (header)
+const SOURCE_HEADERS = {
+  Tokopedia: [
+    { header: "Order ID", key: "invoiceId", width: 25 },
+    { header: "Recipient", key: "customer", width: 25 },
+    { header: "Seller SKU", key: "sku", width: 25 }, // Kunci Parsing Tokopedia
+    { header: "Quantity", key: "qty", width: 10 },
+    { header: "Status", key: "status", width: 25 },
+    { header: ">> ALASAN ERROR <<", key: "message", width: 50 }, // Kolom Error
+  ],
+  Shopee: [
+    { header: "No. Pesanan", key: "invoiceId", width: 25 },
+    { header: "Nama Penerima", key: "customer", width: 25 },
+    { header: "Nomor Referensi SKU", key: "sku", width: 25 }, // Kunci Parsing Shopee
+    { header: "Jumlah", key: "qty", width: 10 },
+    { header: "Status", key: "status", width: 25 },
+    { header: ">> ALASAN ERROR <<", key: "message", width: 50 },
+  ],
+  Offline: [
+    { header: "*Nomor Tagihan", key: "invoiceId", width: 25 },
+    { header: "*Nama Kontak", key: "customer", width: 25 },
+    { header: "*Kode Produk (SKU)", key: "sku", width: 25 }, // Kunci Parsing Offline
+    { header: "*Jumlah Produk", key: "qty", width: 10 },
+    { header: "Status", key: "status", width: 25 },
+    { header: ">> ALASAN ERROR <<", key: "message", width: 50 },
+  ],
+};
+
+export const createImportJobLog = async (userId, filename, jobType, status = "PENDING") => {
+  try {
+    const [res] = await db.query(
+      `INSERT INTO import_jobs (user_id, job_type, original_filename, file_path, status, created_at, updated_at)
+       VALUES (?, ?, ?, '', ?, NOW(), NOW())`,
+      [userId, jobType, filename, status]
+    );
+    return res.insertId;
+  } catch (e) {
+    console.error("Log DB Error:", e);
+    return null;
+  }
+};
+
+export const updateImportJobLog = async (jobId, status, summaryText, errorLogObj = null) => {
+  if (!jobId) return;
+  try {
+    const errorLogStr = errorLogObj ? JSON.stringify(errorLogObj) : null;
+    await db.query(
+      `UPDATE import_jobs SET status = ?, log_summary = ?, error_log = ?, updated_at = NOW() WHERE id = ?`,
+      [status, summaryText, errorLogStr, jobId]
+    );
+  } catch (e) {
+    console.error("Update Log DB Error:", e);
+  }
+};
+
+// --- [REFACTORED] Generator Excel Pintar ---
+export const generateErrorExcel = async (originalFilename, failedItems, source) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("DATA PERBAIKAN");
+
+    // 1. Tentukan Header berdasarkan Source
+    // Jika source tidak dikenali, gunakan default (Tokopedia style)
+    const columnsConfig = SOURCE_HEADERS[source] || SOURCE_HEADERS["Tokopedia"];
+    sheet.columns = columnsConfig;
+
+    // 2. Styling Header
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+    headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2C3E50" } }; // Dark Blue
+    headerRow.alignment = { vertical: "middle", horizontal: "center" };
+
+    // Khusus Kolom Error (Kolom Terakhir) kasih warna Merah di Headernya
+    const lastColIdx = columnsConfig.length;
+    headerRow.getCell(lastColIdx).fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFDC3545" },
+    }; // Red
+
+    // 3. Isi Data
+    failedItems.forEach((item) => {
+      // Mapping data internal ke key yang diharapkan ExcelJS
+      const rowData = {
+        invoiceId: item.invoiceId || "UNKNOWN",
+        customer: item.customer || "",
+        sku: item.sku || "",
+        qty: item.qty || 0,
+        status: item.status || "",
+        message: item.message || "Error tidak diketahui",
+      };
+
+      const row = sheet.addRow(rowData);
+
+      // Highlight pesan error dengan warna merah bold
+      row.getCell("message").font = { color: { argb: "FFDC3545" }, bold: true };
+    });
+
+    const timestamp = Date.now();
+    const safeName = path.parse(originalFilename).name.replace(/[^a-z0-9]/gi, "_");
+    const filename = `REPAIR_${source}_${safeName}_${timestamp}.xlsx`;
+    const absolutePath = path.join(UPLOAD_DIR_ERRORS, filename);
+
+    await workbook.xlsx.writeFile(absolutePath);
+    return `/uploads/error_reports/${filename}`;
+  } catch (e) {
+    console.error("Excel Gen Error:", e);
+    return null;
   }
 };

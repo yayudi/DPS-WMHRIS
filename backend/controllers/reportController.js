@@ -2,13 +2,17 @@
 import { getReportFilters } from "../services/reportService.js";
 import db from "../config/db.js";
 
+// [FIX V5] Tentukan URL Backend Secara Hardcode untuk Production
+// Ini mem bypass masalah Proxy Vite di Shared Hosting
+const BACKEND_BASE_URL = "https://api.dpvindonesia.com";
+
 /**
- * [BARU] Menerima permintaan ekspor dan menambahkannya ke antrian.
+ * Menerima permintaan ekspor dan menambahkannya ke antrian.
  */
 export const requestStockReport = async (req, res) => {
   try {
-    const userId = req.user.id; // Asumsi dari authenticateToken
-    const filters = req.body; // Filter sekarang dari POST body
+    const userId = req.user.id;
+    const filters = req.body;
 
     const [result] = await db.query(
       `INSERT INTO export_jobs (user_id, status, filters) VALUES (?, 'PENDING', ?)`,
@@ -26,7 +30,7 @@ export const requestStockReport = async (req, res) => {
 };
 
 /**
- * [BARU] Mengambil daftar pekerjaan ekspor untuk pengguna yang sedang login.
+ * Mengambil daftar pekerjaan ekspor untuk pengguna yang sedang login.
  */
 export const getUserExportJobs = async (req, res) => {
   try {
@@ -41,15 +45,13 @@ export const getUserExportJobs = async (req, res) => {
       [userId]
     );
 
-    // Ubah file_path menjadi URL yang bisa diunduh
+    // Ubah file_path menjadi URL Lengkap (Absolute URL)
     const jobsWithUrl = jobs.map((job) => {
       if (job.file_path) {
-        // const fileName = job.file_path.split(/\/|\\/).pop();
         const fileName = job.file_path;
-        job.download_url = `/exports/${fileName}`;
-        console.log(
-          `[Controller] Membuat download_url untuk Job ID ${job.id}: ${job.download_url}`
-        );
+
+        // Frontend tidak perlu pusing soal Proxy, langsung tembak ke API
+        job.download_url = `${BACKEND_BASE_URL}/uploads/exports/${fileName}`;
       }
       return job;
     });

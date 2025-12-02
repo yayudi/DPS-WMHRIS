@@ -1,4 +1,3 @@
-// frontend\src\router\index.js
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import AdminLayout from '../layouts/AdminLayout.vue'
@@ -6,6 +5,7 @@ import WMSActionsLayout from '../layouts/WMSActionsLayout.vue'
 import LoginView from '../views/Login.vue'
 import AbsensiView from '../views/Absensi.vue'
 import WMSView from '../views/WMS.vue'
+import WMSReturnView from '../views/WMSReturnView.vue'
 import WMSBatchMovementView from '../views/WMSBatchMovement.vue'
 import WMSBatchAdjustmentView from '../views/WMSBatchAdjustment.vue'
 import WMSBatchLogView from '../views/WMSBatchLogView.vue'
@@ -17,6 +17,7 @@ import UserManagementView from '../views/admin/UserManagement.vue'
 import RoleManagementView from '../views/admin/RoleManagement.vue'
 import ProductManagementView from '../views/admin/ProductManagement.vue'
 import LocationManagementView from '../views/admin/LocationManagement.vue'
+import ManualReturn from '../views/ManualReturn.vue'
 import ReportsView from '../views/admin/ReportsView.vue'
 import LogsView from '../views/admin/LogsView.vue'
 
@@ -30,6 +31,12 @@ const routes = [
     component: WMSActionsLayout,
     meta: { requiresAuth: true },
     children: [
+      {
+        path: 'return',
+        name: 'WMSReturnView',
+        component: WMSReturnView,
+        meta: { requiresAuth: true, permission: 'manage-stock-adjustment' },
+      },
       {
         path: 'batch-movement',
         name: 'WMSBatchMovement',
@@ -55,6 +62,17 @@ const routes = [
         meta: { requiresPermission: 'manage-stock-adjustment' },
       },
     ],
+  },
+  // [NEW ROUTE] Halaman Input Retur Manual (Full Page)
+  {
+    path: '/return/manual',
+    name: 'ManualReturn',
+    component: ManualReturn,
+    meta: {
+      requiresAuth: true,
+      title: 'Input Retur Manual',
+      permission: 'manage-stock-adjustment', // Opsional: Sesuaikan dengan permission yang relevan
+    },
   },
   { path: '/stats', name: 'Stats', component: StatsView, meta: { requiresAuth: true } },
   { path: '/account', name: 'Account', component: AccountView, meta: { requiresAuth: true } },

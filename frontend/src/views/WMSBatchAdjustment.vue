@@ -9,7 +9,7 @@ import {
   getImportJobs,
 } from '@/api/helpers/stock.js'
 import { useAuthStore } from '@/stores/auth.js'
-import api from '@/api/axios.js' // [BARU] Impor instance axios Anda
+import api from '@/api/axios.js' // Impor instance axios Anda
 
 // Impor komponen anak
 import BatchAdjustmentHeader from '@/components/batch/BatchAdjustmentHeader.vue'
@@ -31,7 +31,7 @@ const isImportHistoryLoading = ref(false)
 const selectedFile = ref(null)
 const isUploading = ref(false)
 const uploadInputKey = ref(0)
-const isDownloading = ref(false) // [BARU] State untuk loading unduh
+const isDownloading = ref(false) // State untuk loading unduh
 
 // Ambil data lokasi
 onMounted(async () => {
@@ -68,7 +68,7 @@ function handleFileSelect(event) {
     const fileName = file.name
     const fileExt = fileName.slice(fileName.lastIndexOf('.')).toLowerCase()
 
-    // [DIUBAH] Validasi diubah dari .csv ke .xlsx
+    // Validasi diubah dari .csv ke .xlsx
     if (fileExt !== '.xlsx') {
       show('Hanya file .xlsx yang diizinkan.', 'error')
       selectedFile.value = null
@@ -81,23 +81,23 @@ function handleFileSelect(event) {
 
 async function handleUploadAdjustment() {
   if (!selectedFile.value) {
-    show('Pilih file .xlsx terlebih dahulu.', 'error') // [DIUBAH] Teks diubah
+    show('Pilih file .xlsx terlebih dahulu.', 'error') // Teks diubah
     return
   }
   if (!notes.value.trim()) {
-    // [BARU] Validasi notes ditambahkan
+    // Validasi notes ditambahkan
     show('Catatan/alasan wajib diisi untuk unggahan.', 'error')
     return
   }
 
   isUploading.value = true
   try {
-    // [DIUBAH] Sekarang kita mengirim file dan notes.
+    // Sekarang kita mengirim file dan notes.
     const response = await requestAdjustmentUpload(selectedFile.value, notes.value)
 
     show(response.message || 'File diterima!', 'success')
     loadImportHistory() // Muat ulang riwayat impor
-    notes.value = '' // [BARU] Kosongkan catatan setelah berhasil
+    notes.value = '' // Kosongkan catatan setelah berhasil
   } catch (error) {
     show(error.message || 'Gagal mengunggah file.', 'error')
   } finally {
@@ -107,30 +107,21 @@ async function handleUploadAdjustment() {
   }
 }
 
-// [BARU] Fungsi untuk menangani unduhan template via Axios
 async function downloadTemplate() {
   isDownloading.value = true
   try {
-    // 1. Buat request ke API menggunakan axios (ini akan menyertakan token auth)
-
-    // [DIUBAH] Menghapus '/api' yang berlebihan dari URL.
     // '/api/stock/download-adjustment-template' -> '/stock/download-adjustment-template'
     const response = await api.get('/stock/download-adjustment-template', {
       responseType: 'blob', // Penting: minta data sebagai blob
     })
 
-    // 2. Buat URL sementara untuk blob
     const url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url
-    // 3. Atur nama file
     link.setAttribute('download', 'Template_Adjustment_Stok.xlsx')
 
-    // 4. Klik link secara virtual untuk men-trigger unduhan
     document.body.appendChild(link)
     link.click()
-
-    // 5. Hapus link setelah selesai
     link.parentNode.removeChild(link)
     window.URL.revokeObjectURL(url)
   } catch (error) {
@@ -243,7 +234,7 @@ async function submitBatch() {
               : 'text-text/70 hover:bg-secondary/20'
           "
         >
-          <!-- [DIUBAH] Ikon dan teks diubah dari CSV ke Excel -->
+          <!-- Ikon dan teks diubah dari CSV ke Excel -->
           <font-awesome-icon icon="fa-solid fa-file-excel" class="mr-2" />
           Upload Excel
         </button>
@@ -279,16 +270,16 @@ async function submitBatch() {
         </div>
       </div>
 
-      <!-- [DIUBAH] MODE UPLOAD EXCEL -->
+      <!-- MODE UPLOAD EXCEL -->
       <div v-if="inputMode === 'upload'" class="space-y-6">
-        <!-- [DIUBAH] Tombol Unduh Template -->
+        <!-- Tombol Unduh Template -->
         <div
           class="p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between"
         >
           <span class="text-sm font-medium text-primary">
             Gunakan template Excel untuk menghindari error.
           </span>
-          <!-- [DIUBAH] Mengganti <a> dengan <button> yang memanggil fungsi baru -->
+          <!-- Mengganti <a> dengan <button> yang memanggil fungsi baru -->
           <button
             @click="downloadTemplate"
             :disabled="isDownloading"
@@ -306,7 +297,7 @@ async function submitBatch() {
 
         <!-- Form Upload -->
         <div class="space-y-4 p-4 bg-secondary/10 border border-secondary/20 rounded-lg">
-          <!-- [BARU] Input Catatan ditambahkan -->
+          <!-- Input Catatan ditambahkan -->
           <div>
             <label for="upload-notes" class="block text-sm font-medium text-text/90 mb-1">
               Catatan/Alasan Penyesuaian
@@ -321,7 +312,7 @@ async function submitBatch() {
           </div>
 
           <div>
-            <!-- [DIUBAH] Label diubah ke .xlsx -->
+            <!-- Label diubah ke .xlsx -->
             <label for="file-upload" class="block text-sm font-medium text-text/90 mb-1">
               Pilih File Penyesuaian (.xlsx)
             </label>
@@ -333,7 +324,7 @@ async function submitBatch() {
               accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               class="w-full text-sm text-text file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
             />
-            <!-- [DIUBAH] Teks bantuan diubah -->
+            <!-- Teks bantuan diubah -->
             <p class="text-xs text-text/60 mt-1">
               Format file harus .xlsx dan sesuai dengan template yang disediakan.
             </p>

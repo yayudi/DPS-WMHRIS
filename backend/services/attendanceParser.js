@@ -17,19 +17,18 @@ const logTypeMap = { in: "in", out: "out", "break-in": "break-in", "break-out": 
 export async function processAttendanceFile(temporaryFilePath, originalFilename) {
   let connection;
   try {
-    // 1. Parse CSV mentah menjadi struktur data yang lebih mudah diolah
+    // Parse CSV mentah menjadi struktur data yang lebih mudah diolah
     const { data: parsedData } = await parseCsvToUserData(temporaryFilePath);
 
-    // 2. Ekstrak tahun dan bulan dari metadata di dalam file CSV
+    // Ekstrak tahun dan bulan dari metadata di dalam file CSV
     const { year, month } = await extractDateFromCsv(temporaryFilePath);
 
     connection = await db.getConnection();
-    console.log(`[Parser] Koneksi DB berhasil, memproses data untuk ${year}-${month}...`);
 
     let totalSummaryRecords = 0;
     let totalRawRecords = 0;
 
-    // 3. Loop melalui setiap pengguna dari hasil parse CSV untuk diolah
+    // Loop melalui setiap pengguna dari hasil parse CSV untuk diolah
     for (const userId in parsedData) {
       const user = parsedData[userId];
       const username = user.nama;
@@ -50,7 +49,7 @@ export async function processAttendanceFile(temporaryFilePath, originalFilename)
         const checkOuts = dailyLog.l.filter((log) => log.y === "out").map((log) => log.m);
         const latestCheckOut = checkOuts.length > 0 ? Math.max(...checkOuts) : null;
 
-        // 4. Hitung keterlambatan dan lembur berdasarkan logika bisnis Anda
+        // Hitung keterlambatan dan lembur berdasarkan logika bisnis Anda
         let lateness = 0;
         if (earliestCheckIn) {
           const lateThreshold = JAM_KERJA_MULAI + TOLERANSI_MENIT;
@@ -76,7 +75,7 @@ export async function processAttendanceFile(temporaryFilePath, originalFilename)
           return `${h}:${m}:00`;
         };
 
-        // 5. Simpan ke database dalam satu transaksi
+        // Simpan ke database dalam satu transaksi
         await connection.beginTransaction();
         try {
           // Langkah 5a: Simpan/update ringkasan harian
@@ -105,7 +104,7 @@ export async function processAttendanceFile(temporaryFilePath, originalFilename)
             )[0][0].id;
           totalSummaryRecords++;
 
-          // Langkah 5b: Hapus log mentah lama dan masukkan yang baru
+          // Hapus log mentah lama dan masukkan yang baru
           await connection.query("DELETE FROM attendance_raw_logs WHERE attendance_log_id = ?", [
             summaryId,
           ]);
@@ -131,10 +130,6 @@ export async function processAttendanceFile(temporaryFilePath, originalFilename)
         }
       }
     }
-
-    console.log(
-      `[Parser] Berhasil memproses ${totalSummaryRecords} ringkasan dan ${totalRawRecords} log mentah ke database.`
-    );
 
     return {
       success: true,

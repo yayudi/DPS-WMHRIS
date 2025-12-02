@@ -1,3 +1,4 @@
+<!-- frontend\src\components\batch\BatchMovementHeader.vue -->
 <script setup>
 import Multiselect from 'vue-multiselect'
 import Tabs from '@/components/Tabs.vue'
@@ -15,25 +16,22 @@ const fromLocation = defineModel('fromLocation')
 const toLocation = defineModel('toLocation')
 const notes = defineModel('notes')
 
-// ✅ DIHAPUS: adjustmentLocation
-
-// ✅ DIHAPUS: Tab 'Adjustment'
 const tabs = [
   { label: 'Batch Transfer', value: 'TRANSFER' },
   { label: 'Detailed Transfer', value: 'DETAILED_TRANSFER' },
-  { label: 'Inbound / Return', value: 'INBOUND' },
-  { label: 'Sale Return', value: 'SALE_RETURN' },
+  { label: 'Inbound', value: 'INBOUND' },
+  { label: 'Return', value: 'RETURN' },
 ]
 </script>
 
 <template>
   <div>
-    <!-- Tabs sekarang ada di sini -->
+    <!-- Tabs navigation -->
     <Tabs :tabs="tabs" v-model:model-value="activeTab" />
 
     <!-- Header Kontekstual Berdasarkan Tab -->
     <div
-      v-if="activeTab !== 'DETAILED_TRANSFER'"
+      v-if="activeTab !== 'DETAILED_TRANSFER' && activeTab !== 'RETURN'"
       class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-secondary/20 pb-6 pt-6"
     >
       <!-- TRANSFER (BATCH) -->
@@ -62,8 +60,8 @@ const tabs = [
         </div>
       </template>
 
-      <!-- INBOUND / RETURN -->
-      <template v-if="activeTab === 'INBOUND' || activeTab === 'SALE_RETURN'">
+      <!-- INBOUND ONLY (Sale Return removed from here) -->
+      <template v-if="activeTab === 'INBOUND'">
         <div>
           <label class="block text-sm font-medium text-text/90 mb-2">Masukkan Ke Lokasi</label>
           <Multiselect
@@ -77,9 +75,7 @@ const tabs = [
         </div>
       </template>
 
-      <!-- ✅ DIHAPUS: Template 'ADJUSTMENT' -->
-
-      <!-- Catatan (Selalu ada di mode batch kecuali di Transfer) -->
+      <!-- Catatan -->
       <div class="flex-grow" v-if="activeTab !== 'TRANSFER'">
         <label class="block text-sm font-medium text-text/90 mb-2">Catatan / Alasan</label>
         <input
@@ -89,7 +85,8 @@ const tabs = [
           class="w-full p-2 border border-secondary/50 rounded-lg bg-background"
         />
       </div>
-      <!-- Catatan untuk Transfer (dibuat terpisah agar layout grid rapi) -->
+
+      <!-- Catatan untuk Transfer -->
       <div class="flex-grow" v-if="activeTab === 'TRANSFER'">
         <label class="block text-sm font-medium text-text/90 mb-2">Catatan / Alasan</label>
         <input

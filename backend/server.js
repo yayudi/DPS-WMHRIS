@@ -1,9 +1,12 @@
+// backend\server.js
 import express from "express";
 import cors from "cors";
 import "dotenv/config";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import db from "./config/db.js";
+import { logDebug } from "./utils/logger.js";
 
 import apiRouter from "./router/index.js";
 import assetsRouter from "./router/assetsRouter.js";
@@ -13,52 +16,81 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-const allowedOrigins = ["https://wms.dpvindonesia.com", "http://localhost:5173"];
-
+// ==================================================================
+// [FIX CORS V5] Konfigurasi CORS Permissive
+// ==================================================================
+// Mengatasi masalah "CORS request did not succeed" di Shared Hosting.
+// Kita menggunakan strategi "Reflect Origin" (callback null, true) yang
+// mengizinkan browser apapun untuk connect, selama credentials match.
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error("Domain ini tidak diizinkan oleh CORS"));
-    }
+    // Selalu izinkan origin apapun.
+    // Ini diperlukan jika whitelist strict (string match) gagal karena protokol http/https
+    // atau trailing slash.
+    callback(null, true);
   },
-  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-  credentials: true,
-  allowedHeaders: "Content-Type, Authorization",
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+  credentials: true, // Wajib true agar cookies/auth header dikirim
+  allowedHeaders: "Content-Type, Authorization, X-Requested-With, Accept",
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+app.options("*", cors(corsOptions)); // Handle Preflight (OPTIONS) requests
 app.use(express.json());
 
-// Gunakan apiRouter di bawah prefix '/api'
-app.use("/api", apiRouter);
+// ==================================================================
+// [DEBUGGER V5] Middleware Logger untuk Download
+// ==================================================================
+// Mencatat request download file untuk memastikan file ada di disk.
+app.use("/uploads", (req, res, next) => {
+  try {
+    const requestedPath = req.path;
+    const safePath = decodeURIComponent(requestedPath);
+    const absolutePath = path.join(__dirname, "uploads", safePath);
 
-// --- Rute non-API (seperti aset) bisa tetap di luar ---
+    let fileStatus = "MISSING (File tidak ditemukan di disk)";
+    let fileSize = 0;
+
+    if (fs.existsSync(absolutePath)) {
+      const stats = fs.statSync(absolutePath);
+      fileSize = stats.size;
+      fileStatus = `FOUND (Size: ${fileSize} bytes)`;
+    }
+
+    logDebug(`[DOWNLOAD REQUEST] Frontend meminta: /uploads${safePath}`, {
+      serverLookingAt: absolutePath,
+      status: fileStatus,
+      clientIP: req.ip,
+    });
+  } catch (err) {
+    console.error("Logger Error:", err);
+  }
+  next(); // Lanjut ke express.static
+});
+
+// ==================================================================
+// [PRIORITY FIX] Static File Serving
+// ==================================================================
+// Melayani file statis dari folder 'uploads'.
+// Ditaruh SEBELUM router lain untuk menghindari 404 palsu.
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Routing API Utama
+app.use("/api", apiRouter);
 app.use("/", assetsRouter);
 
-// ==================================================================
-// [FIX 404] Sajikan file yang diekspor secara statis
-// ==================================================================
-// Ini memberitahu Express:
-// "Jika ada permintaan yang dimulai dengan /exports, sajikan file itu
-// dari direktori 'backend/tmp/exports' di disk."
-const exportsDir = path.join(__dirname, "tmp", "exports");
-
-// **** TAMBAHAN DEBUGGING ****
-console.log(`[Server] Menyajikan file statis untuk '/exports' dari: ${exportsDir}`);
-// **** -------------------- ****
-
-app.use("/exports", express.static(exportsDir));
-// ==================================================================
-
-// Middleware untuk menangani 404 (harus di bagian paling akhir)
+// 404 Handler Global
 app.use((req, res) => {
+  // Hanya log jika bukan request favicon/robots.txt yang annoying
+  if (!req.originalUrl.includes("favicon") && !req.originalUrl.includes("robots")) {
+    logDebug(`[404 MISSING] URL tidak ditemukan: ${req.originalUrl}`);
+  }
   res.status(404).json({ success: false, message: "Endpoint tidak ditemukan." });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Server backend berjalan di http://localhost:${PORT}`);
+  console.log(`📂 Serving static uploads from: ${path.join(__dirname, "uploads")}`);
+  console.log(`🔓 CORS Policy: Permissive (All Origins Allowed)`);
 });

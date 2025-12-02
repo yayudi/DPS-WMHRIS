@@ -1,3 +1,4 @@
+<!-- frontend\src\components\picking\PickingValidationDisplay.vue -->
 <script setup>
 import { ref, computed, watch } from 'vue'
 
@@ -28,9 +29,7 @@ const selectedItems = ref({}) // Format: { [package_sku]: true/false } (Tetap)
 // Format: { 'SKU-SINGLE': loc_id_1, 'PAKET-SKU-COMP-SKU': loc_id_2 }
 const selectedLocations = ref({})
 
-console.log('VALIDATION RESULTS DARI PROPS:', props.validationResults)
-
-// ✅ WATCHER DIUBAH TOTAL: Menginisialisasi state baru
+// Menginisialisasi state baru
 watch(
   () => props.validationResults,
   (newResults) => {
@@ -39,18 +38,6 @@ watch(
 
     if (newResults?.validItems) {
       newResults.validItems.forEach((item) => {
-        // --- LOG TAMBAHAN KRITIS DI SISI FRONTEND ---
-        if (item.availableLocations && item.availableLocations.length > 0) {
-          console.log(
-            `[FRONTEND CHECK] SKU: ${item.sku}. Lokasi Ditemukan: ${item.availableLocations.length}`,
-          )
-        } else {
-          console.warn(
-            `[FRONTEND CHECK] SKU: ${item.sku} gagal cek lokasi. is_package: ${item.is_package}`,
-          )
-        }
-        // --- AKHIR LOG TAMBAHAN ---
-
         let hasSufficientStock = true
 
         if (item.is_package) {
@@ -99,7 +86,7 @@ const allValidItemsSelected = computed({
   },
 })
 
-// ✅ COMPUTED DIUBAH TOTAL: Membuat payload "datar" (FLAT)
+// Membuat payload "datar" (FLAT)
 const itemsToConfirm = computed(() => {
   const finalFlatItems = []
   if (!props.validationResults?.validItems) {
@@ -142,7 +129,7 @@ const itemsToConfirm = computed(() => {
   return finalFlatItems
 })
 
-// ✅ COMPUTED DIPERBARUI: Validasi payload "datar"
+// Validasi payload "datar"
 const hasInvalidSelection = computed(() => {
   // Cek jika ada item di payload akhir yg tidak punya fromLocationId
   return itemsToConfirm.value.some((item) => !item.fromLocationId)
@@ -309,11 +296,6 @@ function formatLocationOption(loc, itemQty) {
                 </td>
 
                 <td class="py-1 px-2 text-left italic">
-                  {{
-                    console.log(
-                      `[FE LOG] SKU: ${comp.component_sku}, Locs Length: ${comp.availableLocations ? comp.availableLocations.length : 0}`,
-                    )
-                  }}
                   <select
                     v-if="comp.availableLocations.length > 0"
                     v-model="selectedLocations[`${item.sku}-${comp.component_sku}`]"

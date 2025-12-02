@@ -95,7 +95,7 @@ async function importPackageComponents() {
     await connection.beginTransaction();
     console.log("--- Memulai Transaksi Impor (DELETE + INSERT) ---");
 
-    // 1. KOSONGKAN TABEL package_components
+    // KOSONGKAN TABEL package_components
     console.log("Mengosongkan tabel 'package_components'...");
     await connection.query("DELETE FROM package_components");
     console.log("Tabel 'package_components' berhasil dikosongkan.");
@@ -119,7 +119,7 @@ async function importPackageComponents() {
       return productId;
     };
 
-    // 2. PROSES INSERT DATA BARU
+    // PROSES INSERT DATA BARU
     console.log("Memulai proses INSERT data komponen...");
     for (const row of data) {
       const packageSku = row[COL_PACKAGE_SKU];

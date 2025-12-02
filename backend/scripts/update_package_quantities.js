@@ -27,7 +27,6 @@ const DATA_FILE_PATH = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "package_components.csv"
 ); // Ganti ke .xlsx jika file Excel
-// const SHEET_NAME = 'Sheet1' // Tidak relevan untuk CSV
 
 // Sesuaikan nama kolom ini agar SAMA PERSIS dengan header di file CSV Anda
 const COL_PACKAGE_SKU = "Kode / SKU Produk Paket";
@@ -36,7 +35,6 @@ const COL_QUANTITY = "Jumlah Produk";
 
 // --- FUNGSI UTAMA ---
 async function updatePackageQuantities() {
-  console.log(`Membaca file data dari: ${DATA_FILE_PATH}`);
   let data;
 
   try {
@@ -69,14 +67,12 @@ async function updatePackageQuantities() {
         row._rowIndex = lineIndex + 2; // Simpan nomor baris asli untuk logging error
         return row;
       });
-      console.log(`Berhasil membaca ${data.length} baris data dari CSV.`);
     } else {
       throw new Error("Format file tidak didukung saat ini (hanya .csv)");
     }
     // --- AKHIR LOGIKA PARSING ---
 
     if (data.length === 0) {
-      console.log("Tidak ada data untuk diproses.");
       return;
     }
   } catch (err) {
@@ -92,14 +88,12 @@ async function updatePackageQuantities() {
 
   try {
     connection = await db.getConnection();
-    console.log("✅ Koneksi database berhasil.");
     await connection.beginTransaction();
-    console.log("--- Memulai Transaksi Update ---");
 
     const productCache = new Map(); // Cache untuk ID produk
 
     // Fungsi helper untuk mendapatkan ID produk berdasarkan SKU
-    // Modifikasi: Tambahkan argumen rowIndex dan skuType untuk logging
+    // Tambahkan argumen rowIndex dan skuType untuk logging
     const getProductId = async (sku, rowIndex, skuType) => {
       if (!sku) return null; // Handle SKU kosong
       if (productCache.has(sku)) {
@@ -107,7 +101,7 @@ async function updatePackageQuantities() {
       }
       const [rows] = await connection.query("SELECT id FROM products WHERE sku = ?", [sku]);
       if (rows.length === 0) {
-        // --- MODIFIKASI: Catat detail SKU yang hilang ---
+        // --- Catat detail SKU yang hilang ---
         missingSkuDetails.push({ sku, type: skuType, firstFoundAtRow: rowIndex });
         // Tandai SKU ini agar tidak dicatat ulang di baris lain
         productCache.set(sku, null); // Set null di cache agar tidak query lagi
@@ -140,7 +134,7 @@ async function updatePackageQuantities() {
       }
 
       // Dapatkan ID Produk
-      // Modifikasi: Kirim rowIndex dan tipe SKU ke getProductId
+      // Kirim rowIndex dan tipe SKU ke getProductId
       const packageProductId = await getProductId(packageSku, rowIndex, "Paket");
       const componentProductId = await getProductId(componentSku, rowIndex, "Komponen");
 
@@ -180,8 +174,6 @@ async function updatePackageQuantities() {
 
         if (updateResult.affectedRows > 0) {
           updatedRows++;
-          // Hapus console.log per baris agar tidak terlalu verbose
-          // console.log(`  -> Baris ${rowIndex}: Mengupdate kuantitas untuk ${packageSku} -> ${componentSku} menjadi ${quantity}.`)
         } else if (updateResult.changedRows === 0 && updateResult.affectedRows === 0) {
           // Jika tidak ada baris terpengaruh DAN tidak ada yang berubah,
           // kemungkinan besar kombinasi package/component tidak ada di tabel target.
@@ -243,7 +235,6 @@ async function updatePackageQuantities() {
     }
 
     await connection.commit();
-    console.log("✅ Transaksi berhasil di-commit.");
   } catch (error) {
     if (connection) {
       console.error("❌ Terjadi error, melakukan rollback transaksi...");
@@ -254,17 +245,9 @@ async function updatePackageQuantities() {
   } finally {
     if (connection) {
       connection.release();
-      console.log("Koneksi database dilepas.");
     }
-    console.log("\n--- Ringkasan Update Kuantitas ---");
-    console.log(`Total Baris Dibaca dari CSV: ${data.length}`);
-    console.log(`Baris Berhasil Diupdate: ${updatedRows}`);
-    console.log(`Total Baris Dilewati: ${skippedRowDetails.length}`);
-    console.log(`Total Error Update: ${updateErrors.length}`);
     // Hitung SKU unik yang hilang
     const uniqueMissingSkus = new Set(missingSkuDetails.map((m) => m.sku));
-    console.log(`SKU Unik Tidak Ditemukan: ${uniqueMissingSkus.size}`);
-    console.log("------------------------------------");
   }
 }
 

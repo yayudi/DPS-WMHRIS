@@ -27,12 +27,10 @@ function parseTokopediaPdfText(textContent) {
       items.push({ sku, qty })
     }
   }
-  console.log('[Client Parser] Tokopedia found items:', items)
   return items
 }
 function parseShopeePdfText(textContent) {
   if (!textContent) return []
-  console.log('[Client Parser] Shopee...')
   // Pre-cleaning for Shopee: Gabungkan PP<angka> dan <angka> di baris berikutnya
   // const cleanedText = textContent.replace(/(PP\d+)\s*\r?\n\s*(\d+)/g, '$1 $2')
   const cleanedText = textContent.replace(/(PP\d{4})\s*(?:NO|\s)\s*(\d{3})/g, '$1$2')
@@ -53,12 +51,10 @@ function parseShopeePdfText(textContent) {
       }
     }
   }
-  console.log(`[Client Parser] Shopee found ${items.length} unique items.`)
   return items
 }
 function parseOfflinePdfText(textContent) {
   if (!textContent) return []
-  console.log('[Client Parser] Offline...')
   const items = []
   // Regex Offline: Awal baris, (opsional angka+spasi), PP<7digit>, apa saja (non-greedy), <angka qty>, akhir baris
   const productRegex = /^\s*(?:\d+\s+)?(PP\d{7})[\s\S]*?(\d+)\s*$/gm // gm = global, multiline
@@ -71,7 +67,6 @@ function parseOfflinePdfText(textContent) {
       items.push({ sku, qty })
     }
   }
-  console.log(`[Client Parser] Offline found ${items.length} items.`)
   return items
 }
 // --- AKHIR FUNGSI PARSING ---
@@ -104,7 +99,7 @@ export function usePickingClientParser() {
     let pdfDocument = null
 
     try {
-      // 1. Baca File
+      // Baca File
       const reader = new FileReader()
       const readFilePromise = new Promise((resolve, reject) => {
         reader.onload = (event) => resolve(event.target.result)
@@ -117,10 +112,9 @@ export function usePickingClientParser() {
       })
       const fileContent = await readFilePromise
 
-      // 2. Ekstrak Teks
+      // Ekstrak Teks
       if (file.type === 'application/pdf' && fileContent instanceof ArrayBuffer) {
         parsingMessage.value = 'Mem-parsing PDF...'
-        console.log('[Client Parser DEBUG] Step 1: Reading PDF as ArrayBuffer complete.')
         try {
           const loadingTask = pdfjsLib.getDocument({
             data: new Uint8Array(fileContent), // pdf.js butuh Uint8Array
@@ -129,9 +123,6 @@ export function usePickingClientParser() {
             // isEvalSupported: false,
           })
           pdfDocument = await loadingTask.promise
-          console.log(
-            `[Client Parser DEBUG] Step 2: Document loaded. Total pages: ${pdfDocument.numPages}`,
-          )
 
           const pagePromises = []
           parsingMessage.value = `Mem-parsing ${pdfDocument.numPages} halaman...`
@@ -139,21 +130,15 @@ export function usePickingClientParser() {
             pagePromises.push(
               pdfDocument.getPage(i).then(async (page) => {
                 const pageTextContent = await page.getTextContent()
-                console.log(
-                  `[Client Parser DEBUG] Page ${i}: Extracted ${pageTextContent.items.length} text items.`,
-                )
                 page.cleanup() // Lepaskan memori halaman
                 // Gabungkan item teks dengan spasi, tambahkan newline jika perlu (hati-hati format asli)
                 return pageTextContent.items.map((item) => item.str).join(' ')
               }),
             )
           }
-          console.log(`[Client Parser DEBUG] Step 3: Waiting for all page promises...`)
           const pageTexts = await Promise.all(pagePromises)
           textContent = pageTexts.join('\n') // Gabungkan teks antar halaman
-          console.log('[Client Parser] PDF parsing complete.')
         } catch (pdfError) {
-          console.error('PDF Parsing Error (Client-Side):', pdfError)
           parsingError.value = `Gagal mem-parsing PDF: ${pdfError.message}`
           // Coba fallback ke text jika pdf error? Atau langsung gagal?
           // Untuk sekarang lempar error agar jelas
@@ -165,19 +150,14 @@ export function usePickingClientParser() {
         }
       } else if (typeof fileContent === 'string') {
         parsingMessage.value = 'Membaca file teks...'
-        console.log(
-          `[Client Parser DEBUG] Step 1: Read text file complete. Length: ${textContent.length}`,
-        )
-        console.log('[Client Parser] File dibaca sebagai teks biasa.')
         textContent = fileContent
       } else {
         parsingError.value = 'Format file tidak didukung atau gagal dibaca.'
         throw new Error('Format file tidak didukung atau gagal dibaca.')
       }
 
-      // 3. Ekstrak Item dengan Regex
+      // Ekstrak Item dengan Regex
       parsingMessage.value = 'Mengekstrak data item...'
-      console.log(`[Client Parser DEBUG] Step 4: Starting regex extraction for source: ${source}`)
       let items
       if (source === 'Tokopedia') {
         items = parseTokopediaPdfText(textContent)
@@ -198,8 +178,6 @@ export function usePickingClientParser() {
       parsingMessage.value = 'Parsing selesai.'
       return items // Kembalikan array hasil
     } catch (error) {
-      console.error('[Client Parser] Error:', error)
-      // console.log(`[Client Parser DEBUG] Step 5: Extracted ${items.length} items.`)
       parsingError.value = error.message || 'Terjadi kesalahan saat parsing file.'
       parsedItems.value = null // Pastikan hasil null jika error
       return null // Kembalikan null jika gagal

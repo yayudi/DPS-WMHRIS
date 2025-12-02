@@ -1,186 +1,151 @@
+<!-- frontend\src\components\picking\PickingUploadForm.vue -->
 <script setup>
 import { ref, computed } from 'vue'
 import Tabs from '@/components/Tabs.vue'
 import { useToast } from '@/composables/UseToast.js'
-
-// Import helper API yang kita butuhkan
-import {
-  uploadBatchPickingListJson, // Untuk CSV baru
-  validateParsedPickingList, // Untuk Tokopedia/Shopee PDF
-  // uploadPickingList (legacy) sudah dihapus
-} from '@/api/helpers/picking.js'
-
-// Import kedua parser frontend
-import { parseAndGroupCsv } from '@/services/pickingListParser.js' // Parser CSV
-import { usePickingClientParser } from '@/composables/usePickingClientParser.js' // Parser PDF
+import axios from '@/api/axios.js'
 
 const emit = defineEmits(['upload-complete'])
 const { show: showToast } = useToast()
 
-// Inisialisasi parser PDF
-const pdfParser = usePickingClientParser()
-
-// State internal
-const selectedFile = ref(null)
-// Default ke alur baru
-const selectedSource = ref('Tagihan (CSV)')
+const selectedFiles = ref([]) // [UPDATE] Array, bukan single object
+const selectedSource = ref('Tokopedia')
 const isLoading = ref(false)
 const loadingMessage = ref('')
 
-// ✅ Tab yang sudah bersih (tanpa 'Offline (TXT)' legacy)
 const tabs = [
-  { label: 'Tagihan (CSV)', value: 'Tagihan (CSV)' }, // Ini adalah "Offline" yang baru
-  { label: 'Tokopedia (PDF)', value: 'Tokopedia' },
-  { label: 'Shopee (PDF)', value: 'Shopee' },
+  { label: 'Tokopedia', value: 'Tokopedia' },
+  { label: 'Offline (Tagihan)', value: 'Offline' },
+  { label: 'Shopee', value: 'Shopee' },
 ]
 
-// Helper untuk reset file input
-function resetFileInput() {
-  selectedFile.value = null
-  const fileInput = document.getElementById('pickingListFileInput')
-  if (fileInput) {
-    fileInput.value = ''
-  }
-}
+const fileAcceptString = computed(() => {
+  if (selectedSource.value === 'Shopee') return '.xlsx, .xls'
+  return '.csv, .xlsx, .xls'
+})
 
+// [UPDATE] Handle Multiple Files
 function handleFileChange(event) {
-  selectedFile.value = event.target.files[0]
+  // Convert FileList ke Array biasa
+  selectedFiles.value = Array.from(event.target.files)
 }
 
-/**
- * Fungsi utama yang menangani semua logika upload
- */
+function resetFileInput() {
+  selectedFiles.value = []
+  const input = document.getElementById('pickingListFileInput')
+  if (input) input.value = ''
+}
+
 async function triggerUpload() {
-  if (!selectedFile.value) {
-    showToast('Silakan pilih file terlebih dahulu.', 'warning')
+  if (selectedFiles.value.length === 0) {
+    showToast('Silakan pilih minimal satu file.', 'warning')
     return
   }
 
+  // Validasi Ekstensi (Looping)
+  for (const file of selectedFiles.value) {
+    const fileName = file.name.toLowerCase()
+    const isCsv = fileName.endsWith('.csv')
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls')
+
+    if (selectedSource.value === 'Shopee' && !isExcel) {
+      showToast(`File ${file.name} salah format. Shopee hanya menerima Excel.`, 'error')
+      return
+    }
+    if (!isCsv && !isExcel) {
+      showToast(`File ${file.name} format tidak didukung.`, 'error')
+      return
+    }
+  }
+
   isLoading.value = true
-  loadingMessage.value = 'Mempersiapkan upload...'
+  loadingMessage.value = `Mengunggah ${selectedFiles.value.length} file...`
 
   try {
-    // --- ALUR 1: Tagihan (CSV) ---
-    if (selectedSource.value === 'Tagihan (CSV)') {
-      if (!selectedFile.value.name.toLowerCase().endsWith('.csv')) {
-        throw new Error("Untuk sumber 'Tagihan (CSV)', Anda harus meng-upload file .csv.")
-      }
-      loadingMessage.value = 'Mem-parsing CSV di browser...'
-      const groupedData = await parseAndGroupCsv(selectedFile.value)
+    const formData = new FormData()
+    // [UPDATE] Append 'files' (sesuai backend .array('files'))
+    selectedFiles.value.forEach((file) => {
+      formData.append('files', file)
+    })
+    formData.append('source', selectedSource.value)
 
-      loadingMessage.value = `Mengirim ${groupedData.length} invoice ke server...`
-      // const result = await uploadBatchPickingListJson(groupedData) // API Hybrid
+    const response = await axios.post('/picking/upload-and-validate', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000, // 2 menit timeout karena multiple files
+    })
 
-      // showToast(result.message, 'success')
-      // emit('upload-complete') // Beri tahu parent (WMSPickingListView)
-      const response = await uploadBatchPickingListJson(groupedData) // API Hybrid
-
-      // [PERBAIKAN] Samakan logikanya dengan alur PDF
-      if (response.success) {
-        showToast(`Validasi CSV selesai. ${response.data.validItems.length} item valid.`, 'success')
-        // Kirim data validasi ke parent (WMSPickingListView)
-        emit('upload-complete', response.data)
-      } else {
-        throw new Error(response.message || 'Validasi CSV di server gagal.')
-      }
-    }
-    // --- ALUR 2: Tokopedia / Shopee (PDF) ---
-    else if (selectedSource.value === 'Tokopedia' || selectedSource.value === 'Shopee') {
-      if (!selectedFile.value.name.toLowerCase().endsWith('.pdf')) {
-        throw new Error(`Untuk sumber '${selectedSource.value}', Anda harus meng-upload file .pdf.`)
-      }
-
-      loadingMessage.value = 'Mem-parsing PDF di browser...'
-      const parsedItems = await pdfParser.parseFile(selectedFile.value, selectedSource.value)
-
-      if (!parsedItems || parsedItems.length === 0) {
-        throw new Error(
-          pdfParser.parsingError.value || 'Gagal mem-parsing PDF. Tidak ada item ditemukan.',
-        )
-      }
-
-      loadingMessage.value = 'Mengirim data PDF ke server...'
-      const payload = {
-        source: selectedSource.value,
-        items: parsedItems,
-        filename: selectedFile.value.name,
-      }
-      const response = await validateParsedPickingList(payload) // API Validasi
-
-      if (response.success) {
-        showToast(`Validasi PDF selesai. ${response.data.validItems.length} item valid.`, 'success')
-        // ✅ Kirim data validasi ke parent (WMSPickingListView)
-        // Parent akan menangani `validationResults.value = response.data`
-        emit('upload-complete', response.data)
-      } else {
-        throw new Error(response.message || 'Validasi PDF di server gagal.')
-      }
+    const result = response.data
+    if (result.success) {
+      showToast(result.message, 'success')
+      // Kirim hasil ke parent
+      emit('upload-complete', result.data)
+      resetFileInput()
     } else {
-      throw new Error('Sumber upload tidak dikenal.')
+      throw new Error(result.message)
     }
-
-    resetFileInput() // Bersihkan input file setelah sukses
   } catch (error) {
-    console.error('Gagal memproses upload:', error)
-    const parserError = pdfParser.parsingError.value
-    showToast(parserError || error.message || 'Terjadi kesalahan.', 'error')
+    console.error('Upload Error:', error)
+    const msg = error.response?.data?.message || error.message || 'Terjadi kesalahan saat upload.'
+    showToast(msg, 'error')
   } finally {
     isLoading.value = false
     loadingMessage.value = ''
-    if (pdfParser.parsingError.value) {
-      pdfParser.parsingError.value = null
-    }
   }
 }
-
-// Komputasi untuk accept string berdasarkan source
-const fileAcceptString = computed(() => {
-  if (selectedSource.value === 'Tagihan (CSV)') return '.csv'
-  if (selectedSource.value === 'Tokopedia' || selectedSource.value === 'Shopee') return '.pdf'
-  return '.csv,.pdf'
-})
 </script>
 
 <template>
   <div class="space-y-4 max-w-lg mx-auto">
     <div>
-      <label class="block text-sm font-medium text-text/90 mb-2">Pilih Sumber</label>
+      <label class="block text-sm font-medium text-text/90 mb-2">Pilih Sumber Pesanan</label>
       <Tabs :tabs="tabs" v-model:model-value="selectedSource" />
     </div>
 
     <div>
-      <label for="pickingListFileInput" class="block text-sm font-medium text-text/90 mb-2"
-        >Pilih File ({{ fileAcceptString }})</label
+      <label for="pickingListFileInput" class="block text-sm font-medium text-text/90 mb-2">
+        Pilih Laporan ({{ fileAcceptString }})
+      </label>
+
+      <div class="relative group">
+        <input
+          type="file"
+          id="pickingListFileInput"
+          @change="handleFileChange"
+          :accept="fileAcceptString"
+          multiple
+          class="block w-full text-sm text-text/80 file:mr-4 file:py-3 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer border border-dashed border-secondary/40 rounded-xl p-2 focus:outline-none focus:border-primary transition-all"
+        />
+      </div>
+
+      <div class="mt-2 text-xs text-text/50 flex justify-between items-center">
+        <span v-if="selectedFiles.length > 0" class="text-primary font-medium text-right">
+          <font-awesome-icon icon="fa-solid fa-copy" class="mr-1" />
+          {{ selectedFiles.length }} file dipilih
+        </span>
+        <span v-else class="italic text-primary font-medium text-right">Max 20 files</span>
+      </div>
+
+      <div
+        v-if="selectedFiles.length > 0"
+        class="mt-2 max-h-20 overflow-y-auto border border-secondary/10 rounded p-1 bg-secondary/5"
       >
-      <input
-        type="file"
-        id="pickingListFileInput"
-        @change="handleFileChange"
-        :accept="fileAcceptString"
-        class="block w-full text-sm text-text/80 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer border border-secondary/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
-      />
-      <p v-if="selectedFile" class="text-xs text-text/60 mt-1">
-        File dipilih: {{ selectedFile.name }}
-      </p>
+        <p v-for="(f, i) in selectedFiles" :key="i" class="text-[10px] text-text/60 truncate">
+          {{ i + 1 }}. {{ f.name }}
+        </p>
+      </div>
     </div>
 
-    <div class="pt-4">
+    <div class="pt-2">
       <button
         @click="triggerUpload"
-        :disabled="isLoading || !selectedFile || pdfParser.isParsing.value"
-        class="w-full px-6 py-3 bg-primary text-white rounded-lg font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+        :disabled="isLoading || selectedFiles.length === 0"
+        class="w-full px-6 py-3 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5 disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
       >
-        <font-awesome-icon
-          v-if="isLoading || pdfParser.isParsing.value"
-          icon="fa-solid fa-spinner"
-          class="animate-spin"
-        />
+        <font-awesome-icon v-if="isLoading" icon="fa-solid fa-circle-notch" class="animate-spin" />
         <span>{{
           isLoading
             ? loadingMessage
-            : pdfParser.isParsing.value
-              ? pdfParser.parsingMessage.value || 'Mem-parsing...'
-              : 'Upload & Proses'
+            : `Proses ${selectedFiles.length > 0 ? selectedFiles.length + ' File' : ''}`
         }}</span>
       </button>
     </div>

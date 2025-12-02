@@ -1,3 +1,4 @@
+// frontend\src\api\helpers\normalize.js
 /**
  * Helper untuk mengubah format waktu "HH:mm:ss" menjadi total menit dari tengah malam.
  * @param {string | null} timeStr - String waktu, e.g., "08:05:00".
@@ -38,7 +39,7 @@ export function normalizeLogs(allUsers, logRows, holidayMap, year, month) {
 
   const daysInMonth = new Date(year, month, 0).getDate()
 
-  // 1. Proses data mentah SQL (logRows) ke dalam struktur Map untuk pencarian cepat
+  // Proses data mentah SQL (logRows) ke dalam struktur Map untuk pencarian cepat
   //    Struktur: Map<user_id, Map<day_of_month, { ...data_log... }>>
   const userLogMap = new Map()
   for (const row of logRows) {
@@ -72,7 +73,7 @@ export function normalizeLogs(allUsers, logRows, holidayMap, year, month) {
     }
   }
 
-  // 2. Loop melalui 'allUsers' (dari tabel users) untuk membangun hasil akhir
+  // Loop melalui 'allUsers' (dari tabel users) untuk membangun hasil akhir
   return allUsers.map((user) => {
     const userDays = userLogMap.get(user.id) // Ambil data log yang sudah di-grup
     const logs = [] // Ini akan menjadi array 'logs' (dulu 'user.d')

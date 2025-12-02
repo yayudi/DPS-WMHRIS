@@ -211,9 +211,6 @@ export const generateStockReport = async (filters = {}) => {
 
     const totalColumns = excelColumns.length;
 
-    console.log(`[DEBUG] Total Kolom: ${totalColumns}. Total Teks Header: ${headerTexts.length}`);
-    console.log("[DEBUG] Teks Header yang akan ditulis:", headerTexts.join(", "));
-
     pivotSheet.mergeCells(1, 1, 1, totalColumns);
     const titleCell = pivotSheet.getCell("A1");
     titleCell.value = "Laporan Ringkasan Stok (Per Lokasi)";
@@ -224,10 +221,6 @@ export const generateStockReport = async (filters = {}) => {
     const headerRow = pivotSheet.getRow(3);
     headerRow.values = headerTexts;
     styleHeader(pivotSheet, 3, totalColumns, "FF4472C4", "FFFFFFFF"); // BG Biru, Font Putih
-
-    console.log(`[DEBUG] Nilai Row 3, Sel 1 (SKU): ${headerRow.getCell(1).value}`);
-    console.log(`[DEBUG] Nilai Row 3, Sel 2 (Nama Produk): ${headerRow.getCell(2).value}`);
-    console.log(`[DEBUG] Nilai Row 3, Sel 3 (Lokasi Pertama): ${headerRow.getCell(3).value}`);
 
     // Tambahkan Data Agregat
     aggregatedRows.forEach((row) => {
@@ -308,12 +301,6 @@ export const getReportFilters = async () => {
       }
       buildingsByPurpose[row.purpose].push(row.building);
     });
-
-    // console.log("[BE LOG] Data filter diambil dari DB:", {
-    //   allBuildings: allBuildingRows.map((row) => row.building),
-    //   purposes: purposeRows.map((row) => row.purpose),
-    //   buildingsByPurpose: buildingsByPurpose,
-    // });
 
     return {
       allBuildings: allBuildingRows.map((row) => row.building),

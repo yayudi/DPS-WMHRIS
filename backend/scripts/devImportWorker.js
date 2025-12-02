@@ -1,5 +1,5 @@
 // backend\scripts\devExportWorker.js
-import processImportQueue from "./processImportQueue.js"; // Impor worker BARU
+import { processImportQueue } from "./processImportQueue.js"; // Impor worker BARU
 import db from "../config/db.js"; // Impor db untuk rilis koneksi
 
 const INTERVAL_MS = 15000; // Cek setiap 15 detik (berbeda dari export)
