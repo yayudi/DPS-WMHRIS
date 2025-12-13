@@ -1,18 +1,14 @@
+<!-- frontend\src\components\picking\PickingHistoryTab.vue -->
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { useToast } from '@/composables/UseToast.js'
+import { useToast } from '@/composables/useToast.js'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll.js'
 import { useHistoryGrouping } from '@/composables/useHistoryGrouping.js'
-import {
-  getHistoryPickingItems,
-  cancelPickingList,
-  // Pastikan Anda punya fungsi void/resume di API helper,
-  // jika belum ada, sementara gunakan console.log atau buat dummy
-} from '@/api/helpers/picking.js'
+import { getHistoryPickingItems, cancelPickingList } from '@/api/helpers/picking.js'
 
 import PickingFilterBar from '@/components/picking/PickingFilterBar.vue'
 import PickingListCard from '@/components/picking/PickingListCard.vue'
-import PickingHistoryTable from '@/components/picking/PickingHistoryTable.vue' // 👈 [1] IMPORT TABEL
+import PickingHistoryTable from '@/components/picking/PickingHistoryTable.vue'
 import MasonryWall from '@yeger/vue-masonry-wall'
 
 const { show } = useToast()
@@ -25,14 +21,16 @@ const historyFilterState = ref({
   source: 'ALL',
   stockStatus: 'ALL',
   sortBy: 'newest',
-  viewMode: 'grid', // Default Grid
+  viewMode: 'grid', // Default Grid, user bisa ubah ke List
   startDate: '',
   endDate: '',
 })
 
-// --- LOGIC ---
+// --- LOGIC: GROUPING ---
+// Mengelompokkan revisi (Obsolete) ke dalam induknya agar tampilan rapi
 const { groupedHistory } = useHistoryGrouping(historyItems, historyFilterState)
 
+// --- INFINITE SCROLL ---
 const { displayedItems, hasMore, reset, loaderRef } = useInfiniteScroll(groupedHistory, {
   step: 12,
 })
@@ -52,26 +50,17 @@ async function fetchHistoryItems() {
   }
 }
 
-// --- HANDLERS UNTUK TABEL & CARD ---
-// Fungsi ini akan dipanggil saat tombol di Tabel/Card diklik
+// --- HANDLERS ---
 
 function handleViewDetails(item) {
-  // Logika untuk membuka modal detail (bisa diimplementasikan nanti)
-  console.log('View Details:', item)
-  // emit('open-detail-modal', item) // Jika ada
-}
-
-async function handleVoidItem(itemId) {
-  if (!confirm('Apakah Anda yakin ingin membatalkan (VOID) item ini dan mengembalikan stok?'))
-    return
-  // Panggil API Void di sini
-  show('Fitur Void akan segera hadir', 'info')
+  // Disini nanti bisa emit event ke parent untuk buka modal detail
+  // console.log('View Details:', item)
 }
 
 async function handleCancelItem(itemId) {
-  if (!confirm('Hapus riwayat ini?')) return
+  if (!confirm('Apakah Anda yakin ingin membatalkan arsip ini? (Hanya admin)')) return
   try {
-    await cancelPickingList(itemId) // Asumsi API cancel bisa dipakai
+    await cancelPickingList(itemId)
     show('Berhasil dibatalkan', 'success')
     fetchHistoryItems() // Refresh
   } catch (e) {
@@ -79,11 +68,16 @@ async function handleCancelItem(itemId) {
   }
 }
 
+// Handler dummy untuk fitur masa depan
+function handleVoidItem(itemId) {
+  show('Fitur Void akan segera hadir', 'info')
+}
+
 function handleResumeItem(item) {
-  // Logika untuk melanjutkan validasi (mungkin redirect ke tab Tugas)
   show(`Lanjutkan invoice ${item.invoice}`, 'info')
 }
 
+// Expose fungsi refresh agar bisa dipanggil dari parent jika perlu
 defineExpose({ fetchHistoryItems })
 
 onMounted(() => {
@@ -93,17 +87,20 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6 animate-fade-in">
+    <!-- Filter Bar (Search, Date, Sort, View Mode) -->
     <PickingFilterBar v-model="historyFilterState" />
 
+    <!-- Info Banner -->
     <div
       class="bg-secondary/80 border-primary/80 p-4 rounded-xl flex items-center gap-3 text-primary/70"
     >
       <font-awesome-icon icon="fa-solid fa-circle-info" />
       <span class="text-sm font-bold">
-        Menampilkan arsip picking. Invoice yang direvisi dikelompokkan otomatis.
+        Menampilkan arsip picking (Selesai & Batal). Revisi lama dikelompokkan otomatis.
       </span>
     </div>
 
+    <!-- Loading State -->
     <div v-if="isLoadingHistory && historyItems.length === 0" class="py-32 text-center opacity-60">
       <font-awesome-icon
         icon="fa-solid fa-clock-rotate-left"
@@ -112,6 +109,7 @@ onMounted(() => {
       <p class="text-sm font-medium">Memuat data riwayat...</p>
     </div>
 
+    <!-- Empty State -->
     <div
       v-else-if="groupedHistory.length === 0"
       class="py-24 text-center border-2 border-dashed border-secondary/20 rounded-2xl bg-secondary/5"
@@ -120,25 +118,35 @@ onMounted(() => {
       <p class="text-text/50 mt-1 text-sm">Selesaikan tugas picking untuk melihat arsip di sini.</p>
     </div>
 
+    <!-- Content -->
     <div v-else>
+      <!-- View Mode: LIST (Table) -->
       <div v-if="historyFilterState.viewMode === 'list'">
         <PickingHistoryTable
           :history-items="displayedItems"
           :is-loading="isLoadingHistory"
           @refresh="fetchHistoryItems"
           @view-details="handleViewDetails"
-          @void-item="handleVoidItem"
-          @cancel-item="handleCancelItem"
-          @resume-item="handleResumeItem"
         />
       </div>
 
+      <!-- View Mode: GRID (Masonry Card) -->
       <MasonryWall v-else :items="displayedItems" :ssr-columns="1" :column-width="350" :gap="16">
         <template #default="{ item: inv }">
-          <PickingListCard :inv="inv" mode="history" :historyLogs="inv.historyLogs" />
+          <!--
+            Mengirim props 'mode="history"' agar card berubah tampilan
+            (tanpa checkbox, ada dropdown historyLogs)
+          -->
+          <PickingListCard
+            :inv="inv"
+            mode="history"
+            :historyLogs="inv.historyLogs"
+            @cancel-invoice="handleCancelItem"
+          />
         </template>
       </MasonryWall>
 
+      <!-- Infinite Scroll Loader -->
       <div ref="loaderRef" class="h-24 w-full flex justify-center items-center">
         <span
           v-if="hasMore"

@@ -28,7 +28,7 @@ const actionRoutes = [
     </div>
 
     <!-- Navigasi Sekunder (Tabs) -->
-    <nav class="mb-6">
+    <nav>
       <div class="border-b border-secondary/20 flex items-center gap-4">
         <router-link
           v-for="route in actionRoutes"

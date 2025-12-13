@@ -1,5 +1,5 @@
 // backend/controllers/reportController.js
-import { getReportFilters } from "../services/reportService.js";
+import { getReportFilters } from "../repositories/reportRepository.js";
 import db from "../config/db.js";
 
 // [FIX V5] Tentukan URL Backend Secara Hardcode untuk Production
@@ -51,7 +51,7 @@ export const getUserExportJobs = async (req, res) => {
         const fileName = job.file_path;
 
         // Frontend tidak perlu pusing soal Proxy, langsung tembak ke API
-        job.download_url = `${BACKEND_BASE_URL}/uploads/exports/${fileName}`;
+        job.download_url = `${BACKEND_BASE_URL}/uploads/exports/stocks/${fileName}`;
       }
       return job;
     });

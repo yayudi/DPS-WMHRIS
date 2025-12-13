@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { fetchProducts as fetchProductsFromApi } from '@/api/helpers/wms.js'
 import { fetchAllLocations } from '@/api/helpers/stock.js'
-import { EventSourcePolyfill } from 'event-source-polyfill'
+// import { EventSourcePolyfill } from 'event-source-polyfill'
 
 export function useWms() {
   const auth = useAuthStore()
@@ -28,10 +28,10 @@ export function useWms() {
   const startDate = ref('')
   const endDate = ref('')
 
-  const sseStatus = ref('disconnected')
-  const recentlyUpdatedProducts = ref(new Set())
-  let eventSource = null
-  let reconnectTimer = null
+  // const sseStatus = ref('disconnected')
+  // const recentlyUpdatedProducts = ref(new Set())
+  // let eventSource = null
+  // let reconnectTimer = null
   let refetchIntervalId = null
   let observer = null
   let debounceTimer = null
@@ -186,63 +186,63 @@ export function useWms() {
     }
   }
 
-  function setupRealtimeUpdates() {
-    if (eventSource) eventSource.close()
-    clearTimeout(reconnectTimer)
+  // function setupRealtimeUpdates() {
+  //   if (eventSource) eventSource.close()
+  //   clearTimeout(reconnectTimer)
 
-    const token = auth.token
-    if (!token) return
+  //   const token = auth.token
+  //   if (!token) return
 
-    sseStatus.value = 'connecting'
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
-    eventSource = new EventSource(`${apiBaseUrl}/realtime/stock-updates?token=${token}`)
+  //   sseStatus.value = 'connecting'
+  //   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
+  //   eventSource = new EventSource(`${apiBaseUrl}/realtime/stock-updates?token=${token}`)
 
-    eventSource.onopen = () => {
-      sseStatus.value = 'connected'
-    }
+  //   eventSource.onopen = () => {
+  //     sseStatus.value = 'connected'
+  //   }
 
-    eventSource.onmessage = (event) => {
-      try {
-        const parsedData = JSON.parse(event.data)
+  //   eventSource.onmessage = (event) => {
+  //     try {
+  //       const parsedData = JSON.parse(event.data)
 
-        // Abaikan jika pesan hanyalah status koneksi (Handshake)
-        if (parsedData.status === 'connected') {
-          return
-        }
+  //       // Abaikan jika pesan hanyalah status koneksi (Handshake)
+  //       if (parsedData.status === 'connected') {
+  //         return
+  //       }
 
-        // Pastikan data adalah Array sebelum di-loop (forEach)
-        if (Array.isArray(parsedData)) {
-          parsedData.forEach((update) => {
-            const productInView = displayedProducts.value.find((p) => p.id === update.productId)
-            if (productInView) {
-              const updatedProductData = {
-                ...productInView,
-                stock_locations: update.newStock,
-              }
-              const newTransformedProduct = transformProduct(updatedProductData)
-              Object.assign(productInView, newTransformedProduct)
+  //       // Pastikan data adalah Array sebelum di-loop (forEach)
+  //       if (Array.isArray(parsedData)) {
+  //         parsedData.forEach((update) => {
+  //           const productInView = displayedProducts.value.find((p) => p.id === update.productId)
+  //           if (productInView) {
+  //             const updatedProductData = {
+  //               ...productInView,
+  //               stock_locations: update.newStock,
+  //             }
+  //             const newTransformedProduct = transformProduct(updatedProductData)
+  //             Object.assign(productInView, newTransformedProduct)
 
-              recentlyUpdatedProducts.value.add(update.productId)
-              setTimeout(() => {
-                recentlyUpdatedProducts.value.delete(update.productId)
-              }, 2000)
-            }
-          })
-        } else {
-          console.warn('[SSE] Received non-array data:', parsedData)
-        }
-      } catch (err) {
-        console.error('[SSE] Error parsing message:', err)
-      }
-    }
+  //             recentlyUpdatedProducts.value.add(update.productId)
+  //             setTimeout(() => {
+  //               recentlyUpdatedProducts.value.delete(update.productId)
+  //             }, 2000)
+  //           }
+  //         })
+  //       } else {
+  //         console.warn('[SSE] Received non-array data:', parsedData)
+  //       }
+  //     } catch (err) {
+  //       console.error('[SSE] Error parsing message:', err)
+  //     }
+  //   }
 
-    eventSource.onerror = (err) => {
-      console.error('[SSE] Error connection', err)
-      sseStatus.value = 'disconnected'
-      eventSource.close()
-      reconnectTimer = setTimeout(setupRealtimeUpdates, 5000)
-    }
-  }
+  //   eventSource.onerror = (err) => {
+  //     console.error('[SSE] Error connection', err)
+  //     sseStatus.value = 'disconnected'
+  //     eventSource.close()
+  //     reconnectTimer = setTimeout(setupRealtimeUpdates, 5000)
+  //   }
+  // }
 
   function loadMoreProducts() {
     if (hasMoreData.value && !isLoadingMore.value) {
@@ -289,9 +289,14 @@ export function useWms() {
     )
   })
 
+  // onUnmounted(() => {
+  //   if (eventSource) eventSource.close()
+  //   clearTimeout(reconnectTimer)
+  //   clearInterval(refetchIntervalId)
+  //   if (observer) observer.disconnect()
+  // })
+
   onUnmounted(() => {
-    if (eventSource) eventSource.close()
-    clearTimeout(reconnectTimer)
     clearInterval(refetchIntervalId)
     if (observer) observer.disconnect()
   })
@@ -302,7 +307,7 @@ export function useWms() {
       if (newValue && !refetchIntervalId) {
         refetchIntervalId = setInterval(() => {
           fetchProducts(true)
-        }, 60000)
+        }, 30000)
       } else if (!newValue && refetchIntervalId) {
         clearInterval(refetchIntervalId)
         refetchIntervalId = null
@@ -316,7 +321,7 @@ export function useWms() {
     (isAuth) => {
       if (isAuth) {
         if (displayedProducts.value.length === 0) fetchInitialData()
-        setupRealtimeUpdates()
+        // setupRealtimeUpdates()
       }
     },
     { immediate: true },
@@ -367,8 +372,8 @@ export function useWms() {
     sortOrder,
     allLocations,
     isAutoRefetching,
-    sseStatus,
-    recentlyUpdatedProducts,
+    // sseStatus,
+    // recentlyUpdatedProducts,
     startDate,
     endDate,
     handleSearchInput,

@@ -1,3 +1,4 @@
+// backend\services\parsers\BaseParser.js
 import path from "path";
 import fs from "fs"; // Tambahkan import fs
 import ExcelJS from "exceljs";
@@ -36,40 +37,63 @@ export class BaseParser {
       if (ext === ".csv") {
         console.log(`[DEBUG] Mode CSV Manual Read (fs). Delimiter: '${this.csvDelimiter}'`);
 
-        // --- [FIX] BACA MANUAL VIA FS (BYPASS EXCELJS CSV READER) ---
-        // 1. Baca file mentah sebagai text utf8
         const fileContent = fs.readFileSync(this.filePath, "utf8");
-
-        // 2. Buat sheet baru manual
         const sheet = workbook.addWorksheet("Sheet1");
 
-        // 3. Pecah baris (Handle \r\n atau \n)
-        const lines = fileContent.split(/\r?\n/);
+        // [FIX MULTILINE CSV]
+        // Split awal berdasarkan newline
+        const rawLines = fileContent.split(/\r?\n/);
+        const mergedLines = [];
+        let buffer = "";
+        let inQuote = false;
 
-        lines.forEach((line) => {
-          if (!line.trim()) return; // Skip baris kosong
+        // Algoritma Penyeimbang Tanda Kutip
+        for (let i = 0; i < rawLines.length; i++) {
+          const line = rawLines[i];
 
-          // 4. Parsing CSV Line (Support Quoted String)
-          // Regex ini memisahkan delimiter KECUALI yang ada di dalam tanda kutip
-          // Contoh: "Jalan A, No 1", 123 -> ["Jalan A, No 1", "123"]
+          // Hitung jumlah tanda kutip di baris ini
+          const quoteCount = (line.match(/"/g) || []).length;
+
+          // Jika buffer tidak kosong, tambahkan newline yang hilang karena split sebelumnya
+          if (inQuote) {
+            buffer += "\n" + line;
+          } else {
+            buffer = line;
+          }
+
+          // Jika jumlah kutip ganjil, toggle status inQuote (Masuk/Keluar kutip)
+          // Ganjil + Ganjil = Genap (Keluar)
+          // Genap + Ganjil = Ganjil (Masuk)
+          if (quoteCount % 2 === 1) {
+            inQuote = !inQuote;
+          }
+
+          // Jika sudah seimbang (tidak di dalam kutip), ini adalah satu baris utuh
+          if (!inQuote) {
+            if (buffer.trim()) {
+              // Skip baris kosong murni
+              mergedLines.push(buffer);
+            }
+            buffer = "";
+          }
+        }
+
+        // Proses baris yang sudah digabung dengan benar
+        mergedLines.forEach((line) => {
+          // Regex untuk split CSV tapi mengabaikan delimiter dalam kutip
           const regex = new RegExp(`\\s*${this.csvDelimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)\\s*`);
 
           const rowValues = line.split(regex).map((val) => {
-            // Bersihkan tanda kutip pembungkus (misal: "123" -> 123)
             let clean = val.trim();
             if (clean.startsWith('"') && clean.endsWith('"')) {
               clean = clean.slice(1, -1);
             }
-            // Unescape double quotes ("" -> ")
             return clean.replace(/""/g, '"');
           });
 
-          // 5. Masukkan sebagai Array String ke Sheet
-          // ExcelJS akan menerimanya sebagai value mentah (String)
           sheet.addRow(rowValues);
         });
       } else {
-        // XLSX aman, pakai reader bawaan
         await workbook.xlsx.readFile(this.filePath);
       }
 
@@ -104,8 +128,6 @@ export class BaseParser {
     }
   }
 
-  // ... (Sisa kode _processWorkbookData dan lainnya TETAP SAMA, tidak perlu diubah) ...
-
   async _processWorkbookData(workbook) {
     let bestSheet = null;
     let headerMap = {};
@@ -116,10 +138,17 @@ export class BaseParser {
 
     workbook.eachSheet((sheet) => {
       const limit = 25;
-      for (let r = 1; r <= limit; r++) {
+      // [FIX] Handle jika total baris < limit
+      const maxRow = Math.min(sheet.rowCount, limit);
+
+      for (let r = 1; r <= maxRow; r++) {
         const row = sheet.getRow(r);
         let currentMap = {};
         let score = 0;
+
+        // Optimasi: Cek hanya jika row punya value
+        if (!row.hasValues) continue;
+
         row.eachCell((cell, colNumber) => {
           const rawVal = this._getCellValue(cell);
           const norm = this._normalizeHeaderClean(rawVal);
@@ -158,13 +187,7 @@ export class BaseParser {
           const colIdx = headerMap[normK];
           if (colIdx) {
             const cell = row.getCell(colIdx);
-            const val = this._getCellValue(cell);
-
-            // [DEBUG] Log data tipe string
-            if (rowNumber === headerRowIdx + 1 && (k.includes("order") || k.includes("pesanan"))) {
-              // console.log(`[DEBUG] Row ${rowNumber} ID:`, val, `(Type: ${typeof cell.value})`);
-            }
-            return val;
+            return this._getCellValue(cell);
           }
         }
         return "";
@@ -182,7 +205,13 @@ export class BaseParser {
     let data = this.mapper.extract(getter);
 
     if (!data || !data.invoiceId) {
-      const fallbackId = getter(["order id", "no pesanan", "no. pesanan", "nomor tagihan"]);
+      const fallbackId = getter([
+        "order id",
+        "no pesanan",
+        "no. pesanan",
+        "nomor tagihan",
+        "*nomor tagihan",
+      ]);
       if (
         fallbackId &&
         (fallbackId.includes("Platform unique") || fallbackId.includes("unique order"))
@@ -236,6 +265,7 @@ export class BaseParser {
     orders.get(data.invoiceId).items.push({
       sku: data.sku,
       qty: data.qty || 1,
+      returnedQty: data.returnedQty || 0,
       status: status,
       locationId: null,
       row: rowNumber,

@@ -1,6 +1,6 @@
 <!-- frontend\src\components\picking\PickingHistoryTable.vue -->
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { formatDate } from '@/api/helpers/time.js'
 
 const props = defineProps({
@@ -15,7 +15,8 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['refresh', 'view-details', 'void-item', 'cancel-item', 'resume-item'])
+const emit = defineEmits(['refresh', 'view-details'])
+const expandedRows = ref(new Set()) // Untuk melacak row mana yang dibuka history-nya
 
 const isEmpty = computed(() => !props.isLoading && props.historyItems.length === 0)
 
@@ -23,31 +24,53 @@ const isEmpty = computed(() => !props.isLoading && props.historyItems.length ===
 function getStatusClass(status) {
   switch (status) {
     case 'COMPLETED':
-      return 'bg-green-100 text-green-700 border-green-200'
+    case 'VALIDATED': // Hijau untuk yang selesai
+      return 'bg-success/10 text-success border-success/20'
+
     case 'CANCEL':
-    case 'CANCELLED':
-      return 'bg-red-100 text-red-700 border-red-200'
+    case 'OBSOLETE': // Merah untuk batal/usang
+      return 'bg-danger/10 text-danger border-danger/20'
+
     case 'PENDING':
-    case 'PENDING_VALIDATION':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      return 'bg-warning/10 text-warning border-warning/20'
+
     case 'SHIPPED':
-      return 'bg-blue-100 text-blue-700 border-blue-200'
+      return 'bg-primary/10 text-primary border-primary/20'
+
     default:
-      return 'bg-gray-100 text-gray-600 border-gray-200'
+      return 'bg-secondary/10 text-text/60 border-secondary/20'
   }
 }
 
-// [FIX] Helper untuk mendapatkan Invoice ID yang valid (Support Raw & Grouped Data)
+// Helper untuk Label Status yang ramah user
+function getStatusLabel(status) {
+  const map = {
+    VALIDATED: 'Selesai',
+    COMPLETED: 'Selesai',
+    CANCEL: 'Batal',
+    OBSOLETE: 'Usang',
+    PENDING: 'Pending',
+  }
+  return map[status] || status
+}
+
+// Helper untuk mendapatkan Invoice ID yang valid
 function getInvoiceId(item) {
-  // Prioritas 1: Data mentah dari backend (pl.original_invoice_id)
-  // Prioritas 2: Data hasil grouping (item.invoice)
-  // Fallback: Tanda tanya
   return item.original_invoice_id || item.invoice || '(Tanpa ID)'
 }
 
-// Actions
+// Toggle Expand Row
+function toggleExpand(itemId) {
+  if (expandedRows.value.has(itemId)) {
+    expandedRows.value.delete(itemId)
+  } else {
+    expandedRows.value.add(itemId)
+  }
+}
+
+// Action View Detail
 function viewDetails(item) {
-  if (!['PENDING', 'PENDING_VALIDATION'].includes(item.status)) {
+  if (!['PENDING', 'PENDING VALIDATION'].includes(item.status)) {
     emit('view-details', item)
   }
 }
@@ -55,8 +78,9 @@ function viewDetails(item) {
 
 <template>
   <div class="space-y-4">
+    <!-- Toolbar -->
     <div
-      class="flex justify-between items-center bg-white p-4 rounded-xl border border-secondary/20 shadow-sm"
+      class="flex justify-between items-center bg-background p-4 rounded-xl border border-secondary/30 shadow-sm"
     >
       <h3 class="font-bold text-text flex items-center gap-2">
         <font-awesome-icon icon="fa-solid fa-clock-rotate-left" class="text-primary/70" />
@@ -72,7 +96,11 @@ function viewDetails(item) {
       </button>
     </div>
 
-    <div v-if="isLoading && historyItems.length === 0" class="py-20 text-center opacity-60">
+    <!-- Loading State -->
+    <div
+      v-if="isLoading && historyItems.length === 0"
+      class="py-20 text-center opacity-60 text-text"
+    >
       <font-awesome-icon
         icon="fa-solid fa-circle-notch"
         class="text-4xl animate-spin text-primary mb-3"
@@ -80,18 +108,23 @@ function viewDetails(item) {
       <p class="text-sm">Memuat data...</p>
     </div>
 
+    <!-- Empty State -->
     <div
       v-else-if="isEmpty"
-      class="py-20 text-center border-2 border-dashed border-secondary/20 rounded-xl bg-secondary/5"
+      class="py-20 text-center border-2 border-dashed border-secondary/30 rounded-xl bg-secondary/5"
     >
       <p class="text-text/40 italic">Belum ada data riwayat.</p>
     </div>
 
-    <div v-else class="bg-white border border-secondary/20 rounded-xl shadow-sm overflow-hidden">
+    <!-- Table Content -->
+    <div
+      v-else
+      class="bg-background border border-secondary/20 rounded-xl shadow-sm overflow-hidden"
+    >
       <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
           <thead
-            class="bg-secondary/5 text-text/60 border-b border-secondary/10 uppercase text-xs tracking-wider font-bold"
+            class="bg-secondary/20 text-text/60 border-b border-secondary/20 uppercase text-xs tracking-wider font-bold"
           >
             <tr>
               <th class="p-4 w-40">Tanggal</th>
@@ -101,98 +134,146 @@ function viewDetails(item) {
               <th class="p-4 w-40 text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-secondary/10">
-            <tr
-              v-for="item in historyItems"
-              :key="item.id"
-              class="hover:bg-primary/5 transition-colors group"
-              :class="{
-                'cursor-pointer': !['PENDING', 'PENDING_VALIDATION'].includes(item.status),
-              }"
-              @click="viewDetails(item)"
-            >
-              <td class="p-4 whitespace-nowrap text-text/70">
-                <div class="font-mono text-xs">
-                  {{ formatDate(item.created_at || item.order_date, true, true) }}
-                </div>
-              </td>
+          <tbody class="divide-y divide-secondary/10 text-text">
+            <template v-for="item in historyItems" :key="item.id">
+              <!-- Main Row -->
+              <tr
+                class="transition-colors group border-b border-secondary/10 hover:bg-primary/5 cursor-pointer"
+                @click="viewDetails(item)"
+              >
+                <!-- TANGGAL -->
+                <td class="p-4 whitespace-nowrap text-text/70">
+                  <div class="flex flex-col">
+                    <span class="font-mono text-xs font-bold">
+                      {{ formatDate(item.created_at, false, false) }}
+                    </span>
+                    <span class="text-[10px] text-text/40 mt-0.5">
+                      <font-awesome-icon icon="fa-solid fa-clock" class="mr-1" />
+                      {{
+                        new Date(item.created_at).toLocaleTimeString('id-ID', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      }}
+                    </span>
+                  </div>
+                </td>
 
-              <td class="p-4">
-                <div class="flex flex-col">
+                <!-- INVOICE & EXPAND BUTTON -->
+                <td class="p-4">
+                  <div class="flex flex-col">
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="font-bold transition-colors text-base text-text group-hover:text-primary"
+                      >
+                        {{ getInvoiceId(item) }}
+                      </span>
+
+                      <!-- Tombol Expand jika ada revisi -->
+                      <button
+                        v-if="item.historyLogs && item.historyLogs.length > 0"
+                        @click.stop="toggleExpand(item.id)"
+                        class="text-[10px] bg-secondary/20 hover:bg-secondary/40 px-2 py-0.5 rounded-full text-text/60 font-bold flex items-center gap-1 transition-colors border border-transparent hover:border-secondary/30"
+                      >
+                        <font-awesome-icon
+                          :icon="
+                            expandedRows.has(item.id)
+                              ? 'fa-solid fa-chevron-up'
+                              : 'fa-solid fa-chevron-down'
+                          "
+                        />
+                        {{ item.historyLogs.length }} Revisi
+                      </button>
+                    </div>
+                    <span class="text-xs text-text/50 flex items-center gap-1 mt-0.5">
+                      <font-awesome-icon icon="fa-solid fa-user" class="text-[10px]" />
+                      {{ item.customer_name || 'Customer tidak diketahui' }}
+                    </span>
+                  </div>
+                </td>
+
+                <!-- SUMBER -->
+                <td class="p-4">
+                  <span class="font-bold text-xs">{{ item.source }}</span>
+                </td>
+
+                <!-- STATUS -->
+                <td class="p-4 text-center">
                   <span
-                    class="font-bold text-text group-hover:text-primary transition-colors text-base"
+                    class="px-2 py-1 rounded text-xs font-bold border inline-block"
+                    :class="getStatusClass(item.status)"
                   >
-                    {{ getInvoiceId(item) }}
+                    {{ getStatusLabel(item.status) }}
                   </span>
+                </td>
 
-                  <span class="text-xs text-text/50 flex items-center gap-1 mt-0.5">
-                    <font-awesome-icon icon="fa-solid fa-user" class="text-[10px]" />
-                    {{ item.customer_name || 'Customer tidak diketahui' }}
-                  </span>
-                </div>
-              </td>
+                <!-- AKSI -->
+                <td class="p-4 text-center">
+                  <button class="text-xs text-primary font-bold hover:underline">Detail</button>
+                </td>
+              </tr>
 
-              <td class="p-4">
-                <span
-                  class="px-2 py-1 rounded text-xs font-bold border"
-                  :class="{
-                    'bg-green-50 text-green-700 border-green-200': item.source === 'Tokopedia',
-                    'bg-orange-50 text-orange-700 border-orange-200': item.source === 'Shopee',
-                    'bg-blue-50 text-blue-700 border-blue-200': item.source === 'Offline',
-                  }"
-                >
-                  {{ item.source }}
-                </span>
-              </td>
-
-              <td class="p-4 text-center">
-                <span
-                  class="px-2.5 py-1 rounded-full text-[10px] font-black border uppercase tracking-wide"
-                  :class="getStatusClass(item.status)"
-                >
-                  {{ item.status }}
-                </span>
-              </td>
-
-              <td class="p-4 text-center" @click.stop>
-                <div class="flex items-center justify-center gap-2">
-                  <button
-                    v-if="item.status === 'COMPLETED'"
-                    @click="$emit('void-item', item.id)"
-                    class="h-8 w-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all"
-                    title="Batalkan & Kembalikan Stok"
-                  >
-                    <font-awesome-icon icon="fa-solid fa-rotate-left" />
-                  </button>
-
-                  <template v-if="['PENDING', 'PENDING_VALIDATION'].includes(item.status)">
-                    <button
-                      @click="$emit('resume-item', item)"
-                      class="h-8 w-8 rounded-lg flex items-center justify-center text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-200 transition-all"
-                      title="Lanjutkan Validasi"
+              <!-- Expanded History Row (Child) -->
+              <tr v-if="expandedRows.has(item.id)" class="bg-secondary/5 shadow-inner">
+                <td colspan="5" class="p-0">
+                  <div class="p-4 pl-12">
+                    <!-- Container Grup Revisi -->
+                    <div
+                      class="bg-background border border-secondary/20 rounded-lg overflow-hidden shadow-sm max-w-2xl"
                     >
-                      <font-awesome-icon icon="fa-solid fa-play" />
-                    </button>
-                    <button
-                      @click="$emit('cancel-item', item.id)"
-                      class="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                      title="Hapus"
-                    >
-                      <font-awesome-icon icon="fa-solid fa-xmark" />
-                    </button>
-                  </template>
+                      <!-- Header Grup -->
+                      <div
+                        class="bg-secondary/10 px-3 py-2 border-b border-secondary/10 flex items-center gap-2"
+                      >
+                        <font-awesome-icon
+                          icon="fa-solid fa-history"
+                          class="text-text/40 text-xs"
+                        />
+                        <span class="text-[11px] font-bold text-text/60 uppercase tracking-wider"
+                          >Arsip Revisi Sebelumnya</span
+                        >
+                      </div>
 
-                  <button
-                    v-if="!['PENDING', 'PENDING_VALIDATION'].includes(item.status)"
-                    @click="viewDetails(item)"
-                    class="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primary/5 transition-all"
-                    title="Lihat Detail Barang"
-                  >
-                    <font-awesome-icon icon="fa-solid fa-eye" />
-                  </button>
-                </div>
-              </td>
-            </tr>
+                      <!-- List Item Revisi -->
+                      <div class="divide-y divide-secondary/10">
+                        <div
+                          v-for="log in item.historyLogs"
+                          :key="log.id"
+                          class="flex items-center justify-between p-3 hover:bg-secondary/5 transition-colors group/log"
+                        >
+                          <div class="flex items-center gap-3">
+                            <span
+                              class="font-mono text-[10px] bg-secondary/10 px-1.5 py-0.5 rounded text-text/60 group-hover/log:bg-secondary/20 transition-colors"
+                            >
+                              #{{ log.id }}
+                            </span>
+                            <div class="flex flex-col">
+                              <span
+                                class="text-xs font-bold text-text/70 line-through decoration-danger/30"
+                              >
+                                {{ log.invoice || log.original_invoice_id }}
+                              </span>
+                              <span class="text-[10px] text-text/40">
+                                Revisi pada:
+                                {{ formatDate(log.updated_at || log.created_at, true, true) }}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div class="flex items-center gap-3">
+                            <span
+                              class="text-[10px] bg-danger/10 text-danger border border-danger/20 px-2 py-0.5 rounded-full font-bold"
+                            >
+                              OBSOLETE
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -201,8 +282,8 @@ function viewDetails(item) {
 </template>
 
 <style scoped>
-/* Efek hover baris tabel */
-tbody > tr:hover {
+/* Hover effect hanya untuk baris utama, bukan baris child (expanded) */
+tbody > tr:not(.bg-secondary\/5):hover {
   background-color: rgba(var(--color-primary), 0.05);
 }
 </style>

@@ -6,7 +6,10 @@ import { RouterView } from 'vue-router'
   <div class="flex">
     <!-- Sidebar Navigasi Admin -->
     <aside class="w-64 flex-shrink-0 bg-background border-r border-secondary/20 min-h-screen p-4">
-      <h2 class="text-lg font-bold text-text mb-6 px-2">Panel Admin</h2>
+      <h2 class="text-2xl font-bold text-text mb-6 flex items-center gap-3">
+        <font-awesome-icon icon="fa-solid fa-screwdriver-wrench" class="text-primary" />
+        Panel Admin
+      </h2>
       <nav class="flex flex-col space-y-2">
         <router-link
           to="/admin/users"

@@ -1,103 +1,69 @@
 // backend/config/importMappers.js
-
-// --- CONSTANTS ---
-const ORDER_STATUS = {
-  PENDING: "PENDING_VALIDATION",
-  COMPLETED: "COMPLETED",
-  CANCELLED: "CANCELLED",
-  SHIPPED: "SHIPPED",
-  RETURNED: "RETURNED",
-  IGNORE: "IGNORE",
-};
+import { MP_STATUS } from "./wmsConstants.js";
 
 // --- HELPERS ---
-
-/**
- * Memformat Date object ke string MySQL (YYYY-MM-DD HH:mm:ss)
- */
 const formatToDbDate = (dateObj) => {
   return dateObj.toISOString().slice(0, 19).replace("T", " ");
 };
 
-/**
- * Parse input tanggal yang beragam menjadi format Database
- */
 const parseDate = (val) => {
   if (!val) return null;
-
-  // 1. Handle ExcelJS Date Object langsung
-  if (val instanceof Date) {
-    return formatToDbDate(val);
-  }
-
+  if (val instanceof Date) return formatToDbDate(val);
   const dateStr = String(val).trim();
   if (!dateStr) return null;
-
   try {
-    // 2. Coba parsing standar JS (ISO / YYYY-MM-DD)
     let date = new Date(dateStr);
-
-    // 3. Fallback: Format Indonesia (DD-MM-YYYY atau DD/MM/YYYY)
     if (isNaN(date.getTime())) {
-      // Regex: Support DD-MM-YYYY, DD/MM/YYYY, dengan opsi jam:menit
       const idFormatRegex = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s(\d{1,2}):(\d{1,2}))?/;
       const match = dateStr.match(idFormatRegex);
-
       if (match) {
         const [_, day, month, year, hour, minute] = match;
-        // Reconstruct ke ISO format agar bisa diparse Date()
         const isoStr = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${(
           hour || "00"
         ).padStart(2, "0")}:${(minute || "00").padStart(2, "0")}:00`;
         date = new Date(isoStr);
       }
     }
-
-    // Final Validation
     return !isNaN(date.getTime()) ? formatToDbDate(date) : null;
   } catch (e) {
-    console.warn(`[Date Parser] Error parsing "${val}":`, e.message);
     return null;
   }
 };
 
-// --- MAPPERS CONFIGURATION ---
-
 export const Mappers = {
   // =========================================
-  // TOKOPEDIA (Support CSV Indo & XLSX English)
+  // TOKOPEDIA
   // =========================================
   Tokopedia: {
     knownColumns: [
-      // Identifiers
       "order id",
       "nomor invoice",
       "no pesanan",
       "tokopedia invoice number",
-      // SKU
       "nomor sku",
       "seller sku",
       "sku",
-      // Qty
       "jumlah produk",
       "quantity",
       "jumlah",
-      // Customer
+      "sku quantity of return",
+      "Sku Quantity of return",
+      "jumlah pengembalian",
+      "return quantity",
+      "returned quantity",
       "nama penerima",
       "recipient",
-      // Date
       "created time",
       "waktu pesanan",
       "tanggal pemesanan",
       "order time",
-      // Status
       "order status",
       "status pesanan",
       "status",
       "cancelation/return type",
+      "Cancelation/Return Type",
     ],
     extract: (getter) => {
-      // 1. ID Extraction
       const id = getter([
         "order id",
         "nomor invoice",
@@ -105,65 +71,86 @@ export const Mappers = {
         "invoice no",
         "tokopedia invoice number",
       ]);
+      if (id && (id.includes("unique order ID") || id.includes("Platform unique"))) return "SKIP";
 
-      // Filter baris deskripsi/header sampah di file Excel Tokopedia
-      if (id && (id.includes("unique order ID") || id.includes("Platform unique"))) {
-        return "SKIP";
-      }
-
-      // 2. Data Extraction
-      const sku = getter(["seller sku", "nomor sku", "sku"]); // Prioritas: Seller SKU
+      const sku = getter(["seller sku", "nomor sku", "sku"]);
       const qty = parseInt(getter(["quantity", "jumlah produk", "jumlah"]) || "0", 10);
+
+      // [FIX] Coba ambil return qty dengan berbagai kemungkinan key
+      // Debug: Kita cek nilai mentahnya
+      const rawReturnQty = getter([
+        "sku quantity of return",
+        "Sku Quantity of return",
+        "jumlah pengembalian",
+        "return quantity",
+        "returned quantity",
+      ]);
+
+      const returnedQty = parseInt(rawReturnQty || "0", 10);
+      console.log(`[MAPPER] Raw Return Qty for Invoice ${id}, SKU ${sku}:`, rawReturnQty);
+      console.log(`[MAPPER] Parsed Return Qty:`, returnedQty);
+
+      // [DEBUG LOG] Aktifkan ini untuk melihat per baris jika masih bermasalah
+      // if (returnedQty > 0) console.log(`[MAPPER] Found Return: ${id} | SKU: ${sku} | Qty: ${qty} | Ret: ${returnedQty}`);
+
       const recipient = getter(["recipient", "nama penerima", "penerima"]);
+      const orderDate = parseDate(
+        getter(["created time", "waktu pesanan", "tanggal pemesanan", "order time"])
+      );
 
-      const rawDate = getter(["created time", "waktu pesanan", "tanggal pemesanan", "order time"]);
-      const orderDate = parseDate(rawDate);
-
-      // Validation
       if (!id || !sku || isNaN(qty)) return null;
 
-      return { invoiceId: id, sku, qty, customer: recipient, orderDate };
+      // PENTING: returnedQty harus ada di object return ini
+      return { invoiceId: id, sku, qty, returnedQty, customer: recipient, orderDate };
     },
     getStatus: (getter) => {
       const status = getter(["order status", "status pesanan", "status"])?.toLowerCase() || "";
       const retType =
-        getter(["cancelation/return type", "jenis pembatalan/pengembalian"])?.toLowerCase() || "";
+        getter([
+          "cancelation/return type",
+          "Cancelation/Return Type", // <-- Match CSV
+          "jenis pembatalan/pengembalian",
+        ])?.toLowerCase() || "";
 
-      if (retType.includes("return") || retType.includes("pengembalian"))
-        return ORDER_STATUS.RETURNED;
       if (
-        status.includes("batal") ||
-        status.includes("dibatalkan") ||
-        status.includes("cancelled") // <--- TAMBAHAN PENTING
+        retType.includes("return") ||
+        retType.includes("pengembalian") ||
+        retType.includes("refund")
       )
-        return ORDER_STATUS.CANCELLED;
+        return MP_STATUS.RETURNED;
+
+      if (retType.includes("cancel") || retType.includes("batal")) return MP_STATUS.CANCELLED;
+
+      if (status.includes("batal") || status.includes("dibatalkan") || status.includes("cancelled"))
+        return MP_STATUS.CANCELLED;
+
       if (
         status.includes("selesai") ||
         status.includes("delivered") ||
-        status.includes("completed") // <--- TAMBAHAN PENTING
+        status.includes("completed")
       )
-        return ORDER_STATUS.COMPLETED;
+        return MP_STATUS.COMPLETED;
+
       if (
         status.includes("dikirim") ||
         status.includes("dalam pengiriman") ||
-        status.includes("shipped") || // <--- TAMBAHAN PENTING
-        status.includes("shipping")
+        status.includes("shipped") ||
+        status.includes("shipping") ||
+        status.includes("sedang transit")
       )
-        return ORDER_STATUS.SHIPPED;
+        return MP_STATUS.SHIPPED;
 
-      // Status "Pesanan Baru" / "Siap Dikirim"
       if (
         status.includes("siap dikirim") ||
         status.includes("sedang diproses") ||
         status.includes("pesanan baru") ||
         status.includes("perlu dikirim") ||
-        status.includes("new order") ||
         status.includes("new")
       ) {
-        return ORDER_STATUS.PENDING;
+        return MP_STATUS.NEW;
       }
 
-      return ORDER_STATUS.IGNORE;
+      return "IGNORE";
     },
   },
 
@@ -181,9 +168,13 @@ export const Mappers = {
       "parent sku",
       "jumlah",
       "quantity",
+      "returned quantity",
+      "jumlah dikembalikan",
+      "quantity returned",
       "status pesanan",
       "order status",
       "status",
+      "status pembatalan/ pengembalian",
       "username (pembeli)",
       "username pembeli",
       "nama penerima",
@@ -192,49 +183,56 @@ export const Mappers = {
     ],
     extract: (getter) => {
       const id = getter(["no. pesanan", "no pesanan", "order id"]);
-
-      // Shopee SKU Logic: Coba Reference SKU dulu, kalau kosong baru Parent SKU
       let sku = getter(["nomor referensi sku", "sku reference no"]);
       if (!sku) sku = getter(["sku induk", "parent sku"]);
 
       const qty = parseInt(getter(["jumlah", "quantity"]) || "0", 10);
-      const customer = getter(["username (pembeli)", "username pembeli", "nama penerima"]);
 
-      const rawDate = getter(["waktu pesanan dibuat", "order creation time"]);
-      const orderDate = parseDate(rawDate);
+      const returnedQty = parseInt(
+        getter(["returned quantity", "jumlah dikembalikan", "quantity returned"]) || "0",
+        10
+      );
+
+      const customer = getter(["username (pembeli)", "username pembeli", "nama penerima"]);
+      const orderDate = parseDate(getter(["waktu pesanan dibuat", "order creation time"]));
 
       if (!id || !sku || isNaN(qty)) return null;
 
-      return { invoiceId: id, sku, qty, customer, orderDate };
+      return { invoiceId: id, sku, qty, returnedQty, customer, orderDate };
     },
     getStatus: (getter) => {
       const status = getter(["status pesanan", "order status", "status"])?.toLowerCase() || "";
+      const retStatus = getter(["status pembatalan/ pengembalian"])?.toLowerCase() || "";
 
-      if (status.includes("batal") || status.includes("cancelled")) return ORDER_STATUS.CANCELLED;
+      if (
+        retStatus.includes("pengembalian") ||
+        retStatus.includes("return") ||
+        retStatus.includes("disetujui")
+      ) {
+        return MP_STATUS.RETURNED;
+      }
 
+      if (status.includes("batal") || status.includes("cancelled")) return MP_STATUS.CANCELLED;
       if (
         status.includes("selesai") ||
         status.includes("completed") ||
         status.includes("pesanan diterima")
       )
-        return ORDER_STATUS.COMPLETED;
-
-      if (status.includes("dikirim") || status.includes("shipped")) return ORDER_STATUS.SHIPPED;
-
+        return MP_STATUS.COMPLETED;
+      if (status.includes("dikirim") || status.includes("shipped")) return MP_STATUS.SHIPPED;
       if (
         status.includes("perlu dikirim") ||
         status.includes("sedang diproses") ||
         status.includes("new")
-      ) {
-        return ORDER_STATUS.PENDING;
-      }
+      )
+        return MP_STATUS.NEW;
 
-      return ORDER_STATUS.IGNORE;
+      return "IGNORE";
     },
   },
 
   // =========================================
-  // OFFLINE / MANUAL
+  // OFFLINE
   // =========================================
   Offline: {
     knownColumns: [
@@ -260,26 +258,16 @@ export const Mappers = {
       const sku = getter(["*kode produk (sku)", "kode produk (sku)", "kode produk", "sku"]);
       const qty = parseInt(getter(["*jumlah produk", "jumlah produk", "jumlah"]) || "0", 10);
       const customer = getter(["*nama kontak", "nama kontak", "perusahaan"]) || "Offline Customer";
-
-      const rawDate = getter([
-        "*tanggal transaksi (dd/mm/yyyy)",
-        "tanggal transaksi (dd/mm/yyyy)",
-        "tanggal",
-        "date",
-        "waktu",
-      ]);
-      const orderDate = parseDate(rawDate);
+      const orderDate = parseDate(getter(["*tanggal transaksi (dd/mm/yyyy)", "tanggal", "date"]));
 
       if (!id || !sku || isNaN(qty)) return null;
 
-      return { invoiceId: id, sku, qty, customer, orderDate };
+      return { invoiceId: id, sku, qty, returnedQty: 0, customer, orderDate };
     },
     getStatus: (getter) => {
       const status = getter(["status"])?.toLowerCase() || "";
-      if (status.includes("void") || status.includes("batal")) return ORDER_STATUS.CANCELLED;
-
-      // Default offline sales usually go straight to validation
-      return ORDER_STATUS.PENDING;
+      if (status.includes("void") || status.includes("batal")) return MP_STATUS.CANCELLED;
+      return MP_STATUS.NEW;
     },
   },
 };

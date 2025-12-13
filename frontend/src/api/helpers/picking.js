@@ -53,7 +53,7 @@ export const fetchPickingDetails = async (pickingListId) => {
 }
 
 /**
- * Data ini berasal dari tabel 'picking_list_items' dengan status 'PENDING_VALIDATION'.
+ * Data ini berasal dari tabel 'picking_list_items' dengan status 'PENDING'.
  * @returns {Promise<Array>} Array of item objects
  */
 export const getPendingPickingItems = async () => {
@@ -77,12 +77,12 @@ export const getHistoryPickingItems = async () => {
 
 /**
  * Menyelesaikan proses picking (Mengurangi stok fisik)
- * @param {Array<number>} itemIds - Array ID dari picking_list_items yang dicentang
+ * @param {Array<number>} payload - Array ID dari picking_list_items yang dicentang
  * @returns {Promise<Object>} Response sukses
  */
-export const completePickingItems = async (itemIds) => {
+export const completePickingItems = async (payload) => {
   try {
-    const response = await api.post('/picking/complete-items', { itemIds })
+    const response = await api.post('/picking/complete-items', payload)
     return response.data
   } catch (error) {
     console.error('Error completing picking items:', error)
@@ -106,7 +106,7 @@ export const getReturnedItems = async () => {
 }
 
 /**
- * Membatalkan picking list yang masih PENDING_VALIDATION
+ * Membatalkan picking list yang masih PENDING
  * Digunakan jika user perlu membatalkan picking list (misal: salah upload SKU)
  * @param {number} pickingListId - ID dari picking list yang akan dibatalkan
  * @returns {Promise<Object>} Response sukses

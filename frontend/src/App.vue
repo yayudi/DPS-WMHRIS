@@ -3,18 +3,21 @@
 import { computed, ref, onMounted } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
-import AppHeader from '@/components/AppHeader.vue'
-import MessageToast from '@/components/MessageToast.vue'
-import { registerToast } from '@/composables/UseToast.js'
+import AppHeader from '@/components/layout/AppHeader.vue'
+import MessageToast from '@/components/ui/MessageToast.vue'
+import { registerToast } from '@/composables/useToast.js'
+import { useTheme } from '@/composables/useTheme'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const { initTheme } = useTheme()
 
 const toastComponentRef = ref(null)
 const showHeader = computed(() => route.name !== 'Login')
 
 onMounted(() => {
+  initTheme()
   if (toastComponentRef.value) {
     registerToast(toastComponentRef.value)
   }

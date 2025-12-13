@@ -1,0 +1,2327 @@
+[2025-12-06T04:00:54.730Z] === MULAI TRANSAKSI UNTUK 577 ITEM ===
+[2025-12-06T04:00:54.732Z] ERROR ROLLBACK: Unknown column 'location_id' in 'field list'
+
+[2025-12-06T04:03:32.936Z] === MULAI TRANSAKSI UNTUK 576 ITEM ===
+[2025-12-06T04:03:32.937Z] ERROR ROLLBACK: Unknown column 'location_id' in 'field list'
+
+[2025-12-06T04:04:55.034Z] === MULAI TRANSAKSI UNTUK 576 ITEM ===
+[2025-12-06T04:04:55.036Z] ERROR ROLLBACK: Unknown column 'location_id' in 'field list'
+
+[2025-12-06T04:11:45.140Z] === MULAI TRANSAKSI UNTUK 576 ITEM ===
+[2025-12-06T04:11:45.141Z] ERROR ROLLBACK: Unknown column 'location_id' in 'field list'
+
+[2025-12-06T04:32:59.316Z] === MULAI TRANSAKSI UNTUK 576 ITEM ===
+[2025-12-06T04:32:59.319Z] ITEM ID: 11972 | Product: 2649 | Loc (DB): 2 | Qty: 3 | Stok Awal: 916
+[2025-12-06T04:32:59.320Z] ERROR ROLLBACK: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'confirmed_location_id = 2,
+          WHERE id = 11972' at line 4
+
+[2025-12-06T04:36:12.803Z] === MULAI TRANSAKSI UNTUK 576 ITEM ===
+[2025-12-06T04:36:12.805Z] ITEM ID: 11972 | Product: 2649 | Loc (DB): 2 | Qty: 3 | Stok Awal: 916
+[2025-12-06T04:36:12.809Z] SUKSES: Stok Berkurang. Sisa: 913
+[2025-12-06T04:36:12.814Z] ITEM ID: 11992 | Product: 527 | Loc (DB): 2 | Qty: 1 | Stok Awal: 333
+[2025-12-06T04:36:12.816Z] SUKSES: Stok Berkurang. Sisa: 332
+[2025-12-06T04:36:12.818Z] ITEM ID: 11920 | Product: 527 | Loc (DB): 2 | Qty: 5 | Stok Awal: 332
+[2025-12-06T04:36:12.820Z] SUKSES: Stok Berkurang. Sisa: 327
+[2025-12-06T04:36:12.822Z] ITEM ID: 11904 | Product: 2958 | Loc (DB): 2 | Qty: 5 | Stok Awal: 501
+[2025-12-06T04:36:12.823Z] SUKSES: Stok Berkurang. Sisa: 496
+[2025-12-06T04:36:12.825Z] ITEM ID: 11887 | Product: 711 | Loc (DB): 2 | Qty: 2 | Stok Awal: 101
+[2025-12-06T04:36:12.826Z] SUKSES: Stok Berkurang. Sisa: 99
+[2025-12-06T04:36:12.828Z] ITEM ID: 12000 | Product: 8827 | Loc (DB): 2 | Qty: 4 | Stok Awal: 246
+[2025-12-06T04:36:12.829Z] SUKSES: Stok Berkurang. Sisa: 242
+[2025-12-06T04:36:12.831Z] ITEM ID: 11928 | Product: 5261 | Loc (DB): 2 | Qty: 3 | Stok Awal: 786
+[2025-12-06T04:36:12.834Z] SUKSES: Stok Berkurang. Sisa: 783
+[2025-12-06T04:36:12.837Z] ITEM ID: 11912 | Product: 518 | Loc (DB): 2 | Qty: 1 | Stok Awal: 4
+[2025-12-06T04:36:12.839Z] SUKSES: Stok Berkurang. Sisa: 3
+[2025-12-06T04:36:12.840Z] ITEM ID: 11988 | Product: 140 | Loc (DB): 2 | Qty: 5 | Stok Awal: 140
+[2025-12-06T04:36:12.842Z] SUKSES: Stok Berkurang. Sisa: 135
+[2025-12-06T04:36:12.843Z] ITEM ID: 11895 | Product: 2594 | Loc (DB): 2 | Qty: 5 | Stok Awal: 183
+[2025-12-06T04:36:12.844Z] SUKSES: Stok Berkurang. Sisa: 178
+[2025-12-06T04:36:12.846Z] ITEM ID: 12018 | Product: 2968 | Loc (DB): 2 | Qty: 1 | Stok Awal: 101
+[2025-12-06T04:36:12.847Z] SUKSES: Stok Berkurang. Sisa: 100
+[2025-12-06T04:36:12.849Z] ITEM ID: 11901 | Product: 2586 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1991
+[2025-12-06T04:36:12.850Z] SUKSES: Stok Berkurang. Sisa: 1987
+[2025-12-06T04:36:12.852Z] ITEM ID: 12023 | Product: 2865 | Loc (DB): 2 | Qty: 2 | Stok Awal: 3
+[2025-12-06T04:36:12.853Z] SUKSES: Stok Berkurang. Sisa: 1
+[2025-12-06T04:36:12.854Z] ITEM ID: 11977 | Product: 4393 | Loc (DB): 2 | Qty: 30 | Stok Awal: 100
+[2025-12-06T04:36:12.855Z] SUKSES: Stok Berkurang. Sisa: 70
+[2025-12-06T04:36:12.857Z] ITEM ID: 11884 | Product: 321 | Loc (DB): 2 | Qty: 100 | Stok Awal: 3500
+[2025-12-06T04:36:12.858Z] SUKSES: Stok Berkurang. Sisa: 3400
+[2025-12-06T04:36:12.859Z] ITEM ID: 11997 | Product: 527 | Loc (DB): 2 | Qty: 2 | Stok Awal: 327
+[2025-12-06T04:36:12.860Z] SUKSES: Stok Berkurang. Sisa: 325
+[2025-12-06T04:36:12.861Z] ITEM ID: 11925 | Product: 2848 | Loc (DB): 2 | Qty: 1 | Stok Awal: 204
+[2025-12-06T04:36:12.863Z] SUKSES: Stok Berkurang. Sisa: 203
+[2025-12-06T04:36:12.865Z] ITEM ID: 11909 | Product: 2714 | Loc (DB): 2 | Qty: 6 | Stok Awal: 12001
+[2025-12-06T04:36:12.866Z] SUKSES: Stok Berkurang. Sisa: 11995
+[2025-12-06T04:36:12.868Z] ITEM ID: 11985 | Product: 431 | Loc (DB): 2 | Qty: 1 | Stok Awal: 3151
+[2025-12-06T04:36:12.870Z] SUKSES: Stok Berkurang. Sisa: 3150
+[2025-12-06T04:36:12.871Z] ITEM ID: 11892 | Product: 2592 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1139
+[2025-12-06T04:36:12.873Z] SUKSES: Stok Berkurang. Sisa: 1134
+[2025-12-06T04:36:12.874Z] ITEM ID: 12015 | Product: 3005 | Loc (DB): 2 | Qty: 1 | Stok Awal: 64
+[2025-12-06T04:36:12.875Z] SUKSES: Stok Berkurang. Sisa: 63
+[2025-12-06T04:36:12.876Z] ITEM ID: 11967 | Product: 183 | Loc (DB): 2 | Qty: 22 | Stok Awal: 72
+[2025-12-06T04:36:12.877Z] SUKSES: Stok Berkurang. Sisa: 50
+[2025-12-06T04:36:12.879Z] ITEM ID: 11917 | Product: 329 | Loc (DB): 2 | Qty: 10 | Stok Awal: 800
+[2025-12-06T04:36:12.881Z] SUKSES: Stok Berkurang. Sisa: 790
+[2025-12-06T04:36:12.883Z] ITEM ID: 12020 | Product: 537 | Loc (DB): 2 | Qty: 1 | Stok Awal: 156
+[2025-12-06T04:36:12.885Z] SUKSES: Stok Berkurang. Sisa: 155
+[2025-12-06T04:36:12.887Z] ITEM ID: 11974 | Product: 2891 | Loc (DB): 2 | Qty: 20 | Stok Awal: 265
+[2025-12-06T04:36:12.889Z] SUKSES: Stok Berkurang. Sisa: 245
+[2025-12-06T04:36:12.890Z] ITEM ID: 11880 | Product: 11381 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1071
+[2025-12-06T04:36:12.892Z] SUKSES: Stok Berkurang. Sisa: 1066
+[2025-12-06T04:36:12.893Z] ITEM ID: 11994 | Product: 431 | Loc (DB): 2 | Qty: 8 | Stok Awal: 3150
+[2025-12-06T04:36:12.894Z] SUKSES: Stok Berkurang. Sisa: 3142
+[2025-12-06T04:36:12.896Z] ITEM ID: 11922 | Product: 5263 | Loc (DB): 2 | Qty: 5 | Stok Awal: 165
+[2025-12-06T04:36:12.897Z] SUKSES: Stok Berkurang. Sisa: 160
+[2025-12-06T04:36:12.899Z] ITEM ID: 11906 | Product: 1853 | Loc (DB): 2 | Qty: 1 | Stok Awal: 718
+[2025-12-06T04:36:12.900Z] SUKSES: Stok Berkurang. Sisa: 717
+[2025-12-06T04:36:12.901Z] ITEM ID: 11982 | Product: 916 | Loc (DB): 2 | Qty: 3 | Stok Awal: 44
+[2025-12-06T04:36:12.903Z] SUKSES: Stok Berkurang. Sisa: 41
+[2025-12-06T04:36:12.904Z] ITEM ID: 12002 | Product: 8811 | Loc (DB): 2 | Qty: 7 | Stok Awal: 884
+[2025-12-06T04:36:12.905Z] SUKSES: Stok Berkurang. Sisa: 877
+[2025-12-06T04:36:12.907Z] ITEM ID: 11958 | Product: 162 | Loc (DB): 2 | Qty: 10 | Stok Awal: 882
+[2025-12-06T04:36:12.908Z] SUKSES: Stok Berkurang. Sisa: 872
+[2025-12-06T04:36:12.909Z] ITEM ID: 11914 | Product: 1850 | Loc (DB): 2 | Qty: 1 | Stok Awal: 654
+[2025-12-06T04:36:12.910Z] SUKSES: Stok Berkurang. Sisa: 653
+[2025-12-06T04:36:12.911Z] ITEM ID: 11990 | Product: 8814 | Loc (DB): 2 | Qty: 3 | Stok Awal: 85
+[2025-12-06T04:36:12.913Z] SUKSES: Stok Berkurang. Sisa: 82
+[2025-12-06T04:36:12.914Z] ITEM ID: 11991 | Product: 515 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1819
+[2025-12-06T04:36:12.916Z] SUKSES: Stok Berkurang. Sisa: 1818
+[2025-12-06T04:36:12.917Z] ITEM ID: 11919 | Product: 5262 | Loc (DB): 2 | Qty: 3 | Stok Awal: 1449
+[2025-12-06T04:36:12.919Z] SUKSES: Stok Berkurang. Sisa: 1446
+[2025-12-06T04:36:12.920Z] ITEM ID: 11903 | Product: 2592 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1134
+[2025-12-06T04:36:12.922Z] SUKSES: Stok Berkurang. Sisa: 1132
+[2025-12-06T04:36:12.923Z] ITEM ID: 11979 | Product: 3662 | Loc (DB): 2 | Qty: 30 | Stok Awal: 228
+[2025-12-06T04:36:12.924Z] SUKSES: Stok Berkurang. Sisa: 198
+[2025-12-06T04:36:12.926Z] ITEM ID: 11999 | Product: 5091 | Loc (DB): 2 | Qty: 4 | Stok Awal: 556
+[2025-12-06T04:36:12.927Z] SUKSES: Stok Berkurang. Sisa: 552
+[2025-12-06T04:36:12.929Z] ITEM ID: 11927 | Product: 1859 | Loc (DB): 2 | Qty: 1 | Stok Awal: 705
+[2025-12-06T04:36:12.931Z] SUKSES: Stok Berkurang. Sisa: 704
+[2025-12-06T04:36:12.933Z] ITEM ID: 11911 | Product: 53 | Loc (DB): 2 | Qty: 1 | Stok Awal: 3546
+[2025-12-06T04:36:12.935Z] SUKSES: Stok Berkurang. Sisa: 3545
+[2025-12-06T04:36:12.937Z] ITEM ID: 11987 | Product: 168 | Loc (DB): 2 | Qty: 6 | Stok Awal: 139
+[2025-12-06T04:36:12.939Z] SUKSES: Stok Berkurang. Sisa: 133
+[2025-12-06T04:36:12.941Z] ITEM ID: 11894 | Product: 2593 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1559
+[2025-12-06T04:36:12.943Z] SUKSES: Stok Berkurang. Sisa: 1554
+[2025-12-06T04:36:12.944Z] ITEM ID: 12017 | Product: 2956 | Loc (DB): 2 | Qty: 2 | Stok Awal: 344
+[2025-12-06T04:36:12.947Z] SUKSES: Stok Berkurang. Sisa: 342
+[2025-12-06T04:36:12.948Z] ITEM ID: 11971 | Product: 13 | Loc (DB): 2 | Qty: 20 | Stok Awal: 800
+[2025-12-06T04:36:12.950Z] SUKSES: Stok Berkurang. Sisa: 780
+[2025-12-06T04:36:12.952Z] ITEM ID: 11900 | Product: 2592 | Loc (DB): 2 | Qty: 8 | Stok Awal: 1132
+[2025-12-06T04:36:12.954Z] SUKSES: Stok Berkurang. Sisa: 1124
+[2025-12-06T04:36:12.955Z] ITEM ID: 12022 | Product: 2864 | Loc (DB): 2 | Qty: 5 | Stok Awal: 21
+[2025-12-06T04:36:12.956Z] SUKSES: Stok Berkurang. Sisa: 16
+[2025-12-06T04:36:12.957Z] ITEM ID: 11883 | Product: 13 | Loc (DB): 2 | Qty: 4 | Stok Awal: 780
+[2025-12-06T04:36:12.959Z] SUKSES: Stok Berkurang. Sisa: 776
+[2025-12-06T04:36:12.960Z] ITEM ID: 11996 | Product: 515 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1818
+[2025-12-06T04:36:12.961Z] SUKSES: Stok Berkurang. Sisa: 1816
+[2025-12-06T04:36:12.962Z] ITEM ID: 11924 | Product: 2847 | Loc (DB): 2 | Qty: 1 | Stok Awal: 627
+[2025-12-06T04:36:12.964Z] SUKSES: Stok Berkurang. Sisa: 626
+[2025-12-06T04:36:12.965Z] ITEM ID: 11908 | Product: 43 | Loc (DB): 2 | Qty: 5 | Stok Awal: 56
+[2025-12-06T04:36:12.967Z] SUKSES: Stok Berkurang. Sisa: 51
+[2025-12-06T04:36:12.969Z] ITEM ID: 11984 | Product: 198 | Loc (DB): 2 | Qty: 5 | Stok Awal: 343
+[2025-12-06T04:36:12.970Z] SUKSES: Stok Berkurang. Sisa: 338
+[2025-12-06T04:36:12.972Z] ITEM ID: 11891 | Product: 2597 | Loc (DB): 2 | Qty: 5 | Stok Awal: 124
+[2025-12-06T04:36:12.973Z] SUKSES: Stok Berkurang. Sisa: 119
+[2025-12-06T04:36:12.974Z] ITEM ID: 11960 | Product: 226 | Loc (DB): 2 | Qty: 10 | Stok Awal: 134
+[2025-12-06T04:36:12.975Z] SUKSES: Stok Berkurang. Sisa: 124
+[2025-12-06T04:36:12.976Z] ITEM ID: 11916 | Product: 2947 | Loc (DB): 2 | Qty: 2 | Stok Awal: 65
+[2025-12-06T04:36:12.978Z] SUKSES: Stok Berkurang. Sisa: 63
+[2025-12-06T04:36:12.979Z] ITEM ID: 12019 | Product: 11381 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1066
+[2025-12-06T04:36:12.981Z] SUKSES: Stok Berkurang. Sisa: 1061
+[2025-12-06T04:36:12.982Z] ITEM ID: 11973 | Product: 2663 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1260
+[2025-12-06T04:36:12.984Z] SUKSES: Stok Berkurang. Sisa: 1259
+[2025-12-06T04:36:12.985Z] ITEM ID: 11993 | Product: 731 | Loc (DB): 2 | Qty: 1 | Stok Awal: 126
+[2025-12-06T04:36:12.987Z] SUKSES: Stok Berkurang. Sisa: 125
+[2025-12-06T04:36:12.989Z] ITEM ID: 11921 | Product: 2857 | Loc (DB): 2 | Qty: 6 | Stok Awal: 2461
+[2025-12-06T04:36:12.991Z] SUKSES: Stok Berkurang. Sisa: 2455
+[2025-12-06T04:36:12.992Z] ITEM ID: 11905 | Product: 2712 | Loc (DB): 2 | Qty: 3 | Stok Awal: 648
+[2025-12-06T04:36:12.994Z] SUKSES: Stok Berkurang. Sisa: 645
+[2025-12-06T04:36:12.995Z] ITEM ID: 11888 | Product: 2898 | Loc (DB): 2 | Qty: 4 | Stok Awal: 294
+[2025-12-06T04:36:12.997Z] SUKSES: Stok Berkurang. Sisa: 290
+[2025-12-06T04:36:12.998Z] ITEM ID: 12001 | Product: 431 | Loc (DB): 2 | Qty: 7 | Stok Awal: 3142
+[2025-12-06T04:36:13.000Z] SUKSES: Stok Berkurang. Sisa: 3135
+[2025-12-06T04:36:13.001Z] ITEM ID: 11957 | Product: 2998 | Loc (DB): 2 | Qty: 3 | Stok Awal: 115
+[2025-12-06T04:36:13.003Z] SUKSES: Stok Berkurang. Sisa: 112
+[2025-12-06T04:36:13.005Z] ITEM ID: 11913 | Product: 1817 | Loc (DB): 2 | Qty: 1 | Stok Awal: 312
+[2025-12-06T04:36:13.006Z] SUKSES: Stok Berkurang. Sisa: 311
+[2025-12-06T04:36:13.007Z] ITEM ID: 11989 | Product: 429 | Loc (DB): 2 | Qty: 3 | Stok Awal: 2635
+[2025-12-06T04:36:13.008Z] SUKSES: Stok Berkurang. Sisa: 2632
+[2025-12-06T04:36:13.010Z] ITEM ID: 11897 | Product: 70 | Loc (DB): 2 | Qty: 4 | Stok Awal: 96
+[2025-12-06T04:36:13.012Z] SUKSES: Stok Berkurang. Sisa: 92
+[2025-12-06T04:36:13.013Z] ITEM ID: 11918 | Product: 21 | Loc (DB): 2 | Qty: 10 | Stok Awal: 2576
+[2025-12-06T04:36:13.015Z] SUKSES: Stok Berkurang. Sisa: 2566
+[2025-12-06T04:36:13.016Z] ITEM ID: 11902 | Product: 2991 | Loc (DB): 2 | Qty: 2 | Stok Awal: 176
+[2025-12-06T04:36:13.018Z] SUKSES: Stok Berkurang. Sisa: 174
+[2025-12-06T04:36:13.020Z] ITEM ID: 12024 | Product: 2859 | Loc (DB): 2 | Qty: 10 | Stok Awal: 516
+[2025-12-06T04:36:13.021Z] SUKSES: Stok Berkurang. Sisa: 506
+[2025-12-06T04:36:13.023Z] ITEM ID: 11978 | Product: 4396 | Loc (DB): 2 | Qty: 30 | Stok Awal: 680
+[2025-12-06T04:36:13.025Z] SUKSES: Stok Berkurang. Sisa: 650
+[2025-12-06T04:36:13.026Z] ITEM ID: 11885 | Product: 12 | Loc (DB): 2 | Qty: 4 | Stok Awal: 85
+[2025-12-06T04:36:13.027Z] SUKSES: Stok Berkurang. Sisa: 81
+[2025-12-06T04:36:13.029Z] ITEM ID: 11998 | Product: 732 | Loc (DB): 2 | Qty: 2 | Stok Awal: 84
+[2025-12-06T04:36:13.030Z] SUKSES: Stok Berkurang. Sisa: 82
+[2025-12-06T04:36:13.032Z] ITEM ID: 11926 | Product: 533 | Loc (DB): 2 | Qty: 5 | Stok Awal: 153
+[2025-12-06T04:36:13.034Z] SUKSES: Stok Berkurang. Sisa: 148
+[2025-12-06T04:36:13.036Z] ITEM ID: 11910 | Product: 11 | Loc (DB): 2 | Qty: 2 | Stok Awal: 4452
+[2025-12-06T04:36:13.038Z] SUKSES: Stok Berkurang. Sisa: 4450
+[2025-12-06T04:36:13.040Z] ITEM ID: 11986 | Product: 8814 | Loc (DB): 2 | Qty: 1 | Stok Awal: 82
+[2025-12-06T04:36:13.041Z] SUKSES: Stok Berkurang. Sisa: 81
+[2025-12-06T04:36:13.043Z] ITEM ID: 11893 | Product: 5211 | Loc (DB): 2 | Qty: 5 | Stok Awal: 156
+[2025-12-06T04:36:13.045Z] SUKSES: Stok Berkurang. Sisa: 151
+[2025-12-06T04:36:13.052Z] ITEM ID: 12016 | Product: 2979 | Loc (DB): 2 | Qty: 2 | Stok Awal: 412
+[2025-12-06T04:36:13.054Z] SUKSES: Stok Berkurang. Sisa: 410
+[2025-12-06T04:36:13.055Z] ITEM ID: 11970 | Product: 2725 | Loc (DB): 2 | Qty: 1 | Stok Awal: 750
+[2025-12-06T04:36:13.057Z] SUKSES: Stok Berkurang. Sisa: 749
+[2025-12-06T04:36:13.058Z] ITEM ID: 11899 | Product: 2699 | Loc (DB): 2 | Qty: 2 | Stok Awal: 404
+[2025-12-06T04:36:13.060Z] SUKSES: Stok Berkurang. Sisa: 402
+[2025-12-06T04:36:13.061Z] ITEM ID: 12021 | Product: 522 | Loc (DB): 2 | Qty: 1 | Stok Awal: 424
+[2025-12-06T04:36:13.062Z] SUKSES: Stok Berkurang. Sisa: 423
+[2025-12-06T04:36:13.064Z] ITEM ID: 11975 | Product: 2863 | Loc (DB): 2 | Qty: 10 | Stok Awal: 63
+[2025-12-06T04:36:13.066Z] SUKSES: Stok Berkurang. Sisa: 53
+[2025-12-06T04:36:13.067Z] ITEM ID: 11881 | Product: 7697 | Loc (DB): 2 | Qty: 4 | Stok Awal: 8
+[2025-12-06T04:36:13.069Z] SUKSES: Stok Berkurang. Sisa: 4
+[2025-12-06T04:36:13.070Z] ITEM ID: 11995 | Product: 8812 | Loc (DB): 2 | Qty: 4 | Stok Awal: 240
+[2025-12-06T04:36:13.072Z] SUKSES: Stok Berkurang. Sisa: 236
+[2025-12-06T04:36:13.074Z] ITEM ID: 11923 | Product: 4755 | Loc (DB): 2 | Qty: 2 | Stok Awal: 10
+[2025-12-06T04:36:13.075Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:36:13.077Z] ITEM ID: 11907 | Product: 2959 | Loc (DB): 2 | Qty: 2 | Stok Awal: 245
+[2025-12-06T04:36:13.079Z] SUKSES: Stok Berkurang. Sisa: 243
+[2025-12-06T04:36:13.081Z] ITEM ID: 11983 | Product: 48 | Loc (DB): 2 | Qty: 10 | Stok Awal: 666
+[2025-12-06T04:36:13.082Z] SUKSES: Stok Berkurang. Sisa: 656
+[2025-12-06T04:36:13.084Z] ITEM ID: 11890 | Product: 7645 | Loc (DB): 2 | Qty: 3 | Stok Awal: 10
+[2025-12-06T04:36:13.087Z] SUKSES: Stok Berkurang. Sisa: 7
+[2025-12-06T04:36:13.088Z] ITEM ID: 12013 | Product: 225 | Loc (DB): 2 | Qty: 10 | Stok Awal: 3601
+[2025-12-06T04:36:13.090Z] SUKSES: Stok Berkurang. Sisa: 3591
+[2025-12-06T04:36:13.091Z] ITEM ID: 11959 | Product: 53 | Loc (DB): 2 | Qty: 20 | Stok Awal: 3545
+[2025-12-06T04:36:13.092Z] SUKSES: Stok Berkurang. Sisa: 3525
+[2025-12-06T04:36:13.093Z] ITEM ID: 11915 | Product: 2846 | Loc (DB): 2 | Qty: 2 | Stok Awal: 392
+[2025-12-06T04:36:13.095Z] SUKSES: Stok Berkurang. Sisa: 390
+[2025-12-06T04:36:13.097Z] ITEM ID: 11898 | Product: 319 | Loc (DB): 3 | Qty: 4 | Stok Awal: 932
+[2025-12-06T04:36:13.099Z] SUKSES: Stok Berkurang. Sisa: 928
+[2025-12-06T04:36:13.100Z] ITEM ID: 11886 | Product: 317 | Loc (DB): 3 | Qty: 200 | Stok Awal: 2158
+[2025-12-06T04:36:13.102Z] SUKSES: Stok Berkurang. Sisa: 1958
+[2025-12-06T04:36:13.103Z] ITEM ID: 11980 | Product: 4391 | Loc (DB): 4 | Qty: 30 | Stok Awal: 306
+[2025-12-06T04:36:13.105Z] SUKSES: Stok Berkurang. Sisa: 276
+[2025-12-06T04:36:13.106Z] ITEM ID: 11889 | Product: 728 | Loc (DB): 4 | Qty: 1 | Stok Awal: 9
+[2025-12-06T04:36:13.107Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:36:13.108Z] ITEM ID: 12014 | Product: 4399 | Loc (DB): 4 | Qty: 4 | Stok Awal: 212
+[2025-12-06T04:36:13.110Z] SUKSES: Stok Berkurang. Sisa: 208
+[2025-12-06T04:36:13.111Z] ITEM ID: 11976 | Product: 5 | Loc (DB): 5 | Qty: 20 | Stok Awal: 10000
+[2025-12-06T04:36:13.112Z] SUKSES: Stok Berkurang. Sisa: 9980
+[2025-12-06T04:36:13.114Z] ITEM ID: 11981 | Product: 11272 | Loc (DB): 5 | Qty: 2 | Stok Awal: 65
+[2025-12-06T04:36:13.116Z] SUKSES: Stok Berkurang. Sisa: 63
+[2025-12-06T04:36:13.117Z] ITEM ID: 11473 | Product: 2592 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1124
+[2025-12-06T04:36:13.119Z] SUKSES: Stok Berkurang. Sisa: 1104
+[2025-12-06T04:36:13.120Z] ITEM ID: 11470 | Product: 8806 | Loc (DB): 2 | Qty: 18 | Stok Awal: 342
+[2025-12-06T04:36:13.121Z] SUKSES: Stok Berkurang. Sisa: 324
+[2025-12-06T04:36:13.123Z] ITEM ID: 11472 | Product: 8806 | Loc (DB): 2 | Qty: 6 | Stok Awal: 324
+[2025-12-06T04:36:13.124Z] SUKSES: Stok Berkurang. Sisa: 318
+[2025-12-06T04:36:13.125Z] ITEM ID: 11598 | Product: 8806 | Loc (DB): 2 | Qty: 7 | Stok Awal: 318
+[2025-12-06T04:36:13.127Z] SUKSES: Stok Berkurang. Sisa: 311
+[2025-12-06T04:36:13.128Z] ITEM ID: 11471 | Product: 429 | Loc (DB): 2 | Qty: 6 | Stok Awal: 2632
+[2025-12-06T04:36:13.129Z] SUKSES: Stok Berkurang. Sisa: 2626
+[2025-12-06T04:36:13.131Z] ITEM ID: 10592 | Product: 3065 | Loc (DB): 2 | Qty: 2 | Stok Awal: 122
+[2025-12-06T04:36:13.133Z] SUKSES: Stok Berkurang. Sisa: 120
+[2025-12-06T04:36:13.135Z] ITEM ID: 9705 | Product: 227 | Loc (DB): 2 | Qty: 8 | Stok Awal: 100
+[2025-12-06T04:36:13.137Z] SUKSES: Stok Berkurang. Sisa: 92
+[2025-12-06T04:36:13.139Z] ITEM ID: 9968 | Product: 8809 | Loc (DB): 2 | Qty: 2 | Stok Awal: 497
+[2025-12-06T04:36:13.140Z] SUKSES: Stok Berkurang. Sisa: 495
+[2025-12-06T04:36:13.141Z] ITEM ID: 9958 | Product: 7 | Loc (DB): 2 | Qty: 5 | Stok Awal: 3207
+[2025-12-06T04:36:13.143Z] SUKSES: Stok Berkurang. Sisa: 3202
+[2025-12-06T04:36:13.145Z] ITEM ID: 10664 | Product: 4465 | Loc (DB): 2 | Qty: 1 | Stok Awal: 78
+[2025-12-06T04:36:13.147Z] SUKSES: Stok Berkurang. Sisa: 77
+[2025-12-06T04:36:13.149Z] ITEM ID: 9724 | Product: 5248 | Loc (DB): 2 | Qty: 50 | Stok Awal: 602
+[2025-12-06T04:36:13.151Z] SUKSES: Stok Berkurang. Sisa: 552
+[2025-12-06T04:36:13.152Z] ITEM ID: 10236 | Product: 731 | Loc (DB): 2 | Qty: 1 | Stok Awal: 125
+[2025-12-06T04:36:13.154Z] SUKSES: Stok Berkurang. Sisa: 124
+[2025-12-06T04:36:13.155Z] ITEM ID: 10917 | Product: 2682 | Loc (DB): 2 | Qty: 4 | Stok Awal: 608
+[2025-12-06T04:36:13.156Z] SUKSES: Stok Berkurang. Sisa: 604
+[2025-12-06T04:36:13.157Z] ITEM ID: 9966 | Product: 8812 | Loc (DB): 2 | Qty: 2 | Stok Awal: 236
+[2025-12-06T04:36:13.159Z] SUKSES: Stok Berkurang. Sisa: 234
+[2025-12-06T04:36:13.160Z] ITEM ID: 11002 | Product: 5082 | Loc (DB): 2 | Qty: 2 | Stok Awal: 10
+[2025-12-06T04:36:13.161Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:36:13.162Z] ITEM ID: 10817 | Product: 322 | Loc (DB): 2 | Qty: 3 | Stok Awal: 986
+[2025-12-06T04:36:13.164Z] SUKSES: Stok Berkurang. Sisa: 983
+[2025-12-06T04:36:13.166Z] ITEM ID: 9955 | Product: 10 | Loc (DB): 2 | Qty: 5 | Stok Awal: 4035
+[2025-12-06T04:36:13.167Z] SUKSES: Stok Berkurang. Sisa: 4030
+[2025-12-06T04:36:13.168Z] ITEM ID: 10597 | Product: 2607 | Loc (DB): 2 | Qty: 2 | Stok Awal: 252
+[2025-12-06T04:36:13.170Z] SUKSES: Stok Berkurang. Sisa: 250
+[2025-12-06T04:36:13.171Z] ITEM ID: 11013 | Product: 8476 | Loc (DB): 2 | Qty: 6 | Stok Awal: 282
+[2025-12-06T04:36:13.173Z] SUKSES: Stok Berkurang. Sisa: 276
+[2025-12-06T04:36:13.174Z] ITEM ID: 9721 | Product: 533 | Loc (DB): 2 | Qty: 15 | Stok Awal: 148
+[2025-12-06T04:36:13.175Z] SUKSES: Stok Berkurang. Sisa: 133
+[2025-12-06T04:36:13.177Z] ITEM ID: 10233 | Product: 708 | Loc (DB): 2 | Qty: 1 | Stok Awal: 620
+[2025-12-06T04:36:13.178Z] SUKSES: Stok Berkurang. Sisa: 619
+[2025-12-06T04:36:13.179Z] ITEM ID: 10903 | Product: 3800 | Loc (DB): 2 | Qty: 1 | Stok Awal: 49
+[2025-12-06T04:36:13.180Z] SUKSES: Stok Berkurang. Sisa: 48
+[2025-12-06T04:36:13.182Z] ITEM ID: 9963 | Product: 543 | Loc (DB): 2 | Qty: 4 | Stok Awal: 126
+[2025-12-06T04:36:13.184Z] SUKSES: Stok Berkurang. Sisa: 122
+[2025-12-06T04:36:13.186Z] ITEM ID: 10778 | Product: 162 | Loc (DB): 2 | Qty: 7 | Stok Awal: 872
+[2025-12-06T04:36:13.187Z] SUKSES: Stok Berkurang. Sisa: 865
+[2025-12-06T04:36:13.189Z] ITEM ID: 10814 | Product: 233 | Loc (DB): 2 | Qty: 5 | Stok Awal: 91
+[2025-12-06T04:36:13.190Z] SUKSES: Stok Berkurang. Sisa: 86
+[2025-12-06T04:36:13.191Z] ITEM ID: 9881 | Product: 321 | Loc (DB): 2 | Qty: 35 | Stok Awal: 3400
+[2025-12-06T04:36:13.193Z] SUKSES: Stok Berkurang. Sisa: 3365
+[2025-12-06T04:36:13.194Z] ITEM ID: 10594 | Product: 533 | Loc (DB): 2 | Qty: 2 | Stok Awal: 133
+[2025-12-06T04:36:13.195Z] SUKSES: Stok Berkurang. Sisa: 131
+[2025-12-06T04:36:13.197Z] ITEM ID: 11010 | Product: 2648 | Loc (DB): 2 | Qty: 10 | Stok Awal: 48
+[2025-12-06T04:36:13.198Z] SUKSES: Stok Berkurang. Sisa: 38
+[2025-12-06T04:36:13.199Z] ITEM ID: 9970 | Product: 8807 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1000
+[2025-12-06T04:36:13.200Z] SUKSES: Stok Berkurang. Sisa: 998
+[2025-12-06T04:36:13.202Z] ITEM ID: 10871 | Product: 4465 | Loc (DB): 2 | Qty: 1 | Stok Awal: 77
+[2025-12-06T04:36:13.203Z] SUKSES: Stok Berkurang. Sisa: 76
+[2025-12-06T04:36:13.204Z] ITEM ID: 9960 | Product: 48 | Loc (DB): 2 | Qty: 5 | Stok Awal: 656
+[2025-12-06T04:36:13.205Z] SUKSES: Stok Berkurang. Sisa: 651
+[2025-12-06T04:36:13.207Z] ITEM ID: 9726 | Product: 5258 | Loc (DB): 2 | Qty: 20 | Stok Awal: 97
+[2025-12-06T04:36:13.208Z] SUKSES: Stok Berkurang. Sisa: 77
+[2025-12-06T04:36:13.209Z] ITEM ID: 11004 | Product: 7573 | Loc (DB): 2 | Qty: 2 | Stok Awal: 20
+[2025-12-06T04:36:13.211Z] SUKSES: Stok Berkurang. Sisa: 18
+[2025-12-06T04:36:13.212Z] ITEM ID: 9704 | Product: 57 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1089
+[2025-12-06T04:36:13.213Z] SUKSES: Stok Berkurang. Sisa: 1084
+[2025-12-06T04:36:13.215Z] ITEM ID: 9967 | Product: 435 | Loc (DB): 2 | Qty: 2 | Stok Awal: 323
+[2025-12-06T04:36:13.216Z] SUKSES: Stok Berkurang. Sisa: 321
+[2025-12-06T04:36:13.217Z] ITEM ID: 9957 | Product: 6 | Loc (DB): 2 | Qty: 6 | Stok Awal: 1607
+[2025-12-06T04:36:13.219Z] SUKSES: Stok Berkurang. Sisa: 1601
+[2025-12-06T04:36:13.220Z] ITEM ID: 9723 | Product: 520 | Loc (DB): 2 | Qty: 10 | Stok Awal: 351
+[2025-12-06T04:36:13.221Z] SUKSES: Stok Berkurang. Sisa: 341
+[2025-12-06T04:36:13.222Z] ITEM ID: 10235 | Product: 527 | Loc (DB): 2 | Qty: 1 | Stok Awal: 325
+[2025-12-06T04:36:13.224Z] SUKSES: Stok Berkurang. Sisa: 324
+[2025-12-06T04:36:13.225Z] ITEM ID: 10916 | Product: 32 | Loc (DB): 2 | Qty: 3 | Stok Awal: 167
+[2025-12-06T04:36:13.226Z] SUKSES: Stok Berkurang. Sisa: 164
+[2025-12-06T04:36:13.227Z] ITEM ID: 10780 | Product: 322 | Loc (DB): 2 | Qty: 5 | Stok Awal: 983
+[2025-12-06T04:36:13.230Z] SUKSES: Stok Berkurang. Sisa: 978
+[2025-12-06T04:36:13.232Z] ITEM ID: 10591 | Product: 5246 | Loc (DB): 2 | Qty: 5 | Stok Awal: 805
+[2025-12-06T04:36:13.233Z] SUKSES: Stok Berkurang. Sisa: 800
+[2025-12-06T04:36:13.235Z] ITEM ID: 10816 | Product: 199 | Loc (DB): 2 | Qty: 3 | Stok Awal: 11
+[2025-12-06T04:36:13.236Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:36:13.238Z] ITEM ID: 10596 | Product: 2592 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1104
+[2025-12-06T04:36:13.239Z] SUKSES: Stok Berkurang. Sisa: 1100
+[2025-12-06T04:36:13.240Z] ITEM ID: 11012 | Product: 2714 | Loc (DB): 2 | Qty: 1 | Stok Awal: 11995
+[2025-12-06T04:36:13.241Z] SUKSES: Stok Berkurang. Sisa: 11994
+[2025-12-06T04:36:13.242Z] ITEM ID: 9709 | Product: 1926 | Loc (DB): 2 | Qty: 6 | Stok Awal: 923
+[2025-12-06T04:36:13.243Z] SUKSES: Stok Berkurang. Sisa: 917
+[2025-12-06T04:36:13.244Z] ITEM ID: 10902 | Product: 2597 | Loc (DB): 2 | Qty: 1 | Stok Awal: 119
+[2025-12-06T04:36:13.245Z] SUKSES: Stok Berkurang. Sisa: 118
+[2025-12-06T04:36:13.247Z] ITEM ID: 10777 | Product: 320 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1400
+[2025-12-06T04:36:13.248Z] SUKSES: Stok Berkurang. Sisa: 1396
+[2025-12-06T04:36:13.249Z] ITEM ID: 10921 | Product: 11381 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1061
+[2025-12-06T04:36:13.250Z] SUKSES: Stok Berkurang. Sisa: 1057
+[2025-12-06T04:36:13.252Z] ITEM ID: 9701 | Product: 163 | Loc (DB): 2 | Qty: 5 | Stok Awal: 506
+[2025-12-06T04:36:13.253Z] SUKSES: Stok Berkurang. Sisa: 501
+[2025-12-06T04:36:13.255Z] ITEM ID: 11009 | Product: 2613 | Loc (DB): 2 | Qty: 2 | Stok Awal: 17
+[2025-12-06T04:36:13.256Z] SUKSES: Stok Berkurang. Sisa: 15
+[2025-12-06T04:36:13.259Z] ITEM ID: 9706 | Product: 234 | Loc (DB): 2 | Qty: 5 | Stok Awal: 97
+[2025-12-06T04:36:13.260Z] SUKSES: Stok Berkurang. Sisa: 92
+[2025-12-06T04:36:13.261Z] ITEM ID: 9959 | Product: 45 | Loc (DB): 2 | Qty: 5 | Stok Awal: 114
+[2025-12-06T04:36:13.263Z] SUKSES: Stok Berkurang. Sisa: 109
+[2025-12-06T04:36:13.264Z] ITEM ID: 9725 | Product: 5275 | Loc (DB): 2 | Qty: 20 | Stok Awal: 50
+[2025-12-06T04:36:13.265Z] SUKSES: Stok Berkurang. Sisa: 30
+[2025-12-06T04:36:13.267Z] ITEM ID: 10918 | Product: 2845 | Loc (DB): 2 | Qty: 2 | Stok Awal: 345
+[2025-12-06T04:36:13.268Z] SUKSES: Stok Berkurang. Sisa: 343
+[2025-12-06T04:36:13.270Z] ITEM ID: 10813 | Product: 204 | Loc (DB): 2 | Qty: 6 | Stok Awal: 459
+[2025-12-06T04:36:13.271Z] SUKSES: Stok Berkurang. Sisa: 453
+[2025-12-06T04:36:13.272Z] ITEM ID: 9703 | Product: 327 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1290
+[2025-12-06T04:36:13.273Z] SUKSES: Stok Berkurang. Sisa: 1288
+[2025-12-06T04:36:13.274Z] ITEM ID: 10818 | Product: 186 | Loc (DB): 2 | Qty: 5 | Stok Awal: 116
+[2025-12-06T04:36:13.275Z] SUKSES: Stok Berkurang. Sisa: 111
+[2025-12-06T04:36:13.276Z] ITEM ID: 9956 | Product: 2 | Loc (DB): 2 | Qty: 6 | Stok Awal: 324
+[2025-12-06T04:36:13.277Z] SUKSES: Stok Berkurang. Sisa: 318
+[2025-12-06T04:36:13.278Z] ITEM ID: 10642 | Product: 4465 | Loc (DB): 2 | Qty: 1 | Stok Awal: 76
+[2025-12-06T04:36:13.280Z] SUKSES: Stok Berkurang. Sisa: 75
+[2025-12-06T04:36:13.281Z] ITEM ID: 11014 | Product: 12057 | Loc (DB): 2 | Qty: 1 | Stok Awal: 15
+[2025-12-06T04:36:13.283Z] SUKSES: Stok Berkurang. Sisa: 14
+[2025-12-06T04:36:13.285Z] ITEM ID: 10234 | Product: 515 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1816
+[2025-12-06T04:36:13.287Z] SUKSES: Stok Berkurang. Sisa: 1815
+[2025-12-06T04:36:13.288Z] ITEM ID: 9964 | Product: 53 | Loc (DB): 2 | Qty: 5 | Stok Awal: 3525
+[2025-12-06T04:36:13.289Z] SUKSES: Stok Berkurang. Sisa: 3520
+[2025-12-06T04:36:13.291Z] ITEM ID: 10779 | Product: 2667 | Loc (DB): 2 | Qty: 1 | Stok Awal: 3
+[2025-12-06T04:36:13.292Z] SUKSES: Stok Berkurang. Sisa: 2
+[2025-12-06T04:36:13.293Z] ITEM ID: 10815 | Product: 234 | Loc (DB): 2 | Qty: 4 | Stok Awal: 92
+[2025-12-06T04:36:13.294Z] SUKSES: Stok Berkurang. Sisa: 88
+[2025-12-06T04:36:13.295Z] ITEM ID: 11011 | Product: 1850 | Loc (DB): 2 | Qty: 2 | Stok Awal: 653
+[2025-12-06T04:36:13.297Z] SUKSES: Stok Berkurang. Sisa: 651
+[2025-12-06T04:36:13.298Z] ITEM ID: 9708 | Product: 53 | Loc (DB): 2 | Qty: 5 | Stok Awal: 3520
+[2025-12-06T04:36:13.299Z] SUKSES: Stok Berkurang. Sisa: 3515
+[2025-12-06T04:36:13.301Z] ITEM ID: 9961 | Product: 49 | Loc (DB): 2 | Qty: 5 | Stok Awal: 79
+[2025-12-06T04:36:13.302Z] SUKSES: Stok Berkurang. Sisa: 74
+[2025-12-06T04:36:13.303Z] ITEM ID: 10776 | Product: 204 | Loc (DB): 2 | Qty: 5 | Stok Awal: 453
+[2025-12-06T04:36:13.304Z] SUKSES: Stok Berkurang. Sisa: 448
+[2025-12-06T04:36:13.305Z] ITEM ID: 9727 | Product: 7909 | Loc (DB): 2 | Qty: 20 | Stok Awal: 123
+[2025-12-06T04:36:13.306Z] SUKSES: Stok Berkurang. Sisa: 103
+[2025-12-06T04:36:13.307Z] ITEM ID: 10447 | Product: 2716 | Loc (DB): 2 | Qty: 1 | Stok Awal: 517
+[2025-12-06T04:36:13.308Z] SUKSES: Stok Berkurang. Sisa: 516
+[2025-12-06T04:36:13.309Z] ITEM ID: 10920 | Product: 2693 | Loc (DB): 2 | Qty: 4 | Stok Awal: 340
+[2025-12-06T04:36:13.310Z] SUKSES: Stok Berkurang. Sisa: 336
+[2025-12-06T04:36:13.312Z] ITEM ID: 9965 | Product: 432 | Loc (DB): 4 | Qty: 4 | Stok Awal: 4
+[2025-12-06T04:36:13.313Z] SUKSES: Stok Berkurang. Sisa: 0
+[2025-12-06T04:36:13.314Z] ITEM ID: 9707 | Product: 205 | Loc (DB): 5 | Qty: 5 | Stok Awal: 1900
+[2025-12-06T04:36:13.317Z] SUKSES: Stok Berkurang. Sisa: 1895
+[2025-12-06T04:36:13.318Z] ITEM ID: 10448 | Product: 5254 | Loc (DB): 5 | Qty: 6 | Stok Awal: 991
+[2025-12-06T04:36:13.320Z] SUKSES: Stok Berkurang. Sisa: 985
+[2025-12-06T04:36:13.321Z] ITEM ID: 9004 | Product: 318 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1810
+[2025-12-06T04:36:13.322Z] SUKSES: Stok Berkurang. Sisa: 1805
+[2025-12-06T04:36:13.323Z] ITEM ID: 8716 | Product: 2686 | Loc (DB): 2 | Qty: 4 | Stok Awal: 400
+[2025-12-06T04:36:13.324Z] SUKSES: Stok Berkurang. Sisa: 396
+[2025-12-06T04:36:13.326Z] ITEM ID: 8261 | Product: 8806 | Loc (DB): 2 | Qty: 3 | Stok Awal: 311
+[2025-12-06T04:36:13.327Z] SUKSES: Stok Berkurang. Sisa: 308
+[2025-12-06T04:36:13.328Z] ITEM ID: 8713 | Product: 2603 | Loc (DB): 2 | Qty: 2 | Stok Awal: 33
+[2025-12-06T04:36:13.329Z] SUKSES: Stok Berkurang. Sisa: 31
+[2025-12-06T04:36:13.331Z] ITEM ID: 8749 | Product: 8811 | Loc (DB): 2 | Qty: 10 | Stok Awal: 877
+[2025-12-06T04:36:13.332Z] SUKSES: Stok Berkurang. Sisa: 867
+[2025-12-06T04:36:13.334Z] ITEM ID: 8164 | Product: 529 | Loc (DB): 2 | Qty: 10 | Stok Awal: 1067
+[2025-12-06T04:36:13.336Z] SUKSES: Stok Berkurang. Sisa: 1057
+[2025-12-06T04:36:13.338Z] ITEM ID: 8249 | Product: 515 | Loc (DB): 2 | Qty: 15 | Stok Awal: 1815
+[2025-12-06T04:36:13.339Z] SUKSES: Stok Berkurang. Sisa: 1800
+[2025-12-06T04:36:13.340Z] ITEM ID: 8710 | Product: 5263 | Loc (DB): 2 | Qty: 5 | Stok Awal: 160
+[2025-12-06T04:36:13.341Z] SUKSES: Stok Berkurang. Sisa: 155
+[2025-12-06T04:36:13.343Z] ITEM ID: 9006 | Product: 1853 | Loc (DB): 2 | Qty: 2 | Stok Awal: 717
+[2025-12-06T04:36:13.344Z] SUKSES: Stok Berkurang. Sisa: 715
+[2025-12-06T04:36:13.345Z] ITEM ID: 8718 | Product: 1853 | Loc (DB): 2 | Qty: 2 | Stok Awal: 715
+[2025-12-06T04:36:13.346Z] SUKSES: Stok Berkurang. Sisa: 713
+[2025-12-06T04:36:13.347Z] ITEM ID: 9122 | Product: 544 | Loc (DB): 2 | Qty: 1 | Stok Awal: 2
+[2025-12-06T04:36:13.349Z] SUKSES: Stok Berkurang. Sisa: 1
+[2025-12-06T04:36:13.350Z] ITEM ID: 8161 | Product: 527 | Loc (DB): 2 | Qty: 20 | Stok Awal: 324
+[2025-12-06T04:36:13.351Z] SUKSES: Stok Berkurang. Sisa: 304
+[2025-12-06T04:36:13.352Z] ITEM ID: 8200 | Product: 529 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1057
+[2025-12-06T04:36:13.354Z] SUKSES: Stok Berkurang. Sisa: 1055
+[2025-12-06T04:36:13.355Z] ITEM ID: 8327 | Product: 2995 | Loc (DB): 2 | Qty: 22 | Stok Awal: 431
+[2025-12-06T04:36:13.356Z] SUKSES: Stok Berkurang. Sisa: 409
+[2025-12-06T04:36:13.358Z] ITEM ID: 9003 | Product: 2679 | Loc (DB): 2 | Qty: 3 | Stok Awal: 1669
+[2025-12-06T04:36:13.358Z] SUKSES: Stok Berkurang. Sisa: 1666
+[2025-12-06T04:36:13.359Z] ITEM ID: 8715 | Product: 708 | Loc (DB): 2 | Qty: 1 | Stok Awal: 619
+[2025-12-06T04:36:13.360Z] SUKSES: Stok Berkurang. Sisa: 618
+[2025-12-06T04:36:13.362Z] ITEM ID: 8906 | Product: 2585 | Loc (DB): 2 | Qty: 4 | Stok Awal: 2009
+[2025-12-06T04:36:13.364Z] SUKSES: Stok Berkurang. Sisa: 2005
+[2025-12-06T04:36:13.365Z] ITEM ID: 8166 | Product: 521 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1398
+[2025-12-06T04:36:13.366Z] SUKSES: Stok Berkurang. Sisa: 1378
+[2025-12-06T04:36:13.369Z] ITEM ID: 8158 | Product: 524 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1128
+[2025-12-06T04:36:13.371Z] SUKSES: Stok Berkurang. Sisa: 1108
+[2025-12-06T04:36:13.372Z] ITEM ID: 9000 | Product: 515 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1800
+[2025-12-06T04:36:13.373Z] SUKSES: Stok Berkurang. Sisa: 1795
+[2025-12-06T04:36:13.374Z] ITEM ID: 8712 | Product: 527 | Loc (DB): 2 | Qty: 2 | Stok Awal: 304
+[2025-12-06T04:36:13.375Z] SUKSES: Stok Berkurang. Sisa: 302
+[2025-12-06T04:36:13.376Z] ITEM ID: 8163 | Product: 530 | Loc (DB): 2 | Qty: 20 | Stok Awal: 511
+[2025-12-06T04:36:13.378Z] SUKSES: Stok Berkurang. Sisa: 491
+[2025-12-06T04:36:13.379Z] ITEM ID: 8214 | Product: 1917 | Loc (DB): 2 | Qty: 2 | Stok Awal: 38
+[2025-12-06T04:36:13.380Z] SUKSES: Stok Berkurang. Sisa: 36
+[2025-12-06T04:36:13.382Z] ITEM ID: 8717 | Product: 1859 | Loc (DB): 2 | Qty: 2 | Stok Awal: 704
+[2025-12-06T04:36:13.384Z] SUKSES: Stok Berkurang. Sisa: 702
+[2025-12-06T04:36:13.386Z] ITEM ID: 8908 | Product: 2714 | Loc (DB): 2 | Qty: 1 | Stok Awal: 11994
+[2025-12-06T04:36:13.390Z] SUKSES: Stok Berkurang. Sisa: 11993
+[2025-12-06T04:36:13.392Z] ITEM ID: 8160 | Product: 533 | Loc (DB): 2 | Qty: 20 | Stok Awal: 131
+[2025-12-06T04:36:13.393Z] SUKSES: Stok Berkurang. Sisa: 111
+[2025-12-06T04:36:13.395Z] ITEM ID: 8199 | Product: 530 | Loc (DB): 2 | Qty: 2 | Stok Awal: 491
+[2025-12-06T04:36:13.396Z] SUKSES: Stok Berkurang. Sisa: 489
+[2025-12-06T04:36:13.397Z] ITEM ID: 8326 | Product: 2740 | Loc (DB): 2 | Qty: 40 | Stok Awal: 175
+[2025-12-06T04:36:13.398Z] SUKSES: Stok Berkurang. Sisa: 135
+[2025-12-06T04:36:13.400Z] ITEM ID: 9002 | Product: 527 | Loc (DB): 2 | Qty: 2 | Stok Awal: 302
+[2025-12-06T04:36:13.401Z] SUKSES: Stok Berkurang. Sisa: 300
+[2025-12-06T04:36:13.402Z] ITEM ID: 8714 | Product: 5279 | Loc (DB): 2 | Qty: 3 | Stok Awal: 198
+[2025-12-06T04:36:13.404Z] SUKSES: Stok Berkurang. Sisa: 195
+[2025-12-06T04:36:13.405Z] ITEM ID: 8165 | Product: 536 | Loc (DB): 2 | Qty: 20 | Stok Awal: 833
+[2025-12-06T04:36:13.406Z] SUKSES: Stok Berkurang. Sisa: 813
+[2025-12-06T04:36:13.407Z] ITEM ID: 8157 | Product: 515 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1795
+[2025-12-06T04:36:13.408Z] SUKSES: Stok Berkurang. Sisa: 1775
+[2025-12-06T04:36:13.409Z] ITEM ID: 8999 | Product: 2592 | Loc (DB): 2 | Qty: 3 | Stok Awal: 1100
+[2025-12-06T04:36:13.410Z] SUKSES: Stok Berkurang. Sisa: 1097
+[2025-12-06T04:36:13.411Z] ITEM ID: 9107 | Product: 2716 | Loc (DB): 2 | Qty: 4 | Stok Awal: 516
+[2025-12-06T04:36:13.412Z] SUKSES: Stok Berkurang. Sisa: 512
+[2025-12-06T04:36:13.413Z] ITEM ID: 8719 | Product: 2620 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1052
+[2025-12-06T04:36:13.414Z] SUKSES: Stok Berkurang. Sisa: 1048
+[2025-12-06T04:36:13.415Z] ITEM ID: 8162 | Product: 2586 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1987
+[2025-12-06T04:36:13.417Z] SUKSES: Stok Berkurang. Sisa: 1967
+[2025-12-06T04:36:13.417Z] ITEM ID: 9120 | Product: 8687 | Loc (DB): 4 | Qty: 2 | Stok Awal: 21
+[2025-12-06T04:36:13.419Z] SUKSES: Stok Berkurang. Sisa: 19
+[2025-12-06T04:36:13.420Z] ITEM ID: 9119 | Product: 8682 | Loc (DB): 4 | Qty: 2 | Stok Awal: 561
+[2025-12-06T04:36:13.421Z] SUKSES: Stok Berkurang. Sisa: 559
+[2025-12-06T04:36:13.422Z] ITEM ID: 9121 | Product: 8699 | Loc (DB): 4 | Qty: 4 | Stok Awal: 19
+[2025-12-06T04:36:13.423Z] SUKSES: Stok Berkurang. Sisa: 15
+[2025-12-06T04:36:13.424Z] ITEM ID: 9118 | Product: 8732 | Loc (DB): 4 | Qty: 2 | Stok Awal: 55
+[2025-12-06T04:36:13.424Z] SUKSES: Stok Berkurang. Sisa: 53
+[2025-12-06T04:36:13.425Z] ITEM ID: 9001 | Product: 11862 | Loc (DB): 5 | Qty: 3 | Stok Awal: 500
+[2025-12-06T04:36:13.427Z] SUKSES: Stok Berkurang. Sisa: 497
+[2025-12-06T04:36:13.428Z] ITEM ID: 6628 | Product: 135 | Loc (DB): 2 | Qty: 1 | Stok Awal: 49
+[2025-12-06T04:36:13.429Z] SUKSES: Stok Berkurang. Sisa: 48
+[2025-12-06T04:36:13.430Z] ITEM ID: 7545 | Product: 2663 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1259
+[2025-12-06T04:36:13.431Z] SUKSES: Stok Berkurang. Sisa: 1258
+[2025-12-06T04:36:13.433Z] ITEM ID: 7302 | Product: 3573 | Loc (DB): 2 | Qty: 5 | Stok Awal: 144
+[2025-12-06T04:36:13.434Z] SUKSES: Stok Berkurang. Sisa: 139
+[2025-12-06T04:36:13.435Z] ITEM ID: 7440 | Product: 522 | Loc (DB): 2 | Qty: 10 | Stok Awal: 423
+[2025-12-06T04:36:13.437Z] SUKSES: Stok Berkurang. Sisa: 413
+[2025-12-06T04:36:13.438Z] ITEM ID: 6625 | Product: 2712 | Loc (DB): 2 | Qty: 1 | Stok Awal: 645
+[2025-12-06T04:36:13.439Z] SUKSES: Stok Berkurang. Sisa: 644
+[2025-12-06T04:36:13.440Z] ITEM ID: 7542 | Product: 527 | Loc (DB): 2 | Qty: 2 | Stok Awal: 300
+[2025-12-06T04:36:13.441Z] SUKSES: Stok Berkurang. Sisa: 298
+[2025-12-06T04:36:13.442Z] ITEM ID: 7214 | Product: 5259 | Loc (DB): 2 | Qty: 5 | Stok Awal: 70
+[2025-12-06T04:36:13.443Z] SUKSES: Stok Berkurang. Sisa: 65
+[2025-12-06T04:36:13.444Z] ITEM ID: 7584 | Product: 1835 | Loc (DB): 2 | Qty: 1 | Stok Awal: 280
+[2025-12-06T04:36:13.445Z] SUKSES: Stok Berkurang. Sisa: 279
+[2025-12-06T04:36:13.447Z] ITEM ID: 7437 | Product: 227 | Loc (DB): 2 | Qty: 10 | Stok Awal: 92
+[2025-12-06T04:36:13.448Z] SUKSES: Stok Berkurang. Sisa: 82
+[2025-12-06T04:36:13.449Z] ITEM ID: 7211 | Product: 2607 | Loc (DB): 2 | Qty: 2 | Stok Awal: 250
+[2025-12-06T04:36:13.450Z] SUKSES: Stok Berkurang. Sisa: 248
+[2025-12-06T04:36:13.451Z] ITEM ID: 7414 | Product: 2679 | Loc (DB): 2 | Qty: 10 | Stok Awal: 1666
+[2025-12-06T04:36:13.452Z] SUKSES: Stok Berkurang. Sisa: 1656
+[2025-12-06T04:36:13.453Z] ITEM ID: 7004 | Product: 11843 | Loc (DB): 2 | Qty: 10 | Stok Awal: 500
+[2025-12-06T04:36:13.454Z] SUKSES: Stok Berkurang. Sisa: 490
+[2025-12-06T04:36:13.456Z] ITEM ID: 6627 | Product: 133 | Loc (DB): 2 | Qty: 2 | Stok Awal: 50
+[2025-12-06T04:36:13.457Z] SUKSES: Stok Berkurang. Sisa: 48
+[2025-12-06T04:36:13.458Z] ITEM ID: 7544 | Product: 4465 | Loc (DB): 2 | Qty: 1 | Stok Awal: 75
+[2025-12-06T04:36:13.459Z] SUKSES: Stok Berkurang. Sisa: 74
+[2025-12-06T04:36:13.460Z] ITEM ID: 6941 | Product: 3454 | Loc (DB): 2 | Qty: 5 | Stok Awal: 72
+[2025-12-06T04:36:13.461Z] SUKSES: Stok Berkurang. Sisa: 67
+[2025-12-06T04:36:13.462Z] ITEM ID: 7439 | Product: 185 | Loc (DB): 2 | Qty: 10 | Stok Awal: 2130
+[2025-12-06T04:36:13.463Z] SUKSES: Stok Berkurang. Sisa: 2120
+[2025-12-06T04:36:13.464Z] ITEM ID: 6624 | Product: 18 | Loc (DB): 2 | Qty: 4 | Stok Awal: 178
+[2025-12-06T04:36:13.465Z] SUKSES: Stok Berkurang. Sisa: 174
+[2025-12-06T04:36:13.466Z] ITEM ID: 6630 | Product: 37 | Loc (DB): 2 | Qty: 5 | Stok Awal: 63
+[2025-12-06T04:36:13.467Z] SUKSES: Stok Berkurang. Sisa: 58
+[2025-12-06T04:36:13.468Z] ITEM ID: 7546 | Product: 2594 | Loc (DB): 2 | Qty: 4 | Stok Awal: 178
+[2025-12-06T04:36:13.469Z] SUKSES: Stok Berkurang. Sisa: 174
+[2025-12-06T04:36:13.470Z] ITEM ID: 6626 | Product: 2714 | Loc (DB): 2 | Qty: 1 | Stok Awal: 11993
+[2025-12-06T04:36:13.471Z] SUKSES: Stok Berkurang. Sisa: 11992
+[2025-12-06T04:36:13.472Z] ITEM ID: 7543 | Product: 524 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1108
+[2025-12-06T04:36:13.473Z] SUKSES: Stok Berkurang. Sisa: 1103
+[2025-12-06T04:36:13.474Z] ITEM ID: 7128 | Product: 315 | Loc (DB): 2 | Qty: 5 | Stok Awal: 200
+[2025-12-06T04:36:13.475Z] SUKSES: Stok Berkurang. Sisa: 195
+[2025-12-06T04:36:13.476Z] ITEM ID: 7212 | Product: 2592 | Loc (DB): 2 | Qty: 3 | Stok Awal: 1097
+[2025-12-06T04:36:13.477Z] SUKSES: Stok Berkurang. Sisa: 1094
+[2025-12-06T04:36:13.479Z] ITEM ID: 7548 | Product: 1853 | Loc (DB): 2 | Qty: 1 | Stok Awal: 713
+[2025-12-06T04:36:13.480Z] SUKSES: Stok Berkurang. Sisa: 712
+[2025-12-06T04:36:13.481Z] ITEM ID: 7005 | Product: 198 | Loc (DB): 2 | Qty: 10 | Stok Awal: 338
+[2025-12-06T04:36:13.483Z] SUKSES: Stok Berkurang. Sisa: 328
+[2025-12-06T04:36:13.485Z] ITEM ID: 7443 | Product: 3603 | Loc (DB): 2 | Qty: 10 | Stok Awal: 60
+[2025-12-06T04:36:13.487Z] SUKSES: Stok Berkurang. Sisa: 50
+[2025-12-06T04:36:13.488Z] ITEM ID: 7442 | Product: 11809 | Loc (DB): 5 | Qty: 20 | Stok Awal: 500
+[2025-12-06T04:36:13.490Z] SUKSES: Stok Berkurang. Sisa: 480
+[2025-12-06T04:36:13.491Z] ITEM ID: 7441 | Product: 11808 | Loc (DB): 5 | Qty: 20 | Stok Awal: 300
+[2025-12-06T04:36:13.492Z] SUKSES: Stok Berkurang. Sisa: 280
+[2025-12-06T04:36:13.493Z] ITEM ID: 6940 | Product: 3472 | Loc (DB): 5 | Qty: 5 | Stok Awal: 128
+[2025-12-06T04:36:13.495Z] SUKSES: Stok Berkurang. Sisa: 123
+[2025-12-06T04:36:13.496Z] ITEM ID: 7432 | Product: 3470 | Loc (DB): 5 | Qty: 6 | Stok Awal: 36
+[2025-12-06T04:36:13.498Z] SUKSES: Stok Berkurang. Sisa: 30
+[2025-12-06T04:36:13.499Z] ITEM ID: 6536 | Product: 163 | Loc (DB): 2 | Qty: 4 | Stok Awal: 501
+[2025-12-06T04:36:13.500Z] SUKSES: Stok Berkurang. Sisa: 497
+[2025-12-06T04:36:13.502Z] ITEM ID: 5092 | Product: 516 | Loc (DB): 2 | Qty: 3 | Stok Awal: 625
+[2025-12-06T04:36:13.503Z] SUKSES: Stok Berkurang. Sisa: 622
+[2025-12-06T04:36:13.504Z] ITEM ID: 5902 | Product: 251 | Loc (DB): 2 | Qty: 6 | Stok Awal: 55
+[2025-12-06T04:36:13.505Z] SUKSES: Stok Berkurang. Sisa: 49
+[2025-12-06T04:36:13.506Z] ITEM ID: 5233 | Product: 8808 | Loc (DB): 2 | Qty: 1 | Stok Awal: 127
+[2025-12-06T04:36:13.507Z] SUKSES: Stok Berkurang. Sisa: 126
+[2025-12-06T04:36:13.508Z] ITEM ID: 5100 | Product: 8806 | Loc (DB): 2 | Qty: 4 | Stok Awal: 308
+[2025-12-06T04:36:13.509Z] SUKSES: Stok Berkurang. Sisa: 304
+[2025-12-06T04:36:13.510Z] ITEM ID: 5241 | Product: 226 | Loc (DB): 2 | Qty: 20 | Stok Awal: 124
+[2025-12-06T04:36:13.511Z] SUKSES: Stok Berkurang. Sisa: 104
+[2025-12-06T04:36:13.513Z] ITEM ID: 5119 | Product: 524 | Loc (DB): 2 | Qty: 10 | Stok Awal: 1103
+[2025-12-06T04:36:13.514Z] SUKSES: Stok Berkurang. Sisa: 1093
+[2025-12-06T04:36:13.515Z] ITEM ID: 5124 | Product: 429 | Loc (DB): 2 | Qty: 4 | Stok Awal: 2626
+[2025-12-06T04:36:13.516Z] SUKSES: Stok Berkurang. Sisa: 2622
+[2025-12-06T04:36:13.517Z] ITEM ID: 5097 | Product: 1010 | Loc (DB): 2 | Qty: 2 | Stok Awal: 72
+[2025-12-06T04:36:13.518Z] SUKSES: Stok Berkurang. Sisa: 70
+[2025-12-06T04:36:13.519Z] ITEM ID: 6268 | Product: 198 | Loc (DB): 2 | Qty: 2 | Stok Awal: 328
+[2025-12-06T04:36:13.521Z] SUKSES: Stok Berkurang. Sisa: 326
+[2025-12-06T04:36:13.522Z] ITEM ID: 5105 | Product: 530 | Loc (DB): 2 | Qty: 2 | Stok Awal: 489
+[2025-12-06T04:36:13.522Z] SUKSES: Stok Berkurang. Sisa: 487
+[2025-12-06T04:36:13.523Z] ITEM ID: 6538 | Product: 198 | Loc (DB): 2 | Qty: 2 | Stok Awal: 326
+[2025-12-06T04:36:13.524Z] SUKSES: Stok Berkurang. Sisa: 324
+[2025-12-06T04:36:13.525Z] ITEM ID: 5094 | Product: 8811 | Loc (DB): 2 | Qty: 1 | Stok Awal: 867
+[2025-12-06T04:36:13.526Z] SUKSES: Stok Berkurang. Sisa: 866
+[2025-12-06T04:36:13.527Z] ITEM ID: 5235 | Product: 4615 | Loc (DB): 2 | Qty: 5 | Stok Awal: 48
+[2025-12-06T04:36:13.528Z] SUKSES: Stok Berkurang. Sisa: 43
+[2025-12-06T04:36:13.529Z] ITEM ID: 5243 | Product: 163 | Loc (DB): 2 | Qty: 20 | Stok Awal: 497
+[2025-12-06T04:36:13.531Z] SUKSES: Stok Berkurang. Sisa: 477
+[2025-12-06T04:36:13.532Z] ITEM ID: 5232 | Product: 431 | Loc (DB): 2 | Qty: 1 | Stok Awal: 3135
+[2025-12-06T04:36:13.533Z] SUKSES: Stok Berkurang. Sisa: 3134
+[2025-12-06T04:36:13.534Z] ITEM ID: 5099 | Product: 431 | Loc (DB): 2 | Qty: 4 | Stok Awal: 3134
+[2025-12-06T04:36:13.536Z] SUKSES: Stok Berkurang. Sisa: 3130
+[2025-12-06T04:36:13.537Z] ITEM ID: 5118 | Product: 429 | Loc (DB): 2 | Qty: 5 | Stok Awal: 2622
+[2025-12-06T04:36:13.538Z] SUKSES: Stok Berkurang. Sisa: 2617
+[2025-12-06T04:36:13.540Z] ITEM ID: 6535 | Product: 200 | Loc (DB): 2 | Qty: 2 | Stok Awal: 25
+[2025-12-06T04:36:13.541Z] SUKSES: Stok Berkurang. Sisa: 23
+[2025-12-06T04:36:13.542Z] ITEM ID: 5123 | Product: 515 | Loc (DB): 2 | Qty: 10 | Stok Awal: 1775
+[2025-12-06T04:36:13.543Z] SUKSES: Stok Berkurang. Sisa: 1765
+[2025-12-06T04:36:13.544Z] ITEM ID: 5096 | Product: 431 | Loc (DB): 2 | Qty: 2 | Stok Awal: 3130
+[2025-12-06T04:36:13.545Z] SUKSES: Stok Berkurang. Sisa: 3128
+[2025-12-06T04:36:13.546Z] ITEM ID: 6267 | Product: 331 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1397
+[2025-12-06T04:36:13.547Z] SUKSES: Stok Berkurang. Sisa: 1396
+[2025-12-06T04:36:13.548Z] ITEM ID: 5237 | Product: 161 | Loc (DB): 2 | Qty: 6 | Stok Awal: 3489
+[2025-12-06T04:36:13.549Z] SUKSES: Stok Berkurang. Sisa: 3483
+[2025-12-06T04:36:13.550Z] ITEM ID: 5104 | Product: 3603 | Loc (DB): 2 | Qty: 8 | Stok Awal: 50
+[2025-12-06T04:36:13.551Z] SUKSES: Stok Berkurang. Sisa: 42
+[2025-12-06T04:36:13.552Z] ITEM ID: 5245 | Product: 150 | Loc (DB): 2 | Qty: 10 | Stok Awal: 53
+[2025-12-06T04:36:13.553Z] SUKSES: Stok Berkurang. Sisa: 43
+[2025-12-06T04:36:13.554Z] ITEM ID: 6537 | Product: 222 | Loc (DB): 2 | Qty: 4 | Stok Awal: 24
+[2025-12-06T04:36:13.555Z] SUKSES: Stok Berkurang. Sisa: 20
+[2025-12-06T04:36:13.556Z] ITEM ID: 5093 | Product: 431 | Loc (DB): 2 | Qty: 1 | Stok Awal: 3128
+[2025-12-06T04:36:13.557Z] SUKSES: Stok Berkurang. Sisa: 3127
+[2025-12-06T04:36:13.558Z] ITEM ID: 5234 | Product: 1817 | Loc (DB): 2 | Qty: 1 | Stok Awal: 311
+[2025-12-06T04:36:13.559Z] SUKSES: Stok Berkurang. Sisa: 310
+[2025-12-06T04:36:13.559Z] ITEM ID: 6272 | Product: 1926 | Loc (DB): 2 | Qty: 8 | Stok Awal: 917
+[2025-12-06T04:36:13.560Z] SUKSES: Stok Berkurang. Sisa: 909
+[2025-12-06T04:36:13.561Z] ITEM ID: 5242 | Product: 227 | Loc (DB): 2 | Qty: 20 | Stok Awal: 82
+[2025-12-06T04:36:13.562Z] SUKSES: Stok Berkurang. Sisa: 62
+[2025-12-06T04:36:13.563Z] ITEM ID: 5247 | Product: 185 | Loc (DB): 2 | Qty: 10 | Stok Awal: 2120
+[2025-12-06T04:36:13.565Z] SUKSES: Stok Berkurang. Sisa: 2110
+[2025-12-06T04:36:13.566Z] ITEM ID: 5125 | Product: 8819 | Loc (DB): 2 | Qty: 2 | Stok Awal: 189
+[2025-12-06T04:36:13.567Z] SUKSES: Stok Berkurang. Sisa: 187
+[2025-12-06T04:36:13.568Z] ITEM ID: 5098 | Product: 1161 | Loc (DB): 2 | Qty: 4 | Stok Awal: 40
+[2025-12-06T04:36:13.569Z] SUKSES: Stok Berkurang. Sisa: 36
+[2025-12-06T04:36:13.570Z] ITEM ID: 6269 | Product: 169 | Loc (DB): 2 | Qty: 5 | Stok Awal: 56
+[2025-12-06T04:36:13.572Z] SUKSES: Stok Berkurang. Sisa: 51
+[2025-12-06T04:36:13.573Z] ITEM ID: 5239 | Product: 144 | Loc (DB): 2 | Qty: 2 | Stok Awal: 50
+[2025-12-06T04:36:13.574Z] SUKSES: Stok Berkurang. Sisa: 48
+[2025-12-06T04:36:13.575Z] ITEM ID: 5122 | Product: 429 | Loc (DB): 2 | Qty: 5 | Stok Awal: 2617
+[2025-12-06T04:36:13.576Z] SUKSES: Stok Berkurang. Sisa: 2612
+[2025-12-06T04:36:13.577Z] ITEM ID: 5095 | Product: 533 | Loc (DB): 2 | Qty: 3 | Stok Awal: 111
+[2025-12-06T04:36:13.578Z] SUKSES: Stok Berkurang. Sisa: 108
+[2025-12-06T04:36:13.579Z] ITEM ID: 6266 | Product: 323 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1775
+[2025-12-06T04:36:13.580Z] SUKSES: Stok Berkurang. Sisa: 1773
+[2025-12-06T04:36:13.581Z] ITEM ID: 5236 | Product: 732 | Loc (DB): 2 | Qty: 1 | Stok Awal: 82
+[2025-12-06T04:36:13.583Z] SUKSES: Stok Berkurang. Sisa: 81
+[2025-12-06T04:36:13.585Z] ITEM ID: 5103 | Product: 7573 | Loc (DB): 2 | Qty: 6 | Stok Awal: 18
+[2025-12-06T04:36:13.587Z] SUKSES: Stok Berkurang. Sisa: 12
+[2025-12-06T04:36:13.589Z] ITEM ID: 6429 | Product: 8806 | Loc (DB): 2 | Qty: 6 | Stok Awal: 304
+[2025-12-06T04:36:13.590Z] SUKSES: Stok Berkurang. Sisa: 298
+[2025-12-06T04:36:13.591Z] ITEM ID: 5244 | Product: 162 | Loc (DB): 2 | Qty: 20 | Stok Awal: 865
+[2025-12-06T04:36:13.592Z] SUKSES: Stok Berkurang. Sisa: 845
+[2025-12-06T04:36:13.593Z] ITEM ID: 5106 | Product: 1351 | Loc (DB): 4 | Qty: 2 | Stok Awal: 5
+[2025-12-06T04:36:13.594Z] SUKSES: Stok Berkurang. Sisa: 3
+[2025-12-06T04:36:13.595Z] ITEM ID: 6271 | Product: 2702 | Loc (DB): 5 | Qty: 2 | Stok Awal: 300
+[2025-12-06T04:36:13.597Z] SUKSES: Stok Berkurang. Sisa: 298
+[2025-12-06T04:36:13.598Z] ITEM ID: 5240 | Product: 11798 | Loc (DB): 5 | Qty: 12 | Stok Awal: 200
+[2025-12-06T04:36:13.600Z] SUKSES: Stok Berkurang. Sisa: 188
+[2025-12-06T04:36:13.601Z] ITEM ID: 6534 | Product: 205 | Loc (DB): 5 | Qty: 4 | Stok Awal: 1895
+[2025-12-06T04:36:13.602Z] SUKSES: Stok Berkurang. Sisa: 1891
+[2025-12-06T04:36:13.603Z] ITEM ID: 5029 | Product: 185 | Loc (DB): 2 | Qty: 100 | Stok Awal: 2110
+[2025-12-06T04:36:13.604Z] SUKSES: Stok Berkurang. Sisa: 2010
+[2025-12-06T04:36:13.605Z] ITEM ID: 5010 | Product: 4351 | Loc (DB): 2 | Qty: 1 | Stok Awal: 60
+[2025-12-06T04:36:13.606Z] SUKSES: Stok Berkurang. Sisa: 59
+[2025-12-06T04:36:13.607Z] ITEM ID: 4848 | Product: 2846 | Loc (DB): 2 | Qty: 3 | Stok Awal: 390
+[2025-12-06T04:36:13.608Z] SUKSES: Stok Berkurang. Sisa: 387
+[2025-12-06T04:36:13.609Z] ITEM ID: 4856 | Product: 3062 | Loc (DB): 2 | Qty: 1 | Stok Awal: 159
+[2025-12-06T04:36:13.610Z] SUKSES: Stok Berkurang. Sisa: 158
+[2025-12-06T04:36:13.611Z] ITEM ID: 4697 | Product: 535 | Loc (DB): 2 | Qty: 20 | Stok Awal: 324
+[2025-12-06T04:36:13.612Z] SUKSES: Stok Berkurang. Sisa: 304
+[2025-12-06T04:36:13.613Z] ITEM ID: 4241 | Product: 3 | Loc (DB): 2 | Qty: 4 | Stok Awal: 115
+[2025-12-06T04:36:13.614Z] SUKSES: Stok Berkurang. Sisa: 111
+[2025-12-06T04:36:13.616Z] ITEM ID: 4845 | Product: 2952 | Loc (DB): 2 | Qty: 2 | Stok Awal: 53
+[2025-12-06T04:36:13.616Z] SUKSES: Stok Berkurang. Sisa: 51
+[2025-12-06T04:36:13.618Z] ITEM ID: 4271 | Product: 12073 | Loc (DB): 2 | Qty: 1 | Stok Awal: 30
+[2025-12-06T04:36:13.619Z] SUKSES: Stok Berkurang. Sisa: 29
+[2025-12-06T04:36:13.620Z] ITEM ID: 5015 | Product: 2931 | Loc (DB): 2 | Qty: 3 | Stok Awal: 48
+[2025-12-06T04:36:13.620Z] SUKSES: Stok Berkurang. Sisa: 45
+[2025-12-06T04:36:13.621Z] ITEM ID: 4853 | Product: 2898 | Loc (DB): 2 | Qty: 3 | Stok Awal: 290
+[2025-12-06T04:36:13.622Z] SUKSES: Stok Berkurang. Sisa: 287
+[2025-12-06T04:36:13.623Z] ITEM ID: 4147 | Product: 155 | Loc (DB): 2 | Qty: 3 | Stok Awal: 20
+[2025-12-06T04:36:13.624Z] SUKSES: Stok Berkurang. Sisa: 17
+[2025-12-06T04:36:13.625Z] ITEM ID: 5031 | Product: 24 | Loc (DB): 2 | Qty: 15 | Stok Awal: 44
+[2025-12-06T04:36:13.626Z] SUKSES: Stok Berkurang. Sisa: 29
+[2025-12-06T04:36:13.627Z] ITEM ID: 5012 | Product: 2958 | Loc (DB): 2 | Qty: 1 | Stok Awal: 496
+[2025-12-06T04:36:13.628Z] SUKSES: Stok Berkurang. Sisa: 495
+[2025-12-06T04:36:13.629Z] ITEM ID: 4850 | Product: 2900 | Loc (DB): 2 | Qty: 1 | Stok Awal: 141
+[2025-12-06T04:36:13.630Z] SUKSES: Stok Berkurang. Sisa: 140
+[2025-12-06T04:36:13.631Z] ITEM ID: 4143 | Product: 257 | Loc (DB): 2 | Qty: 3 | Stok Awal: 89
+[2025-12-06T04:36:13.632Z] SUKSES: Stok Berkurang. Sisa: 86
+[2025-12-06T04:36:13.634Z] ITEM ID: 4918 | Product: 148 | Loc (DB): 2 | Qty: 4 | Stok Awal: 28
+[2025-12-06T04:36:13.635Z] SUKSES: Stok Berkurang. Sisa: 24
+[2025-12-06T04:36:13.637Z] ITEM ID: 5020 | Product: 19 | Loc (DB): 2 | Qty: 4 | Stok Awal: 2676
+[2025-12-06T04:36:13.638Z] SUKSES: Stok Berkurang. Sisa: 2672
+[2025-12-06T04:36:13.639Z] ITEM ID: 5017 | Product: 330 | Loc (DB): 2 | Qty: 8 | Stok Awal: 900
+[2025-12-06T04:36:13.640Z] SUKSES: Stok Berkurang. Sisa: 892
+[2025-12-06T04:36:13.640Z] ITEM ID: 4855 | Product: 2947 | Loc (DB): 2 | Qty: 2 | Stok Awal: 63
+[2025-12-06T04:36:13.641Z] SUKSES: Stok Berkurang. Sisa: 61
+[2025-12-06T04:36:13.642Z] ITEM ID: 5033 | Product: 162 | Loc (DB): 2 | Qty: 100 | Stok Awal: 845
+[2025-12-06T04:36:13.643Z] SUKSES: Stok Berkurang. Sisa: 745
+[2025-12-06T04:36:13.644Z] ITEM ID: 4270 | Product: 9118 | Loc (DB): 2 | Qty: 1 | Stok Awal: 59
+[2025-12-06T04:36:13.645Z] SUKSES: Stok Berkurang. Sisa: 58
+[2025-12-06T04:36:13.646Z] ITEM ID: 5014 | Product: 2993 | Loc (DB): 2 | Qty: 1 | Stok Awal: 393
+[2025-12-06T04:36:13.647Z] SUKSES: Stok Berkurang. Sisa: 392
+[2025-12-06T04:36:13.648Z] ITEM ID: 4852 | Product: 2932 | Loc (DB): 2 | Qty: 1 | Stok Awal: 152
+[2025-12-06T04:36:13.649Z] SUKSES: Stok Berkurang. Sisa: 151
+[2025-12-06T04:36:13.650Z] ITEM ID: 4498 | Product: 29 | Loc (DB): 2 | Qty: 40 | Stok Awal: 142
+[2025-12-06T04:36:13.651Z] SUKSES: Stok Berkurang. Sisa: 102
+[2025-12-06T04:36:13.652Z] ITEM ID: 4145 | Product: 2682 | Loc (DB): 2 | Qty: 5 | Stok Awal: 604
+[2025-12-06T04:36:13.653Z] SUKSES: Stok Berkurang. Sisa: 599
+[2025-12-06T04:36:13.654Z] ITEM ID: 4920 | Product: 933 | Loc (DB): 2 | Qty: 2 | Stok Awal: 51
+[2025-12-06T04:36:13.655Z] SUKSES: Stok Berkurang. Sisa: 49
+[2025-12-06T04:36:13.656Z] ITEM ID: 4849 | Product: 2847 | Loc (DB): 2 | Qty: 3 | Stok Awal: 626
+[2025-12-06T04:36:13.657Z] SUKSES: Stok Berkurang. Sisa: 623
+[2025-12-06T04:36:13.658Z] ITEM ID: 5019 | Product: 2847 | Loc (DB): 2 | Qty: 5 | Stok Awal: 623
+[2025-12-06T04:36:13.659Z] SUKSES: Stok Berkurang. Sisa: 618
+[2025-12-06T04:36:13.660Z] ITEM ID: 4857 | Product: 2848 | Loc (DB): 2 | Qty: 5 | Stok Awal: 203
+[2025-12-06T04:36:13.661Z] SUKSES: Stok Berkurang. Sisa: 198
+[2025-12-06T04:36:13.662Z] ITEM ID: 4698 | Product: 524 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1093
+[2025-12-06T04:36:13.663Z] SUKSES: Stok Berkurang. Sisa: 1073
+[2025-12-06T04:36:13.665Z] ITEM ID: 4267 | Product: 3580 | Loc (DB): 2 | Qty: 1 | Stok Awal: 36
+[2025-12-06T04:36:13.666Z] SUKSES: Stok Berkurang. Sisa: 35
+[2025-12-06T04:36:13.667Z] ITEM ID: 4846 | Product: 3064 | Loc (DB): 2 | Qty: 1 | Stok Awal: 202
+[2025-12-06T04:36:13.668Z] SUKSES: Stok Berkurang. Sisa: 201
+[2025-12-06T04:36:13.670Z] ITEM ID: 5016 | Product: 139 | Loc (DB): 2 | Qty: 2 | Stok Awal: 26
+[2025-12-06T04:36:13.671Z] SUKSES: Stok Berkurang. Sisa: 24
+[2025-12-06T04:36:13.672Z] ITEM ID: 4854 | Product: 3055 | Loc (DB): 2 | Qty: 4 | Stok Awal: 83
+[2025-12-06T04:36:13.673Z] SUKSES: Stok Berkurang. Sisa: 79
+[2025-12-06T04:36:13.674Z] ITEM ID: 5032 | Product: 66 | Loc (DB): 2 | Qty: 12 | Stok Awal: 20
+[2025-12-06T04:36:13.675Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:36:13.676Z] ITEM ID: 5013 | Product: 137 | Loc (DB): 2 | Qty: 4 | Stok Awal: 47
+[2025-12-06T04:36:13.677Z] SUKSES: Stok Berkurang. Sisa: 43
+[2025-12-06T04:36:13.678Z] ITEM ID: 4851 | Product: 2845 | Loc (DB): 2 | Qty: 2 | Stok Awal: 343
+[2025-12-06T04:36:13.680Z] SUKSES: Stok Berkurang. Sisa: 341
+[2025-12-06T04:36:13.681Z] ITEM ID: 4144 | Product: 105 | Loc (DB): 2 | Qty: 3 | Stok Awal: 125
+[2025-12-06T04:36:13.682Z] SUKSES: Stok Berkurang. Sisa: 122
+[2025-12-06T04:36:13.684Z] ITEM ID: 4919 | Product: 124 | Loc (DB): 2 | Qty: 4 | Stok Awal: 45
+[2025-12-06T04:36:13.686Z] SUKSES: Stok Berkurang. Sisa: 41
+[2025-12-06T04:36:13.688Z] ITEM ID: 4700 | Product: 520 | Loc (DB): 2 | Qty: 20 | Stok Awal: 341
+[2025-12-06T04:36:13.689Z] SUKSES: Stok Berkurang. Sisa: 321
+[2025-12-06T04:36:13.690Z] ITEM ID: 4268 | Product: 12079 | Loc (DB): 4 | Qty: 1 | Stok Awal: 11
+[2025-12-06T04:36:13.691Z] SUKSES: Stok Berkurang. Sisa: 10
+[2025-12-06T04:36:13.693Z] ITEM ID: 5072 | Product: 8322 | Loc (DB): 4 | Qty: 70 | Stok Awal: 521
+[2025-12-06T04:36:13.694Z] SUKSES: Stok Berkurang. Sisa: 451
+[2025-12-06T04:36:13.695Z] ITEM ID: 5018 | Product: 11813 | Loc (DB): 5 | Qty: 4 | Stok Awal: 200
+[2025-12-06T04:36:13.696Z] SUKSES: Stok Berkurang. Sisa: 196
+[2025-12-06T04:36:13.697Z] ITEM ID: 4496 | Product: 2667 | Loc (DB): 5 | Qty: 10 | Stok Awal: 2400
+[2025-12-06T04:36:13.698Z] SUKSES: Stok Berkurang. Sisa: 2390
+[2025-12-06T04:36:13.700Z] ITEM ID: 5030 | Product: 25 | Loc (DB): 5 | Qty: 35 | Stok Awal: 650
+[2025-12-06T04:36:13.701Z] SUKSES: Stok Berkurang. Sisa: 615
+[2025-12-06T04:36:13.702Z] ITEM ID: 3726 | Product: 787 | Loc (DB): 2 | Qty: 2 | Stok Awal: 26
+[2025-12-06T04:36:13.704Z] SUKSES: Stok Berkurang. Sisa: 24
+[2025-12-06T04:36:13.705Z] ITEM ID: 3806 | Product: 16 | Loc (DB): 2 | Qty: 15 | Stok Awal: 3287
+[2025-12-06T04:36:13.706Z] SUKSES: Stok Berkurang. Sisa: 3272
+[2025-12-06T04:36:13.707Z] ITEM ID: 3139 | Product: 6 | Loc (DB): 2 | Qty: 6 | Stok Awal: 1601
+[2025-12-06T04:36:13.708Z] SUKSES: Stok Berkurang. Sisa: 1595
+[2025-12-06T04:36:13.709Z] ITEM ID: 3734 | Product: 162 | Loc (DB): 2 | Qty: 50 | Stok Awal: 745
+[2025-12-06T04:36:13.710Z] SUKSES: Stok Berkurang. Sisa: 695
+[2025-12-06T04:36:13.712Z] ITEM ID: 3707 | Product: 431 | Loc (DB): 2 | Qty: 5 | Stok Awal: 3127
+[2025-12-06T04:36:13.713Z] SUKSES: Stok Berkurang. Sisa: 3122
+[2025-12-06T04:36:13.714Z] ITEM ID: 3723 | Product: 12 | Loc (DB): 2 | Qty: 50 | Stok Awal: 81
+[2025-12-06T04:36:13.715Z] SUKSES: Stok Berkurang. Sisa: 31
+[2025-12-06T04:36:13.717Z] ITEM ID: 3535 | Product: 975 | Loc (DB): 2 | Qty: 2 | Stok Awal: 23
+[2025-12-06T04:36:13.718Z] SUKSES: Stok Berkurang. Sisa: 21
+[2025-12-06T04:36:13.720Z] ITEM ID: 3731 | Product: 1864 | Loc (DB): 2 | Qty: 5 | Stok Awal: 62
+[2025-12-06T04:36:13.721Z] SUKSES: Stok Berkurang. Sisa: 57
+[2025-12-06T04:36:13.722Z] ITEM ID: 3632 | Product: 270 | Loc (DB): 2 | Qty: 5 | Stok Awal: 25
+[2025-12-06T04:36:13.723Z] SUKSES: Stok Berkurang. Sisa: 20
+[2025-12-06T04:36:13.725Z] ITEM ID: 3394 | Product: 7611 | Loc (DB): 2 | Qty: 1 | Stok Awal: 635
+[2025-12-06T04:36:13.727Z] SUKSES: Stok Berkurang. Sisa: 634
+[2025-12-06T04:36:13.730Z] ITEM ID: 3709 | Product: 5492 | Loc (DB): 2 | Qty: 5 | Stok Awal: 250
+[2025-12-06T04:36:13.732Z] SUKSES: Stok Berkurang. Sisa: 245
+[2025-12-06T04:36:13.734Z] ITEM ID: 3954 | Product: 11 | Loc (DB): 2 | Qty: 30 | Stok Awal: 4450
+[2025-12-06T04:36:13.736Z] SUKSES: Stok Berkurang. Sisa: 4420
+[2025-12-06T04:36:13.737Z] ITEM ID: 3133 | Product: 53 | Loc (DB): 2 | Qty: 6 | Stok Awal: 3515
+[2025-12-06T04:36:13.738Z] SUKSES: Stok Berkurang. Sisa: 3509
+[2025-12-06T04:36:13.740Z] ITEM ID: 3781 | Product: 2871 | Loc (DB): 2 | Qty: 5 | Stok Awal: 16
+[2025-12-06T04:36:13.741Z] SUKSES: Stok Berkurang. Sisa: 11
+[2025-12-06T04:36:13.742Z] ITEM ID: 3725 | Product: 783 | Loc (DB): 2 | Qty: 3 | Stok Awal: 53
+[2025-12-06T04:36:13.743Z] SUKSES: Stok Berkurang. Sisa: 50
+[2025-12-06T04:36:13.745Z] ITEM ID: 3539 | Product: 53 | Loc (DB): 2 | Qty: 20 | Stok Awal: 3509
+[2025-12-06T04:36:13.746Z] SUKSES: Stok Berkurang. Sisa: 3489
+[2025-12-06T04:36:13.747Z] ITEM ID: 3138 | Product: 1731 | Loc (DB): 2 | Qty: 2 | Stok Awal: 40
+[2025-12-06T04:36:13.748Z] SUKSES: Stok Berkurang. Sisa: 38
+[2025-12-06T04:36:13.750Z] ITEM ID: 3733 | Product: 226 | Loc (DB): 2 | Qty: 50 | Stok Awal: 104
+[2025-12-06T04:36:13.751Z] SUKSES: Stok Berkurang. Sisa: 54
+[2025-12-06T04:36:13.753Z] ITEM ID: 3706 | Product: 8811 | Loc (DB): 2 | Qty: 10 | Stok Awal: 866
+[2025-12-06T04:36:13.754Z] SUKSES: Stok Berkurang. Sisa: 856
+[2025-12-06T04:36:13.755Z] ITEM ID: 3956 | Product: 187 | Loc (DB): 2 | Qty: 30 | Stok Awal: 83
+[2025-12-06T04:36:13.756Z] SUKSES: Stok Berkurang. Sisa: 53
+[2025-12-06T04:36:13.757Z] ITEM ID: 3730 | Product: 808 | Loc (DB): 2 | Qty: 1 | Stok Awal: 20
+[2025-12-06T04:36:13.758Z] SUKSES: Stok Berkurang. Sisa: 19
+[2025-12-06T04:36:13.759Z] ITEM ID: 3631 | Product: 57 | Loc (DB): 2 | Qty: 10 | Stok Awal: 1084
+[2025-12-06T04:36:13.760Z] SUKSES: Stok Berkurang. Sisa: 1074
+[2025-12-06T04:36:13.761Z] ITEM ID: 3896 | Product: 332 | Loc (DB): 2 | Qty: 100 | Stok Awal: 400
+[2025-12-06T04:36:13.762Z] SUKSES: Stok Berkurang. Sisa: 300
+[2025-12-06T04:36:13.763Z] ITEM ID: 3708 | Product: 8811 | Loc (DB): 2 | Qty: 5 | Stok Awal: 856
+[2025-12-06T04:36:13.765Z] SUKSES: Stok Berkurang. Sisa: 851
+[2025-12-06T04:36:13.766Z] ITEM ID: 3953 | Product: 1835 | Loc (DB): 2 | Qty: 2 | Stok Awal: 279
+[2025-12-06T04:36:13.767Z] SUKSES: Stok Berkurang. Sisa: 277
+[2025-12-06T04:36:13.768Z] ITEM ID: 3805 | Product: 61 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1003
+[2025-12-06T04:36:13.770Z] SUKSES: Stok Berkurang. Sisa: 983
+[2025-12-06T04:36:13.771Z] ITEM ID: 3727 | Product: 11 | Loc (DB): 2 | Qty: 50 | Stok Awal: 4420
+[2025-12-06T04:36:13.771Z] SUKSES: Stok Berkurang. Sisa: 4370
+[2025-12-06T04:36:13.772Z] ITEM ID: 3807 | Product: 325 | Loc (DB): 2 | Qty: 100 | Stok Awal: 3300
+[2025-12-06T04:36:13.774Z] SUKSES: Stok Berkurang. Sisa: 3200
+[2025-12-06T04:36:13.775Z] ITEM ID: 3738 | Product: 321 | Loc (DB): 2 | Qty: 25 | Stok Awal: 3365
+[2025-12-06T04:36:13.775Z] SUKSES: Stok Berkurang. Sisa: 3340
+[2025-12-06T04:36:13.777Z] ITEM ID: 3780 | Product: 2714 | Loc (DB): 2 | Qty: 4 | Stok Awal: 11992
+[2025-12-06T04:36:13.778Z] SUKSES: Stok Berkurang. Sisa: 11988
+[2025-12-06T04:36:13.779Z] ITEM ID: 3724 | Product: 15 | Loc (DB): 2 | Qty: 50 | Stok Awal: 5641
+[2025-12-06T04:36:13.780Z] SUKSES: Stok Berkurang. Sisa: 5591
+[2025-12-06T04:36:13.781Z] ITEM ID: 3980 | Product: 53 | Loc (DB): 2 | Qty: 20 | Stok Awal: 3489
+[2025-12-06T04:36:13.782Z] SUKSES: Stok Berkurang. Sisa: 3469
+[2025-12-06T04:36:13.784Z] ITEM ID: 3536 | Product: 977 | Loc (DB): 2 | Qty: 2 | Stok Awal: 10
+[2025-12-06T04:36:13.785Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:36:13.787Z] ITEM ID: 3137 | Product: 162 | Loc (DB): 2 | Qty: 8 | Stok Awal: 695
+[2025-12-06T04:36:13.788Z] SUKSES: Stok Berkurang. Sisa: 687
+[2025-12-06T04:36:13.789Z] ITEM ID: 3936 | Product: 318 | Loc (DB): 2 | Qty: 6 | Stok Awal: 1805
+[2025-12-06T04:36:13.790Z] SUKSES: Stok Berkurang. Sisa: 1799
+[2025-12-06T04:36:13.791Z] ITEM ID: 3740 | Product: 326 | Loc (DB): 2 | Qty: 10 | Stok Awal: 420
+[2025-12-06T04:36:13.792Z] SUKSES: Stok Berkurang. Sisa: 410
+[2025-12-06T04:36:13.793Z] ITEM ID: 3710 | Product: 8811 | Loc (DB): 2 | Qty: 5 | Stok Awal: 851
+[2025-12-06T04:36:13.794Z] SUKSES: Stok Berkurang. Sisa: 846
+[2025-12-06T04:36:13.795Z] ITEM ID: 3955 | Product: 7 | Loc (DB): 2 | Qty: 30 | Stok Awal: 3202
+[2025-12-06T04:36:13.796Z] SUKSES: Stok Berkurang. Sisa: 3172
+[2025-12-06T04:36:13.797Z] ITEM ID: 3533 | Product: 973 | Loc (DB): 2 | Qty: 3 | Stok Awal: 19
+[2025-12-06T04:36:13.799Z] SUKSES: Stok Berkurang. Sisa: 16
+[2025-12-06T04:36:13.800Z] ITEM ID: 3134 | Product: 331 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1396
+[2025-12-06T04:36:13.801Z] SUKSES: Stok Berkurang. Sisa: 1394
+[2025-12-06T04:36:13.802Z] ITEM ID: 3729 | Product: 785 | Loc (DB): 2 | Qty: 4 | Stok Awal: 44
+[2025-12-06T04:36:13.804Z] SUKSES: Stok Berkurang. Sisa: 40
+[2025-12-06T04:36:13.805Z] ITEM ID: 3277 | Product: 7213 | Loc (DB): 4 | Qty: 1 | Stok Awal: 454
+[2025-12-06T04:36:13.806Z] SUKSES: Stok Berkurang. Sisa: 453
+[2025-12-06T04:36:13.808Z] ITEM ID: 3732 | Product: 11561 | Loc (DB): 4 | Qty: 5 | Stok Awal: 148
+[2025-12-06T04:36:13.809Z] SUKSES: Stok Berkurang. Sisa: 143
+[2025-12-06T04:36:13.810Z] ITEM ID: 3728 | Product: 199 | Loc (DB): 5 | Qty: 50 | Stok Awal: 1500
+[2025-12-06T04:36:13.811Z] SUKSES: Stok Berkurang. Sisa: 1450
+[2025-12-06T04:36:13.812Z] ITEM ID: 3629 | Product: 11808 | Loc (DB): 5 | Qty: 10 | Stok Awal: 280
+[2025-12-06T04:36:13.813Z] SUKSES: Stok Berkurang. Sisa: 270
+[2025-12-06T04:36:13.815Z] ITEM ID: 3123 | Product: 3428 | Loc (DB): 5 | Qty: 20 | Stok Awal: 61
+[2025-12-06T04:36:13.817Z] SUKSES: Stok Berkurang. Sisa: 41
+[2025-12-06T04:36:13.818Z] ITEM ID: 2820 | Product: 4615 | Loc (DB): 2 | Qty: 6 | Stok Awal: 43
+[2025-12-06T04:36:13.819Z] SUKSES: Stok Berkurang. Sisa: 37
+[2025-12-06T04:36:13.821Z] ITEM ID: 2170 | Product: 1917 | Loc (DB): 2 | Qty: 20 | Stok Awal: 36
+[2025-12-06T04:36:13.822Z] SUKSES: Stok Berkurang. Sisa: 16
+[2025-12-06T04:36:13.823Z] ITEM ID: 2064 | Product: 3055 | Loc (DB): 2 | Qty: 2 | Stok Awal: 79
+[2025-12-06T04:36:13.824Z] SUKSES: Stok Berkurang. Sisa: 77
+[2025-12-06T04:36:13.825Z] ITEM ID: 3003 | Product: 516 | Loc (DB): 2 | Qty: 4 | Stok Awal: 622
+[2025-12-06T04:36:13.826Z] SUKSES: Stok Berkurang. Sisa: 618
+[2025-12-06T04:36:13.827Z] ITEM ID: 2937 | Product: 62 | Loc (DB): 2 | Qty: 6 | Stok Awal: 47
+[2025-12-06T04:36:13.828Z] SUKSES: Stok Berkurang. Sisa: 41
+[2025-12-06T04:36:13.829Z] ITEM ID: 2383 | Product: 155 | Loc (DB): 2 | Qty: 2 | Stok Awal: 17
+[2025-12-06T04:36:13.830Z] SUKSES: Stok Berkurang. Sisa: 15
+[2025-12-06T04:36:13.832Z] ITEM ID: 2797 | Product: 4682 | Loc (DB): 2 | Qty: 3 | Stok Awal: 10
+[2025-12-06T04:36:13.834Z] SUKSES: Stok Berkurang. Sisa: 7
+[2025-12-06T04:36:13.836Z] ITEM ID: 3092 | Product: 429 | Loc (DB): 2 | Qty: 2 | Stok Awal: 2612
+[2025-12-06T04:36:13.837Z] SUKSES: Stok Berkurang. Sisa: 2610
+[2025-12-06T04:36:13.838Z] ITEM ID: 3097 | Product: 533 | Loc (DB): 2 | Qty: 2 | Stok Awal: 108
+[2025-12-06T04:36:13.839Z] SUKSES: Stok Berkurang. Sisa: 106
+[2025-12-06T04:36:13.840Z] ITEM ID: 2061 | Product: 2848 | Loc (DB): 2 | Qty: 2 | Stok Awal: 198
+[2025-12-06T04:36:13.841Z] SUKSES: Stok Berkurang. Sisa: 196
+[2025-12-06T04:36:13.842Z] ITEM ID: 3000 | Product: 3062 | Loc (DB): 2 | Qty: 3 | Stok Awal: 158
+[2025-12-06T04:36:13.843Z] SUKSES: Stok Berkurang. Sisa: 155
+[2025-12-06T04:36:13.844Z] ITEM ID: 2593 | Product: 2901 | Loc (DB): 2 | Qty: 2 | Stok Awal: 405
+[2025-12-06T04:36:13.845Z] SUKSES: Stok Berkurang. Sisa: 403
+[2025-12-06T04:36:13.846Z] ITEM ID: 2571 | Product: 515 | Loc (DB): 2 | Qty: 30 | Stok Awal: 1765
+[2025-12-06T04:36:13.847Z] SUKSES: Stok Berkurang. Sisa: 1735
+[2025-12-06T04:36:13.849Z] ITEM ID: 2825 | Product: 154 | Loc (DB): 2 | Qty: 6 | Stok Awal: 361
+[2025-12-06T04:36:13.851Z] SUKSES: Stok Berkurang. Sisa: 355
+[2025-12-06T04:36:13.853Z] ITEM ID: 2794 | Product: 5083 | Loc (DB): 2 | Qty: 4 | Stok Awal: 10
+[2025-12-06T04:36:13.855Z] SUKSES: Stok Berkurang. Sisa: 6
+[2025-12-06T04:36:13.856Z] ITEM ID: 2107 | Product: 740 | Loc (DB): 2 | Qty: 1 | Stok Awal: 38
+[2025-12-06T04:36:13.857Z] SUKSES: Stok Berkurang. Sisa: 37
+[2025-12-06T04:36:13.858Z] ITEM ID: 3008 | Product: 2861 | Loc (DB): 2 | Qty: 6 | Stok Awal: 317
+[2025-12-06T04:36:13.859Z] SUKSES: Stok Berkurang. Sisa: 311
+[2025-12-06T04:36:13.860Z] ITEM ID: 3073 | Product: 1857 | Loc (DB): 2 | Qty: 2 | Stok Awal: 209
+[2025-12-06T04:36:13.862Z] SUKSES: Stok Berkurang. Sisa: 207
+[2025-12-06T04:36:13.863Z] ITEM ID: 2817 | Product: 732 | Loc (DB): 2 | Qty: 3 | Stok Awal: 81
+[2025-12-06T04:36:13.864Z] SUKSES: Stok Berkurang. Sisa: 78
+[2025-12-06T04:36:13.866Z] ITEM ID: 2590 | Product: 321 | Loc (DB): 2 | Qty: 3 | Stok Awal: 3340
+[2025-12-06T04:36:13.867Z] SUKSES: Stok Berkurang. Sisa: 3337
+[2025-12-06T04:36:13.869Z] ITEM ID: 2568 | Product: 164 | Loc (DB): 2 | Qty: 12 | Stok Awal: 637
+[2025-12-06T04:36:13.870Z] SUKSES: Stok Berkurang. Sisa: 625
+[2025-12-06T04:36:13.872Z] ITEM ID: 2822 | Product: 429 | Loc (DB): 2 | Qty: 3 | Stok Awal: 2610
+[2025-12-06T04:36:13.873Z] SUKSES: Stok Berkurang. Sisa: 2607
+[2025-12-06T04:36:13.874Z] ITEM ID: 2081 | Product: 166 | Loc (DB): 2 | Qty: 3 | Stok Awal: 14
+[2025-12-06T04:36:13.875Z] SUKSES: Stok Berkurang. Sisa: 11
+[2025-12-06T04:36:13.876Z] ITEM ID: 3070 | Product: 2592 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1094
+[2025-12-06T04:36:13.877Z] SUKSES: Stok Berkurang. Sisa: 1090
+[2025-12-06T04:36:13.878Z] ITEM ID: 2939 | Product: 20 | Loc (DB): 2 | Qty: 3 | Stok Awal: 2340
+[2025-12-06T04:36:13.879Z] SUKSES: Stok Berkurang. Sisa: 2337
+[2025-12-06T04:36:13.880Z] ITEM ID: 2814 | Product: 666 | Loc (DB): 2 | Qty: 1 | Stok Awal: 10
+[2025-12-06T04:36:13.882Z] SUKSES: Stok Berkurang. Sisa: 9
+[2025-12-06T04:36:13.884Z] ITEM ID: 2760 | Product: 317 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1600
+[2025-12-06T04:36:13.886Z] SUKSES: Stok Berkurang. Sisa: 1599
+[2025-12-06T04:36:13.887Z] ITEM ID: 3094 | Product: 2726 | Loc (DB): 2 | Qty: 2 | Stok Awal: 54
+[2025-12-06T04:36:13.889Z] SUKSES: Stok Berkurang. Sisa: 52
+[2025-12-06T04:36:13.890Z] ITEM ID: 2783 | Product: 157 | Loc (DB): 2 | Qty: 6 | Stok Awal: 65
+[2025-12-06T04:36:13.891Z] SUKSES: Stok Berkurang. Sisa: 59
+[2025-12-06T04:36:13.892Z] ITEM ID: 3002 | Product: 2714 | Loc (DB): 2 | Qty: 3 | Stok Awal: 11988
+[2025-12-06T04:36:13.894Z] SUKSES: Stok Berkurang. Sisa: 11985
+[2025-12-06T04:36:13.895Z] ITEM ID: 2578 | Product: 322 | Loc (DB): 2 | Qty: 5 | Stok Awal: 978
+[2025-12-06T04:36:13.896Z] SUKSES: Stok Berkurang. Sisa: 973
+[2025-12-06T04:36:13.898Z] ITEM ID: 2382 | Product: 151 | Loc (DB): 2 | Qty: 1 | Stok Awal: 13
+[2025-12-06T04:36:13.899Z] SUKSES: Stok Berkurang. Sisa: 12
+[2025-12-06T04:36:13.901Z] ITEM ID: 2796 | Product: 3603 | Loc (DB): 2 | Qty: 2 | Stok Awal: 42
+[2025-12-06T04:36:13.902Z] SUKSES: Stok Berkurang. Sisa: 40
+[2025-12-06T04:36:13.904Z] ITEM ID: 2757 | Product: 341 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1000
+[2025-12-06T04:36:13.905Z] SUKSES: Stok Berkurang. Sisa: 999
+[2025-12-06T04:36:13.906Z] ITEM ID: 3091 | Product: 527 | Loc (DB): 2 | Qty: 2 | Stok Awal: 298
+[2025-12-06T04:36:13.907Z] SUKSES: Stok Berkurang. Sisa: 296
+[2025-12-06T04:36:13.909Z] ITEM ID: 2485 | Product: 2845 | Loc (DB): 2 | Qty: 1 | Stok Awal: 341
+[2025-12-06T04:36:13.910Z] SUKSES: Stok Berkurang. Sisa: 340
+[2025-12-06T04:36:13.911Z] ITEM ID: 2762 | Product: 3603 | Loc (DB): 2 | Qty: 1 | Stok Awal: 40
+[2025-12-06T04:36:13.912Z] SUKSES: Stok Berkurang. Sisa: 39
+[2025-12-06T04:36:13.913Z] ITEM ID: 3096 | Product: 429 | Loc (DB): 2 | Qty: 5 | Stok Awal: 2607
+[2025-12-06T04:36:13.915Z] SUKSES: Stok Berkurang. Sisa: 2602
+[2025-12-06T04:36:13.917Z] ITEM ID: 2999 | Product: 2847 | Loc (DB): 2 | Qty: 3 | Stok Awal: 618
+[2025-12-06T04:36:13.918Z] SUKSES: Stok Berkurang. Sisa: 615
+[2025-12-06T04:36:13.920Z] ITEM ID: 2570 | Product: 227 | Loc (DB): 2 | Qty: 12 | Stok Awal: 62
+[2025-12-06T04:36:13.921Z] SUKSES: Stok Berkurang. Sisa: 50
+[2025-12-06T04:36:13.922Z] ITEM ID: 2824 | Product: 811 | Loc (DB): 2 | Qty: 2 | Stok Awal: 11
+[2025-12-06T04:36:13.923Z] SUKSES: Stok Berkurang. Sisa: 9
+[2025-12-06T04:36:13.924Z] ITEM ID: 2793 | Product: 270 | Loc (DB): 2 | Qty: 2 | Stok Awal: 20
+[2025-12-06T04:36:13.926Z] SUKSES: Stok Berkurang. Sisa: 18
+[2025-12-06T04:36:13.927Z] ITEM ID: 2083 | Product: 186 | Loc (DB): 2 | Qty: 6 | Stok Awal: 111
+[2025-12-06T04:36:13.928Z] SUKSES: Stok Berkurang. Sisa: 105
+[2025-12-06T04:36:13.929Z] ITEM ID: 3007 | Product: 2985 | Loc (DB): 2 | Qty: 3 | Stok Awal: 98
+[2025-12-06T04:36:13.930Z] SUKSES: Stok Berkurang. Sisa: 95
+[2025-12-06T04:36:13.931Z] ITEM ID: 2753 | Product: 7 | Loc (DB): 2 | Qty: 50 | Stok Awal: 3172
+[2025-12-06T04:36:13.933Z] SUKSES: Stok Berkurang. Sisa: 3122
+[2025-12-06T04:36:13.936Z] ITEM ID: 3072 | Product: 5282 | Loc (DB): 2 | Qty: 2 | Stok Awal: 2
+[2025-12-06T04:36:13.938Z] SUKSES: Stok Berkurang. Sisa: 0
+[2025-12-06T04:36:13.939Z] ITEM ID: 2993 | Product: 994 | Loc (DB): 2 | Qty: 2 | Stok Awal: 78
+[2025-12-06T04:36:13.940Z] SUKSES: Stok Berkurang. Sisa: 76
+[2025-12-06T04:36:13.941Z] ITEM ID: 2589 | Product: 33 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1027
+[2025-12-06T04:36:13.942Z] SUKSES: Stok Berkurang. Sisa: 1025
+[2025-12-06T04:36:13.943Z] ITEM ID: 2491 | Product: 325 | Loc (DB): 2 | Qty: 15 | Stok Awal: 3200
+[2025-12-06T04:36:13.944Z] SUKSES: Stok Berkurang. Sisa: 3185
+[2025-12-06T04:36:13.945Z] ITEM ID: 2821 | Product: 15 | Loc (DB): 2 | Qty: 6 | Stok Awal: 5591
+[2025-12-06T04:36:13.946Z] SUKSES: Stok Berkurang. Sisa: 5585
+[2025-12-06T04:36:13.948Z] ITEM ID: 2785 | Product: 761 | Loc (DB): 2 | Qty: 2 | Stok Awal: 118
+[2025-12-06T04:36:13.950Z] SUKSES: Stok Berkurang. Sisa: 116
+[2025-12-06T04:36:13.952Z] ITEM ID: 3004 | Product: 2846 | Loc (DB): 2 | Qty: 3 | Stok Awal: 387
+[2025-12-06T04:36:13.953Z] SUKSES: Stok Berkurang. Sisa: 384
+[2025-12-06T04:36:13.954Z] ITEM ID: 2700 | Product: 2721 | Loc (DB): 2 | Qty: 1 | Stok Awal: 6
+[2025-12-06T04:36:13.955Z] SUKSES: Stok Berkurang. Sisa: 5
+[2025-12-06T04:36:13.956Z] ITEM ID: 2813 | Product: 251 | Loc (DB): 2 | Qty: 4 | Stok Awal: 49
+[2025-12-06T04:36:13.957Z] SUKSES: Stok Berkurang. Sisa: 45
+[2025-12-06T04:36:13.958Z] ITEM ID: 2119 | Product: 7514 | Loc (DB): 2 | Qty: 6 | Stok Awal: 20
+[2025-12-06T04:36:13.959Z] SUKSES: Stok Berkurang. Sisa: 14
+[2025-12-06T04:36:13.960Z] ITEM ID: 2759 | Product: 1850 | Loc (DB): 2 | Qty: 1 | Stok Awal: 651
+[2025-12-06T04:36:13.961Z] SUKSES: Stok Berkurang. Sisa: 650
+[2025-12-06T04:36:13.962Z] ITEM ID: 3093 | Product: 8820 | Loc (DB): 2 | Qty: 2 | Stok Awal: 69
+[2025-12-06T04:36:13.963Z] SUKSES: Stok Berkurang. Sisa: 67
+[2025-12-06T04:36:13.964Z] ITEM ID: 2818 | Product: 57 | Loc (DB): 2 | Qty: 6 | Stok Awal: 1074
+[2025-12-06T04:36:13.966Z] SUKSES: Stok Berkurang. Sisa: 1068
+[2025-12-06T04:36:13.967Z] ITEM ID: 2168 | Product: 1913 | Loc (DB): 2 | Qty: 20 | Stok Awal: 412
+[2025-12-06T04:36:13.968Z] SUKSES: Stok Berkurang. Sisa: 392
+[2025-12-06T04:36:13.969Z] ITEM ID: 2764 | Product: 7448 | Loc (DB): 2 | Qty: 1 | Stok Awal: 10
+[2025-12-06T04:36:13.970Z] SUKSES: Stok Berkurang. Sisa: 9
+[2025-12-06T04:36:13.972Z] ITEM ID: 3098 | Product: 3569 | Loc (DB): 2 | Qty: 3 | Stok Awal: 481
+[2025-12-06T04:36:13.973Z] SUKSES: Stok Berkurang. Sisa: 478
+[2025-12-06T04:36:13.974Z] ITEM ID: 2062 | Product: 2715 | Loc (DB): 2 | Qty: 2 | Stok Awal: 945
+[2025-12-06T04:36:13.975Z] SUKSES: Stok Berkurang. Sisa: 943
+[2025-12-06T04:36:13.976Z] ITEM ID: 3001 | Product: 3522 | Loc (DB): 2 | Qty: 3 | Stok Awal: 104
+[2025-12-06T04:36:13.977Z] SUKSES: Stok Berkurang. Sisa: 101
+[2025-12-06T04:36:13.978Z] ITEM ID: 2660 | Product: 131 | Loc (DB): 2 | Qty: 15 | Stok Awal: 66
+[2025-12-06T04:36:13.979Z] SUKSES: Stok Berkurang. Sisa: 51
+[2025-12-06T04:36:13.980Z] ITEM ID: 2572 | Product: 524 | Loc (DB): 2 | Qty: 12 | Stok Awal: 1073
+[2025-12-06T04:36:13.981Z] SUKSES: Stok Berkurang. Sisa: 1061
+[2025-12-06T04:36:13.984Z] ITEM ID: 3009 | Product: 2713 | Loc (DB): 2 | Qty: 3 | Stok Awal: 528
+[2025-12-06T04:36:13.987Z] SUKSES: Stok Berkurang. Sisa: 525
+[2025-12-06T04:36:13.988Z] ITEM ID: 2756 | Product: 321 | Loc (DB): 2 | Qty: 2 | Stok Awal: 3337
+[2025-12-06T04:36:13.989Z] SUKSES: Stok Berkurang. Sisa: 3335
+[2025-12-06T04:36:13.991Z] ITEM ID: 2761 | Product: 5083 | Loc (DB): 2 | Qty: 1 | Stok Awal: 6
+[2025-12-06T04:36:13.992Z] SUKSES: Stok Berkurang. Sisa: 5
+[2025-12-06T04:36:13.993Z] ITEM ID: 3095 | Product: 2725 | Loc (DB): 2 | Qty: 2 | Stok Awal: 749
+[2025-12-06T04:36:13.994Z] SUKSES: Stok Berkurang. Sisa: 747
+[2025-12-06T04:36:13.995Z] ITEM ID: 2998 | Product: 2910 | Loc (DB): 2 | Qty: 3 | Stok Awal: 143
+[2025-12-06T04:36:13.996Z] SUKSES: Stok Berkurang. Sisa: 140
+[2025-12-06T04:36:13.997Z] ITEM ID: 2591 | Product: 516 | Loc (DB): 2 | Qty: 4 | Stok Awal: 618
+[2025-12-06T04:36:13.998Z] SUKSES: Stok Berkurang. Sisa: 614
+[2025-12-06T04:36:14.000Z] ITEM ID: 2823 | Product: 8811 | Loc (DB): 2 | Qty: 3 | Stok Awal: 846
+[2025-12-06T04:36:14.001Z] SUKSES: Stok Berkurang. Sisa: 843
+[2025-12-06T04:36:14.003Z] ITEM ID: 2792 | Product: 7574 | Loc (DB): 2 | Qty: 2 | Stok Awal: 20
+[2025-12-06T04:36:14.005Z] SUKSES: Stok Berkurang. Sisa: 18
+[2025-12-06T04:36:14.006Z] ITEM ID: 3006 | Product: 3057 | Loc (DB): 2 | Qty: 3 | Stok Awal: 85
+[2025-12-06T04:36:14.007Z] SUKSES: Stok Berkurang. Sisa: 82
+[2025-12-06T04:36:14.008Z] ITEM ID: 2702 | Product: 2854 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1
+[2025-12-06T04:36:14.009Z] SUKSES: Stok Berkurang. Sisa: 0
+[2025-12-06T04:36:14.010Z] ITEM ID: 3071 | Product: 1853 | Loc (DB): 2 | Qty: 2 | Stok Awal: 712
+[2025-12-06T04:36:14.011Z] SUKSES: Stok Berkurang. Sisa: 710
+[2025-12-06T04:36:14.012Z] ITEM ID: 2121 | Product: 1858 | Loc (DB): 2 | Qty: 6 | Stok Awal: 84
+[2025-12-06T04:36:14.013Z] SUKSES: Stok Berkurang. Sisa: 78
+[2025-12-06T04:36:14.015Z] ITEM ID: 3062 | Product: 5317 | Loc (DB): 4 | Qty: 2 | Stok Awal: 231
+[2025-12-06T04:36:14.016Z] SUKSES: Stok Berkurang. Sisa: 229
+[2025-12-06T04:36:14.017Z] ITEM ID: 2118 | Product: 11809 | Loc (DB): 5 | Qty: 3 | Stok Awal: 480
+[2025-12-06T04:36:14.018Z] SUKSES: Stok Berkurang. Sisa: 477
+[2025-12-06T04:36:14.020Z] ITEM ID: 2167 | Product: 1918 | Loc (DB): 5 | Qty: 19 | Stok Awal: 96
+[2025-12-06T04:36:14.020Z] SUKSES: Stok Berkurang. Sisa: 77
+[2025-12-06T04:36:14.022Z] ITEM ID: 2957 | Product: 11273 | Loc (DB): 5 | Qty: 1 | Stok Awal: 52
+[2025-12-06T04:36:14.023Z] SUKSES: Stok Berkurang. Sisa: 51
+[2025-12-06T04:36:14.024Z] ITEM ID: 2120 | Product: 2662 | Loc (DB): 5 | Qty: 2 | Stok Awal: 100
+[2025-12-06T04:36:14.025Z] SUKSES: Stok Berkurang. Sisa: 98
+[2025-12-06T04:36:14.026Z] ITEM ID: 2958 | Product: 9166 | Loc (DB): 5 | Qty: 1 | Stok Awal: 35
+[2025-12-06T04:36:14.027Z] SUKSES: Stok Berkurang. Sisa: 34
+[2025-12-06T04:36:14.029Z] ITEM ID: 1075 | Product: 24 | Loc (DB): 2 | Qty: 2 | Stok Awal: 29
+[2025-12-06T04:36:14.030Z] SUKSES: Stok Berkurang. Sisa: 27
+[2025-12-06T04:36:14.031Z] ITEM ID: 1199 | Product: 2907 | Loc (DB): 2 | Qty: 3 | Stok Awal: 1070
+[2025-12-06T04:36:14.033Z] SUKSES: Stok Berkurang. Sisa: 1067
+[2025-12-06T04:36:14.035Z] ITEM ID: 1086 | Product: 92 | Loc (DB): 2 | Qty: 3 | Stok Awal: 72
+[2025-12-06T04:36:14.037Z] SUKSES: Stok Berkurang. Sisa: 69
+[2025-12-06T04:36:14.038Z] ITEM ID: 1404 | Product: 1860 | Loc (DB): 2 | Qty: 2 | Stok Awal: 136
+[2025-12-06T04:36:14.040Z] SUKSES: Stok Berkurang. Sisa: 134
+[2025-12-06T04:36:14.041Z] ITEM ID: 1191 | Product: 11381 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1057
+[2025-12-06T04:36:14.042Z] SUKSES: Stok Berkurang. Sisa: 1053
+[2025-12-06T04:36:14.043Z] ITEM ID: 1952 | Product: 517 | Loc (DB): 2 | Qty: 4 | Stok Awal: 294
+[2025-12-06T04:36:14.044Z] SUKSES: Stok Berkurang. Sisa: 290
+[2025-12-06T04:36:14.045Z] ITEM ID: 1196 | Product: 2714 | Loc (DB): 2 | Qty: 1 | Stok Awal: 11985
+[2025-12-06T04:36:14.046Z] SUKSES: Stok Berkurang. Sisa: 11984
+[2025-12-06T04:36:14.047Z] ITEM ID: 1818 | Product: 69 | Loc (DB): 2 | Qty: 3 | Stok Awal: 67
+[2025-12-06T04:36:14.048Z] SUKSES: Stok Berkurang. Sisa: 64
+[2025-12-06T04:36:14.050Z] ITEM ID: 1366 | Product: 11 | Loc (DB): 2 | Qty: 50 | Stok Awal: 4370
+[2025-12-06T04:36:14.051Z] SUKSES: Stok Berkurang. Sisa: 4320
+[2025-12-06T04:36:14.052Z] ITEM ID: 1177 | Product: 535 | Loc (DB): 2 | Qty: 7 | Stok Awal: 304
+[2025-12-06T04:36:14.053Z] SUKSES: Stok Berkurang. Sisa: 297
+[2025-12-06T04:36:14.054Z] ITEM ID: 1051 | Product: 1913 | Loc (DB): 2 | Qty: 6 | Stok Awal: 392
+[2025-12-06T04:36:14.055Z] SUKSES: Stok Berkurang. Sisa: 386
+[2025-12-06T04:36:14.056Z] ITEM ID: 1077 | Product: 67 | Loc (DB): 2 | Qty: 1 | Stok Awal: 33
+[2025-12-06T04:36:14.057Z] SUKSES: Stok Berkurang. Sisa: 32
+[2025-12-06T04:36:14.058Z] ITEM ID: 1823 | Product: 71 | Loc (DB): 2 | Qty: 3 | Stok Awal: 88
+[2025-12-06T04:36:14.059Z] SUKSES: Stok Berkurang. Sisa: 85
+[2025-12-06T04:36:14.060Z] ITEM ID: 1605 | Product: 1746 | Loc (DB): 2 | Qty: 2 | Stok Awal: 104
+[2025-12-06T04:36:14.061Z] SUKSES: Stok Berkurang. Sisa: 102
+[2025-12-06T04:36:14.062Z] ITEM ID: 1193 | Product: 2612 | Loc (DB): 2 | Qty: 2 | Stok Awal: 2057
+[2025-12-06T04:36:14.063Z] SUKSES: Stok Berkurang. Sisa: 2055
+[2025-12-06T04:36:14.064Z] ITEM ID: 1198 | Product: 2679 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1656
+[2025-12-06T04:36:14.065Z] SUKSES: Stok Berkurang. Sisa: 1654
+[2025-12-06T04:36:14.067Z] ITEM ID: 1085 | Product: 322 | Loc (DB): 2 | Qty: 3 | Stok Awal: 973
+[2025-12-06T04:36:14.068Z] SUKSES: Stok Berkurang. Sisa: 970
+[2025-12-06T04:36:14.069Z] ITEM ID: 1820 | Product: 2657 | Loc (DB): 2 | Qty: 2 | Stok Awal: 239
+[2025-12-06T04:36:14.070Z] SUKSES: Stok Berkurang. Sisa: 237
+[2025-12-06T04:36:14.071Z] ITEM ID: 1521 | Product: 2849 | Loc (DB): 2 | Qty: 2 | Stok Awal: 213
+[2025-12-06T04:36:14.072Z] SUKSES: Stok Berkurang. Sisa: 211
+[2025-12-06T04:36:14.073Z] ITEM ID: 1951 | Product: 526 | Loc (DB): 2 | Qty: 4 | Stok Awal: 541
+[2025-12-06T04:36:14.074Z] SUKSES: Stok Berkurang. Sisa: 537
+[2025-12-06T04:36:14.074Z] ITEM ID: 1074 | Product: 3065 | Loc (DB): 2 | Qty: 3 | Stok Awal: 120
+[2025-12-06T04:36:14.075Z] SUKSES: Stok Berkurang. Sisa: 117
+[2025-12-06T04:36:14.076Z] ITEM ID: 1195 | Product: 1835 | Loc (DB): 2 | Qty: 1 | Stok Awal: 277
+[2025-12-06T04:36:14.077Z] SUKSES: Stok Berkurang. Sisa: 276
+[2025-12-06T04:36:14.078Z] ITEM ID: 1817 | Product: 27 | Loc (DB): 2 | Qty: 3 | Stok Awal: 186
+[2025-12-06T04:36:14.079Z] SUKSES: Stok Berkurang. Sisa: 183
+[2025-12-06T04:36:14.081Z] ITEM ID: 1844 | Product: 1915 | Loc (DB): 2 | Qty: 1 | Stok Awal: 45
+[2025-12-06T04:36:14.082Z] SUKSES: Stok Berkurang. Sisa: 44
+[2025-12-06T04:36:14.083Z] ITEM ID: 1087 | Product: 323 | Loc (DB): 2 | Qty: 3 | Stok Awal: 1773
+[2025-12-06T04:36:14.085Z] SUKSES: Stok Berkurang. Sisa: 1770
+[2025-12-06T04:36:14.087Z] ITEM ID: 1822 | Product: 75 | Loc (DB): 2 | Qty: 2 | Stok Awal: 48
+[2025-12-06T04:36:14.088Z] SUKSES: Stok Berkurang. Sisa: 46
+[2025-12-06T04:36:14.089Z] ITEM ID: 1604 | Product: 4482 | Loc (DB): 2 | Qty: 1 | Stok Awal: 7
+[2025-12-06T04:36:14.090Z] SUKSES: Stok Berkurang. Sisa: 6
+[2025-12-06T04:36:14.091Z] ITEM ID: 1405 | Product: 7 | Loc (DB): 2 | Qty: 10 | Stok Awal: 3122
+[2025-12-06T04:36:14.092Z] SUKSES: Stok Berkurang. Sisa: 3112
+[2025-12-06T04:36:14.093Z] ITEM ID: 1192 | Product: 2958 | Loc (DB): 2 | Qty: 2 | Stok Awal: 495
+[2025-12-06T04:36:14.095Z] SUKSES: Stok Berkurang. Sisa: 493
+[2025-12-06T04:36:14.096Z] ITEM ID: 1953 | Product: 529 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1055
+[2025-12-06T04:36:14.097Z] SUKSES: Stok Berkurang. Sisa: 1053
+[2025-12-06T04:36:14.098Z] ITEM ID: 1519 | Product: 3055 | Loc (DB): 2 | Qty: 3 | Stok Awal: 77
+[2025-12-06T04:36:14.100Z] SUKSES: Stok Berkurang. Sisa: 74
+[2025-12-06T04:36:14.101Z] ITEM ID: 1084 | Product: 110 | Loc (DB): 2 | Qty: 3 | Stok Awal: 16
+[2025-12-06T04:36:14.102Z] SUKSES: Stok Berkurang. Sisa: 13
+[2025-12-06T04:36:14.103Z] ITEM ID: 1819 | Product: 1835 | Loc (DB): 2 | Qty: 1 | Stok Awal: 276
+[2025-12-06T04:36:14.104Z] SUKSES: Stok Berkurang. Sisa: 275
+[2025-12-06T04:36:14.105Z] ITEM ID: 1520 | Product: 2960 | Loc (DB): 2 | Qty: 1 | Stok Awal: 290
+[2025-12-06T04:36:14.106Z] SUKSES: Stok Berkurang. Sisa: 289
+[2025-12-06T04:36:14.107Z] ITEM ID: 1367 | Product: 7 | Loc (DB): 2 | Qty: 50 | Stok Awal: 3112
+[2025-12-06T04:36:14.108Z] SUKSES: Stok Berkurang. Sisa: 3062
+[2025-12-06T04:36:14.109Z] ITEM ID: 1178 | Product: 519 | Loc (DB): 2 | Qty: 13 | Stok Awal: 443
+[2025-12-06T04:36:14.110Z] SUKSES: Stok Berkurang. Sisa: 430
+[2025-12-06T04:36:14.111Z] ITEM ID: 1950 | Product: 3062 | Loc (DB): 2 | Qty: 2 | Stok Awal: 155
+[2025-12-06T04:36:14.112Z] SUKSES: Stok Berkurang. Sisa: 153
+[2025-12-06T04:36:14.114Z] ITEM ID: 1073 | Product: 1861 | Loc (DB): 2 | Qty: 1 | Stok Awal: 84
+[2025-12-06T04:36:14.115Z] SUKSES: Stok Berkurang. Sisa: 83
+[2025-12-06T04:36:14.116Z] ITEM ID: 1194 | Product: 2871 | Loc (DB): 2 | Qty: 1 | Stok Awal: 11
+[2025-12-06T04:36:14.117Z] SUKSES: Stok Berkurang. Sisa: 10
+[2025-12-06T04:36:14.118Z] ITEM ID: 1078 | Product: 2969 | Loc (DB): 2 | Qty: 2 | Stok Awal: 89
+[2025-12-06T04:36:14.120Z] SUKSES: Stok Berkurang. Sisa: 87
+[2025-12-06T04:36:14.120Z] ITEM ID: 1824 | Product: 29 | Loc (DB): 2 | Qty: 2 | Stok Awal: 102
+[2025-12-06T04:36:14.121Z] SUKSES: Stok Berkurang. Sisa: 100
+[2025-12-06T04:36:14.122Z] ITEM ID: 1003 | Product: 327 | Loc (DB): 2 | Qty: 30 | Stok Awal: 1288
+[2025-12-06T04:36:14.123Z] SUKSES: Stok Berkurang. Sisa: 1258
+[2025-12-06T04:36:14.124Z] ITEM ID: 1471 | Product: 2593 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1554
+[2025-12-06T04:36:14.125Z] SUKSES: Stok Berkurang. Sisa: 1552
+[2025-12-06T04:36:14.127Z] ITEM ID: 1603 | Product: 699 | Loc (DB): 4 | Qty: 2 | Stok Awal: 12
+[2025-12-06T04:36:14.128Z] SUKSES: Stok Berkurang. Sisa: 10
+[2025-12-06T04:36:14.129Z] ITEM ID: 1816 | Product: 11862 | Loc (DB): 5 | Qty: 2 | Stok Awal: 497
+[2025-12-06T04:36:14.130Z] SUKSES: Stok Berkurang. Sisa: 495
+[2025-12-06T04:36:14.133Z] ITEM ID: 914 | Product: 708 | Loc (DB): 2 | Qty: 5 | Stok Awal: 618
+[2025-12-06T04:36:14.135Z] SUKSES: Stok Berkurang. Sisa: 613
+[2025-12-06T04:36:14.137Z] ITEM ID: 787 | Product: 240 | Loc (DB): 2 | Qty: 3 | Stok Awal: 10
+[2025-12-06T04:36:14.139Z] SUKSES: Stok Berkurang. Sisa: 7
+[2025-12-06T04:36:14.141Z] ITEM ID: 80 | Product: 25 | Loc (DB): 2 | Qty: 3 | Stok Awal: 21
+[2025-12-06T04:36:14.143Z] SUKSES: Stok Berkurang. Sisa: 18
+[2025-12-06T04:36:14.145Z] ITEM ID: 865 | Product: 586 | Loc (DB): 2 | Qty: 2 | Stok Awal: 77
+[2025-12-06T04:36:14.146Z] SUKSES: Stok Berkurang. Sisa: 75
+[2025-12-06T04:36:14.148Z] ITEM ID: 691 | Product: 7 | Loc (DB): 2 | Qty: 4 | Stok Awal: 3062
+[2025-12-06T04:36:14.149Z] SUKSES: Stok Berkurang. Sisa: 3058
+[2025-12-06T04:36:14.151Z] ITEM ID: 507 | Product: 331 | Loc (DB): 2 | Qty: 8 | Stok Awal: 1394
+[2025-12-06T04:36:14.152Z] SUKSES: Stok Berkurang. Sisa: 1386
+[2025-12-06T04:36:14.154Z] ITEM ID: 814 | Product: 53 | Loc (DB): 2 | Qty: 6 | Stok Awal: 3469
+[2025-12-06T04:36:14.155Z] SUKSES: Stok Berkurang. Sisa: 3463
+[2025-12-06T04:36:14.156Z] ITEM ID: 135 | Product: 2857 | Loc (DB): 2 | Qty: 8 | Stok Awal: 2455
+[2025-12-06T04:36:14.157Z] SUKSES: Stok Berkurang. Sisa: 2447
+[2025-12-06T04:36:14.158Z] ITEM ID: 904 | Product: 11381 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1053
+[2025-12-06T04:36:14.159Z] SUKSES: Stok Berkurang. Sisa: 1049
+[2025-12-06T04:36:14.160Z] ITEM ID: 38 | Product: 746 | Loc (DB): 2 | Qty: 2 | Stok Awal: 23
+[2025-12-06T04:36:14.161Z] SUKSES: Stok Berkurang. Sisa: 21
+[2025-12-06T04:36:14.162Z] ITEM ID: 77 | Product: 237 | Loc (DB): 2 | Qty: 3 | Stok Awal: 39
+[2025-12-06T04:36:14.163Z] SUKSES: Stok Berkurang. Sisa: 36
+[2025-12-06T04:36:14.164Z] ITEM ID: 816 | Product: 47 | Loc (DB): 2 | Qty: 4 | Stok Awal: 333
+[2025-12-06T04:36:14.166Z] SUKSES: Stok Berkurang. Sisa: 329
+[2025-12-06T04:36:14.167Z] ITEM ID: 442 | Product: 11 | Loc (DB): 2 | Qty: 6 | Stok Awal: 4320
+[2025-12-06T04:36:14.169Z] SUKSES: Stok Berkurang. Sisa: 4314
+[2025-12-06T04:36:14.170Z] ITEM ID: 927 | Product: 162 | Loc (DB): 2 | Qty: 20 | Stok Awal: 687
+[2025-12-06T04:36:14.171Z] SUKSES: Stok Berkurang. Sisa: 667
+[2025-12-06T04:36:14.172Z] ITEM ID: 792 | Product: 8813 | Loc (DB): 2 | Qty: 5 | Stok Awal: 96
+[2025-12-06T04:36:14.173Z] SUKSES: Stok Berkurang. Sisa: 91
+[2025-12-06T04:36:14.174Z] ITEM ID: 870 | Product: 8808 | Loc (DB): 2 | Qty: 4 | Stok Awal: 126
+[2025-12-06T04:36:14.175Z] SUKSES: Stok Berkurang. Sisa: 122
+[2025-12-06T04:36:14.176Z] ITEM ID: 728 | Product: 1895 | Loc (DB): 2 | Qty: 2 | Stok Awal: 64
+[2025-12-06T04:36:14.177Z] SUKSES: Stok Berkurang. Sisa: 62
+[2025-12-06T04:36:14.178Z] ITEM ID: 909 | Product: 331 | Loc (DB): 2 | Qty: 8 | Stok Awal: 1386
+[2025-12-06T04:36:14.179Z] SUKSES: Stok Berkurang. Sisa: 1378
+[2025-12-06T04:36:14.180Z] ITEM ID: 784 | Product: 8811 | Loc (DB): 2 | Qty: 10 | Stok Awal: 843
+[2025-12-06T04:36:14.182Z] SUKSES: Stok Berkurang. Sisa: 833
+[2025-12-06T04:36:14.183Z] ITEM ID: 439 | Product: 431 | Loc (DB): 2 | Qty: 2 | Stok Awal: 3122
+[2025-12-06T04:36:14.185Z] SUKSES: Stok Berkurang. Sisa: 3120
+[2025-12-06T04:36:14.187Z] ITEM ID: 924 | Product: 225 | Loc (DB): 2 | Qty: 10 | Stok Awal: 3591
+[2025-12-06T04:36:14.188Z] SUKSES: Stok Berkurang. Sisa: 3581
+[2025-12-06T04:36:14.190Z] ITEM ID: 725 | Product: 327 | Loc (DB): 2 | Qty: 12 | Stok Awal: 1258
+[2025-12-06T04:36:14.191Z] SUKSES: Stok Berkurang. Sisa: 1246
+[2025-12-06T04:36:14.192Z] ITEM ID: 137 | Product: 2858 | Loc (DB): 2 | Qty: 4 | Stok Awal: 243
+[2025-12-06T04:36:14.193Z] SUKSES: Stok Berkurang. Sisa: 239
+[2025-12-06T04:36:14.193Z] ITEM ID: 786 | Product: 322 | Loc (DB): 2 | Qty: 15 | Stok Awal: 970
+[2025-12-06T04:36:14.195Z] SUKSES: Stok Berkurang. Sisa: 955
+[2025-12-06T04:36:14.196Z] ITEM ID: 690 | Product: 143 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1655
+[2025-12-06T04:36:14.197Z] SUKSES: Stok Berkurang. Sisa: 1653
+[2025-12-06T04:36:14.198Z] ITEM ID: 929 | Product: 226 | Loc (DB): 2 | Qty: 10 | Stok Awal: 54
+[2025-12-06T04:36:14.200Z] SUKSES: Stok Berkurang. Sisa: 44
+[2025-12-06T04:36:14.201Z] ITEM ID: 813 | Product: 184 | Loc (DB): 2 | Qty: 10 | Stok Awal: 115
+[2025-12-06T04:36:14.203Z] SUKSES: Stok Berkurang. Sisa: 105
+[2025-12-06T04:36:14.204Z] ITEM ID: 730 | Product: 3550 | Loc (DB): 2 | Qty: 2 | Stok Awal: 219
+[2025-12-06T04:36:14.205Z] SUKSES: Stok Berkurang. Sisa: 217
+[2025-12-06T04:36:14.206Z] ITEM ID: 331 | Product: 802 | Loc (DB): 2 | Qty: 3 | Stok Awal: 16
+[2025-12-06T04:36:14.207Z] SUKSES: Stok Berkurang. Sisa: 13
+[2025-12-06T04:36:14.208Z] ITEM ID: 687 | Product: 140 | Loc (DB): 2 | Qty: 2 | Stok Awal: 135
+[2025-12-06T04:36:14.209Z] SUKSES: Stok Berkurang. Sisa: 133
+[2025-12-06T04:36:14.210Z] ITEM ID: 441 | Product: 250 | Loc (DB): 2 | Qty: 4 | Stok Awal: 189
+[2025-12-06T04:36:14.211Z] SUKSES: Stok Berkurang. Sisa: 185
+[2025-12-06T04:36:14.212Z] ITEM ID: 791 | Product: 429 | Loc (DB): 2 | Qty: 10 | Stok Awal: 2602
+[2025-12-06T04:36:14.214Z] SUKSES: Stok Berkurang. Sisa: 2592
+[2025-12-06T04:36:14.215Z] ITEM ID: 869 | Product: 429 | Loc (DB): 2 | Qty: 4 | Stok Awal: 2592
+[2025-12-06T04:36:14.216Z] SUKSES: Stok Berkurang. Sisa: 2588
+[2025-12-06T04:36:14.217Z] ITEM ID: 237 | Product: 162 | Loc (DB): 2 | Qty: 10 | Stok Awal: 667
+[2025-12-06T04:36:14.219Z] SUKSES: Stok Berkurang. Sisa: 657
+[2025-12-06T04:36:14.220Z] ITEM ID: 908 | Product: 260 | Loc (DB): 2 | Qty: 2 | Stok Awal: 150
+[2025-12-06T04:36:14.221Z] SUKSES: Stok Berkurang. Sisa: 148
+[2025-12-06T04:36:14.222Z] ITEM ID: 76 | Product: 230 | Loc (DB): 2 | Qty: 4 | Stok Awal: 24
+[2025-12-06T04:36:14.223Z] SUKSES: Stok Berkurang. Sisa: 20
+[2025-12-06T04:36:14.224Z] ITEM ID: 438 | Product: 226 | Loc (DB): 2 | Qty: 10 | Stok Awal: 44
+[2025-12-06T04:36:14.225Z] SUKSES: Stok Berkurang. Sisa: 34
+[2025-12-06T04:36:14.227Z] ITEM ID: 923 | Product: 148 | Loc (DB): 2 | Qty: 10 | Stok Awal: 24
+[2025-12-06T04:36:14.228Z] SUKSES: Stok Berkurang. Sisa: 14
+[2025-12-06T04:36:14.228Z] ITEM ID: 128 | Product: 2956 | Loc (DB): 2 | Qty: 4 | Stok Awal: 342
+[2025-12-06T04:36:14.229Z] SUKSES: Stok Berkurang. Sisa: 338
+[2025-12-06T04:36:14.230Z] ITEM ID: 866 | Product: 239 | Loc (DB): 2 | Qty: 8 | Stok Awal: 50
+[2025-12-06T04:36:14.232Z] SUKSES: Stok Berkurang. Sisa: 42
+[2025-12-06T04:36:14.234Z] ITEM ID: 508 | Product: 250 | Loc (DB): 2 | Qty: 4 | Stok Awal: 185
+[2025-12-06T04:36:14.236Z] SUKSES: Stok Berkurang. Sisa: 181
+[2025-12-06T04:36:14.237Z] ITEM ID: 905 | Product: 2845 | Loc (DB): 2 | Qty: 2 | Stok Awal: 340
+[2025-12-06T04:36:14.240Z] SUKSES: Stok Berkurang. Sisa: 338
+[2025-12-06T04:36:14.241Z] ITEM ID: 780 | Product: 8817 | Loc (DB): 2 | Qty: 5 | Stok Awal: 270
+[2025-12-06T04:36:14.243Z] SUKSES: Stok Berkurang. Sisa: 265
+[2025-12-06T04:36:14.244Z] ITEM ID: 681 | Product: 7490 | Loc (DB): 2 | Qty: 4 | Stok Awal: 25
+[2025-12-06T04:36:14.245Z] SUKSES: Stok Berkurang. Sisa: 21
+[2025-12-06T04:36:14.247Z] ITEM ID: 910 | Product: 41 | Loc (DB): 2 | Qty: 2 | Stok Awal: 71
+[2025-12-06T04:36:14.248Z] SUKSES: Stok Berkurang. Sisa: 69
+[2025-12-06T04:36:14.250Z] ITEM ID: 785 | Product: 251 | Loc (DB): 2 | Qty: 4 | Stok Awal: 45
+[2025-12-06T04:36:14.251Z] SUKSES: Stok Berkurang. Sisa: 41
+[2025-12-06T04:36:14.253Z] ITEM ID: 78 | Product: 272 | Loc (DB): 2 | Qty: 2 | Stok Awal: 13
+[2025-12-06T04:36:14.254Z] SUKSES: Stok Berkurang. Sisa: 11
+[2025-12-06T04:36:14.255Z] ITEM ID: 817 | Product: 21 | Loc (DB): 2 | Qty: 10 | Stok Awal: 2566
+[2025-12-06T04:36:14.256Z] SUKSES: Stok Berkurang. Sisa: 2556
+[2025-12-06T04:36:14.258Z] ITEM ID: 689 | Product: 2 | Loc (DB): 2 | Qty: 5 | Stok Awal: 318
+[2025-12-06T04:36:14.259Z] SUKSES: Stok Berkurang. Sisa: 313
+[2025-12-06T04:36:14.260Z] ITEM ID: 928 | Product: 140 | Loc (DB): 2 | Qty: 20 | Stok Awal: 133
+[2025-12-06T04:36:14.261Z] SUKSES: Stok Berkurang. Sisa: 113
+[2025-12-06T04:36:14.262Z] ITEM ID: 793 | Product: 162 | Loc (DB): 2 | Qty: 8 | Stok Awal: 657
+[2025-12-06T04:36:14.263Z] SUKSES: Stok Berkurang. Sisa: 649
+[2025-12-06T04:36:14.264Z] ITEM ID: 902 | Product: 201 | Loc (DB): 2 | Qty: 2 | Stok Awal: 10
+[2025-12-06T04:36:14.266Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:36:14.267Z] ITEM ID: 651 | Product: 8813 | Loc (DB): 2 | Qty: 2 | Stok Awal: 91
+[2025-12-06T04:36:14.269Z] SUKSES: Stok Berkurang. Sisa: 89
+[2025-12-06T04:36:14.271Z] ITEM ID: 440 | Product: 8813 | Loc (DB): 2 | Qty: 1 | Stok Awal: 89
+[2025-12-06T04:36:14.272Z] SUKSES: Stok Berkurang. Sisa: 88
+[2025-12-06T04:36:14.273Z] ITEM ID: 925 | Product: 143 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1653
+[2025-12-06T04:36:14.275Z] SUKSES: Stok Berkurang. Sisa: 1633
+[2025-12-06T04:36:14.276Z] ITEM ID: 790 | Product: 5084 | Loc (DB): 2 | Qty: 17 | Stok Awal: 40
+[2025-12-06T04:36:14.277Z] SUKSES: Stok Berkurang. Sisa: 23
+[2025-12-06T04:36:14.278Z] ITEM ID: 130 | Product: 8806 | Loc (DB): 2 | Qty: 1 | Stok Awal: 298
+[2025-12-06T04:36:14.279Z] SUKSES: Stok Berkurang. Sisa: 297
+[2025-12-06T04:36:14.280Z] ITEM ID: 868 | Product: 584 | Loc (DB): 2 | Qty: 12 | Stok Awal: 169
+[2025-12-06T04:36:14.281Z] SUKSES: Stok Berkurang. Sisa: 157
+[2025-12-06T04:36:14.283Z] ITEM ID: 726 | Product: 2712 | Loc (DB): 2 | Qty: 2 | Stok Awal: 644
+[2025-12-06T04:36:14.284Z] SUKSES: Stok Berkurang. Sisa: 642
+[2025-12-06T04:36:14.286Z] ITEM ID: 510 | Product: 261 | Loc (DB): 2 | Qty: 4 | Stok Awal: 129
+[2025-12-06T04:36:14.288Z] SUKSES: Stok Berkurang. Sisa: 125
+[2025-12-06T04:36:14.289Z] ITEM ID: 907 | Product: 19 | Loc (DB): 2 | Qty: 12 | Stok Awal: 2672
+[2025-12-06T04:36:14.291Z] SUKSES: Stok Berkurang. Sisa: 2660
+[2025-12-06T04:36:14.292Z] ITEM ID: 782 | Product: 8820 | Loc (DB): 2 | Qty: 5 | Stok Awal: 67
+[2025-12-06T04:36:14.293Z] SUKSES: Stok Berkurang. Sisa: 62
+[2025-12-06T04:36:14.295Z] ITEM ID: 49 | Product: 7445 | Loc (DB): 2 | Qty: 2 | Stok Awal: 10
+[2025-12-06T04:36:14.296Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:36:14.297Z] ITEM ID: 903 | Product: 689 | Loc (DB): 4 | Qty: 1 | Stok Awal: 25
+[2025-12-06T04:36:14.298Z] SUKSES: Stok Berkurang. Sisa: 24
+[2025-12-06T04:36:14.299Z] ITEM ID: 132 | Product: 7784 | Loc (DB): 5 | Qty: 4 | Stok Awal: 74
+[2025-12-06T04:36:14.301Z] SUKSES: Stok Berkurang. Sisa: 70
+[2025-12-06T04:36:14.302Z] ITEM ID: 134 | Product: 7779 | Loc (DB): 5 | Qty: 6 | Stok Awal: 68
+[2025-12-06T04:36:14.304Z] SUKSES: Stok Berkurang. Sisa: 62
+[2025-12-06T04:36:14.305Z] ITEM ID: 131 | Product: 11270 | Loc (DB): 5 | Qty: 1 | Stok Awal: 65
+[2025-12-06T04:36:14.307Z] SUKSES: Stok Berkurang. Sisa: 64
+[2025-12-06T04:36:14.308Z] ITEM ID: 133 | Product: 7780 | Loc (DB): 5 | Qty: 4 | Stok Awal: 68
+[2025-12-06T04:36:14.309Z] SUKSES: Stok Berkurang. Sisa: 64
+[2025-12-06T04:36:14.310Z] ITEM ID: 686 | Product: 145 | Loc (DB): 5 | Qty: 2 | Stok Awal: 350
+[2025-12-06T04:36:14.312Z] SUKSES: Stok Berkurang. Sisa: 348
+[2025-12-06T04:36:14.364Z] === TRANSAKSI SELESAI ===
+
+[2025-12-06T04:48:56.552Z] === MULAI TRANSAKSI UNTUK 576 ITEM ===
+[2025-12-06T04:48:56.555Z] ITEM ID: 11883 | Product: 13 | Loc (DB): 2 | Qty: 4 | Stok Awal: 800
+[2025-12-06T04:48:56.562Z] SUKSES: Stok Berkurang. Sisa: 796
+[2025-12-06T04:48:56.567Z] ITEM ID: 11924 | Product: 2847 | Loc (DB): 2 | Qty: 1 | Stok Awal: 627
+[2025-12-06T04:48:56.569Z] SUKSES: Stok Berkurang. Sisa: 626
+[2025-12-06T04:48:56.571Z] ITEM ID: 12017 | Product: 2956 | Loc (DB): 2 | Qty: 2 | Stok Awal: 344
+[2025-12-06T04:48:56.573Z] SUKSES: Stok Berkurang. Sisa: 342
+[2025-12-06T04:48:56.574Z] ITEM ID: 11908 | Product: 43 | Loc (DB): 2 | Qty: 5 | Stok Awal: 56
+[2025-12-06T04:48:56.576Z] SUKSES: Stok Berkurang. Sisa: 51
+[2025-12-06T04:48:56.577Z] ITEM ID: 11991 | Product: 515 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1819
+[2025-12-06T04:48:56.578Z] SUKSES: Stok Berkurang. Sisa: 1818
+[2025-12-06T04:48:56.579Z] ITEM ID: 11984 | Product: 198 | Loc (DB): 2 | Qty: 5 | Stok Awal: 343
+[2025-12-06T04:48:56.580Z] SUKSES: Stok Berkurang. Sisa: 338
+[2025-12-06T04:48:56.582Z] ITEM ID: 11891 | Product: 2597 | Loc (DB): 2 | Qty: 5 | Stok Awal: 124
+[2025-12-06T04:48:56.583Z] SUKSES: Stok Berkurang. Sisa: 119
+[2025-12-06T04:48:56.585Z] ITEM ID: 11960 | Product: 226 | Loc (DB): 2 | Qty: 10 | Stok Awal: 134
+[2025-12-06T04:48:56.586Z] SUKSES: Stok Berkurang. Sisa: 124
+[2025-12-06T04:48:56.588Z] ITEM ID: 11916 | Product: 2947 | Loc (DB): 2 | Qty: 2 | Stok Awal: 65
+[2025-12-06T04:48:56.589Z] SUKSES: Stok Berkurang. Sisa: 63
+[2025-12-06T04:48:56.591Z] ITEM ID: 11999 | Product: 5091 | Loc (DB): 2 | Qty: 4 | Stok Awal: 556
+[2025-12-06T04:48:56.592Z] SUKSES: Stok Berkurang. Sisa: 552
+[2025-12-06T04:48:56.594Z] ITEM ID: 11900 | Product: 2592 | Loc (DB): 2 | Qty: 8 | Stok Awal: 1139
+[2025-12-06T04:48:56.595Z] SUKSES: Stok Berkurang. Sisa: 1131
+[2025-12-06T04:48:56.597Z] ITEM ID: 11921 | Product: 2857 | Loc (DB): 2 | Qty: 6 | Stok Awal: 2461
+[2025-12-06T04:48:56.598Z] SUKSES: Stok Berkurang. Sisa: 2455
+[2025-12-06T04:48:56.599Z] ITEM ID: 11905 | Product: 2712 | Loc (DB): 2 | Qty: 3 | Stok Awal: 648
+[2025-12-06T04:48:56.601Z] SUKSES: Stok Berkurang. Sisa: 645
+[2025-12-06T04:48:56.602Z] ITEM ID: 11888 | Product: 2898 | Loc (DB): 2 | Qty: 4 | Stok Awal: 294
+[2025-12-06T04:48:56.603Z] SUKSES: Stok Berkurang. Sisa: 290
+[2025-12-06T04:48:56.605Z] ITEM ID: 11957 | Product: 2998 | Loc (DB): 2 | Qty: 3 | Stok Awal: 115
+[2025-12-06T04:48:56.606Z] SUKSES: Stok Berkurang. Sisa: 112
+[2025-12-06T04:48:56.607Z] ITEM ID: 12022 | Product: 2864 | Loc (DB): 2 | Qty: 5 | Stok Awal: 21
+[2025-12-06T04:48:56.608Z] SUKSES: Stok Berkurang. Sisa: 16
+[2025-12-06T04:48:56.609Z] ITEM ID: 11913 | Product: 1817 | Loc (DB): 2 | Qty: 1 | Stok Awal: 312
+[2025-12-06T04:48:56.611Z] SUKSES: Stok Berkurang. Sisa: 311
+[2025-12-06T04:48:56.612Z] ITEM ID: 11996 | Product: 515 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1818
+[2025-12-06T04:48:56.613Z] SUKSES: Stok Berkurang. Sisa: 1816
+[2025-12-06T04:48:56.614Z] ITEM ID: 11989 | Product: 429 | Loc (DB): 2 | Qty: 3 | Stok Awal: 2635
+[2025-12-06T04:48:56.616Z] SUKSES: Stok Berkurang. Sisa: 2632
+[2025-12-06T04:48:56.618Z] ITEM ID: 11897 | Product: 70 | Loc (DB): 2 | Qty: 4 | Stok Awal: 96
+[2025-12-06T04:48:56.620Z] SUKSES: Stok Berkurang. Sisa: 92
+[2025-12-06T04:48:56.621Z] ITEM ID: 11973 | Product: 2663 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1260
+[2025-12-06T04:48:56.622Z] SUKSES: Stok Berkurang. Sisa: 1259
+[2025-12-06T04:48:56.624Z] ITEM ID: 11978 | Product: 4396 | Loc (DB): 2 | Qty: 30 | Stok Awal: 680
+[2025-12-06T04:48:56.625Z] SUKSES: Stok Berkurang. Sisa: 650
+[2025-12-06T04:48:56.626Z] ITEM ID: 11885 | Product: 12 | Loc (DB): 2 | Qty: 4 | Stok Awal: 85
+[2025-12-06T04:48:56.627Z] SUKSES: Stok Berkurang. Sisa: 81
+[2025-12-06T04:48:56.628Z] ITEM ID: 11926 | Product: 533 | Loc (DB): 2 | Qty: 5 | Stok Awal: 153
+[2025-12-06T04:48:56.629Z] SUKSES: Stok Berkurang. Sisa: 148
+[2025-12-06T04:48:56.630Z] ITEM ID: 12019 | Product: 11381 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1071
+[2025-12-06T04:48:56.632Z] SUKSES: Stok Berkurang. Sisa: 1066
+[2025-12-06T04:48:56.633Z] ITEM ID: 11910 | Product: 11 | Loc (DB): 2 | Qty: 2 | Stok Awal: 4452
+[2025-12-06T04:48:56.635Z] SUKSES: Stok Berkurang. Sisa: 4450
+[2025-12-06T04:48:56.637Z] ITEM ID: 11993 | Product: 731 | Loc (DB): 2 | Qty: 1 | Stok Awal: 126
+[2025-12-06T04:48:56.638Z] SUKSES: Stok Berkurang. Sisa: 125
+[2025-12-06T04:48:56.640Z] ITEM ID: 11986 | Product: 8814 | Loc (DB): 2 | Qty: 1 | Stok Awal: 85
+[2025-12-06T04:48:56.641Z] SUKSES: Stok Berkurang. Sisa: 84
+[2025-12-06T04:48:56.643Z] ITEM ID: 11893 | Product: 5211 | Loc (DB): 2 | Qty: 5 | Stok Awal: 156
+[2025-12-06T04:48:56.644Z] SUKSES: Stok Berkurang. Sisa: 151
+[2025-12-06T04:48:56.646Z] ITEM ID: 11970 | Product: 2725 | Loc (DB): 2 | Qty: 1 | Stok Awal: 750
+[2025-12-06T04:48:56.647Z] SUKSES: Stok Berkurang. Sisa: 749
+[2025-12-06T04:48:56.648Z] ITEM ID: 11918 | Product: 21 | Loc (DB): 2 | Qty: 10 | Stok Awal: 2576
+[2025-12-06T04:48:56.649Z] SUKSES: Stok Berkurang. Sisa: 2566
+[2025-12-06T04:48:56.651Z] ITEM ID: 12001 | Product: 431 | Loc (DB): 2 | Qty: 7 | Stok Awal: 3151
+[2025-12-06T04:48:56.653Z] SUKSES: Stok Berkurang. Sisa: 3144
+[2025-12-06T04:48:56.654Z] ITEM ID: 11902 | Product: 2991 | Loc (DB): 2 | Qty: 2 | Stok Awal: 176
+[2025-12-06T04:48:56.656Z] SUKSES: Stok Berkurang. Sisa: 174
+[2025-12-06T04:48:56.657Z] ITEM ID: 11923 | Product: 4755 | Loc (DB): 2 | Qty: 2 | Stok Awal: 10
+[2025-12-06T04:48:56.659Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:48:56.661Z] ITEM ID: 12016 | Product: 2979 | Loc (DB): 2 | Qty: 2 | Stok Awal: 412
+[2025-12-06T04:48:56.662Z] SUKSES: Stok Berkurang. Sisa: 410
+[2025-12-06T04:48:56.664Z] ITEM ID: 11907 | Product: 2959 | Loc (DB): 2 | Qty: 2 | Stok Awal: 245
+[2025-12-06T04:48:56.666Z] SUKSES: Stok Berkurang. Sisa: 243
+[2025-12-06T04:48:56.669Z] ITEM ID: 11983 | Product: 48 | Loc (DB): 2 | Qty: 10 | Stok Awal: 666
+[2025-12-06T04:48:56.671Z] SUKSES: Stok Berkurang. Sisa: 656
+[2025-12-06T04:48:56.673Z] ITEM ID: 11890 | Product: 7645 | Loc (DB): 2 | Qty: 3 | Stok Awal: 10
+[2025-12-06T04:48:56.675Z] SUKSES: Stok Berkurang. Sisa: 7
+[2025-12-06T04:48:56.676Z] ITEM ID: 11959 | Product: 53 | Loc (DB): 2 | Qty: 20 | Stok Awal: 3546
+[2025-12-06T04:48:56.677Z] SUKSES: Stok Berkurang. Sisa: 3526
+[2025-12-06T04:48:56.679Z] ITEM ID: 12024 | Product: 2859 | Loc (DB): 2 | Qty: 10 | Stok Awal: 516
+[2025-12-06T04:48:56.680Z] SUKSES: Stok Berkurang. Sisa: 506
+[2025-12-06T04:48:56.681Z] ITEM ID: 11915 | Product: 2846 | Loc (DB): 2 | Qty: 2 | Stok Awal: 392
+[2025-12-06T04:48:56.683Z] SUKSES: Stok Berkurang. Sisa: 390
+[2025-12-06T04:48:56.685Z] ITEM ID: 11998 | Product: 732 | Loc (DB): 2 | Qty: 2 | Stok Awal: 84
+[2025-12-06T04:48:56.686Z] SUKSES: Stok Berkurang. Sisa: 82
+[2025-12-06T04:48:56.688Z] ITEM ID: 11899 | Product: 2699 | Loc (DB): 2 | Qty: 2 | Stok Awal: 404
+[2025-12-06T04:48:56.689Z] SUKSES: Stok Berkurang. Sisa: 402
+[2025-12-06T04:48:56.690Z] ITEM ID: 11975 | Product: 2863 | Loc (DB): 2 | Qty: 10 | Stok Awal: 63
+[2025-12-06T04:48:56.692Z] SUKSES: Stok Berkurang. Sisa: 53
+[2025-12-06T04:48:56.693Z] ITEM ID: 11881 | Product: 7697 | Loc (DB): 2 | Qty: 4 | Stok Awal: 8
+[2025-12-06T04:48:56.695Z] SUKSES: Stok Berkurang. Sisa: 4
+[2025-12-06T04:48:56.696Z] ITEM ID: 12013 | Product: 225 | Loc (DB): 2 | Qty: 10 | Stok Awal: 3601
+[2025-12-06T04:48:56.697Z] SUKSES: Stok Berkurang. Sisa: 3591
+[2025-12-06T04:48:56.699Z] ITEM ID: 11904 | Product: 2958 | Loc (DB): 2 | Qty: 5 | Stok Awal: 501
+[2025-12-06T04:48:56.701Z] SUKSES: Stok Berkurang. Sisa: 496
+[2025-12-06T04:48:56.702Z] ITEM ID: 11887 | Product: 711 | Loc (DB): 2 | Qty: 2 | Stok Awal: 101
+[2025-12-06T04:48:56.703Z] SUKSES: Stok Berkurang. Sisa: 99
+[2025-12-06T04:48:56.705Z] ITEM ID: 11928 | Product: 5261 | Loc (DB): 2 | Qty: 3 | Stok Awal: 786
+[2025-12-06T04:48:56.706Z] SUKSES: Stok Berkurang. Sisa: 783
+[2025-12-06T04:48:56.707Z] ITEM ID: 12021 | Product: 522 | Loc (DB): 2 | Qty: 1 | Stok Awal: 424
+[2025-12-06T04:48:56.708Z] SUKSES: Stok Berkurang. Sisa: 423
+[2025-12-06T04:48:56.709Z] ITEM ID: 11912 | Product: 518 | Loc (DB): 2 | Qty: 1 | Stok Awal: 4
+[2025-12-06T04:48:56.710Z] SUKSES: Stok Berkurang. Sisa: 3
+[2025-12-06T04:48:56.712Z] ITEM ID: 11995 | Product: 8812 | Loc (DB): 2 | Qty: 4 | Stok Awal: 240
+[2025-12-06T04:48:56.713Z] SUKSES: Stok Berkurang. Sisa: 236
+[2025-12-06T04:48:56.714Z] ITEM ID: 11988 | Product: 140 | Loc (DB): 2 | Qty: 5 | Stok Awal: 140
+[2025-12-06T04:48:56.715Z] SUKSES: Stok Berkurang. Sisa: 135
+[2025-12-06T04:48:56.717Z] ITEM ID: 11895 | Product: 2594 | Loc (DB): 2 | Qty: 5 | Stok Awal: 183
+[2025-12-06T04:48:56.719Z] SUKSES: Stok Berkurang. Sisa: 178
+[2025-12-06T04:48:56.720Z] ITEM ID: 11972 | Product: 2649 | Loc (DB): 2 | Qty: 3 | Stok Awal: 916
+[2025-12-06T04:48:56.722Z] SUKSES: Stok Berkurang. Sisa: 913
+[2025-12-06T04:48:56.723Z] ITEM ID: 11920 | Product: 527 | Loc (DB): 2 | Qty: 5 | Stok Awal: 333
+[2025-12-06T04:48:56.725Z] SUKSES: Stok Berkurang. Sisa: 328
+[2025-12-06T04:48:56.726Z] ITEM ID: 11977 | Product: 4393 | Loc (DB): 2 | Qty: 30 | Stok Awal: 100
+[2025-12-06T04:48:56.727Z] SUKSES: Stok Berkurang. Sisa: 70
+[2025-12-06T04:48:56.729Z] ITEM ID: 11884 | Product: 321 | Loc (DB): 2 | Qty: 100 | Stok Awal: 3500
+[2025-12-06T04:48:56.730Z] SUKSES: Stok Berkurang. Sisa: 3400
+[2025-12-06T04:48:56.731Z] ITEM ID: 11925 | Product: 2848 | Loc (DB): 2 | Qty: 1 | Stok Awal: 204
+[2025-12-06T04:48:56.732Z] SUKSES: Stok Berkurang. Sisa: 203
+[2025-12-06T04:48:56.734Z] ITEM ID: 12018 | Product: 2968 | Loc (DB): 2 | Qty: 1 | Stok Awal: 101
+[2025-12-06T04:48:56.735Z] SUKSES: Stok Berkurang. Sisa: 100
+[2025-12-06T04:48:56.737Z] ITEM ID: 11909 | Product: 2714 | Loc (DB): 2 | Qty: 6 | Stok Awal: 12001
+[2025-12-06T04:48:56.738Z] SUKSES: Stok Berkurang. Sisa: 11995
+[2025-12-06T04:48:56.739Z] ITEM ID: 11992 | Product: 527 | Loc (DB): 2 | Qty: 1 | Stok Awal: 328
+[2025-12-06T04:48:56.740Z] SUKSES: Stok Berkurang. Sisa: 327
+[2025-12-06T04:48:56.741Z] ITEM ID: 11985 | Product: 431 | Loc (DB): 2 | Qty: 1 | Stok Awal: 3144
+[2025-12-06T04:48:56.742Z] SUKSES: Stok Berkurang. Sisa: 3143
+[2025-12-06T04:48:56.744Z] ITEM ID: 11892 | Product: 2592 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1131
+[2025-12-06T04:48:56.745Z] SUKSES: Stok Berkurang. Sisa: 1126
+[2025-12-06T04:48:56.746Z] ITEM ID: 11967 | Product: 183 | Loc (DB): 2 | Qty: 22 | Stok Awal: 72
+[2025-12-06T04:48:56.747Z] SUKSES: Stok Berkurang. Sisa: 50
+[2025-12-06T04:48:56.748Z] ITEM ID: 11917 | Product: 329 | Loc (DB): 2 | Qty: 10 | Stok Awal: 800
+[2025-12-06T04:48:56.750Z] SUKSES: Stok Berkurang. Sisa: 790
+[2025-12-06T04:48:56.751Z] ITEM ID: 12000 | Product: 8827 | Loc (DB): 2 | Qty: 4 | Stok Awal: 246
+[2025-12-06T04:48:56.753Z] SUKSES: Stok Berkurang. Sisa: 242
+[2025-12-06T04:48:56.754Z] ITEM ID: 11901 | Product: 2586 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1991
+[2025-12-06T04:48:56.755Z] SUKSES: Stok Berkurang. Sisa: 1987
+[2025-12-06T04:48:56.756Z] ITEM ID: 11922 | Product: 5263 | Loc (DB): 2 | Qty: 5 | Stok Awal: 165
+[2025-12-06T04:48:56.758Z] SUKSES: Stok Berkurang. Sisa: 160
+[2025-12-06T04:48:56.760Z] ITEM ID: 12015 | Product: 3005 | Loc (DB): 2 | Qty: 1 | Stok Awal: 64
+[2025-12-06T04:48:56.761Z] SUKSES: Stok Berkurang. Sisa: 63
+[2025-12-06T04:48:56.762Z] ITEM ID: 11906 | Product: 1853 | Loc (DB): 2 | Qty: 1 | Stok Awal: 718
+[2025-12-06T04:48:56.763Z] SUKSES: Stok Berkurang. Sisa: 717
+[2025-12-06T04:48:56.765Z] ITEM ID: 11982 | Product: 916 | Loc (DB): 2 | Qty: 3 | Stok Awal: 44
+[2025-12-06T04:48:56.767Z] SUKSES: Stok Berkurang. Sisa: 41
+[2025-12-06T04:48:56.769Z] ITEM ID: 11958 | Product: 162 | Loc (DB): 2 | Qty: 10 | Stok Awal: 882
+[2025-12-06T04:48:56.771Z] SUKSES: Stok Berkurang. Sisa: 872
+[2025-12-06T04:48:56.772Z] ITEM ID: 12023 | Product: 2865 | Loc (DB): 2 | Qty: 2 | Stok Awal: 3
+[2025-12-06T04:48:56.774Z] SUKSES: Stok Berkurang. Sisa: 1
+[2025-12-06T04:48:56.775Z] ITEM ID: 11914 | Product: 1850 | Loc (DB): 2 | Qty: 1 | Stok Awal: 654
+[2025-12-06T04:48:56.777Z] SUKSES: Stok Berkurang. Sisa: 653
+[2025-12-06T04:48:56.778Z] ITEM ID: 11997 | Product: 527 | Loc (DB): 2 | Qty: 2 | Stok Awal: 327
+[2025-12-06T04:48:56.779Z] SUKSES: Stok Berkurang. Sisa: 325
+[2025-12-06T04:48:56.782Z] ITEM ID: 11990 | Product: 8814 | Loc (DB): 2 | Qty: 3 | Stok Awal: 84
+[2025-12-06T04:48:56.783Z] SUKSES: Stok Berkurang. Sisa: 81
+[2025-12-06T04:48:56.785Z] ITEM ID: 11974 | Product: 2891 | Loc (DB): 2 | Qty: 20 | Stok Awal: 265
+[2025-12-06T04:48:56.787Z] SUKSES: Stok Berkurang. Sisa: 245
+[2025-12-06T04:48:56.788Z] ITEM ID: 11880 | Product: 11381 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1066
+[2025-12-06T04:48:56.790Z] SUKSES: Stok Berkurang. Sisa: 1061
+[2025-12-06T04:48:56.792Z] ITEM ID: 11903 | Product: 2592 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1126
+[2025-12-06T04:48:56.794Z] SUKSES: Stok Berkurang. Sisa: 1124
+[2025-12-06T04:48:56.795Z] ITEM ID: 11979 | Product: 3662 | Loc (DB): 2 | Qty: 30 | Stok Awal: 228
+[2025-12-06T04:48:56.796Z] SUKSES: Stok Berkurang. Sisa: 198
+[2025-12-06T04:48:56.797Z] ITEM ID: 11927 | Product: 1859 | Loc (DB): 2 | Qty: 1 | Stok Awal: 705
+[2025-12-06T04:48:56.798Z] SUKSES: Stok Berkurang. Sisa: 704
+[2025-12-06T04:48:56.800Z] ITEM ID: 12020 | Product: 537 | Loc (DB): 2 | Qty: 1 | Stok Awal: 156
+[2025-12-06T04:48:56.801Z] SUKSES: Stok Berkurang. Sisa: 155
+[2025-12-06T04:48:56.803Z] ITEM ID: 11911 | Product: 53 | Loc (DB): 2 | Qty: 1 | Stok Awal: 3526
+[2025-12-06T04:48:56.804Z] SUKSES: Stok Berkurang. Sisa: 3525
+[2025-12-06T04:48:56.805Z] ITEM ID: 11994 | Product: 431 | Loc (DB): 2 | Qty: 8 | Stok Awal: 3143
+[2025-12-06T04:48:56.806Z] SUKSES: Stok Berkurang. Sisa: 3135
+[2025-12-06T04:48:56.807Z] ITEM ID: 11987 | Product: 168 | Loc (DB): 2 | Qty: 6 | Stok Awal: 139
+[2025-12-06T04:48:56.808Z] SUKSES: Stok Berkurang. Sisa: 133
+[2025-12-06T04:48:56.810Z] ITEM ID: 11894 | Product: 2593 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1559
+[2025-12-06T04:48:56.811Z] SUKSES: Stok Berkurang. Sisa: 1554
+[2025-12-06T04:48:56.812Z] ITEM ID: 11971 | Product: 13 | Loc (DB): 2 | Qty: 20 | Stok Awal: 796
+[2025-12-06T04:48:56.814Z] SUKSES: Stok Berkurang. Sisa: 776
+[2025-12-06T04:48:56.815Z] ITEM ID: 11919 | Product: 5262 | Loc (DB): 2 | Qty: 3 | Stok Awal: 1449
+[2025-12-06T04:48:56.817Z] SUKSES: Stok Berkurang. Sisa: 1446
+[2025-12-06T04:48:56.819Z] ITEM ID: 12002 | Product: 8811 | Loc (DB): 2 | Qty: 7 | Stok Awal: 884
+[2025-12-06T04:48:56.820Z] SUKSES: Stok Berkurang. Sisa: 877
+[2025-12-06T04:48:56.821Z] ITEM ID: 11898 | Product: 319 | Loc (DB): 3 | Qty: 4 | Stok Awal: 932
+[2025-12-06T04:48:56.823Z] SUKSES: Stok Berkurang. Sisa: 928
+[2025-12-06T04:48:56.824Z] ITEM ID: 11886 | Product: 317 | Loc (DB): 3 | Qty: 200 | Stok Awal: 2158
+[2025-12-06T04:48:56.825Z] SUKSES: Stok Berkurang. Sisa: 1958
+[2025-12-06T04:48:56.827Z] ITEM ID: 12014 | Product: 4399 | Loc (DB): 4 | Qty: 4 | Stok Awal: 212
+[2025-12-06T04:48:56.829Z] SUKSES: Stok Berkurang. Sisa: 208
+[2025-12-06T04:48:56.830Z] ITEM ID: 11980 | Product: 4391 | Loc (DB): 4 | Qty: 30 | Stok Awal: 306
+[2025-12-06T04:48:56.831Z] SUKSES: Stok Berkurang. Sisa: 276
+[2025-12-06T04:48:56.833Z] ITEM ID: 11889 | Product: 728 | Loc (DB): 4 | Qty: 1 | Stok Awal: 9
+[2025-12-06T04:48:56.835Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:48:56.836Z] ITEM ID: 11976 | Product: 5 | Loc (DB): 5 | Qty: 20 | Stok Awal: 10000
+[2025-12-06T04:48:56.837Z] SUKSES: Stok Berkurang. Sisa: 9980
+[2025-12-06T04:48:56.839Z] ITEM ID: 11981 | Product: 11272 | Loc (DB): 5 | Qty: 2 | Stok Awal: 65
+[2025-12-06T04:48:56.840Z] SUKSES: Stok Berkurang. Sisa: 63
+[2025-12-06T04:48:56.841Z] ITEM ID: 11471 | Product: 429 | Loc (DB): 2 | Qty: 6 | Stok Awal: 2632
+[2025-12-06T04:48:56.842Z] SUKSES: Stok Berkurang. Sisa: 2626
+[2025-12-06T04:48:56.844Z] ITEM ID: 11598 | Product: 8806 | Loc (DB): 2 | Qty: 7 | Stok Awal: 342
+[2025-12-06T04:48:56.845Z] SUKSES: Stok Berkurang. Sisa: 335
+[2025-12-06T04:48:56.846Z] ITEM ID: 11473 | Product: 2592 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1124
+[2025-12-06T04:48:56.847Z] SUKSES: Stok Berkurang. Sisa: 1104
+[2025-12-06T04:48:56.848Z] ITEM ID: 11470 | Product: 8806 | Loc (DB): 2 | Qty: 18 | Stok Awal: 335
+[2025-12-06T04:48:56.849Z] SUKSES: Stok Berkurang. Sisa: 317
+[2025-12-06T04:48:56.851Z] ITEM ID: 11472 | Product: 8806 | Loc (DB): 2 | Qty: 6 | Stok Awal: 317
+[2025-12-06T04:48:56.852Z] SUKSES: Stok Berkurang. Sisa: 311
+[2025-12-06T04:48:56.853Z] ITEM ID: 11011 | Product: 1850 | Loc (DB): 2 | Qty: 2 | Stok Awal: 653
+[2025-12-06T04:48:56.854Z] SUKSES: Stok Berkurang. Sisa: 651
+[2025-12-06T04:48:56.855Z] ITEM ID: 10776 | Product: 204 | Loc (DB): 2 | Qty: 5 | Stok Awal: 459
+[2025-12-06T04:48:56.856Z] SUKSES: Stok Berkurang. Sisa: 454
+[2025-12-06T04:48:56.858Z] ITEM ID: 9704 | Product: 57 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1089
+[2025-12-06T04:48:56.859Z] SUKSES: Stok Berkurang. Sisa: 1084
+[2025-12-06T04:48:56.861Z] ITEM ID: 10447 | Product: 2716 | Loc (DB): 2 | Qty: 1 | Stok Awal: 517
+[2025-12-06T04:48:56.862Z] SUKSES: Stok Berkurang. Sisa: 516
+[2025-12-06T04:48:56.865Z] ITEM ID: 10920 | Product: 2693 | Loc (DB): 2 | Qty: 4 | Stok Awal: 340
+[2025-12-06T04:48:56.867Z] SUKSES: Stok Berkurang. Sisa: 336
+[2025-12-06T04:48:56.869Z] ITEM ID: 9957 | Product: 6 | Loc (DB): 2 | Qty: 6 | Stok Awal: 1607
+[2025-12-06T04:48:56.871Z] SUKSES: Stok Berkurang. Sisa: 1601
+[2025-12-06T04:48:56.873Z] ITEM ID: 10815 | Product: 234 | Loc (DB): 2 | Qty: 4 | Stok Awal: 97
+[2025-12-06T04:48:56.874Z] SUKSES: Stok Berkurang. Sisa: 93
+[2025-12-06T04:48:56.876Z] ITEM ID: 9723 | Product: 520 | Loc (DB): 2 | Qty: 10 | Stok Awal: 351
+[2025-12-06T04:48:56.877Z] SUKSES: Stok Berkurang. Sisa: 341
+[2025-12-06T04:48:56.879Z] ITEM ID: 9968 | Product: 8809 | Loc (DB): 2 | Qty: 2 | Stok Awal: 497
+[2025-12-06T04:48:56.880Z] SUKSES: Stok Berkurang. Sisa: 495
+[2025-12-06T04:48:56.881Z] ITEM ID: 10664 | Product: 4465 | Loc (DB): 2 | Qty: 1 | Stok Awal: 78
+[2025-12-06T04:48:56.883Z] SUKSES: Stok Berkurang. Sisa: 77
+[2025-12-06T04:48:56.884Z] ITEM ID: 9701 | Product: 163 | Loc (DB): 2 | Qty: 5 | Stok Awal: 506
+[2025-12-06T04:48:56.885Z] SUKSES: Stok Berkurang. Sisa: 501
+[2025-12-06T04:48:56.886Z] ITEM ID: 10236 | Product: 731 | Loc (DB): 2 | Qty: 1 | Stok Awal: 125
+[2025-12-06T04:48:56.887Z] SUKSES: Stok Berkurang. Sisa: 124
+[2025-12-06T04:48:56.888Z] ITEM ID: 10917 | Product: 2682 | Loc (DB): 2 | Qty: 4 | Stok Awal: 608
+[2025-12-06T04:48:56.889Z] SUKSES: Stok Berkurang. Sisa: 604
+[2025-12-06T04:48:56.891Z] ITEM ID: 9709 | Product: 1926 | Loc (DB): 2 | Qty: 6 | Stok Awal: 923
+[2025-12-06T04:48:56.892Z] SUKSES: Stok Berkurang. Sisa: 917
+[2025-12-06T04:48:56.893Z] ITEM ID: 10592 | Product: 3065 | Loc (DB): 2 | Qty: 2 | Stok Awal: 122
+[2025-12-06T04:48:56.895Z] SUKSES: Stok Berkurang. Sisa: 120
+[2025-12-06T04:48:56.896Z] ITEM ID: 10817 | Product: 322 | Loc (DB): 2 | Qty: 3 | Stok Awal: 986
+[2025-12-06T04:48:56.897Z] SUKSES: Stok Berkurang. Sisa: 983
+[2025-12-06T04:48:56.898Z] ITEM ID: 9725 | Product: 5275 | Loc (DB): 2 | Qty: 20 | Stok Awal: 50
+[2025-12-06T04:48:56.899Z] SUKSES: Stok Berkurang. Sisa: 30
+[2025-12-06T04:48:56.900Z] ITEM ID: 10597 | Product: 2607 | Loc (DB): 2 | Qty: 2 | Stok Awal: 252
+[2025-12-06T04:48:56.901Z] SUKSES: Stok Berkurang. Sisa: 250
+[2025-12-06T04:48:56.903Z] ITEM ID: 11013 | Product: 8476 | Loc (DB): 2 | Qty: 6 | Stok Awal: 282
+[2025-12-06T04:48:56.904Z] SUKSES: Stok Berkurang. Sisa: 276
+[2025-12-06T04:48:56.905Z] ITEM ID: 10233 | Product: 708 | Loc (DB): 2 | Qty: 1 | Stok Awal: 620
+[2025-12-06T04:48:56.906Z] SUKSES: Stok Berkurang. Sisa: 619
+[2025-12-06T04:48:56.908Z] ITEM ID: 10903 | Product: 3800 | Loc (DB): 2 | Qty: 1 | Stok Awal: 49
+[2025-12-06T04:48:56.909Z] SUKSES: Stok Berkurang. Sisa: 48
+[2025-12-06T04:48:56.910Z] ITEM ID: 10778 | Product: 162 | Loc (DB): 2 | Qty: 7 | Stok Awal: 872
+[2025-12-06T04:48:56.911Z] SUKSES: Stok Berkurang. Sisa: 865
+[2025-12-06T04:48:56.913Z] ITEM ID: 9706 | Product: 234 | Loc (DB): 2 | Qty: 5 | Stok Awal: 93
+[2025-12-06T04:48:56.914Z] SUKSES: Stok Berkurang. Sisa: 88
+[2025-12-06T04:48:56.915Z] ITEM ID: 11002 | Product: 5082 | Loc (DB): 2 | Qty: 2 | Stok Awal: 10
+[2025-12-06T04:48:56.917Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:48:56.919Z] ITEM ID: 9959 | Product: 45 | Loc (DB): 2 | Qty: 5 | Stok Awal: 114
+[2025-12-06T04:48:56.920Z] SUKSES: Stok Berkurang. Sisa: 109
+[2025-12-06T04:48:56.922Z] ITEM ID: 10594 | Product: 533 | Loc (DB): 2 | Qty: 2 | Stok Awal: 148
+[2025-12-06T04:48:56.923Z] SUKSES: Stok Berkurang. Sisa: 146
+[2025-12-06T04:48:56.924Z] ITEM ID: 11010 | Product: 2648 | Loc (DB): 2 | Qty: 10 | Stok Awal: 48
+[2025-12-06T04:48:56.925Z] SUKSES: Stok Berkurang. Sisa: 38
+[2025-12-06T04:48:56.926Z] ITEM ID: 9970 | Product: 8807 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1000
+[2025-12-06T04:48:56.927Z] SUKSES: Stok Berkurang. Sisa: 998
+[2025-12-06T04:48:56.928Z] ITEM ID: 9964 | Product: 53 | Loc (DB): 2 | Qty: 5 | Stok Awal: 3525
+[2025-12-06T04:48:56.929Z] SUKSES: Stok Berkurang. Sisa: 3520
+[2025-12-06T04:48:56.930Z] ITEM ID: 10871 | Product: 4465 | Loc (DB): 2 | Qty: 1 | Stok Awal: 77
+[2025-12-06T04:48:56.931Z] SUKSES: Stok Berkurang. Sisa: 76
+[2025-12-06T04:48:56.933Z] ITEM ID: 9703 | Product: 327 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1290
+[2025-12-06T04:48:56.935Z] SUKSES: Stok Berkurang. Sisa: 1288
+[2025-12-06T04:48:56.936Z] ITEM ID: 9956 | Product: 2 | Loc (DB): 2 | Qty: 6 | Stok Awal: 324
+[2025-12-06T04:48:56.938Z] SUKSES: Stok Berkurang. Sisa: 318
+[2025-12-06T04:48:56.939Z] ITEM ID: 10814 | Product: 233 | Loc (DB): 2 | Qty: 5 | Stok Awal: 91
+[2025-12-06T04:48:56.940Z] SUKSES: Stok Berkurang. Sisa: 86
+[2025-12-06T04:48:56.941Z] ITEM ID: 9967 | Product: 435 | Loc (DB): 2 | Qty: 2 | Stok Awal: 323
+[2025-12-06T04:48:56.942Z] SUKSES: Stok Berkurang. Sisa: 321
+[2025-12-06T04:48:56.944Z] ITEM ID: 9961 | Product: 49 | Loc (DB): 2 | Qty: 5 | Stok Awal: 79
+[2025-12-06T04:48:56.945Z] SUKSES: Stok Berkurang. Sisa: 74
+[2025-12-06T04:48:56.946Z] ITEM ID: 9727 | Product: 7909 | Loc (DB): 2 | Qty: 20 | Stok Awal: 123
+[2025-12-06T04:48:56.946Z] SUKSES: Stok Berkurang. Sisa: 103
+[2025-12-06T04:48:56.947Z] ITEM ID: 10235 | Product: 527 | Loc (DB): 2 | Qty: 1 | Stok Awal: 325
+[2025-12-06T04:48:56.949Z] SUKSES: Stok Berkurang. Sisa: 324
+[2025-12-06T04:48:56.950Z] ITEM ID: 10916 | Product: 32 | Loc (DB): 2 | Qty: 3 | Stok Awal: 167
+[2025-12-06T04:48:56.951Z] SUKSES: Stok Berkurang. Sisa: 164
+[2025-12-06T04:48:56.953Z] ITEM ID: 10780 | Product: 322 | Loc (DB): 2 | Qty: 5 | Stok Awal: 983
+[2025-12-06T04:48:56.954Z] SUKSES: Stok Berkurang. Sisa: 978
+[2025-12-06T04:48:56.955Z] ITEM ID: 9708 | Product: 53 | Loc (DB): 2 | Qty: 5 | Stok Awal: 3520
+[2025-12-06T04:48:56.957Z] SUKSES: Stok Berkurang. Sisa: 3515
+[2025-12-06T04:48:56.958Z] ITEM ID: 10591 | Product: 5246 | Loc (DB): 2 | Qty: 5 | Stok Awal: 805
+[2025-12-06T04:48:56.959Z] SUKSES: Stok Berkurang. Sisa: 800
+[2025-12-06T04:48:56.961Z] ITEM ID: 11004 | Product: 7573 | Loc (DB): 2 | Qty: 2 | Stok Awal: 20
+[2025-12-06T04:48:56.962Z] SUKSES: Stok Berkurang. Sisa: 18
+[2025-12-06T04:48:56.964Z] ITEM ID: 9724 | Product: 5248 | Loc (DB): 2 | Qty: 50 | Stok Awal: 602
+[2025-12-06T04:48:56.965Z] SUKSES: Stok Berkurang. Sisa: 552
+[2025-12-06T04:48:56.968Z] ITEM ID: 10596 | Product: 2592 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1104
+[2025-12-06T04:48:56.969Z] SUKSES: Stok Berkurang. Sisa: 1100
+[2025-12-06T04:48:56.972Z] ITEM ID: 11012 | Product: 2714 | Loc (DB): 2 | Qty: 1 | Stok Awal: 11995
+[2025-12-06T04:48:56.973Z] SUKSES: Stok Berkurang. Sisa: 11994
+[2025-12-06T04:48:56.976Z] ITEM ID: 9966 | Product: 8812 | Loc (DB): 2 | Qty: 2 | Stok Awal: 236
+[2025-12-06T04:48:56.978Z] SUKSES: Stok Berkurang. Sisa: 234
+[2025-12-06T04:48:56.979Z] ITEM ID: 10902 | Product: 2597 | Loc (DB): 2 | Qty: 1 | Stok Awal: 119
+[2025-12-06T04:48:56.980Z] SUKSES: Stok Berkurang. Sisa: 118
+[2025-12-06T04:48:56.981Z] ITEM ID: 10777 | Product: 320 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1400
+[2025-12-06T04:48:56.983Z] SUKSES: Stok Berkurang. Sisa: 1396
+[2025-12-06T04:48:56.985Z] ITEM ID: 9705 | Product: 227 | Loc (DB): 2 | Qty: 8 | Stok Awal: 100
+[2025-12-06T04:48:56.986Z] SUKSES: Stok Berkurang. Sisa: 92
+[2025-12-06T04:48:56.988Z] ITEM ID: 10921 | Product: 11381 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1061
+[2025-12-06T04:48:56.989Z] SUKSES: Stok Berkurang. Sisa: 1057
+[2025-12-06T04:48:56.990Z] ITEM ID: 9958 | Product: 7 | Loc (DB): 2 | Qty: 5 | Stok Awal: 3207
+[2025-12-06T04:48:56.992Z] SUKSES: Stok Berkurang. Sisa: 3202
+[2025-12-06T04:48:56.993Z] ITEM ID: 10816 | Product: 199 | Loc (DB): 2 | Qty: 3 | Stok Awal: 11
+[2025-12-06T04:48:56.994Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:48:56.995Z] ITEM ID: 11009 | Product: 2613 | Loc (DB): 2 | Qty: 2 | Stok Awal: 17
+[2025-12-06T04:48:56.997Z] SUKSES: Stok Berkurang. Sisa: 15
+[2025-12-06T04:48:56.998Z] ITEM ID: 9963 | Product: 543 | Loc (DB): 2 | Qty: 4 | Stok Awal: 126
+[2025-12-06T04:48:56.999Z] SUKSES: Stok Berkurang. Sisa: 122
+[2025-12-06T04:48:57.002Z] ITEM ID: 10918 | Product: 2845 | Loc (DB): 2 | Qty: 2 | Stok Awal: 345
+[2025-12-06T04:48:57.003Z] SUKSES: Stok Berkurang. Sisa: 343
+[2025-12-06T04:48:57.004Z] ITEM ID: 9955 | Product: 10 | Loc (DB): 2 | Qty: 5 | Stok Awal: 4035
+[2025-12-06T04:48:57.006Z] SUKSES: Stok Berkurang. Sisa: 4030
+[2025-12-06T04:48:57.007Z] ITEM ID: 10813 | Product: 204 | Loc (DB): 2 | Qty: 6 | Stok Awal: 454
+[2025-12-06T04:48:57.008Z] SUKSES: Stok Berkurang. Sisa: 448
+[2025-12-06T04:48:57.009Z] ITEM ID: 9721 | Product: 533 | Loc (DB): 2 | Qty: 15 | Stok Awal: 146
+[2025-12-06T04:48:57.010Z] SUKSES: Stok Berkurang. Sisa: 131
+[2025-12-06T04:48:57.011Z] ITEM ID: 9960 | Product: 48 | Loc (DB): 2 | Qty: 5 | Stok Awal: 656
+[2025-12-06T04:48:57.012Z] SUKSES: Stok Berkurang. Sisa: 651
+[2025-12-06T04:48:57.013Z] ITEM ID: 10818 | Product: 186 | Loc (DB): 2 | Qty: 5 | Stok Awal: 116
+[2025-12-06T04:48:57.015Z] SUKSES: Stok Berkurang. Sisa: 111
+[2025-12-06T04:48:57.017Z] ITEM ID: 9726 | Product: 5258 | Loc (DB): 2 | Qty: 20 | Stok Awal: 97
+[2025-12-06T04:48:57.018Z] SUKSES: Stok Berkurang. Sisa: 77
+[2025-12-06T04:48:57.020Z] ITEM ID: 10642 | Product: 4465 | Loc (DB): 2 | Qty: 1 | Stok Awal: 76
+[2025-12-06T04:48:57.021Z] SUKSES: Stok Berkurang. Sisa: 75
+[2025-12-06T04:48:57.023Z] ITEM ID: 11014 | Product: 12057 | Loc (DB): 2 | Qty: 1 | Stok Awal: 15
+[2025-12-06T04:48:57.025Z] SUKSES: Stok Berkurang. Sisa: 14
+[2025-12-06T04:48:57.026Z] ITEM ID: 10234 | Product: 515 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1816
+[2025-12-06T04:48:57.027Z] SUKSES: Stok Berkurang. Sisa: 1815
+[2025-12-06T04:48:57.029Z] ITEM ID: 9881 | Product: 321 | Loc (DB): 2 | Qty: 35 | Stok Awal: 3400
+[2025-12-06T04:48:57.030Z] SUKSES: Stok Berkurang. Sisa: 3365
+[2025-12-06T04:48:57.031Z] ITEM ID: 10779 | Product: 2667 | Loc (DB): 2 | Qty: 1 | Stok Awal: 3
+[2025-12-06T04:48:57.032Z] SUKSES: Stok Berkurang. Sisa: 2
+[2025-12-06T04:48:57.034Z] ITEM ID: 9965 | Product: 432 | Loc (DB): 4 | Qty: 4 | Stok Awal: 4
+[2025-12-06T04:48:57.035Z] SUKSES: Stok Berkurang. Sisa: 0
+[2025-12-06T04:48:57.037Z] ITEM ID: 10448 | Product: 5254 | Loc (DB): 5 | Qty: 6 | Stok Awal: 991
+[2025-12-06T04:48:57.038Z] SUKSES: Stok Berkurang. Sisa: 985
+[2025-12-06T04:48:57.039Z] ITEM ID: 9707 | Product: 205 | Loc (DB): 5 | Qty: 5 | Stok Awal: 1900
+[2025-12-06T04:48:57.040Z] SUKSES: Stok Berkurang. Sisa: 1895
+[2025-12-06T04:48:57.041Z] ITEM ID: 8906 | Product: 2585 | Loc (DB): 2 | Qty: 4 | Stok Awal: 2009
+[2025-12-06T04:48:57.042Z] SUKSES: Stok Berkurang. Sisa: 2005
+[2025-12-06T04:48:57.043Z] ITEM ID: 8327 | Product: 2995 | Loc (DB): 2 | Qty: 22 | Stok Awal: 431
+[2025-12-06T04:48:57.044Z] SUKSES: Stok Berkurang. Sisa: 409
+[2025-12-06T04:48:57.045Z] ITEM ID: 9003 | Product: 2679 | Loc (DB): 2 | Qty: 3 | Stok Awal: 1669
+[2025-12-06T04:48:57.046Z] SUKSES: Stok Berkurang. Sisa: 1666
+[2025-12-06T04:48:57.047Z] ITEM ID: 8715 | Product: 708 | Loc (DB): 2 | Qty: 1 | Stok Awal: 619
+[2025-12-06T04:48:57.048Z] SUKSES: Stok Berkurang. Sisa: 618
+[2025-12-06T04:48:57.050Z] ITEM ID: 8158 | Product: 524 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1128
+[2025-12-06T04:48:57.051Z] SUKSES: Stok Berkurang. Sisa: 1108
+[2025-12-06T04:48:57.053Z] ITEM ID: 8166 | Product: 521 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1398
+[2025-12-06T04:48:57.054Z] SUKSES: Stok Berkurang. Sisa: 1378
+[2025-12-06T04:48:57.055Z] ITEM ID: 9000 | Product: 515 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1815
+[2025-12-06T04:48:57.056Z] SUKSES: Stok Berkurang. Sisa: 1810
+[2025-12-06T04:48:57.057Z] ITEM ID: 8712 | Product: 527 | Loc (DB): 2 | Qty: 2 | Stok Awal: 324
+[2025-12-06T04:48:57.058Z] SUKSES: Stok Berkurang. Sisa: 322
+[2025-12-06T04:48:57.059Z] ITEM ID: 8163 | Product: 530 | Loc (DB): 2 | Qty: 20 | Stok Awal: 511
+[2025-12-06T04:48:57.061Z] SUKSES: Stok Berkurang. Sisa: 491
+[2025-12-06T04:48:57.062Z] ITEM ID: 8214 | Product: 1917 | Loc (DB): 2 | Qty: 2 | Stok Awal: 38
+[2025-12-06T04:48:57.063Z] SUKSES: Stok Berkurang. Sisa: 36
+[2025-12-06T04:48:57.064Z] ITEM ID: 8908 | Product: 2714 | Loc (DB): 2 | Qty: 1 | Stok Awal: 11994
+[2025-12-06T04:48:57.065Z] SUKSES: Stok Berkurang. Sisa: 11993
+[2025-12-06T04:48:57.067Z] ITEM ID: 8717 | Product: 1859 | Loc (DB): 2 | Qty: 2 | Stok Awal: 704
+[2025-12-06T04:48:57.069Z] SUKSES: Stok Berkurang. Sisa: 702
+[2025-12-06T04:48:57.070Z] ITEM ID: 8326 | Product: 2740 | Loc (DB): 2 | Qty: 40 | Stok Awal: 175
+[2025-12-06T04:48:57.072Z] SUKSES: Stok Berkurang. Sisa: 135
+[2025-12-06T04:48:57.073Z] ITEM ID: 8160 | Product: 533 | Loc (DB): 2 | Qty: 20 | Stok Awal: 131
+[2025-12-06T04:48:57.075Z] SUKSES: Stok Berkurang. Sisa: 111
+[2025-12-06T04:48:57.077Z] ITEM ID: 8199 | Product: 530 | Loc (DB): 2 | Qty: 2 | Stok Awal: 491
+[2025-12-06T04:48:57.079Z] SUKSES: Stok Berkurang. Sisa: 489
+[2025-12-06T04:48:57.080Z] ITEM ID: 9002 | Product: 527 | Loc (DB): 2 | Qty: 2 | Stok Awal: 322
+[2025-12-06T04:48:57.081Z] SUKSES: Stok Berkurang. Sisa: 320
+[2025-12-06T04:48:57.085Z] ITEM ID: 8714 | Product: 5279 | Loc (DB): 2 | Qty: 3 | Stok Awal: 198
+[2025-12-06T04:48:57.086Z] SUKSES: Stok Berkurang. Sisa: 195
+[2025-12-06T04:48:57.088Z] ITEM ID: 8157 | Product: 515 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1810
+[2025-12-06T04:48:57.089Z] SUKSES: Stok Berkurang. Sisa: 1790
+[2025-12-06T04:48:57.091Z] ITEM ID: 8165 | Product: 536 | Loc (DB): 2 | Qty: 20 | Stok Awal: 833
+[2025-12-06T04:48:57.092Z] SUKSES: Stok Berkurang. Sisa: 813
+[2025-12-06T04:48:57.093Z] ITEM ID: 8719 | Product: 2620 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1052
+[2025-12-06T04:48:57.095Z] SUKSES: Stok Berkurang. Sisa: 1048
+[2025-12-06T04:48:57.096Z] ITEM ID: 8999 | Product: 2592 | Loc (DB): 2 | Qty: 3 | Stok Awal: 1100
+[2025-12-06T04:48:57.097Z] SUKSES: Stok Berkurang. Sisa: 1097
+[2025-12-06T04:48:57.098Z] ITEM ID: 9107 | Product: 2716 | Loc (DB): 2 | Qty: 4 | Stok Awal: 516
+[2025-12-06T04:48:57.100Z] SUKSES: Stok Berkurang. Sisa: 512
+[2025-12-06T04:48:57.101Z] ITEM ID: 8162 | Product: 2586 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1987
+[2025-12-06T04:48:57.102Z] SUKSES: Stok Berkurang. Sisa: 1967
+[2025-12-06T04:48:57.104Z] ITEM ID: 9004 | Product: 318 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1810
+[2025-12-06T04:48:57.105Z] SUKSES: Stok Berkurang. Sisa: 1805
+[2025-12-06T04:48:57.106Z] ITEM ID: 8716 | Product: 2686 | Loc (DB): 2 | Qty: 4 | Stok Awal: 400
+[2025-12-06T04:48:57.107Z] SUKSES: Stok Berkurang. Sisa: 396
+[2025-12-06T04:48:57.109Z] ITEM ID: 8261 | Product: 8806 | Loc (DB): 2 | Qty: 3 | Stok Awal: 311
+[2025-12-06T04:48:57.110Z] SUKSES: Stok Berkurang. Sisa: 308
+[2025-12-06T04:48:57.111Z] ITEM ID: 8749 | Product: 8811 | Loc (DB): 2 | Qty: 10 | Stok Awal: 877
+[2025-12-06T04:48:57.112Z] SUKSES: Stok Berkurang. Sisa: 867
+[2025-12-06T04:48:57.114Z] ITEM ID: 8713 | Product: 2603 | Loc (DB): 2 | Qty: 2 | Stok Awal: 33
+[2025-12-06T04:48:57.115Z] SUKSES: Stok Berkurang. Sisa: 31
+[2025-12-06T04:48:57.117Z] ITEM ID: 8164 | Product: 529 | Loc (DB): 2 | Qty: 10 | Stok Awal: 1067
+[2025-12-06T04:48:57.118Z] SUKSES: Stok Berkurang. Sisa: 1057
+[2025-12-06T04:48:57.120Z] ITEM ID: 8249 | Product: 515 | Loc (DB): 2 | Qty: 15 | Stok Awal: 1790
+[2025-12-06T04:48:57.121Z] SUKSES: Stok Berkurang. Sisa: 1775
+[2025-12-06T04:48:57.123Z] ITEM ID: 8718 | Product: 1853 | Loc (DB): 2 | Qty: 2 | Stok Awal: 717
+[2025-12-06T04:48:57.125Z] SUKSES: Stok Berkurang. Sisa: 715
+[2025-12-06T04:48:57.126Z] ITEM ID: 9122 | Product: 544 | Loc (DB): 2 | Qty: 1 | Stok Awal: 2
+[2025-12-06T04:48:57.128Z] SUKSES: Stok Berkurang. Sisa: 1
+[2025-12-06T04:48:57.129Z] ITEM ID: 8710 | Product: 5263 | Loc (DB): 2 | Qty: 5 | Stok Awal: 160
+[2025-12-06T04:48:57.130Z] SUKSES: Stok Berkurang. Sisa: 155
+[2025-12-06T04:48:57.132Z] ITEM ID: 9006 | Product: 1853 | Loc (DB): 2 | Qty: 2 | Stok Awal: 715
+[2025-12-06T04:48:57.134Z] SUKSES: Stok Berkurang. Sisa: 713
+[2025-12-06T04:48:57.135Z] ITEM ID: 8161 | Product: 527 | Loc (DB): 2 | Qty: 20 | Stok Awal: 320
+[2025-12-06T04:48:57.136Z] SUKSES: Stok Berkurang. Sisa: 300
+[2025-12-06T04:48:57.138Z] ITEM ID: 8200 | Product: 529 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1057
+[2025-12-06T04:48:57.139Z] SUKSES: Stok Berkurang. Sisa: 1055
+[2025-12-06T04:48:57.140Z] ITEM ID: 9119 | Product: 8682 | Loc (DB): 4 | Qty: 2 | Stok Awal: 561
+[2025-12-06T04:48:57.141Z] SUKSES: Stok Berkurang. Sisa: 559
+[2025-12-06T04:48:57.142Z] ITEM ID: 9121 | Product: 8699 | Loc (DB): 4 | Qty: 4 | Stok Awal: 19
+[2025-12-06T04:48:57.143Z] SUKSES: Stok Berkurang. Sisa: 15
+[2025-12-06T04:48:57.144Z] ITEM ID: 9118 | Product: 8732 | Loc (DB): 4 | Qty: 2 | Stok Awal: 55
+[2025-12-06T04:48:57.145Z] SUKSES: Stok Berkurang. Sisa: 53
+[2025-12-06T04:48:57.146Z] ITEM ID: 9120 | Product: 8687 | Loc (DB): 4 | Qty: 2 | Stok Awal: 21
+[2025-12-06T04:48:57.147Z] SUKSES: Stok Berkurang. Sisa: 19
+[2025-12-06T04:48:57.148Z] ITEM ID: 9001 | Product: 11862 | Loc (DB): 5 | Qty: 3 | Stok Awal: 500
+[2025-12-06T04:48:57.149Z] SUKSES: Stok Berkurang. Sisa: 497
+[2025-12-06T04:48:57.151Z] ITEM ID: 6628 | Product: 135 | Loc (DB): 2 | Qty: 1 | Stok Awal: 49
+[2025-12-06T04:48:57.153Z] SUKSES: Stok Berkurang. Sisa: 48
+[2025-12-06T04:48:57.154Z] ITEM ID: 7544 | Product: 4465 | Loc (DB): 2 | Qty: 1 | Stok Awal: 75
+[2025-12-06T04:48:57.155Z] SUKSES: Stok Berkurang. Sisa: 74
+[2025-12-06T04:48:57.156Z] ITEM ID: 6941 | Product: 3454 | Loc (DB): 2 | Qty: 5 | Stok Awal: 72
+[2025-12-06T04:48:57.157Z] SUKSES: Stok Berkurang. Sisa: 67
+[2025-12-06T04:48:57.159Z] ITEM ID: 7439 | Product: 185 | Loc (DB): 2 | Qty: 10 | Stok Awal: 2130
+[2025-12-06T04:48:57.160Z] SUKSES: Stok Berkurang. Sisa: 2120
+[2025-12-06T04:48:57.161Z] ITEM ID: 6625 | Product: 2712 | Loc (DB): 2 | Qty: 1 | Stok Awal: 645
+[2025-12-06T04:48:57.162Z] SUKSES: Stok Berkurang. Sisa: 644
+[2025-12-06T04:48:57.163Z] ITEM ID: 6630 | Product: 37 | Loc (DB): 2 | Qty: 5 | Stok Awal: 63
+[2025-12-06T04:48:57.165Z] SUKSES: Stok Berkurang. Sisa: 58
+[2025-12-06T04:48:57.167Z] ITEM ID: 7546 | Product: 2594 | Loc (DB): 2 | Qty: 4 | Stok Awal: 178
+[2025-12-06T04:48:57.169Z] SUKSES: Stok Berkurang. Sisa: 174
+[2025-12-06T04:48:57.171Z] ITEM ID: 6627 | Product: 133 | Loc (DB): 2 | Qty: 2 | Stok Awal: 50
+[2025-12-06T04:48:57.173Z] SUKSES: Stok Berkurang. Sisa: 48
+[2025-12-06T04:48:57.175Z] ITEM ID: 7543 | Product: 524 | Loc (DB): 2 | Qty: 5 | Stok Awal: 1108
+[2025-12-06T04:48:57.176Z] SUKSES: Stok Berkurang. Sisa: 1103
+[2025-12-06T04:48:57.178Z] ITEM ID: 7128 | Product: 315 | Loc (DB): 2 | Qty: 5 | Stok Awal: 200
+[2025-12-06T04:48:57.179Z] SUKSES: Stok Berkurang. Sisa: 195
+[2025-12-06T04:48:57.181Z] ITEM ID: 6624 | Product: 18 | Loc (DB): 2 | Qty: 4 | Stok Awal: 178
+[2025-12-06T04:48:57.182Z] SUKSES: Stok Berkurang. Sisa: 174
+[2025-12-06T04:48:57.184Z] ITEM ID: 7212 | Product: 2592 | Loc (DB): 2 | Qty: 3 | Stok Awal: 1097
+[2025-12-06T04:48:57.186Z] SUKSES: Stok Berkurang. Sisa: 1094
+[2025-12-06T04:48:57.187Z] ITEM ID: 7548 | Product: 1853 | Loc (DB): 2 | Qty: 1 | Stok Awal: 713
+[2025-12-06T04:48:57.189Z] SUKSES: Stok Berkurang. Sisa: 712
+[2025-12-06T04:48:57.191Z] ITEM ID: 7005 | Product: 198 | Loc (DB): 2 | Qty: 10 | Stok Awal: 338
+[2025-12-06T04:48:57.192Z] SUKSES: Stok Berkurang. Sisa: 328
+[2025-12-06T04:48:57.194Z] ITEM ID: 7443 | Product: 3603 | Loc (DB): 2 | Qty: 10 | Stok Awal: 60
+[2025-12-06T04:48:57.196Z] SUKSES: Stok Berkurang. Sisa: 50
+[2025-12-06T04:48:57.197Z] ITEM ID: 7545 | Product: 2663 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1259
+[2025-12-06T04:48:57.200Z] SUKSES: Stok Berkurang. Sisa: 1258
+[2025-12-06T04:48:57.202Z] ITEM ID: 7302 | Product: 3573 | Loc (DB): 2 | Qty: 5 | Stok Awal: 144
+[2025-12-06T04:48:57.205Z] SUKSES: Stok Berkurang. Sisa: 139
+[2025-12-06T04:48:57.207Z] ITEM ID: 7440 | Product: 522 | Loc (DB): 2 | Qty: 10 | Stok Awal: 423
+[2025-12-06T04:48:57.208Z] SUKSES: Stok Berkurang. Sisa: 413
+[2025-12-06T04:48:57.209Z] ITEM ID: 6626 | Product: 2714 | Loc (DB): 2 | Qty: 1 | Stok Awal: 11993
+[2025-12-06T04:48:57.211Z] SUKSES: Stok Berkurang. Sisa: 11992
+[2025-12-06T04:48:57.212Z] ITEM ID: 7542 | Product: 527 | Loc (DB): 2 | Qty: 2 | Stok Awal: 300
+[2025-12-06T04:48:57.214Z] SUKSES: Stok Berkurang. Sisa: 298
+[2025-12-06T04:48:57.215Z] ITEM ID: 7214 | Product: 5259 | Loc (DB): 2 | Qty: 5 | Stok Awal: 70
+[2025-12-06T04:48:57.217Z] SUKSES: Stok Berkurang. Sisa: 65
+[2025-12-06T04:48:57.219Z] ITEM ID: 7584 | Product: 1835 | Loc (DB): 2 | Qty: 1 | Stok Awal: 280
+[2025-12-06T04:48:57.221Z] SUKSES: Stok Berkurang. Sisa: 279
+[2025-12-06T04:48:57.222Z] ITEM ID: 7437 | Product: 227 | Loc (DB): 2 | Qty: 10 | Stok Awal: 92
+[2025-12-06T04:48:57.223Z] SUKSES: Stok Berkurang. Sisa: 82
+[2025-12-06T04:48:57.224Z] ITEM ID: 7211 | Product: 2607 | Loc (DB): 2 | Qty: 2 | Stok Awal: 250
+[2025-12-06T04:48:57.226Z] SUKSES: Stok Berkurang. Sisa: 248
+[2025-12-06T04:48:57.227Z] ITEM ID: 7414 | Product: 2679 | Loc (DB): 2 | Qty: 10 | Stok Awal: 1666
+[2025-12-06T04:48:57.228Z] SUKSES: Stok Berkurang. Sisa: 1656
+[2025-12-06T04:48:57.229Z] ITEM ID: 7004 | Product: 11843 | Loc (DB): 2 | Qty: 10 | Stok Awal: 500
+[2025-12-06T04:48:57.230Z] SUKSES: Stok Berkurang. Sisa: 490
+[2025-12-06T04:48:57.231Z] ITEM ID: 7441 | Product: 11808 | Loc (DB): 5 | Qty: 20 | Stok Awal: 300
+[2025-12-06T04:48:57.232Z] SUKSES: Stok Berkurang. Sisa: 280
+[2025-12-06T04:48:57.234Z] ITEM ID: 6940 | Product: 3472 | Loc (DB): 5 | Qty: 5 | Stok Awal: 128
+[2025-12-06T04:48:57.236Z] SUKSES: Stok Berkurang. Sisa: 123
+[2025-12-06T04:48:57.237Z] ITEM ID: 7432 | Product: 3470 | Loc (DB): 5 | Qty: 6 | Stok Awal: 36
+[2025-12-06T04:48:57.238Z] SUKSES: Stok Berkurang. Sisa: 30
+[2025-12-06T04:48:57.240Z] ITEM ID: 7442 | Product: 11809 | Loc (DB): 5 | Qty: 20 | Stok Awal: 500
+[2025-12-06T04:48:57.241Z] SUKSES: Stok Berkurang. Sisa: 480
+[2025-12-06T04:48:57.242Z] ITEM ID: 5100 | Product: 8806 | Loc (DB): 2 | Qty: 4 | Stok Awal: 308
+[2025-12-06T04:48:57.243Z] SUKSES: Stok Berkurang. Sisa: 304
+[2025-12-06T04:48:57.244Z] ITEM ID: 5241 | Product: 226 | Loc (DB): 2 | Qty: 20 | Stok Awal: 124
+[2025-12-06T04:48:57.245Z] SUKSES: Stok Berkurang. Sisa: 104
+[2025-12-06T04:48:57.246Z] ITEM ID: 5119 | Product: 524 | Loc (DB): 2 | Qty: 10 | Stok Awal: 1103
+[2025-12-06T04:48:57.247Z] SUKSES: Stok Berkurang. Sisa: 1093
+[2025-12-06T04:48:57.248Z] ITEM ID: 6536 | Product: 163 | Loc (DB): 2 | Qty: 4 | Stok Awal: 501
+[2025-12-06T04:48:57.250Z] SUKSES: Stok Berkurang. Sisa: 497
+[2025-12-06T04:48:57.251Z] ITEM ID: 5092 | Product: 516 | Loc (DB): 2 | Qty: 3 | Stok Awal: 625
+[2025-12-06T04:48:57.252Z] SUKSES: Stok Berkurang. Sisa: 622
+[2025-12-06T04:48:57.253Z] ITEM ID: 5902 | Product: 251 | Loc (DB): 2 | Qty: 6 | Stok Awal: 55
+[2025-12-06T04:48:57.255Z] SUKSES: Stok Berkurang. Sisa: 49
+[2025-12-06T04:48:57.256Z] ITEM ID: 5233 | Product: 8808 | Loc (DB): 2 | Qty: 1 | Stok Awal: 127
+[2025-12-06T04:48:57.258Z] SUKSES: Stok Berkurang. Sisa: 126
+[2025-12-06T04:48:57.259Z] ITEM ID: 6268 | Product: 198 | Loc (DB): 2 | Qty: 2 | Stok Awal: 328
+[2025-12-06T04:48:57.260Z] SUKSES: Stok Berkurang. Sisa: 326
+[2025-12-06T04:48:57.261Z] ITEM ID: 5105 | Product: 530 | Loc (DB): 2 | Qty: 2 | Stok Awal: 489
+[2025-12-06T04:48:57.262Z] SUKSES: Stok Berkurang. Sisa: 487
+[2025-12-06T04:48:57.263Z] ITEM ID: 5124 | Product: 429 | Loc (DB): 2 | Qty: 4 | Stok Awal: 2626
+[2025-12-06T04:48:57.264Z] SUKSES: Stok Berkurang. Sisa: 2622
+[2025-12-06T04:48:57.265Z] ITEM ID: 5097 | Product: 1010 | Loc (DB): 2 | Qty: 2 | Stok Awal: 72
+[2025-12-06T04:48:57.267Z] SUKSES: Stok Berkurang. Sisa: 70
+[2025-12-06T04:48:57.269Z] ITEM ID: 5235 | Product: 4615 | Loc (DB): 2 | Qty: 5 | Stok Awal: 48
+[2025-12-06T04:48:57.271Z] SUKSES: Stok Berkurang. Sisa: 43
+[2025-12-06T04:48:57.272Z] ITEM ID: 5243 | Product: 163 | Loc (DB): 2 | Qty: 20 | Stok Awal: 497
+[2025-12-06T04:48:57.273Z] SUKSES: Stok Berkurang. Sisa: 477
+[2025-12-06T04:48:57.274Z] ITEM ID: 6538 | Product: 198 | Loc (DB): 2 | Qty: 2 | Stok Awal: 326
+[2025-12-06T04:48:57.275Z] SUKSES: Stok Berkurang. Sisa: 324
+[2025-12-06T04:48:57.276Z] ITEM ID: 5094 | Product: 8811 | Loc (DB): 2 | Qty: 1 | Stok Awal: 867
+[2025-12-06T04:48:57.277Z] SUKSES: Stok Berkurang. Sisa: 866
+[2025-12-06T04:48:57.279Z] ITEM ID: 5099 | Product: 431 | Loc (DB): 2 | Qty: 4 | Stok Awal: 3135
+[2025-12-06T04:48:57.279Z] SUKSES: Stok Berkurang. Sisa: 3131
+[2025-12-06T04:48:57.280Z] ITEM ID: 5118 | Product: 429 | Loc (DB): 2 | Qty: 5 | Stok Awal: 2622
+[2025-12-06T04:48:57.281Z] SUKSES: Stok Berkurang. Sisa: 2617
+[2025-12-06T04:48:57.283Z] ITEM ID: 6535 | Product: 200 | Loc (DB): 2 | Qty: 2 | Stok Awal: 25
+[2025-12-06T04:48:57.284Z] SUKSES: Stok Berkurang. Sisa: 23
+[2025-12-06T04:48:57.286Z] ITEM ID: 5232 | Product: 431 | Loc (DB): 2 | Qty: 1 | Stok Awal: 3131
+[2025-12-06T04:48:57.287Z] SUKSES: Stok Berkurang. Sisa: 3130
+[2025-12-06T04:48:57.288Z] ITEM ID: 6267 | Product: 331 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1397
+[2025-12-06T04:48:57.289Z] SUKSES: Stok Berkurang. Sisa: 1396
+[2025-12-06T04:48:57.291Z] ITEM ID: 5237 | Product: 161 | Loc (DB): 2 | Qty: 6 | Stok Awal: 3489
+[2025-12-06T04:48:57.292Z] SUKSES: Stok Berkurang. Sisa: 3483
+[2025-12-06T04:48:57.293Z] ITEM ID: 5104 | Product: 3603 | Loc (DB): 2 | Qty: 8 | Stok Awal: 50
+[2025-12-06T04:48:57.294Z] SUKSES: Stok Berkurang. Sisa: 42
+[2025-12-06T04:48:57.295Z] ITEM ID: 5245 | Product: 150 | Loc (DB): 2 | Qty: 10 | Stok Awal: 53
+[2025-12-06T04:48:57.296Z] SUKSES: Stok Berkurang. Sisa: 43
+[2025-12-06T04:48:57.297Z] ITEM ID: 5123 | Product: 515 | Loc (DB): 2 | Qty: 10 | Stok Awal: 1775
+[2025-12-06T04:48:57.298Z] SUKSES: Stok Berkurang. Sisa: 1765
+[2025-12-06T04:48:57.300Z] ITEM ID: 5096 | Product: 431 | Loc (DB): 2 | Qty: 2 | Stok Awal: 3130
+[2025-12-06T04:48:57.301Z] SUKSES: Stok Berkurang. Sisa: 3128
+[2025-12-06T04:48:57.303Z] ITEM ID: 6272 | Product: 1926 | Loc (DB): 2 | Qty: 8 | Stok Awal: 917
+[2025-12-06T04:48:57.304Z] SUKSES: Stok Berkurang. Sisa: 909
+[2025-12-06T04:48:57.305Z] ITEM ID: 5242 | Product: 227 | Loc (DB): 2 | Qty: 20 | Stok Awal: 82
+[2025-12-06T04:48:57.307Z] SUKSES: Stok Berkurang. Sisa: 62
+[2025-12-06T04:48:57.308Z] ITEM ID: 6537 | Product: 222 | Loc (DB): 2 | Qty: 4 | Stok Awal: 24
+[2025-12-06T04:48:57.309Z] SUKSES: Stok Berkurang. Sisa: 20
+[2025-12-06T04:48:57.310Z] ITEM ID: 5093 | Product: 431 | Loc (DB): 2 | Qty: 1 | Stok Awal: 3128
+[2025-12-06T04:48:57.311Z] SUKSES: Stok Berkurang. Sisa: 3127
+[2025-12-06T04:48:57.313Z] ITEM ID: 5234 | Product: 1817 | Loc (DB): 2 | Qty: 1 | Stok Awal: 311
+[2025-12-06T04:48:57.314Z] SUKSES: Stok Berkurang. Sisa: 310
+[2025-12-06T04:48:57.316Z] ITEM ID: 6269 | Product: 169 | Loc (DB): 2 | Qty: 5 | Stok Awal: 56
+[2025-12-06T04:48:57.318Z] SUKSES: Stok Berkurang. Sisa: 51
+[2025-12-06T04:48:57.320Z] ITEM ID: 5239 | Product: 144 | Loc (DB): 2 | Qty: 2 | Stok Awal: 50
+[2025-12-06T04:48:57.321Z] SUKSES: Stok Berkurang. Sisa: 48
+[2025-12-06T04:48:57.322Z] ITEM ID: 5247 | Product: 185 | Loc (DB): 2 | Qty: 10 | Stok Awal: 2120
+[2025-12-06T04:48:57.323Z] SUKSES: Stok Berkurang. Sisa: 2110
+[2025-12-06T04:48:57.325Z] ITEM ID: 5125 | Product: 8819 | Loc (DB): 2 | Qty: 2 | Stok Awal: 189
+[2025-12-06T04:48:57.326Z] SUKSES: Stok Berkurang. Sisa: 187
+[2025-12-06T04:48:57.327Z] ITEM ID: 5098 | Product: 1161 | Loc (DB): 2 | Qty: 4 | Stok Awal: 40
+[2025-12-06T04:48:57.327Z] SUKSES: Stok Berkurang. Sisa: 36
+[2025-12-06T04:48:57.328Z] ITEM ID: 5236 | Product: 732 | Loc (DB): 2 | Qty: 1 | Stok Awal: 82
+[2025-12-06T04:48:57.330Z] SUKSES: Stok Berkurang. Sisa: 81
+[2025-12-06T04:48:57.330Z] ITEM ID: 5103 | Product: 7573 | Loc (DB): 2 | Qty: 6 | Stok Awal: 18
+[2025-12-06T04:48:57.331Z] SUKSES: Stok Berkurang. Sisa: 12
+[2025-12-06T04:48:57.333Z] ITEM ID: 6429 | Product: 8806 | Loc (DB): 2 | Qty: 6 | Stok Awal: 304
+[2025-12-06T04:48:57.334Z] SUKSES: Stok Berkurang. Sisa: 298
+[2025-12-06T04:48:57.335Z] ITEM ID: 5244 | Product: 162 | Loc (DB): 2 | Qty: 20 | Stok Awal: 865
+[2025-12-06T04:48:57.336Z] SUKSES: Stok Berkurang. Sisa: 845
+[2025-12-06T04:48:57.337Z] ITEM ID: 5122 | Product: 429 | Loc (DB): 2 | Qty: 5 | Stok Awal: 2617
+[2025-12-06T04:48:57.339Z] SUKSES: Stok Berkurang. Sisa: 2612
+[2025-12-06T04:48:57.340Z] ITEM ID: 5095 | Product: 533 | Loc (DB): 2 | Qty: 3 | Stok Awal: 111
+[2025-12-06T04:48:57.341Z] SUKSES: Stok Berkurang. Sisa: 108
+[2025-12-06T04:48:57.342Z] ITEM ID: 6266 | Product: 323 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1775
+[2025-12-06T04:48:57.343Z] SUKSES: Stok Berkurang. Sisa: 1773
+[2025-12-06T04:48:57.344Z] ITEM ID: 5106 | Product: 1351 | Loc (DB): 4 | Qty: 2 | Stok Awal: 5
+[2025-12-06T04:48:57.345Z] SUKSES: Stok Berkurang. Sisa: 3
+[2025-12-06T04:48:57.345Z] ITEM ID: 6271 | Product: 2702 | Loc (DB): 5 | Qty: 2 | Stok Awal: 300
+[2025-12-06T04:48:57.346Z] SUKSES: Stok Berkurang. Sisa: 298
+[2025-12-06T04:48:57.347Z] ITEM ID: 5240 | Product: 11798 | Loc (DB): 5 | Qty: 12 | Stok Awal: 200
+[2025-12-06T04:48:57.348Z] SUKSES: Stok Berkurang. Sisa: 188
+[2025-12-06T04:48:57.349Z] ITEM ID: 6534 | Product: 205 | Loc (DB): 5 | Qty: 4 | Stok Awal: 1895
+[2025-12-06T04:48:57.350Z] SUKSES: Stok Berkurang. Sisa: 1891
+[2025-12-06T04:48:57.352Z] ITEM ID: 4918 | Product: 148 | Loc (DB): 2 | Qty: 4 | Stok Awal: 28
+[2025-12-06T04:48:57.353Z] SUKSES: Stok Berkurang. Sisa: 24
+[2025-12-06T04:48:57.354Z] ITEM ID: 5029 | Product: 185 | Loc (DB): 2 | Qty: 100 | Stok Awal: 2110
+[2025-12-06T04:48:57.355Z] SUKSES: Stok Berkurang. Sisa: 2010
+[2025-12-06T04:48:57.356Z] ITEM ID: 5012 | Product: 2958 | Loc (DB): 2 | Qty: 1 | Stok Awal: 496
+[2025-12-06T04:48:57.357Z] SUKSES: Stok Berkurang. Sisa: 495
+[2025-12-06T04:48:57.358Z] ITEM ID: 4850 | Product: 2900 | Loc (DB): 2 | Qty: 1 | Stok Awal: 141
+[2025-12-06T04:48:57.360Z] SUKSES: Stok Berkurang. Sisa: 140
+[2025-12-06T04:48:57.361Z] ITEM ID: 4143 | Product: 257 | Loc (DB): 2 | Qty: 3 | Stok Awal: 89
+[2025-12-06T04:48:57.362Z] SUKSES: Stok Berkurang. Sisa: 86
+[2025-12-06T04:48:57.363Z] ITEM ID: 5017 | Product: 330 | Loc (DB): 2 | Qty: 8 | Stok Awal: 900
+[2025-12-06T04:48:57.364Z] SUKSES: Stok Berkurang. Sisa: 892
+[2025-12-06T04:48:57.365Z] ITEM ID: 4855 | Product: 2947 | Loc (DB): 2 | Qty: 2 | Stok Awal: 63
+[2025-12-06T04:48:57.366Z] SUKSES: Stok Berkurang. Sisa: 61
+[2025-12-06T04:48:57.368Z] ITEM ID: 4145 | Product: 2682 | Loc (DB): 2 | Qty: 5 | Stok Awal: 604
+[2025-12-06T04:48:57.369Z] SUKSES: Stok Berkurang. Sisa: 599
+[2025-12-06T04:48:57.370Z] ITEM ID: 4920 | Product: 933 | Loc (DB): 2 | Qty: 2 | Stok Awal: 51
+[2025-12-06T04:48:57.371Z] SUKSES: Stok Berkurang. Sisa: 49
+[2025-12-06T04:48:57.372Z] ITEM ID: 5031 | Product: 24 | Loc (DB): 2 | Qty: 15 | Stok Awal: 44
+[2025-12-06T04:48:57.373Z] SUKSES: Stok Berkurang. Sisa: 29
+[2025-12-06T04:48:57.375Z] ITEM ID: 4270 | Product: 9118 | Loc (DB): 2 | Qty: 1 | Stok Awal: 59
+[2025-12-06T04:48:57.375Z] SUKSES: Stok Berkurang. Sisa: 58
+[2025-12-06T04:48:57.376Z] ITEM ID: 5014 | Product: 2993 | Loc (DB): 2 | Qty: 1 | Stok Awal: 393
+[2025-12-06T04:48:57.378Z] SUKSES: Stok Berkurang. Sisa: 392
+[2025-12-06T04:48:57.378Z] ITEM ID: 4852 | Product: 2932 | Loc (DB): 2 | Qty: 1 | Stok Awal: 152
+[2025-12-06T04:48:57.379Z] SUKSES: Stok Berkurang. Sisa: 151
+[2025-12-06T04:48:57.380Z] ITEM ID: 4498 | Product: 29 | Loc (DB): 2 | Qty: 40 | Stok Awal: 142
+[2025-12-06T04:48:57.382Z] SUKSES: Stok Berkurang. Sisa: 102
+[2025-12-06T04:48:57.383Z] ITEM ID: 4857 | Product: 2848 | Loc (DB): 2 | Qty: 5 | Stok Awal: 203
+[2025-12-06T04:48:57.385Z] SUKSES: Stok Berkurang. Sisa: 198
+[2025-12-06T04:48:57.386Z] ITEM ID: 4698 | Product: 524 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1093
+[2025-12-06T04:48:57.387Z] SUKSES: Stok Berkurang. Sisa: 1073
+[2025-12-06T04:48:57.388Z] ITEM ID: 5020 | Product: 19 | Loc (DB): 2 | Qty: 4 | Stok Awal: 2676
+[2025-12-06T04:48:57.388Z] SUKSES: Stok Berkurang. Sisa: 2672
+[2025-12-06T04:48:57.390Z] ITEM ID: 4267 | Product: 3580 | Loc (DB): 2 | Qty: 1 | Stok Awal: 36
+[2025-12-06T04:48:57.390Z] SUKSES: Stok Berkurang. Sisa: 35
+[2025-12-06T04:48:57.392Z] ITEM ID: 4849 | Product: 2847 | Loc (DB): 2 | Qty: 3 | Stok Awal: 626
+[2025-12-06T04:48:57.393Z] SUKSES: Stok Berkurang. Sisa: 623
+[2025-12-06T04:48:57.393Z] ITEM ID: 5019 | Product: 2847 | Loc (DB): 2 | Qty: 5 | Stok Awal: 623
+[2025-12-06T04:48:57.394Z] SUKSES: Stok Berkurang. Sisa: 618
+[2025-12-06T04:48:57.395Z] ITEM ID: 4846 | Product: 3064 | Loc (DB): 2 | Qty: 1 | Stok Awal: 202
+[2025-12-06T04:48:57.396Z] SUKSES: Stok Berkurang. Sisa: 201
+[2025-12-06T04:48:57.397Z] ITEM ID: 5033 | Product: 162 | Loc (DB): 2 | Qty: 100 | Stok Awal: 845
+[2025-12-06T04:48:57.398Z] SUKSES: Stok Berkurang. Sisa: 745
+[2025-12-06T04:48:57.399Z] ITEM ID: 5016 | Product: 139 | Loc (DB): 2 | Qty: 2 | Stok Awal: 26
+[2025-12-06T04:48:57.400Z] SUKSES: Stok Berkurang. Sisa: 24
+[2025-12-06T04:48:57.401Z] ITEM ID: 4854 | Product: 3055 | Loc (DB): 2 | Qty: 4 | Stok Awal: 83
+[2025-12-06T04:48:57.402Z] SUKSES: Stok Berkurang. Sisa: 79
+[2025-12-06T04:48:57.403Z] ITEM ID: 4144 | Product: 105 | Loc (DB): 2 | Qty: 3 | Stok Awal: 125
+[2025-12-06T04:48:57.404Z] SUKSES: Stok Berkurang. Sisa: 122
+[2025-12-06T04:48:57.406Z] ITEM ID: 4919 | Product: 124 | Loc (DB): 2 | Qty: 4 | Stok Awal: 45
+[2025-12-06T04:48:57.407Z] SUKSES: Stok Berkurang. Sisa: 41
+[2025-12-06T04:48:57.408Z] ITEM ID: 4700 | Product: 520 | Loc (DB): 2 | Qty: 20 | Stok Awal: 341
+[2025-12-06T04:48:57.409Z] SUKSES: Stok Berkurang. Sisa: 321
+[2025-12-06T04:48:57.410Z] ITEM ID: 5013 | Product: 137 | Loc (DB): 2 | Qty: 4 | Stok Awal: 47
+[2025-12-06T04:48:57.411Z] SUKSES: Stok Berkurang. Sisa: 43
+[2025-12-06T04:48:57.413Z] ITEM ID: 4851 | Product: 2845 | Loc (DB): 2 | Qty: 2 | Stok Awal: 343
+[2025-12-06T04:48:57.414Z] SUKSES: Stok Berkurang. Sisa: 341
+[2025-12-06T04:48:57.415Z] ITEM ID: 4697 | Product: 535 | Loc (DB): 2 | Qty: 20 | Stok Awal: 324
+[2025-12-06T04:48:57.417Z] SUKSES: Stok Berkurang. Sisa: 304
+[2025-12-06T04:48:57.419Z] ITEM ID: 4241 | Product: 3 | Loc (DB): 2 | Qty: 4 | Stok Awal: 115
+[2025-12-06T04:48:57.420Z] SUKSES: Stok Berkurang. Sisa: 111
+[2025-12-06T04:48:57.422Z] ITEM ID: 5010 | Product: 4351 | Loc (DB): 2 | Qty: 1 | Stok Awal: 60
+[2025-12-06T04:48:57.423Z] SUKSES: Stok Berkurang. Sisa: 59
+[2025-12-06T04:48:57.424Z] ITEM ID: 4848 | Product: 2846 | Loc (DB): 2 | Qty: 3 | Stok Awal: 390
+[2025-12-06T04:48:57.425Z] SUKSES: Stok Berkurang. Sisa: 387
+[2025-12-06T04:48:57.426Z] ITEM ID: 4856 | Product: 3062 | Loc (DB): 2 | Qty: 1 | Stok Awal: 159
+[2025-12-06T04:48:57.427Z] SUKSES: Stok Berkurang. Sisa: 158
+[2025-12-06T04:48:57.428Z] ITEM ID: 4147 | Product: 155 | Loc (DB): 2 | Qty: 3 | Stok Awal: 20
+[2025-12-06T04:48:57.429Z] SUKSES: Stok Berkurang. Sisa: 17
+[2025-12-06T04:48:57.430Z] ITEM ID: 4845 | Product: 2952 | Loc (DB): 2 | Qty: 2 | Stok Awal: 53
+[2025-12-06T04:48:57.431Z] SUKSES: Stok Berkurang. Sisa: 51
+[2025-12-06T04:48:57.432Z] ITEM ID: 5032 | Product: 66 | Loc (DB): 2 | Qty: 12 | Stok Awal: 20
+[2025-12-06T04:48:57.434Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:48:57.435Z] ITEM ID: 4271 | Product: 12073 | Loc (DB): 2 | Qty: 1 | Stok Awal: 30
+[2025-12-06T04:48:57.436Z] SUKSES: Stok Berkurang. Sisa: 29
+[2025-12-06T04:48:57.437Z] ITEM ID: 5015 | Product: 2931 | Loc (DB): 2 | Qty: 3 | Stok Awal: 48
+[2025-12-06T04:48:57.438Z] SUKSES: Stok Berkurang. Sisa: 45
+[2025-12-06T04:48:57.439Z] ITEM ID: 4853 | Product: 2898 | Loc (DB): 2 | Qty: 3 | Stok Awal: 290
+[2025-12-06T04:48:57.440Z] SUKSES: Stok Berkurang. Sisa: 287
+[2025-12-06T04:48:57.441Z] ITEM ID: 4268 | Product: 12079 | Loc (DB): 4 | Qty: 1 | Stok Awal: 11
+[2025-12-06T04:48:57.442Z] SUKSES: Stok Berkurang. Sisa: 10
+[2025-12-06T04:48:57.443Z] ITEM ID: 5072 | Product: 8322 | Loc (DB): 4 | Qty: 70 | Stok Awal: 521
+[2025-12-06T04:48:57.444Z] SUKSES: Stok Berkurang. Sisa: 451
+[2025-12-06T04:48:57.445Z] ITEM ID: 4496 | Product: 2667 | Loc (DB): 5 | Qty: 10 | Stok Awal: 2400
+[2025-12-06T04:48:57.446Z] SUKSES: Stok Berkurang. Sisa: 2390
+[2025-12-06T04:48:57.447Z] ITEM ID: 5030 | Product: 25 | Loc (DB): 5 | Qty: 35 | Stok Awal: 650
+[2025-12-06T04:48:57.447Z] SUKSES: Stok Berkurang. Sisa: 615
+[2025-12-06T04:48:57.448Z] ITEM ID: 5018 | Product: 11813 | Loc (DB): 5 | Qty: 4 | Stok Awal: 200
+[2025-12-06T04:48:57.450Z] SUKSES: Stok Berkurang. Sisa: 196
+[2025-12-06T04:48:57.451Z] ITEM ID: 3954 | Product: 11 | Loc (DB): 2 | Qty: 30 | Stok Awal: 4450
+[2025-12-06T04:48:57.452Z] SUKSES: Stok Berkurang. Sisa: 4420
+[2025-12-06T04:48:57.453Z] ITEM ID: 3725 | Product: 783 | Loc (DB): 2 | Qty: 3 | Stok Awal: 53
+[2025-12-06T04:48:57.454Z] SUKSES: Stok Berkurang. Sisa: 50
+[2025-12-06T04:48:57.455Z] ITEM ID: 3539 | Product: 53 | Loc (DB): 2 | Qty: 20 | Stok Awal: 3515
+[2025-12-06T04:48:57.456Z] SUKSES: Stok Berkurang. Sisa: 3495
+[2025-12-06T04:48:57.458Z] ITEM ID: 3138 | Product: 1731 | Loc (DB): 2 | Qty: 2 | Stok Awal: 40
+[2025-12-06T04:48:57.459Z] SUKSES: Stok Berkurang. Sisa: 38
+[2025-12-06T04:48:57.460Z] ITEM ID: 3733 | Product: 226 | Loc (DB): 2 | Qty: 50 | Stok Awal: 104
+[2025-12-06T04:48:57.461Z] SUKSES: Stok Berkurang. Sisa: 54
+[2025-12-06T04:48:57.461Z] ITEM ID: 3706 | Product: 8811 | Loc (DB): 2 | Qty: 10 | Stok Awal: 866
+[2025-12-06T04:48:57.462Z] SUKSES: Stok Berkurang. Sisa: 856
+[2025-12-06T04:48:57.463Z] ITEM ID: 3781 | Product: 2871 | Loc (DB): 2 | Qty: 5 | Stok Awal: 16
+[2025-12-06T04:48:57.464Z] SUKSES: Stok Berkurang. Sisa: 11
+[2025-12-06T04:48:57.465Z] ITEM ID: 3730 | Product: 808 | Loc (DB): 2 | Qty: 1 | Stok Awal: 20
+[2025-12-06T04:48:57.467Z] SUKSES: Stok Berkurang. Sisa: 19
+[2025-12-06T04:48:57.469Z] ITEM ID: 3631 | Product: 57 | Loc (DB): 2 | Qty: 10 | Stok Awal: 1084
+[2025-12-06T04:48:57.470Z] SUKSES: Stok Berkurang. Sisa: 1074
+[2025-12-06T04:48:57.471Z] ITEM ID: 3896 | Product: 332 | Loc (DB): 2 | Qty: 100 | Stok Awal: 400
+[2025-12-06T04:48:57.472Z] SUKSES: Stok Berkurang. Sisa: 300
+[2025-12-06T04:48:57.473Z] ITEM ID: 3956 | Product: 187 | Loc (DB): 2 | Qty: 30 | Stok Awal: 83
+[2025-12-06T04:48:57.474Z] SUKSES: Stok Berkurang. Sisa: 53
+[2025-12-06T04:48:57.475Z] ITEM ID: 3727 | Product: 11 | Loc (DB): 2 | Qty: 50 | Stok Awal: 4420
+[2025-12-06T04:48:57.476Z] SUKSES: Stok Berkurang. Sisa: 4370
+[2025-12-06T04:48:57.477Z] ITEM ID: 3738 | Product: 321 | Loc (DB): 2 | Qty: 25 | Stok Awal: 3365
+[2025-12-06T04:48:57.478Z] SUKSES: Stok Berkurang. Sisa: 3340
+[2025-12-06T04:48:57.479Z] ITEM ID: 3708 | Product: 8811 | Loc (DB): 2 | Qty: 5 | Stok Awal: 856
+[2025-12-06T04:48:57.479Z] SUKSES: Stok Berkurang. Sisa: 851
+[2025-12-06T04:48:57.480Z] ITEM ID: 3805 | Product: 61 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1003
+[2025-12-06T04:48:57.481Z] SUKSES: Stok Berkurang. Sisa: 983
+[2025-12-06T04:48:57.482Z] ITEM ID: 3807 | Product: 325 | Loc (DB): 2 | Qty: 100 | Stok Awal: 3300
+[2025-12-06T04:48:57.483Z] SUKSES: Stok Berkurang. Sisa: 3200
+[2025-12-06T04:48:57.484Z] ITEM ID: 3953 | Product: 1835 | Loc (DB): 2 | Qty: 2 | Stok Awal: 279
+[2025-12-06T04:48:57.485Z] SUKSES: Stok Berkurang. Sisa: 277
+[2025-12-06T04:48:57.486Z] ITEM ID: 3536 | Product: 977 | Loc (DB): 2 | Qty: 2 | Stok Awal: 10
+[2025-12-06T04:48:57.487Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:48:57.488Z] ITEM ID: 3137 | Product: 162 | Loc (DB): 2 | Qty: 8 | Stok Awal: 745
+[2025-12-06T04:48:57.489Z] SUKSES: Stok Berkurang. Sisa: 737
+[2025-12-06T04:48:57.489Z] ITEM ID: 3780 | Product: 2714 | Loc (DB): 2 | Qty: 4 | Stok Awal: 11992
+[2025-12-06T04:48:57.490Z] SUKSES: Stok Berkurang. Sisa: 11988
+[2025-12-06T04:48:57.491Z] ITEM ID: 3724 | Product: 15 | Loc (DB): 2 | Qty: 50 | Stok Awal: 5641
+[2025-12-06T04:48:57.492Z] SUKSES: Stok Berkurang. Sisa: 5591
+[2025-12-06T04:48:57.493Z] ITEM ID: 3936 | Product: 318 | Loc (DB): 2 | Qty: 6 | Stok Awal: 1805
+[2025-12-06T04:48:57.494Z] SUKSES: Stok Berkurang. Sisa: 1799
+[2025-12-06T04:48:57.495Z] ITEM ID: 3980 | Product: 53 | Loc (DB): 2 | Qty: 20 | Stok Awal: 3495
+[2025-12-06T04:48:57.496Z] SUKSES: Stok Berkurang. Sisa: 3475
+[2025-12-06T04:48:57.497Z] ITEM ID: 3134 | Product: 331 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1396
+[2025-12-06T04:48:57.497Z] SUKSES: Stok Berkurang. Sisa: 1394
+[2025-12-06T04:48:57.498Z] ITEM ID: 3729 | Product: 785 | Loc (DB): 2 | Qty: 4 | Stok Awal: 44
+[2025-12-06T04:48:57.500Z] SUKSES: Stok Berkurang. Sisa: 40
+[2025-12-06T04:48:57.501Z] ITEM ID: 3740 | Product: 326 | Loc (DB): 2 | Qty: 10 | Stok Awal: 420
+[2025-12-06T04:48:57.502Z] SUKSES: Stok Berkurang. Sisa: 410
+[2025-12-06T04:48:57.503Z] ITEM ID: 3710 | Product: 8811 | Loc (DB): 2 | Qty: 5 | Stok Awal: 851
+[2025-12-06T04:48:57.504Z] SUKSES: Stok Berkurang. Sisa: 846
+[2025-12-06T04:48:57.505Z] ITEM ID: 3533 | Product: 973 | Loc (DB): 2 | Qty: 3 | Stok Awal: 19
+[2025-12-06T04:48:57.506Z] SUKSES: Stok Berkurang. Sisa: 16
+[2025-12-06T04:48:57.507Z] ITEM ID: 3955 | Product: 7 | Loc (DB): 2 | Qty: 30 | Stok Awal: 3202
+[2025-12-06T04:48:57.508Z] SUKSES: Stok Berkurang. Sisa: 3172
+[2025-12-06T04:48:57.509Z] ITEM ID: 3726 | Product: 787 | Loc (DB): 2 | Qty: 2 | Stok Awal: 26
+[2025-12-06T04:48:57.510Z] SUKSES: Stok Berkurang. Sisa: 24
+[2025-12-06T04:48:57.511Z] ITEM ID: 3139 | Product: 6 | Loc (DB): 2 | Qty: 6 | Stok Awal: 1601
+[2025-12-06T04:48:57.512Z] SUKSES: Stok Berkurang. Sisa: 1595
+[2025-12-06T04:48:57.513Z] ITEM ID: 3734 | Product: 162 | Loc (DB): 2 | Qty: 50 | Stok Awal: 737
+[2025-12-06T04:48:57.514Z] SUKSES: Stok Berkurang. Sisa: 687
+[2025-12-06T04:48:57.515Z] ITEM ID: 3707 | Product: 431 | Loc (DB): 2 | Qty: 5 | Stok Awal: 3127
+[2025-12-06T04:48:57.517Z] SUKSES: Stok Berkurang. Sisa: 3122
+[2025-12-06T04:48:57.519Z] ITEM ID: 3806 | Product: 16 | Loc (DB): 2 | Qty: 15 | Stok Awal: 3287
+[2025-12-06T04:48:57.520Z] SUKSES: Stok Berkurang. Sisa: 3272
+[2025-12-06T04:48:57.522Z] ITEM ID: 3535 | Product: 975 | Loc (DB): 2 | Qty: 2 | Stok Awal: 23
+[2025-12-06T04:48:57.523Z] SUKSES: Stok Berkurang. Sisa: 21
+[2025-12-06T04:48:57.524Z] ITEM ID: 3731 | Product: 1864 | Loc (DB): 2 | Qty: 5 | Stok Awal: 62
+[2025-12-06T04:48:57.525Z] SUKSES: Stok Berkurang. Sisa: 57
+[2025-12-06T04:48:57.526Z] ITEM ID: 3632 | Product: 270 | Loc (DB): 2 | Qty: 5 | Stok Awal: 25
+[2025-12-06T04:48:57.527Z] SUKSES: Stok Berkurang. Sisa: 20
+[2025-12-06T04:48:57.529Z] ITEM ID: 3394 | Product: 7611 | Loc (DB): 2 | Qty: 1 | Stok Awal: 635
+[2025-12-06T04:48:57.530Z] SUKSES: Stok Berkurang. Sisa: 634
+[2025-12-06T04:48:57.531Z] ITEM ID: 3723 | Product: 12 | Loc (DB): 2 | Qty: 50 | Stok Awal: 81
+[2025-12-06T04:48:57.533Z] SUKSES: Stok Berkurang. Sisa: 31
+[2025-12-06T04:48:57.535Z] ITEM ID: 3133 | Product: 53 | Loc (DB): 2 | Qty: 6 | Stok Awal: 3475
+[2025-12-06T04:48:57.536Z] SUKSES: Stok Berkurang. Sisa: 3469
+[2025-12-06T04:48:57.537Z] ITEM ID: 3709 | Product: 5492 | Loc (DB): 2 | Qty: 5 | Stok Awal: 250
+[2025-12-06T04:48:57.538Z] SUKSES: Stok Berkurang. Sisa: 245
+[2025-12-06T04:48:57.539Z] ITEM ID: 3277 | Product: 7213 | Loc (DB): 4 | Qty: 1 | Stok Awal: 454
+[2025-12-06T04:48:57.541Z] SUKSES: Stok Berkurang. Sisa: 453
+[2025-12-06T04:48:57.542Z] ITEM ID: 3732 | Product: 11561 | Loc (DB): 4 | Qty: 5 | Stok Awal: 148
+[2025-12-06T04:48:57.543Z] SUKSES: Stok Berkurang. Sisa: 143
+[2025-12-06T04:48:57.544Z] ITEM ID: 3123 | Product: 3428 | Loc (DB): 5 | Qty: 20 | Stok Awal: 61
+[2025-12-06T04:48:57.545Z] SUKSES: Stok Berkurang. Sisa: 41
+[2025-12-06T04:48:57.546Z] ITEM ID: 3728 | Product: 199 | Loc (DB): 5 | Qty: 50 | Stok Awal: 1500
+[2025-12-06T04:48:57.549Z] SUKSES: Stok Berkurang. Sisa: 1450
+[2025-12-06T04:48:57.550Z] ITEM ID: 3629 | Product: 11808 | Loc (DB): 5 | Qty: 10 | Stok Awal: 280
+[2025-12-06T04:48:57.552Z] SUKSES: Stok Berkurang. Sisa: 270
+[2025-12-06T04:48:57.553Z] ITEM ID: 2485 | Product: 2845 | Loc (DB): 2 | Qty: 1 | Stok Awal: 341
+[2025-12-06T04:48:57.554Z] SUKSES: Stok Berkurang. Sisa: 340
+[2025-12-06T04:48:57.556Z] ITEM ID: 2993 | Product: 994 | Loc (DB): 2 | Qty: 2 | Stok Awal: 78
+[2025-12-06T04:48:57.557Z] SUKSES: Stok Berkurang. Sisa: 76
+[2025-12-06T04:48:57.557Z] ITEM ID: 2589 | Product: 33 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1027
+[2025-12-06T04:48:57.558Z] SUKSES: Stok Berkurang. Sisa: 1025
+[2025-12-06T04:48:57.560Z] ITEM ID: 2821 | Product: 15 | Loc (DB): 2 | Qty: 6 | Stok Awal: 5591
+[2025-12-06T04:48:57.560Z] SUKSES: Stok Berkurang. Sisa: 5585
+[2025-12-06T04:48:57.561Z] ITEM ID: 2785 | Product: 761 | Loc (DB): 2 | Qty: 2 | Stok Awal: 118
+[2025-12-06T04:48:57.563Z] SUKSES: Stok Berkurang. Sisa: 116
+[2025-12-06T04:48:57.564Z] ITEM ID: 2578 | Product: 322 | Loc (DB): 2 | Qty: 5 | Stok Awal: 978
+[2025-12-06T04:48:57.565Z] SUKSES: Stok Berkurang. Sisa: 973
+[2025-12-06T04:48:57.566Z] ITEM ID: 3004 | Product: 2846 | Loc (DB): 2 | Qty: 3 | Stok Awal: 387
+[2025-12-06T04:48:57.568Z] SUKSES: Stok Berkurang. Sisa: 384
+[2025-12-06T04:48:57.569Z] ITEM ID: 2700 | Product: 2721 | Loc (DB): 2 | Qty: 1 | Stok Awal: 6
+[2025-12-06T04:48:57.571Z] SUKSES: Stok Berkurang. Sisa: 5
+[2025-12-06T04:48:57.572Z] ITEM ID: 2382 | Product: 151 | Loc (DB): 2 | Qty: 1 | Stok Awal: 13
+[2025-12-06T04:48:57.573Z] SUKSES: Stok Berkurang. Sisa: 12
+[2025-12-06T04:48:57.574Z] ITEM ID: 2813 | Product: 251 | Loc (DB): 2 | Qty: 4 | Stok Awal: 49
+[2025-12-06T04:48:57.575Z] SUKSES: Stok Berkurang. Sisa: 45
+[2025-12-06T04:48:57.576Z] ITEM ID: 2759 | Product: 1850 | Loc (DB): 2 | Qty: 1 | Stok Awal: 651
+[2025-12-06T04:48:57.577Z] SUKSES: Stok Berkurang. Sisa: 650
+[2025-12-06T04:48:57.578Z] ITEM ID: 3091 | Product: 527 | Loc (DB): 2 | Qty: 2 | Stok Awal: 298
+[2025-12-06T04:48:57.579Z] SUKSES: Stok Berkurang. Sisa: 296
+[2025-12-06T04:48:57.580Z] ITEM ID: 2818 | Product: 57 | Loc (DB): 2 | Qty: 6 | Stok Awal: 1074
+[2025-12-06T04:48:57.581Z] SUKSES: Stok Berkurang. Sisa: 1068
+[2025-12-06T04:48:57.582Z] ITEM ID: 2764 | Product: 7448 | Loc (DB): 2 | Qty: 1 | Stok Awal: 10
+[2025-12-06T04:48:57.584Z] SUKSES: Stok Berkurang. Sisa: 9
+[2025-12-06T04:48:57.585Z] ITEM ID: 2570 | Product: 227 | Loc (DB): 2 | Qty: 12 | Stok Awal: 62
+[2025-12-06T04:48:57.586Z] SUKSES: Stok Berkurang. Sisa: 50
+[2025-12-06T04:48:57.588Z] ITEM ID: 3001 | Product: 3522 | Loc (DB): 2 | Qty: 3 | Stok Awal: 104
+[2025-12-06T04:48:57.589Z] SUKSES: Stok Berkurang. Sisa: 101
+[2025-12-06T04:48:57.590Z] ITEM ID: 2660 | Product: 131 | Loc (DB): 2 | Qty: 15 | Stok Awal: 66
+[2025-12-06T04:48:57.591Z] SUKSES: Stok Berkurang. Sisa: 51
+[2025-12-06T04:48:57.592Z] ITEM ID: 2083 | Product: 186 | Loc (DB): 2 | Qty: 6 | Stok Awal: 111
+[2025-12-06T04:48:57.594Z] SUKSES: Stok Berkurang. Sisa: 105
+[2025-12-06T04:48:57.595Z] ITEM ID: 3009 | Product: 2713 | Loc (DB): 2 | Qty: 3 | Stok Awal: 528
+[2025-12-06T04:48:57.596Z] SUKSES: Stok Berkurang. Sisa: 525
+[2025-12-06T04:48:57.597Z] ITEM ID: 2756 | Product: 321 | Loc (DB): 2 | Qty: 2 | Stok Awal: 3340
+[2025-12-06T04:48:57.598Z] SUKSES: Stok Berkurang. Sisa: 3338
+[2025-12-06T04:48:57.599Z] ITEM ID: 3072 | Product: 5282 | Loc (DB): 2 | Qty: 2 | Stok Awal: 2
+[2025-12-06T04:48:57.602Z] SUKSES: Stok Berkurang. Sisa: 0
+[2025-12-06T04:48:57.603Z] ITEM ID: 3096 | Product: 429 | Loc (DB): 2 | Qty: 5 | Stok Awal: 2612
+[2025-12-06T04:48:57.604Z] SUKSES: Stok Berkurang. Sisa: 2607
+[2025-12-06T04:48:57.606Z] ITEM ID: 2761 | Product: 5083 | Loc (DB): 2 | Qty: 1 | Stok Awal: 10
+[2025-12-06T04:48:57.607Z] SUKSES: Stok Berkurang. Sisa: 9
+[2025-12-06T04:48:57.608Z] ITEM ID: 2491 | Product: 325 | Loc (DB): 2 | Qty: 15 | Stok Awal: 3200
+[2025-12-06T04:48:57.609Z] SUKSES: Stok Berkurang. Sisa: 3185
+[2025-12-06T04:48:57.610Z] ITEM ID: 2998 | Product: 2910 | Loc (DB): 2 | Qty: 3 | Stok Awal: 143
+[2025-12-06T04:48:57.612Z] SUKSES: Stok Berkurang. Sisa: 140
+[2025-12-06T04:48:57.613Z] ITEM ID: 2591 | Product: 516 | Loc (DB): 2 | Qty: 4 | Stok Awal: 622
+[2025-12-06T04:48:57.614Z] SUKSES: Stok Berkurang. Sisa: 618
+[2025-12-06T04:48:57.617Z] ITEM ID: 2823 | Product: 8811 | Loc (DB): 2 | Qty: 3 | Stok Awal: 846
+[2025-12-06T04:48:57.620Z] SUKSES: Stok Berkurang. Sisa: 843
+[2025-12-06T04:48:57.621Z] ITEM ID: 2792 | Product: 7574 | Loc (DB): 2 | Qty: 2 | Stok Awal: 20
+[2025-12-06T04:48:57.623Z] SUKSES: Stok Berkurang. Sisa: 18
+[2025-12-06T04:48:57.624Z] ITEM ID: 3006 | Product: 3057 | Loc (DB): 2 | Qty: 3 | Stok Awal: 85
+[2025-12-06T04:48:57.625Z] SUKSES: Stok Berkurang. Sisa: 82
+[2025-12-06T04:48:57.626Z] ITEM ID: 2702 | Product: 2854 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1
+[2025-12-06T04:48:57.627Z] SUKSES: Stok Berkurang. Sisa: 0
+[2025-12-06T04:48:57.629Z] ITEM ID: 2119 | Product: 7514 | Loc (DB): 2 | Qty: 6 | Stok Awal: 20
+[2025-12-06T04:48:57.630Z] SUKSES: Stok Berkurang. Sisa: 14
+[2025-12-06T04:48:57.631Z] ITEM ID: 3093 | Product: 8820 | Loc (DB): 2 | Qty: 2 | Stok Awal: 69
+[2025-12-06T04:48:57.634Z] SUKSES: Stok Berkurang. Sisa: 67
+[2025-12-06T04:48:57.636Z] ITEM ID: 2168 | Product: 1913 | Loc (DB): 2 | Qty: 20 | Stok Awal: 412
+[2025-12-06T04:48:57.637Z] SUKSES: Stok Berkurang. Sisa: 392
+[2025-12-06T04:48:57.638Z] ITEM ID: 2820 | Product: 4615 | Loc (DB): 2 | Qty: 6 | Stok Awal: 43
+[2025-12-06T04:48:57.639Z] SUKSES: Stok Berkurang. Sisa: 37
+[2025-12-06T04:48:57.641Z] ITEM ID: 2062 | Product: 2715 | Loc (DB): 2 | Qty: 2 | Stok Awal: 945
+[2025-12-06T04:48:57.642Z] SUKSES: Stok Berkurang. Sisa: 943
+[2025-12-06T04:48:57.643Z] ITEM ID: 2572 | Product: 524 | Loc (DB): 2 | Qty: 12 | Stok Awal: 1073
+[2025-12-06T04:48:57.645Z] SUKSES: Stok Berkurang. Sisa: 1061
+[2025-12-06T04:48:57.646Z] ITEM ID: 3003 | Product: 516 | Loc (DB): 2 | Qty: 4 | Stok Awal: 618
+[2025-12-06T04:48:57.647Z] SUKSES: Stok Berkurang. Sisa: 614
+[2025-12-06T04:48:57.648Z] ITEM ID: 2937 | Product: 62 | Loc (DB): 2 | Qty: 6 | Stok Awal: 47
+[2025-12-06T04:48:57.649Z] SUKSES: Stok Berkurang. Sisa: 41
+[2025-12-06T04:48:57.651Z] ITEM ID: 2797 | Product: 4682 | Loc (DB): 2 | Qty: 3 | Stok Awal: 10
+[2025-12-06T04:48:57.652Z] SUKSES: Stok Berkurang. Sisa: 7
+[2025-12-06T04:48:57.653Z] ITEM ID: 3098 | Product: 3569 | Loc (DB): 2 | Qty: 3 | Stok Awal: 481
+[2025-12-06T04:48:57.654Z] SUKSES: Stok Berkurang. Sisa: 478
+[2025-12-06T04:48:57.655Z] ITEM ID: 3000 | Product: 3062 | Loc (DB): 2 | Qty: 3 | Stok Awal: 158
+[2025-12-06T04:48:57.656Z] SUKSES: Stok Berkurang. Sisa: 155
+[2025-12-06T04:48:57.657Z] ITEM ID: 2593 | Product: 2901 | Loc (DB): 2 | Qty: 2 | Stok Awal: 405
+[2025-12-06T04:48:57.658Z] SUKSES: Stok Berkurang. Sisa: 403
+[2025-12-06T04:48:57.659Z] ITEM ID: 2825 | Product: 154 | Loc (DB): 2 | Qty: 6 | Stok Awal: 361
+[2025-12-06T04:48:57.661Z] SUKSES: Stok Berkurang. Sisa: 355
+[2025-12-06T04:48:57.661Z] ITEM ID: 2794 | Product: 5083 | Loc (DB): 2 | Qty: 4 | Stok Awal: 9
+[2025-12-06T04:48:57.662Z] SUKSES: Stok Berkurang. Sisa: 5
+[2025-12-06T04:48:57.663Z] ITEM ID: 3008 | Product: 2861 | Loc (DB): 2 | Qty: 6 | Stok Awal: 317
+[2025-12-06T04:48:57.664Z] SUKSES: Stok Berkurang. Sisa: 311
+[2025-12-06T04:48:57.665Z] ITEM ID: 2121 | Product: 1858 | Loc (DB): 2 | Qty: 6 | Stok Awal: 84
+[2025-12-06T04:48:57.667Z] SUKSES: Stok Berkurang. Sisa: 78
+[2025-12-06T04:48:57.668Z] ITEM ID: 2817 | Product: 732 | Loc (DB): 2 | Qty: 3 | Stok Awal: 81
+[2025-12-06T04:48:57.669Z] SUKSES: Stok Berkurang. Sisa: 78
+[2025-12-06T04:48:57.670Z] ITEM ID: 3071 | Product: 1853 | Loc (DB): 2 | Qty: 2 | Stok Awal: 712
+[2025-12-06T04:48:57.671Z] SUKSES: Stok Berkurang. Sisa: 710
+[2025-12-06T04:48:57.672Z] ITEM ID: 3095 | Product: 2725 | Loc (DB): 2 | Qty: 2 | Stok Awal: 749
+[2025-12-06T04:48:57.673Z] SUKSES: Stok Berkurang. Sisa: 747
+[2025-12-06T04:48:57.674Z] ITEM ID: 2590 | Product: 321 | Loc (DB): 2 | Qty: 3 | Stok Awal: 3338
+[2025-12-06T04:48:57.676Z] SUKSES: Stok Berkurang. Sisa: 3335
+[2025-12-06T04:48:57.677Z] ITEM ID: 2170 | Product: 1917 | Loc (DB): 2 | Qty: 20 | Stok Awal: 36
+[2025-12-06T04:48:57.678Z] SUKSES: Stok Berkurang. Sisa: 16
+[2025-12-06T04:48:57.679Z] ITEM ID: 2822 | Product: 429 | Loc (DB): 2 | Qty: 3 | Stok Awal: 2607
+[2025-12-06T04:48:57.680Z] SUKSES: Stok Berkurang. Sisa: 2604
+[2025-12-06T04:48:57.681Z] ITEM ID: 2064 | Product: 3055 | Loc (DB): 2 | Qty: 2 | Stok Awal: 79
+[2025-12-06T04:48:57.682Z] SUKSES: Stok Berkurang. Sisa: 77
+[2025-12-06T04:48:57.683Z] ITEM ID: 2383 | Product: 155 | Loc (DB): 2 | Qty: 2 | Stok Awal: 17
+[2025-12-06T04:48:57.684Z] SUKSES: Stok Berkurang. Sisa: 15
+[2025-12-06T04:48:57.685Z] ITEM ID: 2939 | Product: 20 | Loc (DB): 2 | Qty: 3 | Stok Awal: 2340
+[2025-12-06T04:48:57.687Z] SUKSES: Stok Berkurang. Sisa: 2337
+[2025-12-06T04:48:57.688Z] ITEM ID: 2814 | Product: 666 | Loc (DB): 2 | Qty: 1 | Stok Awal: 10
+[2025-12-06T04:48:57.689Z] SUKSES: Stok Berkurang. Sisa: 9
+[2025-12-06T04:48:57.690Z] ITEM ID: 2760 | Product: 317 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1600
+[2025-12-06T04:48:57.691Z] SUKSES: Stok Berkurang. Sisa: 1599
+[2025-12-06T04:48:57.692Z] ITEM ID: 3092 | Product: 429 | Loc (DB): 2 | Qty: 2 | Stok Awal: 2604
+[2025-12-06T04:48:57.693Z] SUKSES: Stok Berkurang. Sisa: 2602
+[2025-12-06T04:48:57.695Z] ITEM ID: 2061 | Product: 2848 | Loc (DB): 2 | Qty: 2 | Stok Awal: 198
+[2025-12-06T04:48:57.695Z] SUKSES: Stok Berkurang. Sisa: 196
+[2025-12-06T04:48:57.697Z] ITEM ID: 2783 | Product: 157 | Loc (DB): 2 | Qty: 6 | Stok Awal: 65
+[2025-12-06T04:48:57.698Z] SUKSES: Stok Berkurang. Sisa: 59
+[2025-12-06T04:48:57.699Z] ITEM ID: 2571 | Product: 515 | Loc (DB): 2 | Qty: 30 | Stok Awal: 1765
+[2025-12-06T04:48:57.700Z] SUKSES: Stok Berkurang. Sisa: 1735
+[2025-12-06T04:48:57.701Z] ITEM ID: 3002 | Product: 2714 | Loc (DB): 2 | Qty: 3 | Stok Awal: 11988
+[2025-12-06T04:48:57.703Z] SUKSES: Stok Berkurang. Sisa: 11985
+[2025-12-06T04:48:57.704Z] ITEM ID: 2107 | Product: 740 | Loc (DB): 2 | Qty: 1 | Stok Awal: 38
+[2025-12-06T04:48:57.705Z] SUKSES: Stok Berkurang. Sisa: 37
+[2025-12-06T04:48:57.706Z] ITEM ID: 2796 | Product: 3603 | Loc (DB): 2 | Qty: 2 | Stok Awal: 42
+[2025-12-06T04:48:57.708Z] SUKSES: Stok Berkurang. Sisa: 40
+[2025-12-06T04:48:57.709Z] ITEM ID: 2757 | Product: 341 | Loc (DB): 2 | Qty: 1 | Stok Awal: 1000
+[2025-12-06T04:48:57.710Z] SUKSES: Stok Berkurang. Sisa: 999
+[2025-12-06T04:48:57.711Z] ITEM ID: 3073 | Product: 1857 | Loc (DB): 2 | Qty: 2 | Stok Awal: 209
+[2025-12-06T04:48:57.713Z] SUKSES: Stok Berkurang. Sisa: 207
+[2025-12-06T04:48:57.715Z] ITEM ID: 3097 | Product: 533 | Loc (DB): 2 | Qty: 2 | Stok Awal: 108
+[2025-12-06T04:48:57.717Z] SUKSES: Stok Berkurang. Sisa: 106
+[2025-12-06T04:48:57.719Z] ITEM ID: 2762 | Product: 3603 | Loc (DB): 2 | Qty: 1 | Stok Awal: 40
+[2025-12-06T04:48:57.721Z] SUKSES: Stok Berkurang. Sisa: 39
+[2025-12-06T04:48:57.723Z] ITEM ID: 2568 | Product: 164 | Loc (DB): 2 | Qty: 12 | Stok Awal: 637
+[2025-12-06T04:48:57.724Z] SUKSES: Stok Berkurang. Sisa: 625
+[2025-12-06T04:48:57.725Z] ITEM ID: 2999 | Product: 2847 | Loc (DB): 2 | Qty: 3 | Stok Awal: 618
+[2025-12-06T04:48:57.726Z] SUKSES: Stok Berkurang. Sisa: 615
+[2025-12-06T04:48:57.727Z] ITEM ID: 2824 | Product: 811 | Loc (DB): 2 | Qty: 2 | Stok Awal: 11
+[2025-12-06T04:48:57.729Z] SUKSES: Stok Berkurang. Sisa: 9
+[2025-12-06T04:48:57.730Z] ITEM ID: 2081 | Product: 166 | Loc (DB): 2 | Qty: 3 | Stok Awal: 14
+[2025-12-06T04:48:57.731Z] SUKSES: Stok Berkurang. Sisa: 11
+[2025-12-06T04:48:57.732Z] ITEM ID: 2793 | Product: 270 | Loc (DB): 2 | Qty: 2 | Stok Awal: 20
+[2025-12-06T04:48:57.734Z] SUKSES: Stok Berkurang. Sisa: 18
+[2025-12-06T04:48:57.735Z] ITEM ID: 3007 | Product: 2985 | Loc (DB): 2 | Qty: 3 | Stok Awal: 98
+[2025-12-06T04:48:57.736Z] SUKSES: Stok Berkurang. Sisa: 95
+[2025-12-06T04:48:57.738Z] ITEM ID: 2753 | Product: 7 | Loc (DB): 2 | Qty: 50 | Stok Awal: 3172
+[2025-12-06T04:48:57.739Z] SUKSES: Stok Berkurang. Sisa: 3122
+[2025-12-06T04:48:57.740Z] ITEM ID: 3070 | Product: 2592 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1094
+[2025-12-06T04:48:57.741Z] SUKSES: Stok Berkurang. Sisa: 1090
+[2025-12-06T04:48:57.742Z] ITEM ID: 3094 | Product: 2726 | Loc (DB): 2 | Qty: 2 | Stok Awal: 54
+[2025-12-06T04:48:57.745Z] SUKSES: Stok Berkurang. Sisa: 52
+[2025-12-06T04:48:57.746Z] ITEM ID: 3062 | Product: 5317 | Loc (DB): 4 | Qty: 2 | Stok Awal: 231
+[2025-12-06T04:48:57.747Z] SUKSES: Stok Berkurang. Sisa: 229
+[2025-12-06T04:48:57.748Z] ITEM ID: 2958 | Product: 9166 | Loc (DB): 5 | Qty: 1 | Stok Awal: 35
+[2025-12-06T04:48:57.750Z] SUKSES: Stok Berkurang. Sisa: 34
+[2025-12-06T04:48:57.752Z] ITEM ID: 2957 | Product: 11273 | Loc (DB): 5 | Qty: 1 | Stok Awal: 52
+[2025-12-06T04:48:57.753Z] SUKSES: Stok Berkurang. Sisa: 51
+[2025-12-06T04:48:57.755Z] ITEM ID: 2118 | Product: 11809 | Loc (DB): 5 | Qty: 3 | Stok Awal: 480
+[2025-12-06T04:48:57.756Z] SUKSES: Stok Berkurang. Sisa: 477
+[2025-12-06T04:48:57.758Z] ITEM ID: 2167 | Product: 1918 | Loc (DB): 5 | Qty: 19 | Stok Awal: 96
+[2025-12-06T04:48:57.759Z] SUKSES: Stok Berkurang. Sisa: 77
+[2025-12-06T04:48:57.760Z] ITEM ID: 2120 | Product: 2662 | Loc (DB): 5 | Qty: 2 | Stok Awal: 100
+[2025-12-06T04:48:57.761Z] SUKSES: Stok Berkurang. Sisa: 98
+[2025-12-06T04:48:57.762Z] ITEM ID: 1820 | Product: 2657 | Loc (DB): 2 | Qty: 2 | Stok Awal: 239
+[2025-12-06T04:48:57.763Z] SUKSES: Stok Berkurang. Sisa: 237
+[2025-12-06T04:48:57.764Z] ITEM ID: 1521 | Product: 2849 | Loc (DB): 2 | Qty: 2 | Stok Awal: 213
+[2025-12-06T04:48:57.766Z] SUKSES: Stok Berkurang. Sisa: 211
+[2025-12-06T04:48:57.768Z] ITEM ID: 1951 | Product: 526 | Loc (DB): 2 | Qty: 4 | Stok Awal: 541
+[2025-12-06T04:48:57.770Z] SUKSES: Stok Berkurang. Sisa: 537
+[2025-12-06T04:48:57.771Z] ITEM ID: 1074 | Product: 3065 | Loc (DB): 2 | Qty: 3 | Stok Awal: 120
+[2025-12-06T04:48:57.772Z] SUKSES: Stok Berkurang. Sisa: 117
+[2025-12-06T04:48:57.773Z] ITEM ID: 1198 | Product: 2679 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1656
+[2025-12-06T04:48:57.774Z] SUKSES: Stok Berkurang. Sisa: 1654
+[2025-12-06T04:48:57.775Z] ITEM ID: 1085 | Product: 322 | Loc (DB): 2 | Qty: 3 | Stok Awal: 973
+[2025-12-06T04:48:57.776Z] SUKSES: Stok Berkurang. Sisa: 970
+[2025-12-06T04:48:57.777Z] ITEM ID: 1817 | Product: 27 | Loc (DB): 2 | Qty: 3 | Stok Awal: 186
+[2025-12-06T04:48:57.778Z] SUKSES: Stok Berkurang. Sisa: 183
+[2025-12-06T04:48:57.779Z] ITEM ID: 1844 | Product: 1915 | Loc (DB): 2 | Qty: 1 | Stok Awal: 45
+[2025-12-06T04:48:57.780Z] SUKSES: Stok Berkurang. Sisa: 44
+[2025-12-06T04:48:57.781Z] ITEM ID: 1195 | Product: 1835 | Loc (DB): 2 | Qty: 1 | Stok Awal: 277
+[2025-12-06T04:48:57.781Z] SUKSES: Stok Berkurang. Sisa: 276
+[2025-12-06T04:48:57.783Z] ITEM ID: 1953 | Product: 529 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1055
+[2025-12-06T04:48:57.785Z] SUKSES: Stok Berkurang. Sisa: 1053
+[2025-12-06T04:48:57.786Z] ITEM ID: 1822 | Product: 75 | Loc (DB): 2 | Qty: 2 | Stok Awal: 48
+[2025-12-06T04:48:57.787Z] SUKSES: Stok Berkurang. Sisa: 46
+[2025-12-06T04:48:57.788Z] ITEM ID: 1604 | Product: 4482 | Loc (DB): 2 | Qty: 1 | Stok Awal: 7
+[2025-12-06T04:48:57.789Z] SUKSES: Stok Berkurang. Sisa: 6
+[2025-12-06T04:48:57.790Z] ITEM ID: 1405 | Product: 7 | Loc (DB): 2 | Qty: 10 | Stok Awal: 3122
+[2025-12-06T04:48:57.791Z] SUKSES: Stok Berkurang. Sisa: 3112
+[2025-12-06T04:48:57.792Z] ITEM ID: 1192 | Product: 2958 | Loc (DB): 2 | Qty: 2 | Stok Awal: 495
+[2025-12-06T04:48:57.793Z] SUKSES: Stok Berkurang. Sisa: 493
+[2025-12-06T04:48:57.795Z] ITEM ID: 1087 | Product: 323 | Loc (DB): 2 | Qty: 3 | Stok Awal: 1773
+[2025-12-06T04:48:57.796Z] SUKSES: Stok Berkurang. Sisa: 1770
+[2025-12-06T04:48:57.797Z] ITEM ID: 1819 | Product: 1835 | Loc (DB): 2 | Qty: 1 | Stok Awal: 276
+[2025-12-06T04:48:57.798Z] SUKSES: Stok Berkurang. Sisa: 275
+[2025-12-06T04:48:57.799Z] ITEM ID: 1520 | Product: 2960 | Loc (DB): 2 | Qty: 1 | Stok Awal: 290
+[2025-12-06T04:48:57.801Z] SUKSES: Stok Berkurang. Sisa: 289
+[2025-12-06T04:48:57.802Z] ITEM ID: 1950 | Product: 3062 | Loc (DB): 2 | Qty: 2 | Stok Awal: 155
+[2025-12-06T04:48:57.803Z] SUKSES: Stok Berkurang. Sisa: 153
+[2025-12-06T04:48:57.804Z] ITEM ID: 1178 | Product: 519 | Loc (DB): 2 | Qty: 13 | Stok Awal: 443
+[2025-12-06T04:48:57.805Z] SUKSES: Stok Berkurang. Sisa: 430
+[2025-12-06T04:48:57.806Z] ITEM ID: 1073 | Product: 1861 | Loc (DB): 2 | Qty: 1 | Stok Awal: 84
+[2025-12-06T04:48:57.807Z] SUKSES: Stok Berkurang. Sisa: 83
+[2025-12-06T04:48:57.808Z] ITEM ID: 1519 | Product: 3055 | Loc (DB): 2 | Qty: 3 | Stok Awal: 77
+[2025-12-06T04:48:57.809Z] SUKSES: Stok Berkurang. Sisa: 74
+[2025-12-06T04:48:57.810Z] ITEM ID: 1084 | Product: 110 | Loc (DB): 2 | Qty: 3 | Stok Awal: 16
+[2025-12-06T04:48:57.811Z] SUKSES: Stok Berkurang. Sisa: 13
+[2025-12-06T04:48:57.812Z] ITEM ID: 1367 | Product: 7 | Loc (DB): 2 | Qty: 50 | Stok Awal: 3112
+[2025-12-06T04:48:57.813Z] SUKSES: Stok Berkurang. Sisa: 3062
+[2025-12-06T04:48:57.814Z] ITEM ID: 1824 | Product: 29 | Loc (DB): 2 | Qty: 2 | Stok Awal: 102
+[2025-12-06T04:48:57.815Z] SUKSES: Stok Berkurang. Sisa: 100
+[2025-12-06T04:48:57.817Z] ITEM ID: 1003 | Product: 327 | Loc (DB): 2 | Qty: 30 | Stok Awal: 1288
+[2025-12-06T04:48:57.819Z] SUKSES: Stok Berkurang. Sisa: 1258
+[2025-12-06T04:48:57.820Z] ITEM ID: 1471 | Product: 2593 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1554
+[2025-12-06T04:48:57.821Z] SUKSES: Stok Berkurang. Sisa: 1552
+[2025-12-06T04:48:57.822Z] ITEM ID: 1194 | Product: 2871 | Loc (DB): 2 | Qty: 1 | Stok Awal: 11
+[2025-12-06T04:48:57.823Z] SUKSES: Stok Berkurang. Sisa: 10
+[2025-12-06T04:48:57.824Z] ITEM ID: 1078 | Product: 2969 | Loc (DB): 2 | Qty: 2 | Stok Awal: 89
+[2025-12-06T04:48:57.824Z] SUKSES: Stok Berkurang. Sisa: 87
+[2025-12-06T04:48:57.825Z] ITEM ID: 1952 | Product: 517 | Loc (DB): 2 | Qty: 4 | Stok Awal: 294
+[2025-12-06T04:48:57.826Z] SUKSES: Stok Berkurang. Sisa: 290
+[2025-12-06T04:48:57.827Z] ITEM ID: 1404 | Product: 1860 | Loc (DB): 2 | Qty: 2 | Stok Awal: 136
+[2025-12-06T04:48:57.828Z] SUKSES: Stok Berkurang. Sisa: 134
+[2025-12-06T04:48:57.829Z] ITEM ID: 1191 | Product: 11381 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1057
+[2025-12-06T04:48:57.830Z] SUKSES: Stok Berkurang. Sisa: 1053
+[2025-12-06T04:48:57.831Z] ITEM ID: 1075 | Product: 24 | Loc (DB): 2 | Qty: 2 | Stok Awal: 29
+[2025-12-06T04:48:57.833Z] SUKSES: Stok Berkurang. Sisa: 27
+[2025-12-06T04:48:57.835Z] ITEM ID: 1199 | Product: 2907 | Loc (DB): 2 | Qty: 3 | Stok Awal: 1070
+[2025-12-06T04:48:57.836Z] SUKSES: Stok Berkurang. Sisa: 1067
+[2025-12-06T04:48:57.837Z] ITEM ID: 1086 | Product: 92 | Loc (DB): 2 | Qty: 3 | Stok Awal: 72
+[2025-12-06T04:48:57.838Z] SUKSES: Stok Berkurang. Sisa: 69
+[2025-12-06T04:48:57.839Z] ITEM ID: 1818 | Product: 69 | Loc (DB): 2 | Qty: 3 | Stok Awal: 67
+[2025-12-06T04:48:57.840Z] SUKSES: Stok Berkurang. Sisa: 64
+[2025-12-06T04:48:57.841Z] ITEM ID: 1177 | Product: 535 | Loc (DB): 2 | Qty: 7 | Stok Awal: 304
+[2025-12-06T04:48:57.842Z] SUKSES: Stok Berkurang. Sisa: 297
+[2025-12-06T04:48:57.843Z] ITEM ID: 1051 | Product: 1913 | Loc (DB): 2 | Qty: 6 | Stok Awal: 392
+[2025-12-06T04:48:57.844Z] SUKSES: Stok Berkurang. Sisa: 386
+[2025-12-06T04:48:57.845Z] ITEM ID: 1196 | Product: 2714 | Loc (DB): 2 | Qty: 1 | Stok Awal: 11985
+[2025-12-06T04:48:57.846Z] SUKSES: Stok Berkurang. Sisa: 11984
+[2025-12-06T04:48:57.847Z] ITEM ID: 1366 | Product: 11 | Loc (DB): 2 | Qty: 50 | Stok Awal: 4370
+[2025-12-06T04:48:57.848Z] SUKSES: Stok Berkurang. Sisa: 4320
+[2025-12-06T04:48:57.849Z] ITEM ID: 1823 | Product: 71 | Loc (DB): 2 | Qty: 3 | Stok Awal: 88
+[2025-12-06T04:48:57.851Z] SUKSES: Stok Berkurang. Sisa: 85
+[2025-12-06T04:48:57.852Z] ITEM ID: 1605 | Product: 1746 | Loc (DB): 2 | Qty: 2 | Stok Awal: 104
+[2025-12-06T04:48:57.853Z] SUKSES: Stok Berkurang. Sisa: 102
+[2025-12-06T04:48:57.855Z] ITEM ID: 1193 | Product: 2612 | Loc (DB): 2 | Qty: 2 | Stok Awal: 2057
+[2025-12-06T04:48:57.856Z] SUKSES: Stok Berkurang. Sisa: 2055
+[2025-12-06T04:48:57.856Z] ITEM ID: 1077 | Product: 67 | Loc (DB): 2 | Qty: 1 | Stok Awal: 33
+[2025-12-06T04:48:57.857Z] SUKSES: Stok Berkurang. Sisa: 32
+[2025-12-06T04:48:57.858Z] ITEM ID: 1603 | Product: 699 | Loc (DB): 4 | Qty: 2 | Stok Awal: 12
+[2025-12-06T04:48:57.859Z] SUKSES: Stok Berkurang. Sisa: 10
+[2025-12-06T04:48:57.860Z] ITEM ID: 1816 | Product: 11862 | Loc (DB): 5 | Qty: 2 | Stok Awal: 497
+[2025-12-06T04:48:57.861Z] SUKSES: Stok Berkurang. Sisa: 495
+[2025-12-06T04:48:57.863Z] ITEM ID: 813 | Product: 184 | Loc (DB): 2 | Qty: 10 | Stok Awal: 115
+[2025-12-06T04:48:57.864Z] SUKSES: Stok Berkurang. Sisa: 105
+[2025-12-06T04:48:57.865Z] ITEM ID: 730 | Product: 3550 | Loc (DB): 2 | Qty: 2 | Stok Awal: 219
+[2025-12-06T04:48:57.868Z] SUKSES: Stok Berkurang. Sisa: 217
+[2025-12-06T04:48:57.870Z] ITEM ID: 331 | Product: 802 | Loc (DB): 2 | Qty: 3 | Stok Awal: 16
+[2025-12-06T04:48:57.871Z] SUKSES: Stok Berkurang. Sisa: 13
+[2025-12-06T04:48:57.873Z] ITEM ID: 786 | Product: 322 | Loc (DB): 2 | Qty: 15 | Stok Awal: 970
+[2025-12-06T04:48:57.874Z] SUKSES: Stok Berkurang. Sisa: 955
+[2025-12-06T04:48:57.875Z] ITEM ID: 690 | Product: 143 | Loc (DB): 2 | Qty: 2 | Stok Awal: 1655
+[2025-12-06T04:48:57.876Z] SUKSES: Stok Berkurang. Sisa: 1653
+[2025-12-06T04:48:57.877Z] ITEM ID: 929 | Product: 226 | Loc (DB): 2 | Qty: 10 | Stok Awal: 54
+[2025-12-06T04:48:57.878Z] SUKSES: Stok Berkurang. Sisa: 44
+[2025-12-06T04:48:57.879Z] ITEM ID: 237 | Product: 162 | Loc (DB): 2 | Qty: 10 | Stok Awal: 687
+[2025-12-06T04:48:57.880Z] SUKSES: Stok Berkurang. Sisa: 677
+[2025-12-06T04:48:57.882Z] ITEM ID: 76 | Product: 230 | Loc (DB): 2 | Qty: 4 | Stok Awal: 24
+[2025-12-06T04:48:57.883Z] SUKSES: Stok Berkurang. Sisa: 20
+[2025-12-06T04:48:57.885Z] ITEM ID: 687 | Product: 140 | Loc (DB): 2 | Qty: 2 | Stok Awal: 135
+[2025-12-06T04:48:57.886Z] SUKSES: Stok Berkurang. Sisa: 133
+[2025-12-06T04:48:57.887Z] ITEM ID: 441 | Product: 250 | Loc (DB): 2 | Qty: 4 | Stok Awal: 189
+[2025-12-06T04:48:57.888Z] SUKSES: Stok Berkurang. Sisa: 185
+[2025-12-06T04:48:57.889Z] ITEM ID: 791 | Product: 429 | Loc (DB): 2 | Qty: 10 | Stok Awal: 2602
+[2025-12-06T04:48:57.890Z] SUKSES: Stok Berkurang. Sisa: 2592
+[2025-12-06T04:48:57.891Z] ITEM ID: 908 | Product: 260 | Loc (DB): 2 | Qty: 2 | Stok Awal: 150
+[2025-12-06T04:48:57.892Z] SUKSES: Stok Berkurang. Sisa: 148
+[2025-12-06T04:48:57.893Z] ITEM ID: 869 | Product: 429 | Loc (DB): 2 | Qty: 4 | Stok Awal: 2592
+[2025-12-06T04:48:57.894Z] SUKSES: Stok Berkurang. Sisa: 2588
+[2025-12-06T04:48:57.894Z] ITEM ID: 508 | Product: 250 | Loc (DB): 2 | Qty: 4 | Stok Awal: 185
+[2025-12-06T04:48:57.895Z] SUKSES: Stok Berkurang. Sisa: 181
+[2025-12-06T04:48:57.896Z] ITEM ID: 780 | Product: 8817 | Loc (DB): 2 | Qty: 5 | Stok Awal: 270
+[2025-12-06T04:48:57.897Z] SUKSES: Stok Berkurang. Sisa: 265
+[2025-12-06T04:48:57.898Z] ITEM ID: 681 | Product: 7490 | Loc (DB): 2 | Qty: 4 | Stok Awal: 25
+[2025-12-06T04:48:57.899Z] SUKSES: Stok Berkurang. Sisa: 21
+[2025-12-06T04:48:57.900Z] ITEM ID: 438 | Product: 226 | Loc (DB): 2 | Qty: 10 | Stok Awal: 44
+[2025-12-06T04:48:57.902Z] SUKSES: Stok Berkurang. Sisa: 34
+[2025-12-06T04:48:57.903Z] ITEM ID: 128 | Product: 2956 | Loc (DB): 2 | Qty: 4 | Stok Awal: 342
+[2025-12-06T04:48:57.904Z] SUKSES: Stok Berkurang. Sisa: 338
+[2025-12-06T04:48:57.905Z] ITEM ID: 905 | Product: 2845 | Loc (DB): 2 | Qty: 2 | Stok Awal: 340
+[2025-12-06T04:48:57.906Z] SUKSES: Stok Berkurang. Sisa: 338
+[2025-12-06T04:48:57.907Z] ITEM ID: 923 | Product: 148 | Loc (DB): 2 | Qty: 10 | Stok Awal: 24
+[2025-12-06T04:48:57.908Z] SUKSES: Stok Berkurang. Sisa: 14
+[2025-12-06T04:48:57.908Z] ITEM ID: 866 | Product: 239 | Loc (DB): 2 | Qty: 8 | Stok Awal: 50
+[2025-12-06T04:48:57.909Z] SUKSES: Stok Berkurang. Sisa: 42
+[2025-12-06T04:48:57.910Z] ITEM ID: 793 | Product: 162 | Loc (DB): 2 | Qty: 8 | Stok Awal: 677
+[2025-12-06T04:48:57.911Z] SUKSES: Stok Berkurang. Sisa: 669
+[2025-12-06T04:48:57.912Z] ITEM ID: 651 | Product: 8813 | Loc (DB): 2 | Qty: 2 | Stok Awal: 96
+[2025-12-06T04:48:57.913Z] SUKSES: Stok Berkurang. Sisa: 94
+[2025-12-06T04:48:57.914Z] ITEM ID: 785 | Product: 251 | Loc (DB): 2 | Qty: 4 | Stok Awal: 45
+[2025-12-06T04:48:57.915Z] SUKSES: Stok Berkurang. Sisa: 41
+[2025-12-06T04:48:57.917Z] ITEM ID: 78 | Product: 272 | Loc (DB): 2 | Qty: 2 | Stok Awal: 13
+[2025-12-06T04:48:57.919Z] SUKSES: Stok Berkurang. Sisa: 11
+[2025-12-06T04:48:57.920Z] ITEM ID: 689 | Product: 2 | Loc (DB): 2 | Qty: 5 | Stok Awal: 318
+[2025-12-06T04:48:57.921Z] SUKSES: Stok Berkurang. Sisa: 313
+[2025-12-06T04:48:57.922Z] ITEM ID: 910 | Product: 41 | Loc (DB): 2 | Qty: 2 | Stok Awal: 71
+[2025-12-06T04:48:57.924Z] SUKSES: Stok Berkurang. Sisa: 69
+[2025-12-06T04:48:57.925Z] ITEM ID: 817 | Product: 21 | Loc (DB): 2 | Qty: 10 | Stok Awal: 2566
+[2025-12-06T04:48:57.926Z] SUKSES: Stok Berkurang. Sisa: 2556
+[2025-12-06T04:48:57.927Z] ITEM ID: 928 | Product: 140 | Loc (DB): 2 | Qty: 20 | Stok Awal: 133
+[2025-12-06T04:48:57.928Z] SUKSES: Stok Berkurang. Sisa: 113
+[2025-12-06T04:48:57.929Z] ITEM ID: 902 | Product: 201 | Loc (DB): 2 | Qty: 2 | Stok Awal: 10
+[2025-12-06T04:48:57.930Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:48:57.930Z] ITEM ID: 726 | Product: 2712 | Loc (DB): 2 | Qty: 2 | Stok Awal: 644
+[2025-12-06T04:48:57.931Z] SUKSES: Stok Berkurang. Sisa: 642
+[2025-12-06T04:48:57.932Z] ITEM ID: 510 | Product: 261 | Loc (DB): 2 | Qty: 4 | Stok Awal: 129
+[2025-12-06T04:48:57.933Z] SUKSES: Stok Berkurang. Sisa: 125
+[2025-12-06T04:48:57.935Z] ITEM ID: 782 | Product: 8820 | Loc (DB): 2 | Qty: 5 | Stok Awal: 67
+[2025-12-06T04:48:57.936Z] SUKSES: Stok Berkurang. Sisa: 62
+[2025-12-06T04:48:57.937Z] ITEM ID: 49 | Product: 7445 | Loc (DB): 2 | Qty: 2 | Stok Awal: 10
+[2025-12-06T04:48:57.938Z] SUKSES: Stok Berkurang. Sisa: 8
+[2025-12-06T04:48:57.939Z] ITEM ID: 440 | Product: 8813 | Loc (DB): 2 | Qty: 1 | Stok Awal: 94
+[2025-12-06T04:48:57.940Z] SUKSES: Stok Berkurang. Sisa: 93
+[2025-12-06T04:48:57.940Z] ITEM ID: 790 | Product: 5084 | Loc (DB): 2 | Qty: 17 | Stok Awal: 40
+[2025-12-06T04:48:57.941Z] SUKSES: Stok Berkurang. Sisa: 23
+[2025-12-06T04:48:57.942Z] ITEM ID: 130 | Product: 8806 | Loc (DB): 2 | Qty: 1 | Stok Awal: 298
+[2025-12-06T04:48:57.943Z] SUKSES: Stok Berkurang. Sisa: 297
+[2025-12-06T04:48:57.944Z] ITEM ID: 907 | Product: 19 | Loc (DB): 2 | Qty: 12 | Stok Awal: 2672
+[2025-12-06T04:48:57.945Z] SUKSES: Stok Berkurang. Sisa: 2660
+[2025-12-06T04:48:57.946Z] ITEM ID: 925 | Product: 143 | Loc (DB): 2 | Qty: 20 | Stok Awal: 1653
+[2025-12-06T04:48:57.947Z] SUKSES: Stok Berkurang. Sisa: 1633
+[2025-12-06T04:48:57.947Z] ITEM ID: 868 | Product: 584 | Loc (DB): 2 | Qty: 12 | Stok Awal: 169
+[2025-12-06T04:48:57.948Z] SUKSES: Stok Berkurang. Sisa: 157
+[2025-12-06T04:48:57.949Z] ITEM ID: 507 | Product: 331 | Loc (DB): 2 | Qty: 8 | Stok Awal: 1394
+[2025-12-06T04:48:57.950Z] SUKSES: Stok Berkurang. Sisa: 1386
+[2025-12-06T04:48:57.952Z] ITEM ID: 814 | Product: 53 | Loc (DB): 2 | Qty: 6 | Stok Awal: 3469
+[2025-12-06T04:48:57.953Z] SUKSES: Stok Berkurang. Sisa: 3463
+[2025-12-06T04:48:57.954Z] ITEM ID: 135 | Product: 2857 | Loc (DB): 2 | Qty: 8 | Stok Awal: 2455
+[2025-12-06T04:48:57.955Z] SUKSES: Stok Berkurang. Sisa: 2447
+[2025-12-06T04:48:57.956Z] ITEM ID: 38 | Product: 746 | Loc (DB): 2 | Qty: 2 | Stok Awal: 23
+[2025-12-06T04:48:57.957Z] SUKSES: Stok Berkurang. Sisa: 21
+[2025-12-06T04:48:57.958Z] ITEM ID: 787 | Product: 240 | Loc (DB): 2 | Qty: 3 | Stok Awal: 10
+[2025-12-06T04:48:57.959Z] SUKSES: Stok Berkurang. Sisa: 7
+[2025-12-06T04:48:57.960Z] ITEM ID: 80 | Product: 25 | Loc (DB): 2 | Qty: 3 | Stok Awal: 21
+[2025-12-06T04:48:57.961Z] SUKSES: Stok Berkurang. Sisa: 18
+[2025-12-06T04:48:57.963Z] ITEM ID: 691 | Product: 7 | Loc (DB): 2 | Qty: 4 | Stok Awal: 3062
+[2025-12-06T04:48:57.964Z] SUKSES: Stok Berkurang. Sisa: 3058
+[2025-12-06T04:48:57.965Z] ITEM ID: 904 | Product: 11381 | Loc (DB): 2 | Qty: 4 | Stok Awal: 1053
+[2025-12-06T04:48:57.967Z] SUKSES: Stok Berkurang. Sisa: 1049
+[2025-12-06T04:48:57.969Z] ITEM ID: 914 | Product: 708 | Loc (DB): 2 | Qty: 5 | Stok Awal: 618
+[2025-12-06T04:48:57.970Z] SUKSES: Stok Berkurang. Sisa: 613
+[2025-12-06T04:48:57.972Z] ITEM ID: 865 | Product: 586 | Loc (DB): 2 | Qty: 2 | Stok Awal: 77
+[2025-12-06T04:48:57.973Z] SUKSES: Stok Berkurang. Sisa: 75
+[2025-12-06T04:48:57.974Z] ITEM ID: 792 | Product: 8813 | Loc (DB): 2 | Qty: 5 | Stok Awal: 93
+[2025-12-06T04:48:57.975Z] SUKSES: Stok Berkurang. Sisa: 88
+[2025-12-06T04:48:57.976Z] ITEM ID: 728 | Product: 1895 | Loc (DB): 2 | Qty: 2 | Stok Awal: 64
+[2025-12-06T04:48:57.977Z] SUKSES: Stok Berkurang. Sisa: 62
+[2025-12-06T04:48:57.978Z] ITEM ID: 784 | Product: 8811 | Loc (DB): 2 | Qty: 10 | Stok Awal: 843
+[2025-12-06T04:48:57.979Z] SUKSES: Stok Berkurang. Sisa: 833
+[2025-12-06T04:48:57.980Z] ITEM ID: 77 | Product: 237 | Loc (DB): 2 | Qty: 3 | Stok Awal: 39
+[2025-12-06T04:48:57.981Z] SUKSES: Stok Berkurang. Sisa: 36
+[2025-12-06T04:48:57.982Z] ITEM ID: 442 | Product: 11 | Loc (DB): 2 | Qty: 6 | Stok Awal: 4320
+[2025-12-06T04:48:57.983Z] SUKSES: Stok Berkurang. Sisa: 4314
+[2025-12-06T04:48:57.985Z] ITEM ID: 909 | Product: 331 | Loc (DB): 2 | Qty: 8 | Stok Awal: 1386
+[2025-12-06T04:48:57.986Z] SUKSES: Stok Berkurang. Sisa: 1378
+[2025-12-06T04:48:57.987Z] ITEM ID: 816 | Product: 47 | Loc (DB): 2 | Qty: 4 | Stok Awal: 333
+[2025-12-06T04:48:57.988Z] SUKSES: Stok Berkurang. Sisa: 329
+[2025-12-06T04:48:57.989Z] ITEM ID: 927 | Product: 162 | Loc (DB): 2 | Qty: 20 | Stok Awal: 669
+[2025-12-06T04:48:57.990Z] SUKSES: Stok Berkurang. Sisa: 649
+[2025-12-06T04:48:57.991Z] ITEM ID: 870 | Product: 8808 | Loc (DB): 2 | Qty: 4 | Stok Awal: 126
+[2025-12-06T04:48:57.992Z] SUKSES: Stok Berkurang. Sisa: 122
+[2025-12-06T04:48:57.993Z] ITEM ID: 725 | Product: 327 | Loc (DB): 2 | Qty: 12 | Stok Awal: 1258
+[2025-12-06T04:48:57.994Z] SUKSES: Stok Berkurang. Sisa: 1246
+[2025-12-06T04:48:57.995Z] ITEM ID: 137 | Product: 2858 | Loc (DB): 2 | Qty: 4 | Stok Awal: 243
+[2025-12-06T04:48:57.995Z] SUKSES: Stok Berkurang. Sisa: 239
+[2025-12-06T04:48:57.996Z] ITEM ID: 439 | Product: 431 | Loc (DB): 2 | Qty: 2 | Stok Awal: 3122
+[2025-12-06T04:48:57.997Z] SUKSES: Stok Berkurang. Sisa: 3120
+[2025-12-06T04:48:57.998Z] ITEM ID: 924 | Product: 225 | Loc (DB): 2 | Qty: 10 | Stok Awal: 3591
+[2025-12-06T04:48:57.999Z] SUKSES: Stok Berkurang. Sisa: 3581
+[2025-12-06T04:48:58.000Z] ITEM ID: 903 | Product: 689 | Loc (DB): 4 | Qty: 1 | Stok Awal: 25
+[2025-12-06T04:48:58.002Z] SUKSES: Stok Berkurang. Sisa: 24
+[2025-12-06T04:48:58.003Z] ITEM ID: 134 | Product: 7779 | Loc (DB): 5 | Qty: 6 | Stok Awal: 68
+[2025-12-06T04:48:58.004Z] SUKSES: Stok Berkurang. Sisa: 62
+[2025-12-06T04:48:58.005Z] ITEM ID: 131 | Product: 11270 | Loc (DB): 5 | Qty: 1 | Stok Awal: 65
+[2025-12-06T04:48:58.006Z] SUKSES: Stok Berkurang. Sisa: 64
+[2025-12-06T04:48:58.007Z] ITEM ID: 133 | Product: 7780 | Loc (DB): 5 | Qty: 4 | Stok Awal: 68
+[2025-12-06T04:48:58.008Z] SUKSES: Stok Berkurang. Sisa: 64
+[2025-12-06T04:48:58.009Z] ITEM ID: 686 | Product: 145 | Loc (DB): 5 | Qty: 2 | Stok Awal: 350
+[2025-12-06T04:48:58.010Z] SUKSES: Stok Berkurang. Sisa: 348
+[2025-12-06T04:48:58.011Z] ITEM ID: 132 | Product: 7784 | Loc (DB): 5 | Qty: 4 | Stok Awal: 74
+[2025-12-06T04:48:58.012Z] SUKSES: Stok Berkurang. Sisa: 70
+[2025-12-06T04:48:58.057Z] === TRANSAKSI SELESAI ===
+

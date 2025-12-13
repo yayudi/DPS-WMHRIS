@@ -2,6 +2,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { formatDate } from '@/api/helpers/time.js'
+import { useAuthStore } from '@/stores/auth'
 import logoTokopedia from '@/assets/img/tokopedia.svg'
 import logoShopee from '@/assets/img/shopee.svg'
 
@@ -13,16 +14,17 @@ const props = defineProps({
   historyLogs: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['toggle-item', 'toggle-location', 'cancel-invoice'])
+const authStore = useAuthStore()
+const emit = defineEmits(['toggle-invoice', 'cancel-invoice']) // 'toggle-item' & 'toggle-location' removed
+
 const isOpen = ref(false)
+const isLoading = ref(false)
 
 // --- COMPUTED HELPERS ---
 const totalSKU = computed(() => {
-  // Mode History: Hitung panjang array items
   if (props.mode === 'history' && props.inv.items) {
     return props.inv.items.length
   }
-  // Mode Picking: Hitung total item di semua lokasi
   let count = 0
   if (props.inv.locations) {
     Object.values(props.inv.locations).forEach((items) => {
@@ -45,6 +47,7 @@ const sourceBgClass = computed(() => {
   }
 })
 
+// Cek apakah ada masalah stok di invoice ini
 const hasStockIssue = computed(() => {
   if (props.mode === 'history' || !props.inv.locations) return false
   for (const locName in props.inv.locations) {
@@ -56,72 +59,108 @@ const hasStockIssue = computed(() => {
   return false
 })
 
+// Logic baru: Checkbox Invoice
+const isInvoiceSelected = computed(() => {
+  // Kumpulkan semua item yang valid (punya stok & lokasi)
+  let validItems = []
+  if (props.inv.locations) {
+    Object.values(props.inv.locations).forEach((items) => {
+      items.forEach((i) => {
+        if (i.location_code && props.validateStock(i)) {
+          validItems.push(i.id)
+        }
+      })
+    })
+  }
+
+  if (validItems.length === 0) return false
+
+  // Cek apakah SEMUA item valid tersebut sudah terpilih
+  return validItems.every((id) => props.selectedItems.has(id))
+})
+
+const canCancel = computed(() => {
+  return (
+    props.mode === 'picking' && hasStockIssue.value && authStore.hasPermission('picking.cancel')
+  )
+})
+
 // --- ACTIONS ---
 
-function onToggleItem(id, locationCode) {
-  if (props.mode === 'history') return
-  if (locationCode) emit('toggle-item', id)
+function onToggleInvoice(event) {
+  // [DEBUG]
+  // console.log(`Card Action: Toggle Invoice ${props.inv.invoice}, Checked: ${event.target.checked}`)
+  emit('toggle-invoice', { inv: props.inv, checked: event.target.checked })
 }
 
-function onToggleLocation(items, event) {
-  emit('toggle-location', { items, checked: event.target.checked })
-}
-
-function onCancelInvoice() {
-  if (confirm(`Batalkan pesanan ${props.inv.invoice}?`)) {
+async function onCancelInvoice() {
+  if (!confirm(`Batalkan pesanan ${props.inv.invoice}?`)) return
+  try {
+    isLoading.value = true
     emit('cancel-invoice', props.inv.id)
+  } catch (error) {
+    console.error(error)
+  } finally {
+    setTimeout(() => {
+      isLoading.value = false
+    }, 500)
   }
 }
 
-function isItemDisabled(item) {
+// Digunakan hanya untuk styling visual (merah jika stok kurang)
+function isItemInvalid(item) {
   if (props.mode === 'history') return false
   if (!item.location_code) return true
-  if (!props.selectedItems.has(item.id) && !props.validateStock(item)) return true
-  return false
+  // Kita gunakan logic validateStock untuk visualisasi merah
+  // Tapi kita pass item dummy yang belum diselect agar pengecekan stok murni based on availability
+  return !props.validateStock({ ...item, quantity: Number(item.quantity) })
 }
 
 // --- STATUS BADGES ---
-
 function getMpStatusBadge(status) {
   const map = {
-    SHIPPED: { class: 'bg-blue-600 text-white', label: 'Dikirim', icon: 'fa-truck-fast' },
-    COMPLETED: { class: 'bg-green-600 text-white', label: 'Selesai', icon: 'fa-check-double' },
-    NEW: { class: 'bg-cyan-500 text-white', label: 'Baru', icon: 'fa-star' },
-    CANCELLED: { class: 'bg-red-600 text-white', label: 'Batal', icon: 'fa-ban' },
-    RETURNED: { class: 'bg-yellow-500 text-white', label: 'Retur', icon: 'fa-rotate-left' },
+    SHIPPED: { class: 'bg-primary/50 text-text', label: 'Dikirim', icon: 'fa-truck-fast' },
+    COMPLETED: { class: 'bg-success/50 text-text', label: 'Selesai', icon: 'fa-check-double' },
+    NEW: { class: 'bg-accent/50 text-text', label: 'Baru', icon: 'fa-star' },
+    CANCELLED: { class: 'bg-danger/50 text-text', label: 'Batal', icon: 'fa-ban' },
+    RETURNED: { class: 'bg-warning/50 text-text', label: 'Retur', icon: 'fa-rotate-left' },
   }
   return (
-    map[status] || { class: 'bg-gray-200 text-gray-700', label: status || '-', icon: 'fa-info' }
+    map[status] || { class: 'bg-secondary text-background', label: status || '-', icon: 'fa-info' }
   )
 }
 
 function getStatusBadge(status) {
   const map = {
     COMPLETED: {
-      class: 'text-green-700 bg-green-100 border-green-200',
+      class: 'text-success bg-success/10 border-success/20',
       label: 'Selesai',
       icon: 'fa-check',
     },
     RETURNED: {
-      class: 'text-red-700 bg-red-100 border-red-200',
+      class: 'text-danger bg-danger/10 border-danger/20',
       label: 'Retur',
       icon: 'fa-rotate-left',
     },
     SHIPPED: {
-      class: 'text-blue-700 bg-blue-100 border-blue-200',
+      class: 'text-primary bg-primary/10 border-primary/20',
       label: 'Dikirim',
       icon: 'fa-truck',
     },
-    CANCEL: { class: 'text-gray-500 bg-gray-100 border-gray-200', label: 'Batal', icon: 'fa-ban' },
+    CANCEL: {
+      class: 'text-secondary bg-secondary/10 border-secondary/20',
+      label: 'Batal',
+      icon: 'fa-ban',
+    },
     CANCELLED: {
-      class: 'text-gray-500 bg-gray-100 border-gray-200',
+      class: 'text-secondary bg-secondary/10 border-secondary/20',
       label: 'Batal',
       icon: 'fa-ban',
     },
   }
   return (
     map[status] || {
-      class: 'text-gray-500 bg-gray-100 border-gray-200',
+      class: 'text-secondary bg-secondary/10 border-secondary/20',
       label: status || '-',
       icon: 'fa-info',
     }
@@ -131,40 +170,53 @@ function getStatusBadge(status) {
 
 <template>
   <div
-    class="bg-background border border-secondary rounded-xl overflow-hidden hover:border-primary/50 transition-all duration-300 flex flex-col shadow-sm hover:shadow-md mb-4 break-inside-avoid group"
+    class="bg-background border rounded-xl overflow-hidden transition-all duration-300 flex flex-col shadow-sm mb-4 break-inside-avoid group"
+    :class="[
+      isInvoiceSelected
+        ? 'border-primary ring-1 ring-primary/30 shadow-md'
+        : 'border-secondary hover:border-primary/50 hover:shadow-md',
+    ]"
   >
+    <!-- HEADER CARD -->
     <div
-      class="px-4 py-3 flex items-start justify-between border-b bg-secondary/25 relative"
+      class="px-3 py-3 flex items-start justify-between border-b bg-secondary/25 relative"
       :class="[mode === 'history' ? 'cursor-pointer' : '']"
       @click="mode === 'history' ? (isOpen = !isOpen) : null"
     >
       <div class="absolute left-0 top-0 bottom-0 w-1" :class="sourceBgClass"></div>
 
-      <div class="flex items-start gap-3 pl-2 min-w-0">
+      <div class="flex items-start gap-3 pl-2 min-w-0 flex-1">
+        <!-- MAIN CHECKBOX (NEW) -->
+        <div v-if="mode === 'picking'" class="pt-1">
+          <input
+            type="checkbox"
+            :checked="isInvoiceSelected"
+            @change="onToggleInvoice"
+            class="w-5 h-5 rounded border-secondary/40 text-primary cursor-pointer accent-primary transition-all hover:scale-110"
+          />
+        </div>
+
+        <!-- LOGO -->
         <div
           class="p-1 rounded-lg bg-white border border-secondary/10 shadow-sm shrink-0 h-9 w-9 flex items-center justify-center overflow-hidden"
         >
           <img
             v-if="inv.source === 'Tokopedia'"
             :src="logoTokopedia"
-            alt="Tokopedia"
             class="w-full h-full object-contain p-0.5"
           />
-
           <img
             v-else-if="inv.source === 'Shopee'"
             :src="logoShopee"
-            alt="Shopee"
             class="w-full h-full object-contain p-0.5"
           />
-
-          <font-awesome-icon v-else icon="fa-solid fa-file-invoice" class="text-blue-500 text-lg" />
+          <font-awesome-icon v-else icon="fa-solid fa-file-invoice" class="text-primary text-lg" />
         </div>
 
         <div class="min-w-0 flex flex-col">
           <div class="flex items-center gap-2 mb-0.5">
             <h3
-              class="font-bold tracking-tight truncate text-text text-sm hover:text-primary transition-colors"
+              class="font-bold tracking-tight truncate text-text text-sm hover:text-primary transition-colors cursor-text select-text"
               :title="inv.invoice"
             >
               {{ inv.invoice }}
@@ -172,7 +224,7 @@ function getStatusBadge(status) {
           </div>
 
           <div class="text-[10px] text-text/60 flex flex-col gap-0.5">
-            <span class="truncate max-w-[200px]" v-if="inv.customer_name">
+            <span class="truncate max-w-[150px] md:max-w-[200px]" v-if="inv.customer_name">
               <font-awesome-icon icon="fa-solid fa-user" class="mr-1 opacity-50" />
               {{ inv.customer_name }}
             </span>
@@ -195,15 +247,22 @@ function getStatusBadge(status) {
           class="text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1"
           :class="getMpStatusBadge(inv.marketplace_status)?.class"
         >
+          <font-awesome-icon :icon="`fa-solid ${getMpStatusBadge(inv.marketplace_status)?.icon}`" />
           {{ getMpStatusBadge(inv.marketplace_status)?.label }}
         </span>
 
         <button
-          v-if="mode === 'picking' && hasStockIssue"
+          v-if="canCancel"
           @click.stop="onCancelInvoice"
-          class="text-[10px] font-bold text-red-600 hover:text-red-700 bg-red-50 px-2 py-1 rounded border border-red-100 flex items-center gap-1 transition-colors animate-pulse"
+          :disabled="isLoading"
+          class="group flex items-center gap-1 rounded border border-danger bg-danger/10 px-2 py-1 text-[10px] font-bold text-danger/50 transition-colors hover:text-danger disabled:opacity-50"
+          title="Batalkan Item Ini"
         >
-          <font-awesome-icon icon="fa-solid fa-trash" /> Batalkan
+          <font-awesome-icon
+            :icon="isLoading ? 'fa-solid fa-spinner' : 'fa-solid fa-trash'"
+            :spin="isLoading"
+          />
+          <span>Batal</span>
         </button>
 
         <font-awesome-icon
@@ -215,67 +274,82 @@ function getStatusBadge(status) {
       </div>
     </div>
 
-    <div v-if="mode === 'picking'" class="divide-y divide-secondary/10">
-      <div v-for="(items, locName) in inv.locations" :key="locName">
-        <div class="bg-secondary/5 px-4 py-1.5 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <input
-              type="checkbox"
-              @change="onToggleLocation(items, $event)"
-              :disabled="!locName || locName === 'Unknown Loc'"
-              class="h-3.5 w-3.5 rounded border-secondary/40 text-primary cursor-pointer disabled:opacity-50"
+    <!-- ITEM LIST (PICKING MODE) -->
+    <div v-if="mode === 'picking'" class="divide-y divide-secondary/10 relative">
+      <!-- Overlay jika selected -->
+      <div
+        v-if="isInvoiceSelected"
+        class="absolute inset-0 bg-primary/5 pointer-events-none z-0"
+      ></div>
+
+      <div v-for="(items, locName) in inv.locations" :key="locName" class="relative z-10">
+        <!-- Location Header (Without Checkbox) -->
+        <div
+          class="bg-secondary/5 px-4 py-1.5 flex items-center justify-between border-b border-secondary/5"
+        >
+          <div class="flex items-center gap-2">
+            <font-awesome-icon
+              :icon="
+                !locName || locName === 'Unknown Loc'
+                  ? 'fa-solid fa-triangle-exclamation'
+                  : 'fa-solid fa-location-dot'
+              "
+              class="text-xs"
+              :class="!locName || locName === 'Unknown Loc' ? 'text-danger' : 'text-primary'"
             />
             <span
-              class="text-xs font-bold flex items-center gap-1.5"
-              :class="!locName || locName === 'Unknown Loc' ? 'text-red-500' : 'text-primary'"
+              class="text-xs font-bold"
+              :class="!locName || locName === 'Unknown Loc' ? 'text-danger' : 'text-primary'"
             >
-              <font-awesome-icon
-                :icon="
-                  !locName || locName === 'Unknown Loc'
-                    ? 'fa-solid fa-triangle-exclamation'
-                    : 'fa-solid fa-location-dot'
-                "
-              />
               {{ locName || 'Stok Kosong / Tidak Diketahui' }}
             </span>
           </div>
         </div>
 
+        <!-- Item Rows (Without Checkbox) -->
         <table class="w-full text-left text-sm">
           <tbody class="divide-y divide-secondary/5">
             <tr
               v-for="item in items"
               :key="item.id"
-              @click="!isItemDisabled(item) && onToggleItem(item.id, item.location_code)"
-              class="group transition-colors"
-              :class="
-                isItemDisabled(item) ? 'opacity-60 bg-gray-50' : 'cursor-pointer hover:bg-primary/5'
-              "
+              class="transition-colors"
+              :class="isItemInvalid(item) ? 'bg-danger/5' : ''"
             >
-              <td class="pl-4 py-2 w-8 align-top pt-3">
-                <input
-                  type="checkbox"
-                  :checked="selectedItems.has(item.id)"
-                  :disabled="isItemDisabled(item)"
-                  class="h-3.5 w-3.5 rounded border-secondary/40 text-primary cursor-pointer disabled:opacity-50"
-                />
-              </td>
-              <td class="px-2 py-2">
-                <div class="font-bold text-xs text-text mb-0.5">{{ item.sku }}</div>
+              <!-- Info Product -->
+              <td class="pl-4 py-2">
+                <div class="font-bold text-xs text-text mb-0.5 flex items-center gap-2">
+                  {{ item.sku }}
+                  <span
+                    v-if="isInvoiceSelected && !isItemInvalid(item)"
+                    class="text-primary text-[10px]"
+                  >
+                    <font-awesome-icon icon="fa-solid fa-check-circle" />
+                  </span>
+                </div>
                 <div class="text-[10px] text-text/60 leading-tight line-clamp-2">
                   {{ item.product_name }}
                 </div>
+                <!-- Warning Stok -->
                 <div
-                  v-if="isItemDisabled(item) && item.location_code"
-                  class="text-[9px] text-orange-600 font-bold mt-1 flex items-center gap-1"
+                  v-if="isItemInvalid(item) && item.location_code"
+                  class="text-[9px] text-danger font-bold mt-1 flex items-center gap-1"
                 >
                   <font-awesome-icon icon="fa-solid fa-triangle-exclamation" />
-                  Stok Rak Cuma: {{ item.available_stock }}
+                  Stok Kurang: {{ item.available_stock }} (Butuh {{ item.quantity }})
+                </div>
+                <div v-else-if="!item.location_code" class="text-[9px] text-danger font-bold mt-1">
+                  Lokasi tidak ditemukan
                 </div>
               </td>
+              <!-- Qty -->
               <td class="px-4 py-2 text-right align-top w-16">
-                <span class="font-bold text-sm text-text">{{ item.quantity }}</span>
-                <span class="text-[9px] text-text/40 ml-0.5">x</span>
+                <span
+                  class="font-bold text-sm"
+                  :class="isItemInvalid(item) ? 'text-danger' : 'text-text'"
+                >
+                  {{ item.quantity }}
+                </span>
+                <span class="text-[9px] text-text/40 ml-0.5">pcs</span>
               </td>
             </tr>
           </tbody>
@@ -283,6 +357,7 @@ function getStatusBadge(status) {
       </div>
     </div>
 
+    <!-- ITEM LIST (HISTORY MODE) -->
     <transition
       enter-active-class="transition-[max-height] duration-300 ease-in-out overflow-hidden"
       enter-from-class="max-h-0"
@@ -293,7 +368,7 @@ function getStatusBadge(status) {
     >
       <div
         v-if="mode === 'history' && isOpen"
-        class="bg-gray-50/50 border-t border-secondary/10 p-3"
+        class="bg-secondary border-t border-secondary/10 p-3"
       >
         <div class="space-y-2 mb-4">
           <div
@@ -306,9 +381,9 @@ function getStatusBadge(status) {
               <div class="text-[10px] text-text/50 truncate">{{ item.product_name || '-' }}</div>
             </div>
             <div class="text-right shrink-0">
-              <span class="font-bold bg-white px-1.5 py-0.5 rounded border border-secondary/10">
-                {{ item.quantity }} pcs
-              </span>
+              <span class="font-bold bg-background px-1.5 py-0.5 rounded border border-secondary/10"
+                >{{ item.quantity }} pcs</span
+              >
               <div class="mt-1">
                 <span
                   class="text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-1 w-fit ml-auto"
@@ -328,7 +403,7 @@ function getStatusBadge(status) {
             <div
               v-for="log in historyLogs"
               :key="log.id"
-              class="flex justify-between text-[10px] text-text/50 bg-white/50 p-1.5 rounded"
+              class="flex justify-between text-[10px] text-text/50 bg-secondary/50 p-1.5 rounded"
             >
               <span>Versi Lama #{{ log.id }}</span>
               <span class="line-through opacity-70">{{ log.status }}</span>

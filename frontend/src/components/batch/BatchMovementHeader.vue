@@ -1,7 +1,7 @@
 <!-- frontend\src\components\batch\BatchMovementHeader.vue -->
 <script setup>
 import Multiselect from 'vue-multiselect'
-import Tabs from '@/components/Tabs.vue'
+import Tabs from '@/components/ui/Tabs.vue'
 
 // Props untuk data dropdown
 defineProps({

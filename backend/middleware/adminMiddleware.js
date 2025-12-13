@@ -1,4 +1,4 @@
-// File: backend/middleware/adminMiddleware.js
+// backend/middleware/adminMiddleware.js
 const isAdmin = (req, res, next) => {
   // Middleware ini harus dijalankan SETELAH authenticateToken,
   // jadi kita sudah punya akses ke req.user

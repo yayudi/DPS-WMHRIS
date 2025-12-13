@@ -70,7 +70,7 @@ router.put("/profile", async (req, res) => {
       await db.query(query, updateValues);
     }
 
-    // ✅ PERBAIKAN: Ambil juga 'nickname' dari database setelah update
+    // Ambil juga 'nickname' dari database setelah update
     const [updatedUserRows] = await db.query(
       "SELECT id, username, nickname, role_id FROM users WHERE id = ?",
       [userId]

@@ -33,6 +33,18 @@ Abaikan folder output hasil build
 /frontend/dist/
 
 File cache dan laporan
+.log
+.csv
+.xls
+.xlsx
+.pdf
+.doc
+.docx
+.ppt
+.pptx
+.tmp
+.tmp.*
+.cache/
 .npm
 .pnp*
 
@@ -75,3 +87,7 @@ File dump SQL (opsional, hapus '#' jika Anda ingin menyimpannya)
 /docker-compose.yml
 /backend/Dockerfile
 init_db.sql
+
+Abaikan file sementara development
+temp.js
+temp.vue

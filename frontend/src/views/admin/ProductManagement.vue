@@ -2,7 +2,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useToast } from '@/composables/UseToast.js'
+import { useToast } from '@/composables/useToast.js'
 import axios from '@/api/axios.js' // Assuming you have a configured axios instance
 
 const router = useRouter()

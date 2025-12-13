@@ -1,14 +1,14 @@
 <!-- frontend\src\views\admin\LocationManagement.vue -->
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useToast } from '@/composables/UseToast.js'
+import { useToast } from '@/composables/useToast.js'
 import {
   fetchAllLocations,
   createLocation,
   updateLocation,
   deleteLocation,
 } from '@/api/helpers/locations.js'
-import Modal from '@/components/Modal.vue'
+import Modal from '@/components/ui/Modal.vue'
 
 const { show } = useToast()
 

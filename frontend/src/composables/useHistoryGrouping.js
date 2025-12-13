@@ -6,7 +6,7 @@ export function useHistoryGrouping(itemsRef, filterStateRef) {
     const rawItems = itemsRef.value || []
     const filter = filterStateRef.value
 
-    // 1. FILTERING
+    // FILTERING
     let filtered = rawItems
 
     // Filter Source
@@ -32,7 +32,6 @@ export function useHistoryGrouping(itemsRef, filterStateRef) {
         ? new Date(filter.startDate + 'T00:00:00')
         : new Date('2000-01-01')
       const end = filter.endDate ? new Date(filter.endDate + 'T23:59:59') : new Date()
-
       filtered = filtered.filter((i) => {
         const d = new Date(i.order_date || i.created_at)
         return d >= start && d <= end
@@ -41,11 +40,11 @@ export function useHistoryGrouping(itemsRef, filterStateRef) {
 
     if (filtered.length === 0) return []
 
-    // 2. GROUPING BY INVOICE ID
+    // GROUPING BY INVOICE ID
     const groups = new Map()
 
     filtered.forEach((item) => {
-      // [FIX] Pastikan Invoice ID selalu ada, jika null pakai picking_list_id
+      // Pastikan Invoice ID selalu ada, jika null pakai picking_list_id
       const invId = item.original_invoice_id || `INV-MANUAL-${item.picking_list_id}`
 
       if (!groups.has(invId)) {
@@ -78,7 +77,7 @@ export function useHistoryGrouping(itemsRef, filterStateRef) {
       session.total_items += Number(item.quantity || 0) // Hitung total qty manual
     })
 
-    // 3. FLATTENING & SORTING SESSIONS
+    // FLATTENING & SORTING SESSIONS
     const finalCards = Array.from(groups.values()).map((group) => {
       const sessions = Array.from(group.sessionsMap.values()).sort((a, b) => b.id - a.id)
 
@@ -94,7 +93,7 @@ export function useHistoryGrouping(itemsRef, filterStateRef) {
       }
     })
 
-    // 4. FINAL SORTING
+    // FINAL SORTING
     const sortKey = filter.sortBy
     return finalCards.sort((a, b) => {
       if (sortKey === 'oldest') return a.id - b.id

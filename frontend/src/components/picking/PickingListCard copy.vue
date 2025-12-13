@@ -2,32 +2,69 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { formatDate } from '@/api/helpers/time.js'
+import { useAuthStore } from '@/stores/auth'
+import logoTokopedia from '@/assets/img/tokopedia.svg'
+import logoShopee from '@/assets/img/shopee.svg'
 
 const props = defineProps({
-  inv: {
-    type: Object,
-    required: true,
-  },
-  selectedItems: {
-    type: Set,
-    default: () => new Set(),
-  },
-  validateStock: {
-    type: Function,
-    default: () => true,
-  },
-  mode: {
-    type: String,
-    default: 'picking',
-  },
-  historyLogs: {
-    type: Array,
-    default: () => [],
-  },
+  inv: { type: Object, required: true },
+  selectedItems: { type: Set, default: () => new Set() },
+  validateStock: { type: Function, default: () => true },
+  mode: { type: String, default: 'picking' }, // 'picking' | 'history'
+  historyLogs: { type: Array, default: () => [] },
 })
 
+const authStore = useAuthStore()
 const emit = defineEmits(['toggle-item', 'toggle-location', 'cancel-invoice'])
-const showHistory = ref(false)
+
+const isOpen = ref(false)
+const isLoading = ref(false)
+
+// --- COMPUTED HELPERS ---
+const totalSKU = computed(() => {
+  if (props.mode === 'history' && props.inv.items) {
+    return props.inv.items.length
+  }
+  let count = 0
+  if (props.inv.locations) {
+    Object.values(props.inv.locations).forEach((items) => {
+      count += items.length
+    })
+  }
+  return count
+})
+
+const sourceBgClass = computed(() => {
+  switch (props.inv.source) {
+    case 'Tokopedia':
+      return 'bg-success'
+    case 'Shopee':
+      return 'bg-warning'
+    case 'Offline':
+      return 'bg-primary'
+    default:
+      return 'bg-danger'
+  }
+})
+
+const hasStockIssue = computed(() => {
+  if (props.mode === 'history' || !props.inv.locations) return false
+  for (const locName in props.inv.locations) {
+    for (const item of props.inv.locations[locName]) {
+      if (!item.location_code || Number(item.available_stock || 0) < Number(item.quantity || 0))
+        return true
+    }
+  }
+  return false
+})
+
+const canCancel = computed(() => {
+  return (
+    props.mode === 'picking' && hasStockIssue.value && authStore.hasPermission('picking.cancel')
+  )
+})
+
+// --- ACTIONS ---
 
 function onToggleItem(id, locationCode) {
   if (props.mode === 'history') return
@@ -38,313 +75,298 @@ function onToggleLocation(items, event) {
   emit('toggle-location', { items, checked: event.target.checked })
 }
 
-function onCancelInvoice() {
-  if (
-    confirm(`Batalkan seluruh pesanan ${props.inv.invoice}? Data akan dihapus dari daftar tugas.`)
-  ) {
+async function onCancelInvoice() {
+  if (!confirm(`Batalkan pesanan ${props.inv.invoice}?`)) return
+
+  try {
+    isLoading.value = true
     emit('cancel-invoice', props.inv.id)
+  } catch (error) {
+    console.error(error)
+  } finally {
+    // Reset loading state jika parent tidak menghancurkan komponen ini
+    setTimeout(() => {
+      isLoading.value = false
+    }, 500)
   }
 }
-
-const sourceColorClass = computed(() => {
-  const source = props.inv.source
-  if (source === 'Tokopedia') return 'bg-success/30'
-  if (source === 'Shopee') return 'bg-warning/30'
-  return 'bg-background'
-})
 
 function isItemDisabled(item) {
   if (props.mode === 'history') return false
   if (!item.location_code) return true
-  if (!props.selectedItems.has(item.id) && !props.validateStock(item)) {
-    return true
-  }
+  if (!props.selectedItems.has(item.id) && !props.validateStock(item)) return true
   return false
 }
 
-const hasStockIssue = computed(() => {
-  if (!props.inv.locations) return false
-  for (const locName in props.inv.locations) {
-    const items = props.inv.locations[locName]
-    for (const item of items) {
-      if (!item.location_code) return true
-      if (Number(item.available_stock || 0) < Number(item.quantity || 0)) return true
-    }
-  }
-  return false
-})
+// --- STATUS BADGES ---
 
-// [NEW] Helper Badge untuk Status Marketplace
 function getMpStatusBadge(status) {
-  if (!status) return null
-
-  // Status Standardized dari Backend (MP_STATUS)
-  switch (status) {
-    case 'SHIPPED':
-      return { class: 'bg-primary text-white', label: 'Dikirim', icon: 'fa-truck-fast' }
-    case 'COMPLETED':
-      return { class: 'bg-success text-white', label: 'Selesai', icon: 'fa-check-double' }
-    case 'NEW':
-      return { class: 'bg-info text-white', label: 'Baru', icon: 'fa-star' }
-    case 'CANCELLED':
-      return { class: 'bg-danger text-white', label: 'Batal', icon: 'fa-ban' }
-    case 'RETURNED':
-      return { class: 'bg-warning text-white', label: 'Retur', icon: 'fa-rotate-left' }
-    default:
-      return { class: 'bg-secondary text-text', label: status, icon: 'fa-info' }
+  const map = {
+    SHIPPED: { class: 'bg-primary/50 text-text', label: 'Dikirim', icon: 'fa-truck-fast' },
+    COMPLETED: { class: 'bg-success/50 text-text', label: 'Selesai', icon: 'fa-check-double' },
+    NEW: { class: 'bg-accent/50 text-text', label: 'Baru', icon: 'fa-star' },
+    CANCELLED: { class: 'bg-danger/50 text-text', label: 'Batal', icon: 'fa-ban' },
+    RETURNED: { class: 'bg-warning/50 text-text', label: 'Retur', icon: 'fa-rotate-left' },
   }
+  return (
+    map[status] || { class: 'bg-secondary text-background', label: status || '-', icon: 'fa-info' }
+  )
 }
 
 function getStatusBadge(status) {
-  if (status === 'COMPLETED')
-    return {
+  const map = {
+    COMPLETED: {
       class: 'text-success bg-success/10 border-success/20',
       label: 'Selesai',
       icon: 'fa-check',
-    }
-  if (status === 'RETURNED')
-    return {
+    },
+    RETURNED: {
       class: 'text-danger bg-danger/10 border-danger/20',
       label: 'Retur',
       icon: 'fa-rotate-left',
-    }
-  if (status === 'SHIPPED')
-    return {
+    },
+    SHIPPED: {
       class: 'text-primary bg-primary/10 border-primary/20',
       label: 'Dikirim',
       icon: 'fa-truck',
-    }
-  if (status === 'CANCEL' || status === 'CANCELLED')
-    return {
-      class: 'text-text/50 bg-secondary/10 border-secondary/20',
-      label: 'Dibatalkan',
+    },
+    CANCEL: {
+      class: 'text-secondary bg-secondary/10 border-secondary/20',
+      label: 'Batal',
       icon: 'fa-ban',
+    },
+    CANCELLED: {
+      class: 'text-secondary bg-secondary/10 border-secondary/20',
+      label: 'Batal',
+      icon: 'fa-ban',
+    },
+  }
+  return (
+    map[status] || {
+      class: 'text-secondary bg-secondary/10 border-secondary/20',
+      label: status || '-',
+      icon: 'fa-info',
     }
-  return { class: 'text-text/50 bg-secondary/10', label: status, icon: 'fa-info' }
+  )
 }
-
-const formattedOrderDate = computed(() => formatDate(props.inv.order_date, true, true))
-const formattedCreatedAt = computed(() => formatDate(props.inv.created_at, true, true))
 </script>
 
 <template>
   <div
-    class="bg-background border border-secondary/40 rounded-xl overflow-hidden hover:border-primary transition-all duration-300 flex flex-col shadow-sm hover:shadow-md mb-4 break-inside-avoid"
+    class="bg-background border border-secondary rounded-xl overflow-hidden hover:border-primary/50 transition-all duration-300 flex flex-col shadow-sm hover:shadow-md mb-4 break-inside-avoid group"
   >
     <div
-      class="bg-secondary/10 px-4 py-3 flex items-center justify-between border-b border-secondary/20"
-      :class="sourceColorClass"
+      class="px-4 py-3 flex items-start justify-between border-b bg-secondary/25 relative"
+      :class="[mode === 'history' ? 'cursor-pointer' : '']"
+      @click="mode === 'history' ? (isOpen = !isOpen) : null"
     >
-      <div class="flex items-center gap-3 overflow-hidden">
+      <div class="absolute left-0 top-0 bottom-0 w-1" :class="sourceBgClass"></div>
+
+      <div class="flex items-start gap-3 pl-2 min-w-0">
         <div
-          class="p-2 rounded-lg bg-background border border-secondary/20 text-primary font-bold shadow-sm shrink-0"
+          class="p-1 rounded-lg bg-white border border-secondary/10 shadow-sm shrink-0 h-9 w-9 flex items-center justify-center overflow-hidden"
         >
-          <!-- nanti ini diubah menjadi logo marketplace -->
-          <font-awesome-icon icon="fa-solid fa-file-invoice" />
+          <img
+            v-if="inv.source === 'Tokopedia'"
+            :src="logoTokopedia"
+            alt="Tokopedia"
+            class="w-full h-full object-contain p-0.5"
+          />
+          <img
+            v-else-if="inv.source === 'Shopee'"
+            :src="logoShopee"
+            alt="Shopee"
+            class="w-full h-full object-contain p-0.5"
+          />
+          <font-awesome-icon v-else icon="fa-solid fa-file-invoice" class="text-primary text-lg" />
         </div>
 
         <div class="min-w-0 flex flex-col">
-          <h3 class="font-bold tracking-tight truncate text-text text-sm" :title="inv.invoice">
-            {{ inv.invoice }}
-          </h3>
+          <div class="flex items-center gap-2 mb-0.5">
+            <h3
+              class="font-bold tracking-tight truncate text-text text-sm hover:text-primary transition-colors"
+              :title="inv.invoice"
+            >
+              {{ inv.invoice }}
+            </h3>
+          </div>
 
-          <div
-            v-if="formattedOrderDate"
-            class="text-[10px] text-text/60 flex items-center gap-1 mt-0.5"
-            title="Waktu Pemesanan"
-          >
-            <font-awesome-icon icon="fa-solid fa-clock" />
-            <span>{{ formattedOrderDate }}</span>
+          <div class="text-[10px] text-text/60 flex flex-col gap-0.5">
+            <span class="truncate max-w-[200px]" v-if="inv.customer_name">
+              <font-awesome-icon icon="fa-solid fa-user" class="mr-1 opacity-50" />
+              {{ inv.customer_name }}
+            </span>
+            <span class="flex items-center gap-1">
+              <font-awesome-icon icon="fa-solid fa-clock" class="opacity-50" />
+              {{ formatDate(inv.order_date || inv.created_at, true, true) }}
+            </span>
           </div>
-          <div
-            v-else-if="formattedCreatedAt"
-            class="text-[10px] text-text/40 italic mt-0.5"
-            title="Waktu Upload"
-          >
-            Uploaded: {{ formattedCreatedAt }}
-          </div>
-          <div v-else class="text-[10px] text-text/30 italic mt-0.5">No Date</div>
         </div>
       </div>
 
-      <div class="flex flex-col items-end gap-1">
-        <div class="flex items-center gap-1">
-          <span
-            class="text-[10px] font-bold px-2 py-1 rounded border border-secondary/30 bg-background shrink-0 uppercase tracking-wide"
-          >
-            <!-- ini nanti dihilangkan -->
-            {{ inv.source }}
-          </span>
-
-          <span
-            v-if="inv.mp_status && inv.mp_status !== 'NEW'"
-            class="text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1"
-            :class="getMpStatusBadge(inv.mp_status)?.class"
-          >
-            <font-awesome-icon :icon="`fa-solid ${getMpStatusBadge(inv.mp_status)?.icon}`" />
-            {{ getMpStatusBadge(inv.mp_status)?.label }}
-          </span>
+      <div class="flex flex-col items-end gap-1.5 shrink-0 pl-2">
+        <div class="text-right">
+          <span class="text-lg font-black text-text leading-none block">{{ totalSKU }}</span>
+          <span class="text-[9px] text-text/40 uppercase font-bold">SKU</span>
         </div>
+
+        <span
+          v-if="inv.marketplace_status && inv.marketplace_status !== 'NEW'"
+          class="text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1"
+          :class="getMpStatusBadge(inv.marketplace_status)?.class"
+        >
+          <font-awesome-icon :icon="`fa-solid ${getMpStatusBadge(inv.marketplace_status)?.icon}`" />
+          {{ getMpStatusBadge(inv.marketplace_status)?.label }}
+        </span>
 
         <button
-          v-if="mode === 'picking' && hasStockIssue"
+          v-if="canCancel"
           @click.stop="onCancelInvoice"
-          class="text-[10px] font-bold text-danger hover:text-danger/80 hover:underline flex items-center gap-1 mt-1 transition-colors animate-pulse"
-          title="Stok bermasalah. Klik untuk membatalkan pesanan ini."
+          :disabled="isLoading"
+          class="group flex items-center gap-1 rounded border border-danger bg-danger/10 px-2 py-1 text-[10px] font-bold text-danger/50 transition-colors hover:text-danger disabled:opacity-50"
+          title="Batalkan Item Ini"
         >
-          <font-awesome-icon icon="fa-solid fa-trash" /> Batalkan
-        </button>
-      </div>
-    </div>
-
-    <div
-      v-if="mode === 'history' && historyLogs && historyLogs.length > 0"
-      class="bg-secondary/5 border-b border-secondary/10 px-4 py-2"
-    >
-      <button
-        @click="showHistory = !showHistory"
-        class="text-[10px] font-bold text-text/50 hover:text-primary flex items-center gap-1 w-full transition-colors focus:outline-none"
-      >
-        <font-awesome-icon
-          :icon="showHistory ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'"
-        />
-        {{ showHistory ? 'Sembunyikan' : 'Lihat' }} {{ historyLogs.length }} Revisi Sebelumnya
-      </button>
-
-      <div
-        v-if="showHistory"
-        class="mt-2 space-y-1 pl-2 border-l-2 border-secondary/20 animate-fade-in"
-      >
-        <div
-          v-for="log in historyLogs"
-          :key="log.id"
-          class="text-[10px] text-text/60 flex justify-between items-center"
-        >
-          <span class="flex items-center gap-1">
-            <span
-              :class="getStatusBadge(log.status).class"
-              class="px-1.5 py-0.5 rounded text-[9px]"
-              >{{ getStatusBadge(log.status).label }}</span
-            >
-            {{ formatDate(log.created_at, true, false) }}
-          </span>
-          <span class="italic text-text/30 text-[9px]">#{{ log.id }}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="divide-y divide-secondary/10 flex-1 flex flex-col">
-      <div v-for="(items, locName) in inv.locations" :key="locName" class="flex-1">
-        <div class="bg-primary/5 px-4 py-2 flex items-center gap-3">
-          <input
-            v-if="mode === 'picking'"
-            type="checkbox"
-            @change="onToggleLocation(items, $event)"
-            :disabled="locName === 'Unknown Loc' || locName === null"
-            class="h-4 w-4 rounded border-secondary/50 text-primary focus:ring-offset-background bg-background disabled:opacity-50 disabled:cursor-not-allowed"
+          <font-awesome-icon
+            :icon="isLoading ? 'fa-solid fa-spinner' : 'fa-solid fa-trash'"
+            :spin="isLoading"
           />
+          <span>Batalkan</span>
+        </button>
 
-          <div
-            v-if="locName === 'Unknown Loc' || locName === null"
-            class="flex items-center gap-2 text-danger overflow-hidden"
-          >
-            <font-awesome-icon icon="fa-solid fa-triangle-exclamation" />
-            <span class="text-sm font-bold truncate">Stok Kosong</span>
-          </div>
-          <div v-else class="flex items-center gap-2 text-primary overflow-hidden">
-            <font-awesome-icon icon="fa-solid fa-location-dot" class="text-xs" />
-            <span class="text-sm font-bold truncate">{{ locName }}</span>
-          </div>
-          <span class="text-xs text-text/40 ml-auto shrink-0">{{ items.length }} item</span>
-        </div>
-
-        <div class="w-full">
-          <table class="w-full text-left text-sm table-fixed">
-            <tbody class="divide-y divide-secondary/10">
-              <tr
-                v-for="item in items"
-                :key="item.id"
-                @click="
-                  mode === 'picking' &&
-                  !isItemDisabled(item) &&
-                  onToggleItem(item.id, item.location_code)
-                "
-                class="group transition-colors"
-                :class="[
-                  mode === 'picking' && isItemDisabled(item)
-                    ? 'opacity-60 bg-secondary/5 cursor-not-allowed'
-                    : '',
-                  mode === 'picking' && !isItemDisabled(item)
-                    ? 'cursor-pointer hover:bg-primary/5'
-                    : '',
-                ]"
-              >
-                <td class="pl-4 py-3 w-10 align-top pt-3.5" @click.stop>
-                  <input
-                    v-if="mode === 'picking'"
-                    type="checkbox"
-                    :checked="selectedItems.has(item.id)"
-                    @change="onToggleItem(item.id, item.location_code)"
-                    :disabled="isItemDisabled(item)"
-                    class="h-4 w-4 rounded border-secondary/50 text-primary focus:ring-offset-background bg-background cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                  <div v-else class="mt-1">
-                    <font-awesome-icon
-                      :icon="`fa-solid ${getStatusBadge(item.status).icon}`"
-                      :class="getStatusBadge(item.status).class.split(' ')[0]"
-                    />
-                  </div>
-                </td>
-                <td class="px-2 py-3 align-top">
-                  <div
-                    class="font-bold text-sm text-text leading-tight mb-1 transition-colors group-hover:text-primary"
-                  >
-                    {{ item.sku }}
-                  </div>
-                  <div class="text-xs text-text/70 whitespace-normal break-words leading-snug">
-                    {{ item.product_name }}
-                  </div>
-
-                  <div v-if="mode === 'picking'">
-                    <div
-                      v-if="isItemDisabled(item) && item.location_code"
-                      class="text-[10px] text-warning font-bold mt-2 italic flex items-center gap-1"
-                    >
-                      <font-awesome-icon icon="fa-solid fa-ban" /> Sisa Stok:
-                      {{ item.available_stock }}
-                    </div>
-                    <div
-                      v-if="!item.location_code"
-                      class="text-[10px] text-danger font-bold mt-2 italic flex items-center gap-1"
-                    >
-                      <font-awesome-icon icon="fa-solid fa-circle-xmark" /> Stok kosong
-                    </div>
-                  </div>
-                  <div v-if="mode === 'history'" class="mt-2">
-                    <span
-                      class="text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1"
-                      :class="getStatusBadge(item.status).class"
-                    >
-                      {{ getStatusBadge(item.status).label }}
-                    </span>
-                  </div>
-                </td>
-                <td class="px-4 py-3 text-right align-top w-20 shrink-0">
-                  <div class="flex flex-col items-end">
-                    <span
-                      class="text-lg font-black text-text"
-                      :class="{ 'text-text/40': isItemDisabled(item) }"
-                      >{{ item.quantity }}</span
-                    >
-                    <span class="text-[10px] text-text/50 uppercase font-bold">pcs</span>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <font-awesome-icon
+          v-if="mode === 'history'"
+          icon="fa-solid fa-chevron-down"
+          class="text-text/30 transition-transform duration-300 mt-1"
+          :class="{ 'rotate-180': isOpen }"
+        />
       </div>
     </div>
+
+    <div v-if="mode === 'picking'" class="divide-y divide-secondary/10">
+      <div v-for="(items, locName) in inv.locations" :key="locName">
+        <div class="bg-secondary/5 px-4 py-1.5 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <input
+              type="checkbox"
+              @change="onToggleLocation(items, $event)"
+              :disabled="!locName || locName === 'Unknown Loc'"
+              class="h-3.5 w-3.5 rounded border-secondary/40 text-primary cursor-pointer disabled:opacity-50"
+            />
+            <span
+              class="text-xs font-bold flex items-center gap-1.5"
+              :class="!locName || locName === 'Unknown Loc' ? 'text-danger' : 'text-primary'"
+            >
+              <font-awesome-icon
+                :icon="
+                  !locName || locName === 'Unknown Loc'
+                    ? 'fa-solid fa-triangle-exclamation'
+                    : 'fa-solid fa-location-dot'
+                "
+              />
+              {{ locName || 'Stok Kosong / Tidak Diketahui' }}
+            </span>
+          </div>
+        </div>
+
+        <table class="w-full text-left text-sm">
+          <tbody class="divide-y divide-secondary/5">
+            <tr
+              v-for="item in items"
+              :key="item.id"
+              @click="!isItemDisabled(item) && onToggleItem(item.id, item.location_code)"
+              class="group transition-colors"
+              :class="
+                isItemDisabled(item)
+                  ? 'opacity-60 bg-danger/10 cursor-not-allowed'
+                  : 'cursor-pointer hover:bg-primary/5'
+              "
+            >
+              <td class="pl-4 py-2 w-8 align-top pt-3">
+                <input
+                  type="checkbox"
+                  :checked="selectedItems.has(item.id)"
+                  :disabled="isItemDisabled(item)"
+                  class="h-3.5 w-3.5 rounded border-secondary/40 text-primary cursor-pointer disabled:opacity-50"
+                />
+              </td>
+              <td class="px-2 py-2">
+                <div class="font-bold text-xs text-text mb-0.5">{{ item.sku }}</div>
+                <div class="text-[10px] text-text/60 leading-tight line-clamp-2">
+                  {{ item.product_name }}
+                </div>
+                <div
+                  v-if="isItemDisabled(item) && item.location_code"
+                  class="text-[9px] text-accent font-bold mt-1 flex items-center gap-1"
+                >
+                  <font-awesome-icon icon="fa-solid fa-triangle-exclamation" />
+                  Stok Rak Cuma: {{ item.available_stock }}
+                </div>
+              </td>
+              <td class="px-4 py-2 text-right align-top w-16">
+                <span class="font-bold text-sm text-text">{{ item.quantity }}</span>
+                <span class="text-[9px] text-text/40 ml-0.5">x</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <transition
+      enter-active-class="transition-[max-height] duration-300 ease-in-out overflow-hidden"
+      enter-from-class="max-h-0"
+      enter-to-class="max-h-[500px]"
+      leave-active-class="transition-[max-height] duration-300 ease-in-out overflow-hidden"
+      leave-from-class="max-h-[500px]"
+      leave-to-class="max-h-0"
+    >
+      <div
+        v-if="mode === 'history' && isOpen"
+        class="bg-secondary border-t border-secondary/10 p-3"
+      >
+        <div class="space-y-2 mb-4">
+          <div
+            v-for="(item, idx) in inv.items"
+            :key="idx"
+            class="flex justify-between items-start text-xs border-b border-dashed border-secondary/10 last:border-0 pb-1.5 last:pb-0"
+          >
+            <div class="flex-1 pr-2">
+              <div class="font-bold text-text/80">{{ item.sku }}</div>
+              <div class="text-[10px] text-text/50 truncate">{{ item.product_name || '-' }}</div>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="font-bold bg-background px-1.5 py-0.5 rounded border border-secondary/10"
+                >{{ item.quantity }} pcs</span
+              >
+              <div class="mt-1">
+                <span
+                  class="text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-1 w-fit ml-auto"
+                  :class="getStatusBadge(item.item_status).class"
+                >
+                  <font-awesome-icon :icon="`fa-solid ${getStatusBadge(item.item_status).icon}`" />
+                  {{ getStatusBadge(item.item_status).label }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="historyLogs && historyLogs.length > 0" class="pt-3 border-t border-secondary/20">
+          <p class="text-[10px] font-bold text-text/40 uppercase mb-2">Riwayat Revisi:</p>
+          <div class="space-y-1">
+            <div
+              v-for="log in historyLogs"
+              :key="log.id"
+              class="flex justify-between text-[10px] text-text/50 bg-secondary/50 p-1.5 rounded"
+            >
+              <span>Versi Lama #{{ log.id }}</span>
+              <span class="line-through opacity-70">{{ log.status }}</span>
+              <span>{{ formatDate(log.created_at, true, false) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 

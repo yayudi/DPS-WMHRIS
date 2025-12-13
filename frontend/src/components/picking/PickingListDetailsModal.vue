@@ -1,7 +1,8 @@
+<!-- frontend\src\components\picking\PickingListDetailsModal.vue -->
 <script setup>
 import { ref, watch } from 'vue'
-import Modal from '@/components/Modal.vue'
-import { useToast } from '@/composables/UseToast.js'
+import Modal from '@/components/ui/Modal.vue'
+import { useToast } from '@/composables/useToast.js'
 import { fetchPickingDetails } from '@/api/helpers/picking.js' // Helper baru
 
 const props = defineProps({

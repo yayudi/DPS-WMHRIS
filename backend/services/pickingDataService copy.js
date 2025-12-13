@@ -1,97 +1,121 @@
-// backend\services\pickingDataService.js
+// backend/services/pickingDataService.js
 import db from "../config/db.js";
-import { logAudit } from "../utils/logger.js"; // Pastikan path ini benar sesuai struktur project Anda
+import { WMS_STATUS } from "../config/wmsConstants.js";
+import { processImportData } from "./pickingImportService.js";
 
-// [CRITICAL] IMPORT HELPER YANG SUDAH DIBERI DEBUG LOGS
-// Pastikan file pickingValidationHelper.js ada di folder: backend/services/helpers/
-import {
-  handleExistingInvoices,
-  fetchReferenceData,
-  calculateValidations,
-  insertPickingHeader,
-  insertPickingItems,
-  enrichComponentWithStock,
-} from "./helpers/pickingValidationHelper.js";
+// Logger wrapper agar mudah diganti di masa depan (misal ke Winston/Pino)
+const logger = {
+  info: (msg) => console.log(`[INFO] ${msg}`),
+  error: (msg, err) => console.error(`[ERROR] ${msg}`, err),
+  debug: (msg) => console.log(`[DEBUG] ${msg}`), // Bisa dimatikan di production
+};
 
 // ==============================================================================
-// 1. TASK MANAGEMENT (Read Ops - Tetap di sini)
+// READ OPERATIONS (UI Frontend)
 // ==============================================================================
 
+/**
+ * Mengambil daftar item yang harus dipicking (Status PENDING/VALIDATED)
+ */
 export const getPendingPickingItemsService = async () => {
-  // Query untuk mengambil daftar tugas di frontend
   const query = `
     SELECT
       pli.id, pli.picking_list_id, pli.product_id, pli.original_sku as sku, pli.quantity, pli.status,
-      pli.picked_from_location_id as location_code, pli.suggested_location_id,
-      p.name as product_name, pl.original_invoice_id, pl.source, pl.order_date, pl.created_at,
-      (SELECT quantity FROM stock_locations sl WHERE sl.id = pli.suggested_location_id) as available_stock
+      COALESCE(loc_picked.code, loc_suggested.code) as location_code,
+      p.name as product_name,
+      pl.original_invoice_id, pl.source, pl.order_date, pl.created_at, pl.customer_name,
+      pl.marketplace_status,
+      -- Subquery Stok Tersedia
+      (SELECT sl.quantity FROM stock_locations sl
+       WHERE sl.location_id = pli.suggested_location_id AND sl.product_id = pli.product_id
+       LIMIT 1) as available_stock
     FROM picking_list_items pli
     JOIN picking_lists pl ON pli.picking_list_id = pl.id
     LEFT JOIN products p ON pli.product_id = p.id
-    WHERE pl.status IN ('PENDING', 'PENDING_VALIDATION')
+    LEFT JOIN locations loc_suggested ON pli.suggested_location_id = loc_suggested.id
+    LEFT JOIN locations loc_picked ON pli.picked_from_location_id = loc_picked.id
+    WHERE pl.status IN (?, ?)
       AND pl.is_active = 1
-      AND pli.status NOT IN ('COMPLETED', 'CANCELLED')
-    ORDER BY pl.created_at DESC
+      AND pli.status NOT IN (?)
+    ORDER BY pl.created_at DESC, location_code ASC
   `;
-  const [rows] = await db.query(query);
+
+  const [rows] = await db.query(query, [
+    WMS_STATUS.PENDING,
+    WMS_STATUS.VALIDATED,
+    WMS_STATUS.CANCEL,
+  ]);
   return rows;
 };
 
+/**
+ * Mengambil riwayat picking list (Arsip)
+ */
 export const getHistoryPickingItemsService = async (limit = 1000) => {
   const query = `
     SELECT
       pl.id as picking_list_id, pl.original_invoice_id, pl.source, pl.status,
-      pl.created_at, pl.order_date, u.username, COUNT(pli.id) as total_items
+      pl.marketplace_status, pl.customer_name, pl.created_at, pl.order_date,
+      pli.id as item_id, pli.original_sku as sku, pli.quantity, pli.status as item_status,
+      p.name as product_name
     FROM picking_lists pl
-    LEFT JOIN users u ON pl.user_id = u.id
-    LEFT JOIN picking_list_items pli ON pl.id = pli.picking_list_id
-    WHERE pl.status != 'PENDING_VALIDATION'
-    GROUP BY pl.id
-    ORDER BY pl.created_at DESC LIMIT ?
+    JOIN picking_list_items pli ON pl.id = pli.picking_list_id
+    LEFT JOIN products p ON pli.product_id = p.id
+    WHERE pl.status NOT IN (?, ?)
+    ORDER BY pl.created_at DESC, pl.id DESC
+    LIMIT ?
   `;
-  const [rows] = await db.query(query, [limit]);
+
+  const [rows] = await db.query(query, [WMS_STATUS.PENDING, WMS_STATUS.VALIDATED, limit]);
   return rows;
 };
 
+/**
+ * Mengambil detail satu picking list
+ */
+export const fetchPickingListDetails = async (pickingListId) => {
+  const query = `
+    SELECT pli.original_sku as sku, pli.quantity as qty, p.name, pli.status
+    FROM picking_list_items pli
+    JOIN products p ON pli.product_id = p.id
+    WHERE pli.picking_list_id = ?
+  `;
+  const [items] = await db.query(query, [pickingListId]);
+  return items;
+};
+
 // ==============================================================================
-// 2. WRITE OPS (Cancel & Complete - Tetap di sini)
+// WRITE OPERATIONS (Aksi User Gudang)
 // ==============================================================================
 
-export const cancelPickingListService = async (pickingListId, userId, reason) => {
+/**
+ * Membatalkan Picking List (Soft Delete & Update Status)
+ */
+export const cancelPickingListService = async (pickingListId, userId) => {
   const connection = await db.getConnection();
+  await connection.beginTransaction();
+
   try {
-    await connection.beginTransaction();
-
-    // 1. Soft Delete Header (is_active = NULL) agar bisa direvisi
+    // Update Header
     const [res] = await connection.query(
-      `UPDATE picking_lists SET status = 'CANCELLED', is_active = NULL, updated_at = NOW() WHERE id = ?`,
-      [pickingListId]
+      `UPDATE picking_lists
+       SET status = ?, is_active = NULL, updated_at = NOW()
+       WHERE id = ?`,
+      [WMS_STATUS.CANCEL, pickingListId]
     );
-    if (res.affectedRows === 0)
+
+    if (res.affectedRows === 0) {
       throw new Error("Picking List tidak ditemukan atau sudah diproses.");
-
-    // 2. Cancel Items
-    await connection.query(
-      `UPDATE picking_list_items SET status = 'CANCELLED' WHERE picking_list_id = ?`,
-      [pickingListId]
-    );
-
-    // 3. Log Audit
-    if (logAudit) {
-      await logAudit(
-        userId,
-        "CANCEL_PICKING",
-        "picking_lists",
-        pickingListId,
-        reason || "User cancellation"
-      );
     }
 
+    // Update Items
+    await connection.query(`UPDATE picking_list_items SET status = ? WHERE picking_list_id = ?`, [
+      WMS_STATUS.CANCEL,
+      pickingListId,
+    ]);
+
     await connection.commit();
-    return {
-      success: true,
-      message: "Picking List dibatalkan. Invoice ini sekarang bisa diupload ulang (revisi).",
-    };
+    return { success: true, message: "Picking List dibatalkan." };
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -100,44 +124,100 @@ export const cancelPickingListService = async (pickingListId, userId, reason) =>
   }
 };
 
-export const completePickingItemsService = async (itemIds, userId) => {
+/**
+ * Menyelesaikan Item Picking (Checklist barang + Potong Stok)
+ * Optimized: Mengurangi query SELECT dalam loop.
+ */
+export const completePickingItemsService = async (payloadItems, userId) => {
   const connection = await db.getConnection();
+  await connection.beginTransaction();
+
   try {
-    await connection.beginTransaction();
-    if (!itemIds?.length) throw new Error("Tidak ada item dipilih.");
+    if (!payloadItems?.length) throw new Error("Tidak ada item dipilih.");
 
-    const placeholders = itemIds.map(() => "?").join(",");
+    // Extract ID dari payload untuk Bulk Fetch
+    const itemIds = payloadItems.map((i) => i.id);
 
-    // 1. Mark Items Completed
-    await connection.query(
-      `UPDATE picking_list_items SET status = 'COMPLETED' WHERE id IN (${placeholders})`,
-      itemIds
+    // Fetch Data Picking Item & Lokasi sekaligus (Mencegah N+1 Query)
+    const [dbItems] = await connection.query(
+      `SELECT id, picking_list_id, suggested_location_id, product_id, quantity
+       FROM picking_list_items
+       WHERE id IN (?)`,
+      [itemIds]
     );
 
-    // 2. Check Header Completeness
-    const [headers] = await connection.query(
-      `SELECT DISTINCT picking_list_id FROM picking_list_items WHERE id IN (${placeholders})`,
-      itemIds
-    );
+    if (dbItems.length === 0) throw new Error("Data item tidak ditemukan di database.");
 
-    for (const { picking_list_id } of headers) {
-      const [remaining] = await connection.query(
-        `SELECT COUNT(*) as count FROM picking_list_items WHERE picking_list_id = ? AND status NOT IN ('COMPLETED', 'CANCELLED')`,
-        [picking_list_id]
+    // Map untuk akses cepat
+    const dbItemsMap = new Map(dbItems.map((item) => [item.id, item]));
+    const affectedListIds = new Set();
+
+    logger.debug(`Memproses ${dbItems.length} item...`);
+
+    for (const payloadItem of payloadItems) {
+      const itemData = dbItemsMap.get(payloadItem.id);
+
+      if (!itemData) continue;
+
+      const { suggested_location_id: locId, product_id: prodId, quantity: qty } = itemData;
+
+      if (!locId) {
+        logger.error(`Item ID ${itemData.id} tidak memiliki lokasi (suggested_location_id). Skip.`);
+        continue;
+      }
+
+      // Update Status Item
+      await connection.query(
+        `UPDATE picking_list_items
+         SET status = 'VALIDATED', picked_from_location_id = ?, confirmed_location_id = ?
+         WHERE id = ?`,
+        [locId, locId, itemData.id]
       );
+
+      // Update Stok Fisik (Atomic decrement)
+      await connection.query(
+        `UPDATE stock_locations
+         SET quantity = quantity - ?
+         WHERE product_id = ? AND location_id = ?`,
+        [qty, prodId, locId]
+      );
+
+      // Insert Movement Log
+      await connection.query(
+        `INSERT INTO stock_movements
+         (product_id, quantity, from_location_id, movement_type, user_id, notes, created_at)
+         VALUES (?, ?, ?, 'SALE', ?, ?, NOW())`,
+        [prodId, qty, locId, userId, `Sale Ref: Item #${itemData.id}`]
+      );
+
+      affectedListIds.add(itemData.picking_list_id);
+    }
+
+    // Cek & Update Status Header Picking List
+    // Hanya cek list yang itemnya baru saja berubah
+    for (const listId of affectedListIds) {
+      const [remaining] = await connection.query(
+        `SELECT COUNT(*) as count FROM picking_list_items
+         WHERE picking_list_id = ? AND status NOT IN ('VALIDATED', 'CANCEL')`,
+        [listId]
+      );
+
       if (remaining[0].count === 0) {
-        // Tutup Picking List (Archive)
         await connection.query(
-          `UPDATE picking_lists SET status = 'COMPLETED', is_active = NULL, updated_at = NOW() WHERE id = ?`,
-          [picking_list_id]
+          `UPDATE picking_lists SET status = 'VALIDATED', updated_at = NOW() WHERE id = ?`,
+          [listId]
         );
       }
     }
 
     await connection.commit();
-    return { success: true, message: "Item berhasil ditandai selesai." };
+    return {
+      success: true,
+      message: `${dbItems.length} item berhasil dipicking & stok dikurangi.`,
+    };
   } catch (error) {
     await connection.rollback();
+    logger.error("Rollback Transaction", error);
     throw error;
   } finally {
     connection.release();
@@ -145,132 +225,69 @@ export const completePickingItemsService = async (itemIds, userId) => {
 };
 
 // ==============================================================================
-// 3. VALIDATION ORCHESTRATOR (Jembatan ke Helper)
+// IMPORT ORCHESTRATOR
 // ==============================================================================
 
 /**
- * Main Orchestrator: Menerima request validasi dan meneruskannya ke Helper
+ * Menerima data hasil parsing Excel, lalu memanggil Import Service
  */
-export async function performPickingValidation(payload) {
-  const { items, userId, source, originalFilename, originalInvoiceId, customerName, orderDate } =
-    payload;
-  let connection;
+export const performPickingValidation = async (payload) => {
+  const { items, userId, source } = payload;
 
-  try {
-    console.log("[ORCHESTRATOR] Memulai validasi picking..."); // Debug log level atas
-    connection = await db.getConnection();
+  logger.info(`[ORCHESTRATOR] Menerima ${items.length} baris data dari ${source}.`);
 
-    // 1. Panggil Helper: Cek Invoice Lama (Smart Upsert)
-    // Di sinilah logika "Revisi Otomatis" bekerja
-    const itemsToProcess = await handleExistingInvoices(connection, items);
+  // Grouping Data per Invoice menggunakan Map
+  const groupedOrders = new Map();
 
-    console.log(`[ORCHESTRATOR] Item yang lolos untuk diproses: ${itemsToProcess.length}`);
+  items.forEach((item) => {
+    if (!item.invoiceId) return;
 
-    if (itemsToProcess.length === 0) {
-      return {
-        pickingListId: null,
-        validItems: [],
-        invalidSkus: [],
-        message: "Status pesanan diperbarui. Tidak ada tugas baru untuk dipicking.",
-      };
+    if (!groupedOrders.has(item.invoiceId)) {
+      groupedOrders.set(item.invoiceId, {
+        invoiceId: item.invoiceId,
+        customer: item.customer,
+        orderDate: item.orderDate,
+        status: item.status,
+        source: source,
+        items: [],
+      });
     }
 
-    // 2. Panggil Helper: Ambil Data DB
-    const skus = itemsToProcess.map((i) => i.sku);
-    const dbData = await fetchReferenceData(connection, skus);
-
-    // 3. Panggil Helper: Hitung Logika Validasi
-    // Gunakan map untuk qty agar akurat
-    const validationResult = calculateValidations(itemsToProcess, dbData);
-
-    // 4. Panggil Helper: Insert ke Database
-    await connection.beginTransaction();
-
-    const headerId = await insertPickingHeader(connection, {
-      userId,
-      source,
-      originalFilename,
-      originalInvoiceId,
-      customerName,
-      orderDate,
+    groupedOrders.get(item.invoiceId).items.push({
+      sku: item.sku,
+      qty: item.qty,
     });
+  });
 
-    await insertPickingItems(
-      connection,
-      headerId,
-      validationResult.validItems,
-      dbData.validProductMap
-    );
+  const newInvoiceIds = Array.from(groupedOrders.keys());
 
-    await connection.commit();
-
-    console.log(`[ORCHESTRATOR] Sukses! Picking List ID: ${headerId}`);
-    return { pickingListId: headerId, ...validationResult };
-  } catch (error) {
-    if (connection) await connection.rollback();
-    // Tangani error Race Condition MySQL
-    if (error.code === "ER_DUP_ENTRY") {
-      throw new Error(
-        `Invoice ${originalInvoiceId} sedang diproses oleh user lain (Race Condition).`
+  if (newInvoiceIds.length > 0) {
+    try {
+      const [updateResult] = await db.query(
+        `UPDATE picking_lists
+         SET status = 'OBSOLETE', updated_at = NOW()
+         WHERE original_invoice_id IN (?)
+           AND status = 'PENDING'`, // Hanya timpa yang statusnya masih PENDING
+        [newInvoiceIds]
       );
+
+      if (updateResult.affectedRows > 0) {
+        logger.info(`[OBSOLETE] ${updateResult.affectedRows} picking list lama ditandai OBSOLETE.`);
+      }
+    } catch (error) {
+      logger.error("[OBSOLETE] Gagal update status obsolete", error);
+      // Opsional: throw error jika ingin membatalkan proses import
     }
-    console.error("[ORCHESTRATOR ERROR]", error);
-    throw error;
-  } finally {
-    if (connection) connection.release();
   }
-}
 
-/**
- * Main Orchestrator: Detail Picking List
- */
-export async function fetchPickingListDetails(pickingListId) {
-  const connection = await db.getConnection();
-  try {
-    const [items] = await connection.query(
-      `SELECT pli.original_sku, pli.quantity, p.id as product_id, p.is_package
-       FROM picking_list_items pli JOIN products p ON pli.product_id = p.id WHERE pli.picking_list_id = ?`,
-      [pickingListId]
-    );
-    if (!items.length) return [];
+  // Panggil Service Import Khusus (Logika Bisnis Import ada di sini)
+  const summary = await processImportData(groupedOrders, userId);
 
-    const skus = [...new Set(items.map((i) => i.original_sku))];
-    // Reuse Helper Fetch Data
-    const dbData = await fetchReferenceData(connection, skus);
+  logger.info(`[ORCHESTRATOR] Selesai. Sukses: ${summary.processed}, Baru: ${summary.new}.`);
 
-    return items
-      .map((item) => {
-        const product = dbData.validProductMap.get(item.original_sku);
-        if (!product) return null;
-
-        let components = null;
-        let locations = [];
-        let qtyNeeded = item.quantity;
-
-        if (product.is_package) {
-          const comps = dbData.componentsByPackageId.get(product.id) || [];
-          // Reuse Helper Enrich
-          components = comps.map((c) => enrichComponentWithStock(c, qtyNeeded, dbData));
-        } else {
-          const locs = dbData.locationsByProductId.get(product.id) || [];
-          locations = locs.filter((l) => l.quantity >= qtyNeeded);
-        }
-
-        return {
-          sku: item.original_sku,
-          name: product.name,
-          qty: qtyNeeded,
-          is_package: !!product.is_package,
-          components,
-          availableLocations: locations,
-          suggestedLocationId: locations[0]?.location_id || null,
-        };
-      })
-      .filter((i) => i !== null);
-  } catch (error) {
-    console.error(`Error fetchPickingListDetails #${pickingListId}:`, error);
-    throw error;
-  } finally {
-    connection.release();
-  }
-}
+  return {
+    processedInvoices: summary.processed,
+    validItems: [],
+    invalidSkus: summary.errors.map((e) => `[${e.invoice}] ${e.error}`),
+  };
+};

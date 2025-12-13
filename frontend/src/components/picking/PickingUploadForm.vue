@@ -1,8 +1,8 @@
 <!-- frontend\src\components\picking\PickingUploadForm.vue -->
 <script setup>
 import { ref, computed } from 'vue'
-import Tabs from '@/components/Tabs.vue'
-import { useToast } from '@/composables/UseToast.js'
+import Tabs from '@/components/ui/Tabs.vue'
+import { useToast } from '@/composables/useToast.js'
 import axios from '@/api/axios.js'
 
 const emit = defineEmits(['upload-complete'])

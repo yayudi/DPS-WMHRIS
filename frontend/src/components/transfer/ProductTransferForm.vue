@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, watchEffect } from 'vue'
-import { useToast } from '@/composables/UseToast.js'
+import { useToast } from '@/composables/useToast.js'
 import { fetchProductStockDetails } from '@/api/helpers/products.js'
 import { processSingleTransfer } from '@/api/helpers/stock.js'
 import Multiselect from 'vue-multiselect'

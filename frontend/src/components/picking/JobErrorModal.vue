@@ -1,6 +1,7 @@
+<!-- frontend\src\components\picking\JobErrorModal.vue -->
 <script setup>
 import { ref, watch, computed } from 'vue'
-import Modal from '@/components/Modal.vue' // ✅ Import Modal Generic Anda
+import Modal from '@/components/ui/Modal.vue' // ✅ Import Modal Generic Anda
 
 const props = defineProps({
   show: Boolean,

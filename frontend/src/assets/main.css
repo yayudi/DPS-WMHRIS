@@ -1,3 +1,4 @@
+/* frontend\src\assets\main.css */
 @import './multiselect-theme.css';
 /*
   Definisi Variabel Warna untuk Setiap Tema
@@ -16,16 +17,16 @@
   --color-danger: 0 70 55; /* Merah */
 }
 
-/* Tema Gelap (Cyberpunk Neon) */
+/* Tema Gelap    */
 :root[data-theme='gelap'] {
   --color-text: 230 15 88; /* Abu-abu kebiruan terang */
   --color-background: 230 15 12; /* Biru sangat gelap */
-  --color-primary: 190 90 60; /* Cyan/biru elektrik */
+  --color-primary: 190 90 35; /* Cyan/biru elektrik */
   --color-secondary: 230 15 25; /* Abu-abu gelap */
-  --color-accent: 320 90 65; /* Magenta/pink cerah */
-  --color-success: 130 80 50; /* Hijau neon */
-  --color-warning: 50 100 55; /* Kuning neon */
-  --color-danger: 350 100 60; /* Merah neon */
+  --color-accent: 320 90 45; /* Magenta/pink cerah */
+  --color-success: 130 80 45; /* Hijau neon */
+  --color-warning: 50 100 45; /* Kuning neon */
+  --color-danger: 350 100 45; /* Merah neon */
 }
 
 /* Tema Sepia (Warm & Refined) */
@@ -37,15 +38,15 @@
   --color-accent: 0 70 50; /* Merah marun lembut */
   --color-success: 100 40 40; /* Hijau zaitun */
   --color-warning: 35 70 50; /* Coklat keemasan */
-  --color-danger: 0 70 50; /* Merah marun (sama dengan accent) */
+  --color-danger: 190 50 50; /* Merah marun */
 }
 
 /* Tema Gurun (Desert Oasis) */
 :root[data-theme='gurun'] {
   --color-text: 25 50 15; /* Coklat tanah */
-  --color-background: 38 78 90; /* Pasir hangat */
+  --color-background: 38 50 80; /* Abu-abu batu */
   --color-primary: 180 70 40; /* Pirus/hijau oasis */
-  --color-secondary: 38 20 65; /* Abu-abu batu */
+  --color-secondary: 38 78 90; /* Pasir hangat */
   --color-accent: 30 95 55; /* Oranye matahari terbenam */
   --color-success: 180 70 40; /* Pirus (sama dengan primary) */
   --color-warning: 40 80 60; /* Emas */
@@ -59,7 +60,7 @@
   --color-primary: 0 80 55; /* Merah darah pekat (crimson) */
   --color-secondary: 0 0 20; /* Abu-abu arang (charcoal) */
   --color-accent: 0 90 65; /* Merah terang untuk highlight */
-  --color-success: 120 50 20; /* Hijau gelap (kontras) */
+  --color-success: 120 50 40; /* Hijau gelap (kontras) */
   --color-warning: 45 80 60; /* Emas/kuning tua */
   --color-danger: 270 100 50; /* Merah terang (sama dengan accent) */
 }
@@ -117,7 +118,7 @@
   --color-text: 270 20 25; /* Ungu gelap */
   --color-background: 330 100 98; /* Pink sangat pucat */
   --color-primary: 340 90 65; /* Pink permen */
-  --color-secondary: 150 50 90; /* Hijau mint pucat */
+  --color-secondary: 150 50 80; /* Hijau mint pucat */
   --color-accent: 200 90 65; /* Biru permen */
   --color-success: 140 70 60; /* Hijau permen */
   --color-warning: 50 90 65; /* Kuning permen */

@@ -37,6 +37,7 @@ apiRouter.use("/admin/users", authenticateToken, canAccess("manage-users"), admi
 apiRouter.use("/admin/roles", authenticateToken, canAccess("manage-roles"), roleRoutes);
 apiRouter.use("/realtime", authenticateToken, realtimeRouter);
 apiRouter.use("/picking", authenticateToken, pickingRouter);
+apiRouter.use("/returns", authenticateToken, returnRouter);
 apiRouter.use("/return", authenticateToken, returnRouter);
 apiRouter.use("/stats", authenticateToken, statsRouter);
 apiRouter.use("/reports", authenticateToken, reportRouter);

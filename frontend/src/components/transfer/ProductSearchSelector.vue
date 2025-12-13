@@ -106,17 +106,15 @@ onUnmounted(() => {
 })
 
 const getStockColor = (stock) => {
-  if (!stock || stock <= 0) return 'text-red-600 bg-red-50'
-  if (stock < 10) return 'text-amber-600 bg-amber-50'
-  return 'text-green-600 bg-green-50'
+  if (!stock || stock <= 0) return 'text-danger bg-danger/10 border-danger/20'
+  if (stock < 10) return 'text-warning bg-warning/10 border-warning/20'
+  return 'text-success bg-success/10 border-success/20'
 }
 </script>
 
 <template>
   <div class="relative w-full">
-    <!-- INPUT FIELD -->
     <div class="relative" ref="inputRef">
-      <!-- [CHANGE] Padding py-2 -> py-1.5 agar slim sesuai input Qty/Notes -->
       <input
         type="text"
         v-model="searchQuery"
@@ -130,10 +128,10 @@ const getStockColor = (stock) => {
           }
         "
         :placeholder="placeholder"
-        class="w-full pl-9 pr-8 py-1.5 bg-background border border-secondary rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm font-medium"
+        class="w-full pl-9 pr-8 py-1.5 bg-background border border-secondary/30 rounded text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm font-medium placeholder-text/40"
       />
 
-      <div class="absolute left-3 top-1 text-text/40 text-xs">
+      <div class="absolute left-3 top-2 text-text/40 text-xs">
         <font-awesome-icon
           v-if="isLoading"
           icon="fa-solid fa-circle-notch"
@@ -154,22 +152,19 @@ const getStockColor = (stock) => {
       </button>
     </div>
 
-    <!-- TELEPORT DROPDOWN -->
     <Teleport to="body">
       <div
         v-if="showDropdown && (searchResults.length > 0 || isLoading)"
         ref="dropdownRef"
         :style="{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }"
-        class="fixed z-[99999] mt-1 bg-background rounded-lg shadow-2xl border border-secondary/80 max-h-60 overflow-y-auto overflow-x-hidden"
+        class="fixed z-[99999] mt-1 bg-background rounded-lg shadow-2xl border border-secondary/30 max-h-60 overflow-y-auto overflow-x-hidden"
       >
-        <div class="fixed inset-0 w-full h-full z-[-1]" @click="closeDropdown"></div>
-
         <ul class="py-1 relative z-10 bg-background">
           <li
             v-for="item in searchResults"
             :key="item.id || item.sku"
             @click="selectItem(item)"
-            class="px-4 py-2 hover:bg-primary/5 cursor-pointer border-b border-secondary/80 last:border-0 transition-colors group"
+            class="px-4 py-2 hover:bg-primary/5 cursor-pointer border-b border-secondary/10 last:border-0 transition-colors group"
           >
             <div class="flex justify-between items-center gap-2">
               <div class="min-w-0">
@@ -181,7 +176,7 @@ const getStockColor = (stock) => {
 
               <div
                 v-if="item.current_stock !== undefined"
-                class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded border border-secondary/20 whitespace-nowrap"
+                class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded border whitespace-nowrap"
                 :class="getStockColor(item.current_stock)"
               >
                 Stok: {{ item.current_stock }}
@@ -202,7 +197,7 @@ const getStockColor = (stock) => {
 </template>
 
 <style scoped>
-/* [FIX 2] Container Input Utama */
+/* Container Input Utama */
 :deep(.multiselect__tags) {
   @apply bg-background border border-primary/50 rounded-xl py-2 pl-3 min-h-[45px] transition-all duration-200;
 }

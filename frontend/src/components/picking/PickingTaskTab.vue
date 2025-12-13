@@ -1,8 +1,9 @@
+<!-- frontend\src\components\picking\PickingTaskTab.vue -->
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useToast } from '@/composables/UseToast.js'
+import { useToast } from '@/composables/useToast.js'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll.js'
-import { useTaskGrouping } from '@/composables/useTaskGrouping.js' // [NEW] Import Composable
+import { useTaskGrouping } from '@/composables/useTaskGrouping.js'
 import {
   getPendingPickingItems,
   completePickingItems,
@@ -17,7 +18,7 @@ const { show } = useToast()
 
 // --- STATE ---
 const isLoadingPicking = ref(false)
-const pendingItems = ref([]) // Raw Data dari API
+const pendingItems = ref([])
 const selectedItems = ref(new Set())
 
 const filterState = ref({
@@ -30,18 +31,17 @@ const filterState = ref({
   endDate: '',
 })
 
-// --- LOGIC: GROUPING (Extracted) ---
+// --- LOGIC: GROUPING ---
 const { groupedTasks } = useTaskGrouping(pendingItems, filterState)
 
 // --- INFINITE SCROLL ---
 const { displayedItems, hasMore, reset, loaderRef } = useInfiniteScroll(groupedTasks, {
-  step: 8,
+  step: 12,
 })
 
-// Reset scroll jika filter berubah
 watch(filterState, () => reset(), { deep: true })
 
-// --- LOGIC: STOCK VALIDATION (Tetap di sini karena butuh 'selectedItems') ---
+// --- LOGIC: STOCK VALIDATION ---
 const stockUsage = computed(() => {
   const usage = {}
   selectedItems.value.forEach((id) => {
@@ -55,13 +55,17 @@ const stockUsage = computed(() => {
 })
 
 function canSelectItem(item) {
-  if (!item || !item.location_code) return false
+  if (!item) return false
+
+  // Backend support JIT Lookup, jadi item tanpa lokasi awal BOLEH dipilih
+  if (!item.location_code) return true
+
   const key = `${item.sku}_${item.location_code}`
   const currentUsage = stockUsage.value[key] || 0
   const available = Number(item.available_stock || 0)
   const qtyNeeded = Number(item.quantity || 0)
 
-  // Jika item ini sendiri sudah dipilih, anggap valid (agar bisa di-uncheck)
+  // Jika item ini sendiri sudah dipilih, anggap valid
   if (selectedItems.value.has(item.id)) return true
 
   return currentUsage + qtyNeeded <= available
@@ -74,31 +78,12 @@ async function fetchPendingItems() {
   try {
     const response = await getPendingPickingItems()
 
-    // Normalisasi Response (Safety Check)
     let data = []
     if (Array.isArray(response)) data = response
     else if (response?.data && Array.isArray(response.data)) data = response.data
 
     pendingItems.value = data
-
-    // [AUTO SELECT LOGIC]
-    // Otomatis pilih item yang stoknya cukup
-    const autoSelected = new Set()
-    const tempUsage = {}
-
-    data.forEach((item) => {
-      if (!item.location_code) return
-      const key = `${item.sku}_${item.location_code}`
-      const currentUsage = tempUsage[key] || 0
-      const available = Number(item.available_stock || 0)
-      const qtyNeeded = Number(item.quantity || 0)
-
-      if (currentUsage + qtyNeeded <= available) {
-        autoSelected.add(item.id)
-        tempUsage[key] = currentUsage + qtyNeeded
-      }
-    })
-    selectedItems.value = autoSelected
+    selectedItems.value.clear()
   } catch (error) {
     show(error.message || 'Gagal memuat data picking.', 'error')
   } finally {
@@ -108,15 +93,39 @@ async function fetchPendingItems() {
 
 async function handleCompleteSelectedItems() {
   if (selectedItems.value.size === 0) return
-  if (!confirm(`Selesaikan ${selectedItems.value.size} item terpilih?`)) return
 
   isLoadingPicking.value = true
+  const idsToComplete = Array.from(selectedItems.value)
+
   try {
-    const itemIds = Array.from(selectedItems.value)
-    const res = await completePickingItems(itemIds)
-    show(res.message, 'success')
-    selectedItems.value.clear()
-    await fetchPendingItems() // Refresh Data
+    const payloadItems = idsToComplete
+      .map((id) => {
+        const originalItem = pendingItems.value.find((i) => i.id === id)
+        if (!originalItem) return null
+        return {
+          id: originalItem.id,
+          picking_list_id: originalItem.picking_list_id,
+          product_id: originalItem.product_id,
+          quantity: originalItem.quantity,
+          location_id: originalItem.suggested_location_id,
+        }
+      })
+      .filter((i) => i !== null)
+
+    const res = await completePickingItems({ items: payloadItems })
+
+    if (res.success) {
+      show(res.message, 'success')
+
+      // [OPTIMISTIC UPDATE] Hapus item yang sukses dari list agar tidak double-click
+      pendingItems.value = pendingItems.value.filter((item) => !selectedItems.value.has(item.id))
+      selectedItems.value.clear()
+    } else {
+      show(res.message || 'Gagal memproses sebagian item.', 'warning')
+    }
+
+    // Refresh data asli dari server
+    await fetchPendingItems()
   } catch (error) {
     show(error.message || 'Gagal menyelesaikan item.', 'error')
   } finally {
@@ -129,7 +138,6 @@ async function handleCancelInvoice(pickingListId) {
   try {
     await cancelPickingList(pickingListId)
     show('Picking list dibatalkan.', 'success')
-    // Optimistic UI Update
     pendingItems.value = pendingItems.value.filter((item) => item.picking_list_id !== pickingListId)
   } catch (error) {
     show(error.message || 'Gagal membatalkan.', 'error')
@@ -137,22 +145,18 @@ async function handleCancelInvoice(pickingListId) {
   }
 }
 
-function handleToggleItem(itemId) {
-  if (selectedItems.value.has(itemId)) {
-    selectedItems.value.delete(itemId)
-  } else {
-    const item = pendingItems.value.find((i) => i.id === itemId)
-    // Cek stok sebelum nambah selection
-    if (item && !canSelectItem(item)) {
-      show(`Stok tidak cukup! Tersedia: ${item.available_stock}`, 'warning')
-      return
-    }
-    selectedItems.value.add(itemId)
+// [NEW] Logic Toggle per Invoice
+function handleToggleInvoice({ inv, checked }) {
+  const allItemIds = []
+  if (inv.locations) {
+    Object.values(inv.locations).forEach((items) => {
+      items.forEach((item) => allItemIds.push(item))
+    })
+  } else if (inv.items) {
+    inv.items.forEach((item) => allItemIds.push(item))
   }
-}
 
-function handleToggleLocationGroup({ items, checked }) {
-  items.forEach((item) => {
+  allItemIds.forEach((item) => {
     if (checked) {
       if (canSelectItem(item)) selectedItems.value.add(item.id)
     } else {
@@ -161,7 +165,18 @@ function handleToggleLocationGroup({ items, checked }) {
   })
 }
 
-// Expose API ke Parent (jika dipanggil via ref)
+// [NEW] Logic Select All
+function handleSelectAll() {
+  displayedItems.value.forEach((inv) => {
+    handleToggleInvoice({ inv, checked: true })
+  })
+}
+
+// [NEW] Logic Uncheck All
+function handleUncheckAll() {
+  selectedItems.value.clear()
+}
+
 defineExpose({
   fetchPendingItems,
   pendingCount: computed(() => pendingItems.value.length),
@@ -174,24 +189,25 @@ onMounted(() => {
 
 <template>
   <div>
+    <!-- Floating Action Bar -->
     <transition name="slide-up">
       <div
         v-if="selectedItems.size > 0"
-        class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] md:w-[600px] flex justify-between items-center bg-white/95 border border-secondary/20 p-4 rounded-2xl backdrop-blur-xl z-50 shadow-2xl"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] md:w-[600px] flex justify-between items-center bg-secondary/95 border border-secondary/20 p-4 rounded-2xl backdrop-blur-xl z-50 shadow-2xl"
       >
         <div class="flex items-center gap-3">
           <div class="h-3 w-3 rounded-full bg-primary animate-pulse shadow-glow"></div>
           <div class="flex flex-col leading-tight">
             <span class="font-black text-lg text-text">{{ selectedItems.size }}</span>
-            <span class="text-[10px] text-text/60 font-bold uppercase tracking-wider"
-              >Item Siap Pick</span
-            >
+            <span class="text-[10px] text-text/60 font-bold uppercase tracking-wider">
+              Item Terpilih
+            </span>
           </div>
         </div>
 
         <button
           @click="handleCompleteSelectedItems"
-          class="bg-primary hover:bg-primary/90 text-white px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-lg active:scale-95 flex items-center gap-2 disabled:opacity-70"
+          class="bg-primary hover:bg-primary/90 text-background px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-lg active:scale-95 flex items-center gap-2 disabled:opacity-70"
           :disabled="isLoadingPicking"
         >
           <font-awesome-icon
@@ -206,8 +222,30 @@ onMounted(() => {
     </transition>
 
     <div class="space-y-6 animate-fade-in pb-32">
-      <PickingFilterBar v-model="filterState" />
+      <!-- Filter & Bulk Actions -->
+      <div class="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+        <PickingFilterBar v-model="filterState" class="flex-1 w-full" />
 
+        <div class="flex items-center gap-2 w-full md:w-auto shrink-0">
+          <button
+            @click="handleSelectAll"
+            class="flex-1 md:flex-none px-4 py-2 bg-secondary/10 hover:bg-primary/10 text-primary rounded-lg text-xs font-bold transition-colors border border-dashed border-primary/30 hover:border-primary"
+          >
+            <font-awesome-icon icon="fa-solid fa-check-square" class="mr-1" />
+            Pilih Semua
+          </button>
+          <button
+            @click="handleUncheckAll"
+            class="flex-1 md:flex-none px-4 py-2 bg-secondary/10 hover:bg-danger/10 text-text/60 hover:text-danger rounded-lg text-xs font-bold transition-colors border border-dashed border-secondary/30 hover:border-danger"
+            :disabled="selectedItems.size === 0"
+          >
+            <font-awesome-icon icon="fa-solid fa-square" class="mr-1" />
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading & Empty States -->
       <div
         v-if="isLoadingPicking && pendingItems.length === 0"
         class="py-32 text-center opacity-60"
@@ -231,6 +269,7 @@ onMounted(() => {
         <p class="text-text/50 mt-1">Tidak ada item yang perlu dipicking saat ini.</p>
       </div>
 
+      <!-- Main Content -->
       <div v-else>
         <MasonryWall
           v-if="filterState.viewMode === 'grid'"
@@ -244,8 +283,7 @@ onMounted(() => {
               :inv="inv"
               :selectedItems="selectedItems"
               :validate-stock="canSelectItem"
-              @toggle-item="handleToggleItem"
-              @toggle-location="handleToggleLocationGroup"
+              @toggle-invoice="handleToggleInvoice"
               @cancel-invoice="handleCancelInvoice"
               mode="picking"
             />
@@ -259,8 +297,7 @@ onMounted(() => {
             :inv="inv"
             :selectedItems="selectedItems"
             :validate-stock="canSelectItem"
-            @toggle-item="handleToggleItem"
-            @toggle-location="handleToggleLocationGroup"
+            @toggle-invoice="handleToggleInvoice"
             @cancel-invoice="handleCancelInvoice"
             mode="picking"
           />
@@ -284,7 +321,6 @@ onMounted(() => {
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out forwards;
 }
-/* Vue Transition Classes */
 .slide-up-enter-active,
 .slide-up-leave-active {
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);

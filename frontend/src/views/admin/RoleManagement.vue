@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
 // ✅ FIX: Impor 'useToast'
-import { useToast } from '@/composables/UseToast.js'
+import { useToast } from '@/composables/useToast.js'
 import {
   fetchAllRoles,
   fetchAllPermissions,
@@ -11,7 +11,7 @@ import {
   updateRole,
   deleteRole,
 } from '@/api/helpers/roles.js' // Pastikan ini mengarah ke file helper yang benar
-import Modal from '@/components/Modal.vue'
+import Modal from '@/components/ui/Modal.vue'
 
 // --- STATE ---
 const { show } = useToast()

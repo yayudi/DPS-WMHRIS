@@ -1,7 +1,7 @@
 <!-- frontend\src\components\batch\MultiLocationTransferTab.vue -->
 <script setup>
 import { ref, computed } from 'vue'
-import { useToast } from '@/composables/UseToast.js'
+import { useToast } from '@/composables/useToast.js'
 import { fetchProductStockDetails, searchProducts } from '@/api/helpers/products.js'
 import { processBatchMovement } from '@/api/helpers/stock.js'
 import Multiselect from 'vue-multiselect'

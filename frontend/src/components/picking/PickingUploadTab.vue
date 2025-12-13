@@ -1,7 +1,7 @@
 <!-- frontend\src\components\picking\PickingUploadTab.vue -->
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useToast } from '@/composables/UseToast.js'
+import { useToast } from '@/composables/useToast.js'
 import { getImportJobs, cancelImportJob } from '@/api/helpers/stock.js'
 
 // [UPDATE] Hapus import modal validasi yang tidak dipakai lagi

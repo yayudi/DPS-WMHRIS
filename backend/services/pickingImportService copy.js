@@ -1,5 +1,6 @@
 // backend/services/pickingImportService.js
 import db from "../config/db.js";
+import { findBestLocation } from "../helpers/locationHelper.js";
 import { WMS_STATUS, MP_STATUS } from "../config/wmsConstants.js";
 
 const now = () => new Date().toISOString().slice(0, 19).replace("T", " ");
@@ -11,7 +12,7 @@ const fetchProductMap = async (connection, skuList) => {
 
   const placeholders = skuList.map(() => "?").join(",");
 
-  // 1. Ambil Info Produk Dasar (Cek is_package)
+  // Ambil Info Produk Dasar (Cek is_package)
   const [products] = await connection.query(
     `SELECT id, sku, is_package FROM products WHERE sku IN (${placeholders})`,
     skuList
@@ -29,18 +30,18 @@ const fetchProductMap = async (connection, skuList) => {
     if (p.is_package === 1) packageIds.push(p.id);
   });
 
-  // 2. Jika ada paket, ambil komponennya
+  // Jika ada paket, ambil komponennya
   if (packageIds.length > 0) {
     const pkgPlaceholders = packageIds.map(() => "?").join(",");
     const [components] = await connection.query(
       `SELECT
-                pc.package_product_id,
-                pc.component_product_id,
-                pc.quantity_per_package,
-                p.sku as component_sku
-             FROM package_components pc
-             JOIN products p ON pc.component_product_id = p.id
-             WHERE pc.package_product_id IN (${pkgPlaceholders})`,
+        pc.package_product_id,
+        pc.component_product_id,
+        pc.quantity_per_package,
+        p.sku as component_sku
+      FROM package_components pc
+      JOIN products p ON pc.component_product_id = p.id
+      WHERE pc.package_product_id IN (${pkgPlaceholders})`,
       packageIds
     );
 
@@ -97,7 +98,7 @@ export const processImportData = async (parsedOrders, userId) => {
       if (!isExists) {
         const initialWmsStatus = isMpCancel ? WMS_STATUS.CANCEL : WMS_STATUS.PENDING;
 
-        // 1. Insert Header
+        // Insert Header
         const [res] = await connection.execute(
           `INSERT INTO picking_lists
                     (user_id, source, original_invoice_id, customer_name, order_date, status, marketplace_status, is_active, created_at)
@@ -116,7 +117,7 @@ export const processImportData = async (parsedOrders, userId) => {
 
         const newPickingId = res.insertId;
 
-        // 2. Insert Items (Dengan Logika Pecah Paket)
+        // Insert Items (Dengan Logika Pecah Paket)
         for (const item of orderData.items) {
           const productInfo = productInfoMap.get(item.sku);
 
@@ -145,44 +146,30 @@ export const processImportData = async (parsedOrders, userId) => {
 
           // Loop insert untuk setiap pecahan item (atau item tunggal)
           for (const subItem of itemsToInsert) {
+            const [products] = await connection.query(
+              `SELECT id FROM products WHERE sku = ? LIMIT 1`,
+              [subItem.sku]
+            );
+
+            if (products.length === 0) {
+              throw new Error(`SKU '${subItem.sku}' tidak terdaftar di Master Produk.`);
+            }
+
+            const productId = products[0].id;
+
+            const suggestedLocId = await findBestLocation(connection, productId, subItem.qty);
+
             await connection.execute(
               `INSERT INTO picking_list_items
-                                (picking_list_id, product_id, original_sku, quantity, status, suggested_location_id)
-                             SELECT
-                                ?,      -- [1] picking_list_id
-                                p.id,   -- product_id (Ambil dari DB lagi untuk keamanan)
-                                ?,      -- [2] original_sku (SKU Komponen/Item)
-                                ?,      -- [3] quantity
-                                ?,      -- [4] status
-                                -- [LOGIKA AUTO-SUGGEST PRIORITAS LANTAI] --
-                                (
-                                    SELECT sl.location_id
-                                    FROM stock_locations sl
-                                    JOIN locations l ON sl.location_id = l.id
-                                    WHERE sl.product_id = p.id
-                                      AND l.purpose = 'DISPLAY'
-                                      AND sl.quantity > 0
-                                    ORDER BY
-                                      CASE
-                                        WHEN l.floor IN (1, 2) AND sl.quantity >= ? THEN 1
-                                        WHEN sl.quantity >= ? THEN 2
-                                        WHEN l.floor IN (1, 2) THEN 3
-                                        ELSE 4
-                                      END ASC,
-                                      sl.quantity DESC
-                                    LIMIT 1
-                                ) as suggested_loc
-                             FROM products p
-                             WHERE p.sku = ? -- [7] Match SKU Komponen/Item
-                             LIMIT 1`,
+                (picking_list_id, product_id, original_sku, quantity, status, suggested_location_id)
+                VALUES (?, ?, ?, ?, ?, ?)`,
               [
                 newPickingId,
-                safe(subItem.sku),
-                safe(subItem.qty),
-                safe(initialWmsStatus),
-                safe(subItem.qty), // [5] Prioritas Qty
-                safe(subItem.qty), // [6] Prioritas Qty
-                safe(subItem.sku), // [7]
+                productId,
+                subItem.sku,
+                subItem.qty,
+                initialWmsStatus,
+                suggestedLocId, // Bisa null, bisa ada isinya
               ]
             );
           }

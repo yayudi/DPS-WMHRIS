@@ -49,12 +49,12 @@ const uploadSales = multer({
 // ROUTES DEFINITION
 // =====================================================================
 
-// 1. READ DATA (Frontend Tabs)
+// READ DATA (Frontend Tabs)
 router.get("/pending-items", pickingController.getPendingItems);
 router.get("/history-items", pickingController.getHistoryItems);
 router.get("/:id", pickingController.getPickingDetail); // Detail Modal
 
-// 2. UPLOAD & PROCESS (Core Logic)
+// UPLOAD & PROCESS (Core Logic)
 router.post(
   "/upload-and-validate",
   canAccess("upload-picking-list"),
@@ -62,12 +62,12 @@ router.post(
   pickingController.uploadAndValidate
 );
 
-// 3. ACTIONS (User Operations)
+// ACTIONS (User Operations)
 router.post("/complete-items", canAccess("confirm-picking-list"), pickingController.completeItems);
 
 router.post("/cancel/:id", canAccess("void-picking-list"), pickingController.cancelPickingList);
 
-// 4. LEGACY FALLBACK (Opsional)
+// LEGACY FALLBACK (Opsional)
 router.post("/upload-sales-report", (req, res) => {
   res.status(410).json({ message: "API Deprecated. Use /upload-and-validate" });
 });

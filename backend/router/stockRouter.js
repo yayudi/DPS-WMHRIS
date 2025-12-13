@@ -2,7 +2,7 @@
 import express from "express";
 import db from "../config/db.js";
 import cache from "../config/cache.js";
-import { broadcastStockUpdate } from "./realtimeRouter.js";
+// import { broadcastStockUpdate } from "./realtimeRouter.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -121,13 +121,13 @@ router.post("/transfer", async (req, res) => {
     await connection.commit();
     cache.flushAll();
 
-    const [updatedStock] = await db.query(
-      `SELECT sl.product_id, l.code as location_code, sl.quantity
-             FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
-             WHERE sl.product_id = ?`,
-      [productId]
-    );
-    broadcastStockUpdate([{ productId, newStock: updatedStock }]);
+    // const [updatedStock] = await db.query(
+    //   `SELECT sl.product_id, l.code as location_code, sl.quantity
+    //          FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
+    //          WHERE sl.product_id = ?`,
+    //   [productId]
+    // );
+    // broadcastStockUpdate([{ productId, newStock: updatedStock }]);
 
     res.status(200).json({ success: true, message: "Transfer stok berhasil." });
   } catch (error) {
@@ -190,13 +190,13 @@ router.post("/adjust", async (req, res) => {
     await connection.commit();
     cache.flushAll();
 
-    const [updatedStock] = await db.query(
-      `SELECT sl.product_id, l.code as location_code, sl.quantity
-             FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
-             WHERE sl.product_id = ?`,
-      [productId]
-    );
-    broadcastStockUpdate([{ productId, newStock: updatedStock }]);
+    // const [updatedStock] = await db.query(
+    //   `SELECT sl.product_id, l.code as location_code, sl.quantity
+    //          FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
+    //          WHERE sl.product_id = ?`,
+    //   [productId]
+    // );
+    // broadcastStockUpdate([{ productId, newStock: updatedStock }]);
 
     res.status(200).json({ success: true, message: "Penyesuaian stok berhasil." });
   } catch (error) {
@@ -405,7 +405,7 @@ router.post("/batch-process", async (req, res) => {
       }
     }
 
-    const updatedProductIds = new Set();
+    // const updatedProductIds = new Set();
 
     for (const movement of movements) {
       const { sku, quantity } = movement;
@@ -413,7 +413,7 @@ router.post("/batch-process", async (req, res) => {
       if (productRows.length === 0) throw new Error(`SKU '${sku}' tidak ditemukan.`);
 
       const productId = productRows[0].id;
-      updatedProductIds.add(productId);
+      // updatedProductIds.add(productId);
 
       switch (type) {
         case "TRANSFER":
@@ -500,17 +500,17 @@ router.post("/batch-process", async (req, res) => {
     await connection.commit();
     cache.flushAll();
 
-    const finalUpdates = [];
-    for (const productId of updatedProductIds) {
-      const [updatedStock] = await db.query(
-        `SELECT sl.product_id, l.code as location_code, sl.quantity
-         FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
-         WHERE sl.product_id = ?`,
-        [productId]
-      );
-      finalUpdates.push({ productId, newStock: updatedStock });
-    }
-    broadcastStockUpdate(finalUpdates);
+    // const finalUpdates = [];
+    // for (const productId of updatedProductIds) {
+    //   const [updatedStock] = await db.query(
+    //     `SELECT sl.product_id, l.code as location_code, sl.quantity
+    //      FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
+    //      WHERE sl.product_id = ?`,
+    //     [productId]
+    //   );
+    //   finalUpdates.push({ productId, newStock: updatedStock });
+    // }
+    // broadcastStockUpdate(finalUpdates);
 
     res
       .status(200)
@@ -600,7 +600,7 @@ router.post("/batch-transfer", async (req, res) => {
     }
 
     await connection.beginTransaction();
-    const updatedProductIds = new Set();
+    // const updatedProductIds = new Set();
 
     for (const movement of movements) {
       const { sku, quantity } = movement;
@@ -609,7 +609,7 @@ router.post("/batch-transfer", async (req, res) => {
         throw new Error(`SKU '${sku}' tidak ditemukan.`);
       }
       const productId = productRows[0].id;
-      updatedProductIds.add(productId);
+      // updatedProductIds.add(productId);
 
       const [stockRows] = await connection.query(
         "SELECT quantity FROM stock_locations WHERE product_id = ? AND location_id = ? FOR UPDATE",
@@ -639,17 +639,17 @@ router.post("/batch-transfer", async (req, res) => {
     await connection.commit();
     cache.flushAll();
 
-    const finalUpdates = [];
-    for (const productId of updatedProductIds) {
-      const [updatedStock] = await db.query(
-        `SELECT sl.product_id, l.code as location_code, sl.quantity
-          FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
-          WHERE sl.product_id = ?`,
-        [productId]
-      );
-      finalUpdates.push({ productId, newStock: updatedStock });
-    }
-    broadcastStockUpdate(finalUpdates);
+    // const finalUpdates = [];
+    // for (const productId of updatedProductIds) {
+    //   const [updatedStock] = await db.query(
+    //     `SELECT sl.product_id, l.code as location_code, sl.quantity
+    //       FROM stock_locations sl JOIN locations l ON sl.location_id = l.id
+    //       WHERE sl.product_id = ?`,
+    //     [productId]
+    //   );
+    //   finalUpdates.push({ productId, newStock: updatedStock });
+    // }
+    // broadcastStockUpdate(finalUpdates);
 
     res
       .status(200)

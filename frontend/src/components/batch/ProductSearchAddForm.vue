@@ -1,7 +1,7 @@
 <!-- frontend\src\components\batch\ProductSearchAddForm.vue -->
 <script setup>
 import { ref } from 'vue'
-import { useToast } from '@/composables/UseToast.js'
+import { useToast } from '@/composables/useToast.js'
 import { searchProducts, fetchStockSampleForLocation } from '@/api/helpers/products.js'
 import Multiselect from 'vue-multiselect'
 

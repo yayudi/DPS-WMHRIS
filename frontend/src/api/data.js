@@ -1,8 +1,8 @@
 // api/data.js
-import axios from "axios"
+import axios from 'axios'
 
 const data = axios.create({
-  baseURL: "https://office.pusatpneumatic.com",
+  baseURL: 'https://wms.dpvindonesia.com',
   timeout: 10000,
 })
 

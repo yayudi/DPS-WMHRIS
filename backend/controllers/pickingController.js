@@ -56,7 +56,7 @@ export const uploadAndValidate = async (req, res) => {
     const source = req.body.source || "Tokopedia";
     const jobType = `IMPORT_SALES_${source.toUpperCase()}`;
 
-    const { ParserEngine } = await import("../services/ParserEngine.js");
+    const { ParserEngine } = await import("../services/parsers/ParserEngine.js");
     const parser = new ParserEngine();
 
     const batchSummary = {
@@ -69,20 +69,40 @@ export const uploadAndValidate = async (req, res) => {
     // LOOP PER FILE
     for (const file of req.files) {
       let jobId = null;
-      let fileErrors = []; // Array data lengkap untuk Excel Repair
+      let fileErrors = [];
       let parsedItems = [];
 
       try {
         jobId = await createImportJobLog(userId, file.originalname, jobType, "PROCESSING");
 
         // 1. PARSING
+        console.log(`[CONTROLLER] Parsing file: ${file.path}`);
         const parseResult = await parser.run(file.path, source);
 
-        // 2. TANGKAP ERROR PARSING (Format baris salah)
+        // 🕵️ DEBUG: CEK HASIL PARSER LANGSUNG (RAW DATA)
+        // Kita ambil sample order pertama yang punya item retur (jika ada)
+        console.log("---------------------------------------------------------------");
+        console.log("[CONTROLLER DEBUG] Inspecting Parser Result (First 3 Orders):");
+        let debugCount = 0;
+        for (const [invId, order] of parseResult.orders) {
+          if (debugCount >= 3) break;
+          console.log(`Invoice: ${invId}`);
+          console.table(
+            order.items.map((i) => ({
+              sku: i.sku,
+              qty: i.qty,
+              // Cek apakah key ini eksis di output parser
+              returnedQty: i.returnedQty,
+            }))
+          );
+          debugCount++;
+        }
+        console.log("---------------------------------------------------------------");
+
+        // 2. TANGKAP ERROR PARSING
         if (parseResult.errors && parseResult.errors.length > 0) {
           parseResult.errors.forEach((e) => {
             fileErrors.push({
-              // 👇 GUNAKAN DATA ASLI JIKA ADA, BARU FALLBACK KE "PARSING_ERROR"
               invoiceId: e.invoiceId || "PARSING_ERROR",
               customer: e.customer || "-",
               sku: e.sku || "ROW " + (e.row || "?"),
@@ -98,15 +118,16 @@ export const uploadAndValidate = async (req, res) => {
           orderData.items.forEach((item) => {
             parsedItems.push({
               invoiceId: orderData.invoiceId,
-              customer: orderData.customer, // Penting untuk Excel Repair
+              customer: orderData.customer,
               orderDate: orderData.orderDate,
               source: source,
               status: orderData.status,
 
               sku: item.sku,
               qty: item.qty,
+              returnedQty: item.returnedQty || 0, // [CHECKPOINT] Apakah ini masuk?
               row: item.row,
-              // product_name (opsional, jika parser mendukung di masa depan)
+              originalFilename: file.originalname,
             });
           });
         });
@@ -123,23 +144,17 @@ export const uploadAndValidate = async (req, res) => {
           });
         }
 
-        // 5. TANGKAP ERROR LOGIC (Stok Kurang / SKU Tidak Dikenal)
+        // 5. TANGKAP ERROR LOGIC
         if (processResult.invalidSkus && processResult.invalidSkus.length > 0) {
           processResult.invalidSkus.forEach((msg) => {
-            // msg format: "[INV-123] Error message"
             const match = msg.match(/^\[(.*?)\] (.*)/);
             const invId = match ? match[1] : null;
             const errMsg = match ? match[2] : msg;
 
-            // Cari data asli dari parsedItems untuk mengisi kolom Excel secara lengkap
-            // Kita cari item yang cocok dengan Invoice ID ini
             const originalItems = parsedItems.filter((i) => i.invoiceId === invId);
 
-            // Jika ketemu, masukkan semua item dalam invoice itu ke file repair
-            // (atau spesifik item yang error jika pesan error menyebut SKU)
             if (originalItems.length > 0) {
               originalItems.forEach((orig) => {
-                // Jika pesan error spesifik menyebut SKU, filter hanya SKU itu
                 if (errMsg.includes(orig.sku) || errMsg.includes("Komponen")) {
                   fileErrors.push({
                     invoiceId: orig.invoiceId,
@@ -147,15 +162,13 @@ export const uploadAndValidate = async (req, res) => {
                     sku: orig.sku,
                     qty: orig.qty,
                     status: orig.status,
-                    message: errMsg, // Pesan Error
+                    message: errMsg,
                   });
                 } else {
-                  // Error umum per invoice
                   fileErrors.push({ ...orig, message: errMsg });
                 }
               });
             } else {
-              // Fallback jika data asli tidak ketemu
               fileErrors.push({
                 invoiceId: invId || "UNKNOWN",
                 sku: "UNKNOWN",
@@ -166,22 +179,18 @@ export const uploadAndValidate = async (req, res) => {
           });
         }
 
-        // 6. FINALIZE & GENERATE REPAIR FILE
+        // 6. FINALIZE
         batchSummary.processedFiles++;
         batchSummary.successInvoices += processResult.processedInvoices;
 
         if (fileErrors.length > 0) {
-          // Generate Excel dengan format asli + kolom error
           const downloadUrl = await generateErrorExcel(file.originalname, fileErrors, source);
-
           const logPayload = {
             summary: `${processResult.processedInvoices} Sukses, ${fileErrors.length} Baris Bermasalah.`,
             download_url: downloadUrl,
             errors: fileErrors.slice(0, 50),
           };
-
           await updateImportJobLog(jobId, "COMPLETED_WITH_ERRORS", logPayload.summary, logPayload);
-
           batchSummary.errors.push({
             filename: file.originalname,
             message: "Sebagian data gagal. Download file perbaikan.",
@@ -196,14 +205,11 @@ export const uploadAndValidate = async (req, res) => {
       } catch (err) {
         console.error(`Fatal Error file ${file.originalname}:`, err);
         const fatalMsg = err.message || "Kesalahan Sistem";
-
-        // Coba generate excel meski fatal (jika memungkinkan)
         const downloadUrl = await generateErrorExcel(
           file.originalname,
           [{ invoiceId: "SYSTEM", message: fatalMsg }],
           source
         );
-
         batchSummary.errors.push({ filename: file.originalname, message: fatalMsg });
         if (jobId) {
           await updateImportJobLog(jobId, "FAILED", `System Error: ${fatalMsg}`, {
@@ -237,9 +243,14 @@ export const cancelPickingList = async (req, res) => {
 
 export const completeItems = async (req, res) => {
   try {
-    const { itemIds } = req.body;
+    const { items } = req.body;
     const userId = req.user?.id || 1;
-    const result = await pickingService.completePickingItemsService(itemIds, userId);
+
+    if (!items || !Array.isArray(items)) {
+      throw new Error("Format data tidak valid. Harap kirim array items.");
+    }
+
+    const result = await pickingService.completePickingItemsService(items, userId);
     res.json(result);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -256,21 +267,19 @@ const UPLOAD_DIR_ERRORS = path.join(__dirname, "..", "uploads", "error_reports")
 
 if (!fs.existsSync(UPLOAD_DIR_ERRORS)) fs.mkdirSync(UPLOAD_DIR_ERRORS, { recursive: true });
 
-// --- [NEW] DEFINISI HEADER SESUAI FORMAT ASLI MARKETPLACE ---
-// Ini memetakan data internal kita (key) ke Header Asli Marketplace (header)
 const SOURCE_HEADERS = {
   Tokopedia: [
     { header: "Order ID", key: "invoiceId", width: 25 },
     { header: "Recipient", key: "customer", width: 25 },
-    { header: "Seller SKU", key: "sku", width: 25 }, // Kunci Parsing Tokopedia
+    { header: "Seller SKU", key: "sku", width: 25 },
     { header: "Quantity", key: "qty", width: 10 },
     { header: "Status", key: "status", width: 25 },
-    { header: ">> ALASAN ERROR <<", key: "message", width: 50 }, // Kolom Error
+    { header: ">> ALASAN ERROR <<", key: "message", width: 50 },
   ],
   Shopee: [
     { header: "No. Pesanan", key: "invoiceId", width: 25 },
     { header: "Nama Penerima", key: "customer", width: 25 },
-    { header: "Nomor Referensi SKU", key: "sku", width: 25 }, // Kunci Parsing Shopee
+    { header: "Nomor Referensi SKU", key: "sku", width: 25 },
     { header: "Jumlah", key: "qty", width: 10 },
     { header: "Status", key: "status", width: 25 },
     { header: ">> ALASAN ERROR <<", key: "message", width: 50 },
@@ -278,7 +287,7 @@ const SOURCE_HEADERS = {
   Offline: [
     { header: "*Nomor Tagihan", key: "invoiceId", width: 25 },
     { header: "*Nama Kontak", key: "customer", width: 25 },
-    { header: "*Kode Produk (SKU)", key: "sku", width: 25 }, // Kunci Parsing Offline
+    { header: "*Kode Produk (SKU)", key: "sku", width: 25 },
     { header: "*Jumlah Produk", key: "qty", width: 10 },
     { header: "Status", key: "status", width: 25 },
     { header: ">> ALASAN ERROR <<", key: "message", width: 50 },
@@ -312,34 +321,27 @@ export const updateImportJobLog = async (jobId, status, summaryText, errorLogObj
   }
 };
 
-// --- [REFACTORED] Generator Excel Pintar ---
 export const generateErrorExcel = async (originalFilename, failedItems, source) => {
   try {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("DATA PERBAIKAN");
 
-    // 1. Tentukan Header berdasarkan Source
-    // Jika source tidak dikenali, gunakan default (Tokopedia style)
     const columnsConfig = SOURCE_HEADERS[source] || SOURCE_HEADERS["Tokopedia"];
     sheet.columns = columnsConfig;
 
-    // 2. Styling Header
     const headerRow = sheet.getRow(1);
     headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
-    headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2C3E50" } }; // Dark Blue
+    headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2C3E50" } };
     headerRow.alignment = { vertical: "middle", horizontal: "center" };
 
-    // Khusus Kolom Error (Kolom Terakhir) kasih warna Merah di Headernya
     const lastColIdx = columnsConfig.length;
     headerRow.getCell(lastColIdx).fill = {
       type: "pattern",
       pattern: "solid",
       fgColor: { argb: "FFDC3545" },
-    }; // Red
+    };
 
-    // 3. Isi Data
     failedItems.forEach((item) => {
-      // Mapping data internal ke key yang diharapkan ExcelJS
       const rowData = {
         invoiceId: item.invoiceId || "UNKNOWN",
         customer: item.customer || "",
@@ -350,8 +352,6 @@ export const generateErrorExcel = async (originalFilename, failedItems, source) 
       };
 
       const row = sheet.addRow(rowData);
-
-      // Highlight pesan error dengan warna merah bold
       row.getCell("message").font = { color: { argb: "FFDC3545" }, bold: true };
     });
 

@@ -1,6 +1,6 @@
 // frontend\src\composables\usePickingClientParser.js
 import { ref } from 'vue'
-import { useToast } from '@/composables/UseToast.js'
+import { useToast } from '@/composables/useToast.js'
 
 // Import pdfjs-dist
 // Import worker entry point correctly based on bundler setup

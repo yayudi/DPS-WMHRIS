@@ -65,7 +65,7 @@ export async function handleExistingInvoices(connection, items) {
       }
     } else {
       // BARU
-      if (!item.status || ["PENDING_VALIDATION", "SHIPPED", "COMPLETED"].includes(item.status)) {
+      if (!item.status || ["PENDING", "SHIPPED", "COMPLETED"].includes(item.status)) {
         itemsToProcess.push(item);
       } else {
         logTrace("UPSERT", `⚠️ Item ${item.sku} diabaikan karena status file: ${item.status}`);
@@ -108,7 +108,7 @@ export async function fetchReferenceData(connection, skus) {
 
   if (!skus.length) skus.push("");
 
-  // 1. Products
+  // Products
   const [products] = await connection.query(
     `SELECT id, sku, name, is_package FROM products WHERE sku IN (?) AND is_active = 1`,
     [skus]
@@ -120,7 +120,7 @@ export async function fetchReferenceData(connection, skus) {
   const packageIds = products.filter((p) => p.is_package).map((p) => p.id);
   const singleIds = products.filter((p) => !p.is_package).map((p) => p.id);
 
-  // 2. Components
+  // Components
   let components = [];
   let componentLocs = [];
   if (packageIds.length > 0) {
@@ -147,7 +147,7 @@ export async function fetchReferenceData(connection, skus) {
     }
   }
 
-  // 3. Single Items Locations
+  // Single Items Locations
   let singleLocs = [];
   if (singleIds.length > 0) {
     [singleLocs] = await connection.query(
@@ -272,7 +272,7 @@ export async function insertPickingHeader(connection, meta) {
   logTrace("INSERT_HEADER", `Membuat header picking list untuk user ${meta.userId}`);
   const [res] = await connection.query(
     `INSERT INTO picking_lists (user_id, source, original_filename, status, original_invoice_id, customer_name, order_date, is_active)
-     VALUES (?, ?, ?, 'PENDING_VALIDATION', ?, ?, ?, 1)`,
+     VALUES (?, ?, ?, 'PENDING', ?, ?, ?, 1)`,
     [
       meta.userId,
       meta.source,

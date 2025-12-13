@@ -1,10 +1,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useToast } from '@/composables/UseToast.js'
+import { useToast } from '@/composables/useToast.js'
 import { fetchAllUsers, fetchRoles, createUser, deleteUser } from '@/api/helpers/admin.js'
-import UserLocationModal from '@/components/UserLocationModal.vue'
-import UserEditModal from '@/components/UserEditModal.vue'
-import Modal from '@/components/Modal.vue'
+import UserLocationModal from '@/components/users/locationModal.vue'
+import UserEditModal from '@/components/users/EditModal.vue'
+import Modal from '@/components/ui/Modal.vue'
 
 const users = ref([])
 const allRoles = ref([])
