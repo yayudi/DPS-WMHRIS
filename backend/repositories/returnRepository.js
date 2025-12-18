@@ -38,7 +38,7 @@ export const getPendingReturns = async (connection) => {
 export const getReturnHistory = async (connection, limit = 1000) => {
   const query = `
     SELECT * FROM (
-      -- 1. Retur Marketplace (Picking Items)
+      -- Retur Marketplace (Picking Items)
       SELECT
         'MARKETPLACE' as type,
         pli.id,
@@ -58,7 +58,7 @@ export const getReturnHistory = async (connection, limit = 1000) => {
 
       UNION ALL
 
-      -- 2. Retur Manual
+      -- Retur Manual
       SELECT
         'MANUAL' as type,
         mr.id,

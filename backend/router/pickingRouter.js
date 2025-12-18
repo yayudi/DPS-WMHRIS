@@ -7,13 +7,11 @@ import { fileURLToPath } from "url";
 
 // Middleware
 import { canAccess } from "../middleware/permissionMiddleware.js";
-import authMiddleware from "../middleware/authMiddleware.js";
 
 // Controllers
 import * as pickingController from "../controllers/pickingController.js";
 
 const router = express.Router();
-router.use(authMiddleware);
 
 // --- KONFIGURASI MULTER ---
 const __filename = fileURLToPath(import.meta.url);

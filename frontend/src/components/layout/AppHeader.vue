@@ -65,7 +65,7 @@ onUnmounted(() => {
 <template>
   <!-- Header dibuat 'relative' agar menu mobile bisa 'absolute' thd-nya -->
   <header
-    class="bg-background/80 backdrop-blur-sm sticky top-0 z-40 border-b border-secondary/20 relative"
+    class="bg-secondary/15 backdrop-blur-md sticky top-0 z-40 border-b border-secondary/20 relative shadow-sm"
   >
     <nav class="container mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
       <!-- Sisi Kiri: Logo & Nav Desktop -->
@@ -133,7 +133,7 @@ onUnmounted(() => {
           <!-- Panel Dropdown User -->
           <div
             v-if="isDropdownOpen"
-            class="absolute right-0 mt-2 w-64 bg-background border border-secondary/30 rounded-lg shadow-lg py-2 z-50"
+            class="absolute right-0 mt-2 w-64 bg-background border border-secondary/30 rounded-lg shadow-lg py-2 z-40"
           >
             <RouterLink
               to="/account"
@@ -184,7 +184,7 @@ onUnmounted(() => {
     <div
       v-if="isMobileMenuOpen"
       ref="mobileMenuPanel"
-      class="md:hidden absolute w-full bg-background/95 backdrop-blur-md border-b border-secondary/20 shadow-lg z-30"
+      class="md:hidden absolute w-full bg-secondary/15 backdrop-blur-md border-b border-secondary/20 shadow-lg z-30"
     >
       <nav class="container mx-auto px-4 sm:px-6 py-4 space-y-2">
         <RouterLink

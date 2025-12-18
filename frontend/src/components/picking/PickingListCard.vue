@@ -15,7 +15,7 @@ const props = defineProps({
 })
 
 const authStore = useAuthStore()
-const emit = defineEmits(['toggle-invoice', 'cancel-invoice']) // 'toggle-item' & 'toggle-location' removed
+const emit = defineEmits(['toggle-invoice', 'cancel-invoice'])
 
 const isOpen = ref(false)
 const isLoading = ref(false)
@@ -47,7 +47,6 @@ const sourceBgClass = computed(() => {
   }
 })
 
-// Cek apakah ada masalah stok di invoice ini
 const hasStockIssue = computed(() => {
   if (props.mode === 'history' || !props.inv.locations) return false
   for (const locName in props.inv.locations) {
@@ -59,9 +58,7 @@ const hasStockIssue = computed(() => {
   return false
 })
 
-// Logic baru: Checkbox Invoice
 const isInvoiceSelected = computed(() => {
-  // Kumpulkan semua item yang valid (punya stok & lokasi)
   let validItems = []
   if (props.inv.locations) {
     Object.values(props.inv.locations).forEach((items) => {
@@ -74,8 +71,6 @@ const isInvoiceSelected = computed(() => {
   }
 
   if (validItems.length === 0) return false
-
-  // Cek apakah SEMUA item valid tersebut sudah terpilih
   return validItems.every((id) => props.selectedItems.has(id))
 })
 
@@ -86,10 +81,7 @@ const canCancel = computed(() => {
 })
 
 // --- ACTIONS ---
-
 function onToggleInvoice(event) {
-  // [DEBUG]
-  // console.log(`Card Action: Toggle Invoice ${props.inv.invoice}, Checked: ${event.target.checked}`)
   emit('toggle-invoice', { inv: props.inv, checked: event.target.checked })
 }
 
@@ -107,12 +99,9 @@ async function onCancelInvoice() {
   }
 }
 
-// Digunakan hanya untuk styling visual (merah jika stok kurang)
 function isItemInvalid(item) {
   if (props.mode === 'history') return false
   if (!item.location_code) return true
-  // Kita gunakan logic validateStock untuk visualisasi merah
-  // Tapi kita pass item dummy yang belum diselect agar pengecekan stok murni based on availability
   return !props.validateStock({ ...item, quantity: Number(item.quantity) })
 }
 
@@ -170,23 +159,23 @@ function getStatusBadge(status) {
 
 <template>
   <div
-    class="bg-background border rounded-xl overflow-hidden transition-all duration-300 flex flex-col shadow-sm mb-4 break-inside-avoid group"
+    class="bg-background border rounded-xl overflow-hidden transition-all duration-300 flex flex-col shadow-md mb-4 break-inside-avoid group"
     :class="[
       isInvoiceSelected
         ? 'border-primary ring-1 ring-primary/30 shadow-md'
         : 'border-secondary hover:border-primary/50 hover:shadow-md',
     ]"
   >
-    <!-- HEADER CARD -->
+    <!-- HEADER CARD (STANDARD SIZE) -->
     <div
-      class="px-3 py-3 flex items-start justify-between border-b bg-secondary/25 relative"
+      class="px-3 py-3 flex items-start justify-between border-b bg-secondary/35 relative"
       :class="[mode === 'history' ? 'cursor-pointer' : '']"
       @click="mode === 'history' ? (isOpen = !isOpen) : null"
     >
       <div class="absolute left-0 top-0 bottom-0 w-1" :class="sourceBgClass"></div>
 
       <div class="flex items-start gap-3 pl-2 min-w-0 flex-1">
-        <!-- MAIN CHECKBOX (NEW) -->
+        <!-- MAIN CHECKBOX -->
         <div v-if="mode === 'picking'" class="pt-1">
           <input
             type="checkbox"
@@ -276,16 +265,15 @@ function getStatusBadge(status) {
 
     <!-- ITEM LIST (PICKING MODE) -->
     <div v-if="mode === 'picking'" class="divide-y divide-secondary/10 relative">
-      <!-- Overlay jika selected -->
       <div
         v-if="isInvoiceSelected"
         class="absolute inset-0 bg-primary/5 pointer-events-none z-0"
       ></div>
 
       <div v-for="(items, locName) in inv.locations" :key="locName" class="relative z-10">
-        <!-- Location Header (Without Checkbox) -->
+        <!-- Location Header -->
         <div
-          class="bg-secondary/5 px-4 py-1.5 flex items-center justify-between border-b border-secondary/5"
+          class="bg-secondary/50 px-4 py-1.5 flex items-center justify-between border-b border-secondary/5"
         >
           <div class="flex items-center gap-2">
             <font-awesome-icon
@@ -306,7 +294,7 @@ function getStatusBadge(status) {
           </div>
         </div>
 
-        <!-- Item Rows (Without Checkbox) -->
+        <!-- Item Rows -->
         <table class="w-full text-left text-sm">
           <tbody class="divide-y divide-secondary/5">
             <tr
@@ -315,7 +303,6 @@ function getStatusBadge(status) {
               class="transition-colors"
               :class="isItemInvalid(item) ? 'bg-danger/5' : ''"
             >
-              <!-- Info Product -->
               <td class="pl-4 py-2">
                 <div class="font-bold text-xs text-text mb-0.5 flex items-center gap-2">
                   {{ item.sku }}
@@ -329,7 +316,6 @@ function getStatusBadge(status) {
                 <div class="text-[10px] text-text/60 leading-tight line-clamp-2">
                   {{ item.product_name }}
                 </div>
-                <!-- Warning Stok -->
                 <div
                   v-if="isItemInvalid(item) && item.location_code"
                   class="text-[9px] text-danger font-bold mt-1 flex items-center gap-1"
@@ -341,7 +327,6 @@ function getStatusBadge(status) {
                   Lokasi tidak ditemukan
                 </div>
               </td>
-              <!-- Qty -->
               <td class="px-4 py-2 text-right align-top w-16">
                 <span
                   class="font-bold text-sm"
@@ -381,9 +366,11 @@ function getStatusBadge(status) {
               <div class="text-[10px] text-text/50 truncate">{{ item.product_name || '-' }}</div>
             </div>
             <div class="text-right shrink-0">
-              <span class="font-bold bg-background px-1.5 py-0.5 rounded border border-secondary/10"
-                >{{ item.quantity }} pcs</span
+              <span
+                class="font-bold bg-background px-1.5 py-0.5 rounded border border-secondary/10"
               >
+                {{ item.quantity }} pcs
+              </span>
               <div class="mt-1">
                 <span
                   class="text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-1 w-fit ml-auto"
@@ -415,19 +402,3 @@ function getStatusBadge(status) {
     </transition>
   </div>
 </template>
-
-<style scoped>
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
-}
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-</style>

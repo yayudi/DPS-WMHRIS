@@ -3,6 +3,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth.js'
 import { formatCurrency } from '@/utils/formatters.js'
+import { fetchProductById } from '@/api/helpers/products.js'
 
 const props = defineProps({
   product: { type: Object, required: true },
@@ -22,11 +23,20 @@ const auth = useAuthStore()
 
 // --- STATE ---
 const tooltipContainer = ref(null)
+const packageTriggerRef = ref(null) // Ref untuk tombol PAKET spesifik baris ini
 
-// Tooltip State
+// Location Tooltip State
 const isTooltipVisible = ref(false)
 const tooltipX = ref(0)
 const tooltipY = ref(0)
+
+// Package Tooltip State
+const isPackageTooltipVisible = ref(false)
+const packageTooltipX = ref(0)
+const packageTooltipY = ref(0)
+const localComponents = ref([])
+const isLoadingComponents = ref(false)
+const hasFetchedComponents = ref(false)
 
 // Menu State
 const isMenuVisible = ref(false)
@@ -53,7 +63,8 @@ const showTooltip = computed(() => {
 
 function handleToggleTooltip() {
   if (showTooltip.value) {
-    isMenuVisible.value = false // Tutup menu
+    isMenuVisible.value = false
+    isPackageTooltipVisible.value = false
 
     if (isTooltipVisible.value) {
       isTooltipVisible.value = false
@@ -69,9 +80,60 @@ function handleToggleTooltip() {
   }
 }
 
+// --- PACKAGE TOOLTIP LOGIC ---
+const fetchPackageComponents = async () => {
+  isLoadingComponents.value = true
+  try {
+    const productData = await fetchProductById(props.product.id)
+    if (productData) {
+      localComponents.value = productData.components || []
+    }
+    hasFetchedComponents.value = true
+  } catch (error) {
+    console.error('Gagal mengambil komponen paket:', error)
+    localComponents.value = []
+  } finally {
+    isLoadingComponents.value = false
+  }
+}
+
+const handleTogglePackageTooltip = async (event) => {
+  // Tutup yang lain (menu & tooltip lokasi)
+  isMenuVisible.value = false
+  isTooltipVisible.value = false
+
+  // Logic Toggle: Jika sedang terbuka, tutup
+  if (isPackageTooltipVisible.value) {
+    isPackageTooltipVisible.value = false
+    return
+  }
+
+  // Buka tooltip
+  const rect = event.currentTarget.getBoundingClientRect()
+  packageTooltipX.value = rect.left + rect.width / 2
+  packageTooltipY.value = rect.top
+  isPackageTooltipVisible.value = true
+
+  // Fetch data jika belum ada
+  if (
+    !hasFetchedComponents.value &&
+    (!props.product.components || props.product.components.length === 0)
+  ) {
+    await fetchPackageComponents()
+  } else if (
+    props.product.components &&
+    props.product.components.length > 0 &&
+    !hasFetchedComponents.value
+  ) {
+    localComponents.value = props.product.components
+    hasFetchedComponents.value = true
+  }
+}
+
 // --- MENU LOGIC ---
 function handleToggleMenu(event) {
-  isTooltipVisible.value = false // Tutup tooltip
+  isTooltipVisible.value = false
+  isPackageTooltipVisible.value = false
 
   if (isMenuVisible.value) {
     isMenuVisible.value = false
@@ -86,6 +148,7 @@ function handleToggleMenu(event) {
 
 // Handle Klik Luar
 function handleClickOutside(event) {
+  // Handle Location Tooltip
   if (
     tooltipContainer.value &&
     !tooltipContainer.value.contains(event.target) &&
@@ -94,6 +157,18 @@ function handleClickOutside(event) {
     isTooltipVisible.value = false
   }
 
+  // Handle Package Tooltip
+  // Cek apakah klik terjadi pada TOMBOL paket milik baris INI
+  const isClickOnTrigger = packageTriggerRef.value && packageTriggerRef.value.contains(event.target)
+  // Cek apakah klik terjadi di dalam TOOLTIP yang muncul
+  const isClickOnTooltip = event.target.closest('.package-tooltip-teleported')
+
+  // Jika klik BUKAN di tombol ini DAN BUKAN di tooltip -> Tutup
+  if (!isClickOnTrigger && !isClickOnTooltip) {
+    isPackageTooltipVisible.value = false
+  }
+
+  // Handle Menu
   if (!event.target.closest('.action-btn') && !event.target.closest('.menu-teleported')) {
     isMenuVisible.value = false
   }
@@ -153,7 +228,9 @@ const currentLocation = computed(() => {
         </span>
         <span
           v-if="product.is_package"
-          class="shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-accent/10 text-accent border border-accent/20 tracking-wide"
+          ref="packageTriggerRef"
+          @click.stop="handleTogglePackageTooltip"
+          class="package-badge-trigger shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-accent/10 text-accent border border-accent/20 tracking-wide cursor-pointer hover:bg-accent/20 transition-colors"
         >
           PAKET
         </span>
@@ -213,6 +290,7 @@ const currentLocation = computed(() => {
     </div>
   </div>
 
+  <!-- Location Tooltip -->
   <Teleport to="body">
     <div
       v-if="showTooltip && isTooltipVisible"
@@ -247,6 +325,60 @@ const currentLocation = computed(() => {
     </div>
   </Teleport>
 
+  <!-- Package Components Tooltip -->
+  <Teleport to="body">
+    <div
+      v-if="isPackageTooltipVisible"
+      class="package-tooltip-teleported fixed z-[99999] min-w-[200px] max-w-xs bg-background text-text text-xs rounded-lg shadow-xl p-3 border border-accent backdrop-blur-sm"
+      :style="{
+        left: packageTooltipX + 'px',
+        top: packageTooltipY + 'px',
+        transform: 'translateX(-50%) translateY(-100%)',
+        marginTop: '-8px',
+      }"
+    >
+      <div
+        class="font-bold text-accent mb-2 uppercase text-[10px] tracking-wider border-b border-accent pb-1"
+      >
+        Komponen Paket
+      </div>
+
+      <!-- Loading State -->
+      <div v-if="isLoadingComponents" class="flex justify-center items-center py-4">
+        <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-accent text-lg" />
+      </div>
+
+      <!-- Data State -->
+      <div v-else-if="localComponents && localComponents.length > 0">
+        <ul class="space-y-2">
+          <li
+            v-for="comp in localComponents"
+            :key="comp.id || comp.component_product_id"
+            class="flex items-start gap-2"
+          >
+            <div
+              class="font-bold bg-accent/10 text-accent px-1.5 py-0.5 rounded text-[10px] shrink-0 font-mono"
+            >
+              {{ comp.quantity || comp.quantity_per_package }}x
+            </div>
+            <div class="flex flex-col min-w-0">
+              <span class="font-semibold text-text truncate leading-tight">{{ comp.name }}</span>
+              <span class="text-[10px] text-text/60 font-mono truncate">{{ comp.sku }}</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else class="text-center py-2 text-text/50 italic">Tidak ada data komponen</div>
+
+      <div
+        class="absolute left-1/2 -translate-x-1/2 bottom-[-5px] w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[5px] border-t-accent"
+      ></div>
+    </div>
+  </Teleport>
+
+  <!-- Action Menu -->
   <Teleport to="body">
     <div
       v-if="isMenuVisible"

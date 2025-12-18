@@ -53,7 +53,7 @@ export const approveReturn = async (req, res) => {
   const { itemId, qtyAccepted, condition, locationId, notes } = req.body;
   const userId = req.user?.id || 1;
 
-  // 1. Validasi Input Dasar
+  // Validasi Input Dasar
   if (!itemId || !qtyAccepted || !locationId || !condition) {
     return res.status(400).json({
       success: false,
@@ -66,7 +66,7 @@ export const approveReturn = async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // 2. Validasi Item Asli
+    // Validasi Item Asli
     const item = await returnRepo.getItemById(connection, itemId);
     if (!item) {
       throw new Error("Item picking tidak ditemukan.");
@@ -83,7 +83,7 @@ export const approveReturn = async (req, res) => {
       throw new Error(`Jumlah diterima (${qtyVal}) tidak valid. Maksimal: ${item.quantity}.`);
     }
 
-    // 3. Proses Retur (Full vs Partial)
+    // Proses Retur (Full vs Partial)
     if (qtyVal === item.quantity) {
       // CASE A: Full Return -> Update item eksisting langsung
       await returnRepo.completeReturnItem(connection, itemId, {
@@ -106,11 +106,11 @@ export const approveReturn = async (req, res) => {
       });
     }
 
-    // 4. Update Stok Fisik (Increment)
+    // Update Stok Fisik (Increment)
     // Barang masuk kembali ke lokasi yang dipilih (baik kondisi Bagus atau Rusak, tetap masuk lokasi fisik)
     await locationRepo.incrementStock(connection, item.product_id, locationId, qtyVal);
 
-    // 5. Catat Log Pergerakan Stok
+    // Catat Log Pergerakan Stok
     await stockRepo.createLog(connection, {
       productId: item.product_id,
       quantity: qtyVal,
@@ -156,7 +156,7 @@ export const createManualReturn = async (req, res) => {
 
     const qtyVal = parseInt(quantity, 10);
 
-    // 1. Insert ke Tabel Manual Returns
+    // Insert ke Tabel Manual Returns
     await returnRepo.createManualReturn(connection, {
       userId,
       productId,
@@ -166,10 +166,10 @@ export const createManualReturn = async (req, res) => {
       notes,
     });
 
-    // 2. Tambah Stok Fisik
+    // Tambah Stok Fisik
     await locationRepo.incrementStock(connection, productId, locationId, qtyVal);
 
-    // 3. Catat Log Pergerakan
+    // Catat Log Pergerakan
     await stockRepo.createLog(connection, {
       productId: productId,
       quantity: qtyVal,

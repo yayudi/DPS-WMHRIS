@@ -122,7 +122,7 @@ async function submitBatch() {
     </div>
 
     <div class="bg-background rounded-xl shadow-md border border-secondary/20 p-6 space-y-6">
-      <!-- 1. Komponen Header (Tabs + Form Lokasi Batch) -->
+      <!-- Komponen Header (Tabs + Form Lokasi Batch) -->
       <BatchMovementHeader
         v-model:activeTab="activeTab"
         v-model:fromLocation="fromLocation"
@@ -134,7 +134,7 @@ async function submitBatch() {
         :allow-adjustment="false"
       />
 
-      <!-- 2. Panel Konten -->
+      <!-- Panel Konten -->
       <MultiLocationTransferTab
         v-if="activeTab === 'DETAILED_TRANSFER'"
         :all-locations="allLocations"

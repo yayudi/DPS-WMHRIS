@@ -3,6 +3,7 @@ import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import {
   faArrowLeft,
+  faArrowRight,
   faArrowTrendDown,
   faBan,
   faBarcode,
@@ -96,6 +97,7 @@ import {
   faSquare,
   faStore,
   faSync,
+  faTableCells,
   faThumbsUp,
   faThumbsDown,
   faTimes,
@@ -120,6 +122,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 library.add(
   faArrowLeft,
+  faArrowRight,
   faArrowTrendDown,
   faBan,
   faBarcode,
@@ -213,6 +216,7 @@ library.add(
   faSquare,
   faStore,
   faSync,
+  faTableCells,
   faThumbsUp,
   faThumbsDown,
   faTimes,

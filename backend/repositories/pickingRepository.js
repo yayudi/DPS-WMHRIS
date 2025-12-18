@@ -8,23 +8,31 @@ import { WMS_STATUS } from "../config/wmsConstants.js";
 export const getPendingItems = async (connection) => {
   const query = `
     SELECT
-      pli.id, pli.picking_list_id, pli.product_id, pli.original_sku as sku, pli.quantity, pli.status,
+      pli.id,
+      pli.picking_list_id,
+      pli.product_id,
+      pli.original_sku as sku,
+      pli.quantity,
+      pli.status,
       COALESCE(loc_picked.code, loc_suggested.code) as location_code,
       p.name as product_name,
-      pl.original_invoice_id, pl.source, pl.order_date, pl.created_at, pl.customer_name,
+      pl.original_invoice_id,
+      pl.source,
+      pl.order_date,
+      pl.created_at,
+      pl.customer_name,
       pl.marketplace_status,
-      (SELECT sl.quantity FROM stock_locations sl
-       WHERE sl.location_id = pli.suggested_location_id AND sl.product_id = pli.product_id
-       LIMIT 1) as available_stock
+      COALESCE(sl.quantity, 0) as available_stock
     FROM picking_list_items pli
     JOIN picking_lists pl ON pli.picking_list_id = pl.id
     LEFT JOIN products p ON pli.product_id = p.id
     LEFT JOIN locations loc_suggested ON pli.suggested_location_id = loc_suggested.id
     LEFT JOIN locations loc_picked ON pli.picked_from_location_id = loc_picked.id
+    LEFT JOIN stock_locations sl ON sl.location_id = pli.suggested_location_id AND sl.product_id = pli.product_id
     WHERE pl.status IN (?, ?)
       AND pl.is_active = 1
       AND pli.status = ?
-    ORDER BY pl.created_at DESC, location_code ASC
+    ORDER BY pl.created_at DESC, pl.id DESC, location_code ASC
   `;
 
   const [rows] = await connection.query(query, [
@@ -78,7 +86,7 @@ export const getItemsByIds = async (connection, itemIds) => {
 export const countPendingItems = async (connection, listId) => {
   const [rows] = await connection.query(
     `SELECT COUNT(*) as count FROM picking_list_items
-     WHERE picking_list_id = ? AND status NOT IN ('VALIDATED', 'CANCEL')`,
+      WHERE picking_list_id = ? AND status NOT IN ('VALIDATED', 'CANCEL')`,
     [listId]
   );
   return rows[0].count;
@@ -90,6 +98,18 @@ export const findActiveHeaderByInvoice = async (connection, invoiceId) => {
     [invoiceId]
   );
   return rows.length > 0 ? rows[0] : null;
+};
+
+// Bulk Check Existing Invoices
+export const getActiveHeadersByInvoiceIds = async (connection, invoiceIds) => {
+  if (invoiceIds.length === 0) return [];
+  const [rows] = await connection.query(
+    `SELECT id, original_invoice_id, status
+      FROM picking_lists
+      WHERE original_invoice_id IN (?) AND is_active = 1`,
+    [invoiceIds]
+  );
+  return rows;
 };
 
 export const getItemsForComparison = async (connection, listId) => {
@@ -119,15 +139,31 @@ export const cancelHeader = async (connection, listId) => {
   );
 };
 
-// [FIX] Mengubah ID invoice lama agar tidak tabrakan (Duplicate Entry) dengan yang baru
+// Update Header Status (Generic)
+export const updateHeaderStatus = async (connection, listId, status, isActive) => {
+  return connection.query(`UPDATE picking_lists SET status = ?, is_active = ? WHERE id = ?`, [
+    status,
+    isActive,
+    listId,
+  ]);
+};
+
+// Update Items Status by List ID (Generic)
+export const updateItemsStatusByListId = async (connection, listId, status) => {
+  return connection.query(`UPDATE picking_list_items SET status = ? WHERE picking_list_id = ?`, [
+    status,
+    listId,
+  ]);
+};
+
 export const archiveHeader = async (connection, listId) => {
   return connection.query(
     `UPDATE picking_lists
-     SET status = 'OBSOLETE',
-         is_active = NULL,
-         original_invoice_id = CONCAT(original_invoice_id, '_REV_', id), -- Rename Invoice ID agar slot 'idx_unique_invoice' kosong
-         updated_at = NOW()
-     WHERE id = ?`,
+      SET status = 'OBSOLETE',
+        is_active = NULL,
+        original_invoice_id = CONCAT(original_invoice_id, '_REV_', id),
+        updated_at = NOW()
+      WHERE id = ?`,
     [listId]
   );
 };
@@ -140,6 +176,7 @@ export const cancelItemsByListId = async (connection, listId) => {
 };
 
 export const updateSuggestedLocation = async (connection, itemId, locationId) => {
+  console.log("Updating suggested location:", { itemId, locationId });
   return connection.query(`UPDATE picking_list_items SET suggested_location_id = ? WHERE id = ?`, [
     locationId,
     itemId,
@@ -149,8 +186,8 @@ export const updateSuggestedLocation = async (connection, itemId, locationId) =>
 export const validateItem = async (connection, itemId, locationId) => {
   return connection.query(
     `UPDATE picking_list_items
-     SET status = 'VALIDATED', picked_from_location_id = ?, confirmed_location_id = ?
-     WHERE id = ?`,
+      SET status = 'VALIDATED', picked_from_location_id = ?, confirmed_location_id = ?
+      WHERE id = ?`,
     [locationId, locationId, itemId]
   );
 };
@@ -159,15 +196,6 @@ export const validateHeader = async (connection, listId) => {
   return connection.query(
     `UPDATE picking_lists SET status = 'VALIDATED', updated_at = NOW() WHERE id = ?`,
     [listId]
-  );
-};
-
-export const setObsoleteByInvoiceIds = async (connection, invoiceIds) => {
-  return connection.query(
-    `UPDATE picking_lists
-     SET status = 'OBSOLETE', updated_at = NOW()
-     WHERE original_invoice_id IN (?) AND status = 'PENDING'`,
-    [invoiceIds]
   );
 };
 
@@ -194,7 +222,7 @@ export const createHeader = async (
 ) => {
   const [res] = await connection.query(
     `INSERT INTO picking_lists (user_id, source, original_invoice_id, customer_name, order_date, status, marketplace_status, is_active, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW())`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW())`,
     [userId, source, invoiceId, customer, orderDate, status, mpStatus]
   );
   return res.insertId;
@@ -206,7 +234,16 @@ export const createItem = async (
 ) => {
   return connection.query(
     `INSERT INTO picking_list_items (picking_list_id, product_id, original_sku, quantity, status, suggested_location_id)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?)`,
     [listId, productId, sku, qty, status, locationId]
+  );
+};
+
+// Bulk Create Items (Optimization)
+export const createItemsBulk = async (connection, rows) => {
+  if (rows.length === 0) return;
+  return connection.query(
+    `INSERT INTO picking_list_items (picking_list_id, product_id, original_sku, quantity, status, suggested_location_id) VALUES ?`,
+    [rows]
   );
 };

@@ -1,12 +1,13 @@
-// backend\repositories\locationRepository.js
+// backend/repositories/locationRepository.js
+// ============================================================================
+// READ OPERATIONS
+// ============================================================================
 
-// Ambil ID berdasarkan Kode (Untuk Validasi Upload)
 export const getIdByCode = async (connection, code) => {
   const [rows] = await connection.query("SELECT id FROM locations WHERE code = ?", [code]);
   return rows.length > 0 ? rows[0].id : null;
 };
 
-// Ambil semua kode lokasi (Untuk Header Report)
 export const getAllLocationCodes = async (connection) => {
   const [rows] = await connection.query(
     "SELECT DISTINCT code FROM locations WHERE code IS NOT NULL AND code != '' ORDER BY code ASC"
@@ -14,22 +15,99 @@ export const getAllLocationCodes = async (connection) => {
   return rows.map((r) => r.code);
 };
 
-// Update Stok (Upsert) - Digunakan saat Stock Opname
+export const getStockAtLocation = async (connection, productId, locationId, forUpdate = false) => {
+  let query = "SELECT quantity FROM stock_locations WHERE product_id = ? AND location_id = ?";
+  if (forUpdate) query += " FOR UPDATE";
+  const [rows] = await connection.query(query, [productId, locationId]);
+  return rows.length > 0 ? Number(rows[0].quantity) : 0;
+};
+
+/**
+ * Bulk Get Locations (Strict Purpose)
+ */
+export const getLocationsByProductIds = async (connection, productIds, purpose = "DISPLAY") => {
+  if (!productIds || productIds.length === 0) return [];
+  const [rows] = await connection.query(
+    `SELECT sl.product_id, sl.location_id, l.code, sl.quantity
+      FROM stock_locations sl
+      JOIN locations l ON sl.location_id = l.id
+      WHERE sl.product_id IN (?) AND l.purpose = ?
+      ORDER BY
+      -- Custom Priority: 2 & 3 Paling Atas, lalu 4 & 5
+      CASE
+        WHEN sl.location_id IN (2, 3) THEN 1
+        WHEN sl.location_id IN (4, 5) THEN 2
+        ELSE 3
+      END ASC,
+      -- Secondary: Jika prioritas sama, ambil stok terbanyak (DESC) agar picking lebih aman
+      sl.quantity DESC`,
+    [productIds, purpose]
+  );
+  return rows;
+};
+
+/**
+ * Bulk Get Total Stock (Strict Purpose)
+ */
+export const getTotalStockByProductIds = async (connection, productIds, purpose = "DISPLAY") => {
+  if (!productIds || productIds.length === 0) return [];
+  const [rows] = await connection.query(
+    `SELECT sl.product_id, SUM(sl.quantity) as qty
+      FROM stock_locations sl
+      JOIN locations l ON sl.location_id = l.id
+      WHERE l.purpose = ? AND sl.product_id IN (?)
+      GROUP BY sl.product_id`,
+    [purpose, productIds]
+  );
+  return rows;
+};
+
+/**
+ * Find Best Stock (Single Lookup)
+ */
+export const findBestStock = async (connection, productId, qtyNeeded) => {
+  const [rows] = await connection.query(
+    `SELECT sl.location_id, sl.quantity
+      FROM stock_locations sl
+      JOIN locations l ON sl.location_id = l.id
+      WHERE sl.product_id = ?
+        AND sl.quantity > 0
+        AND l.purpose = 'DISPLAY'
+      ORDER BY
+        -- Custom Priority Level
+        CASE
+          WHEN sl.location_id IN (2, 3) THEN 1
+          WHEN sl.location_id IN (4, 5) THEN 2
+          ELSE 3
+        END ASC,
+        -- Prioritaskan stok yang CUKUP dulu dalam level prioritas yang sama
+        CASE WHEN sl.quantity >= ? THEN 1 ELSE 2 END ASC,
+        -- Terakhir ambil stok terbanyak
+        sl.quantity DESC
+      LIMIT 1`,
+    [productId, qtyNeeded, qtyNeeded]
+  );
+  return rows.length > 0 ? rows[0].location_id : null;
+};
+
+// ============================================================================
+// WRITE OPERATIONS
+// ============================================================================
+
 export const upsertStock = async (connection, productId, locationId, quantity) => {
   return connection.query(
     `INSERT INTO stock_locations (product_id, location_id, quantity)
-     VALUES (?, ?, ?)
-     ON DUPLICATE KEY UPDATE quantity = ?`,
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE quantity = ?`,
     [productId, locationId, quantity, quantity]
   );
 };
 
-// Kurangi Stok (Atomic Update) - Dipakai di Picking
 export const deductStock = async (connection, productId, locationId, quantity) => {
   return connection.query(
     `UPDATE stock_locations
-     SET quantity = quantity - ?
-     WHERE product_id = ? AND location_id = ?`,
+      SET quantity = quantity - ?
+      WHERE product_id = ? AND location_id = ?`,
     [quantity, productId, locationId]
   );
 };
@@ -37,35 +115,8 @@ export const deductStock = async (connection, productId, locationId, quantity) =
 export const incrementStock = async (connection, productId, locationId, quantity) => {
   return connection.query(
     `INSERT INTO stock_locations (product_id, location_id, quantity)
-     VALUES (?, ?, ?)
-     ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
     [productId, locationId, quantity, quantity]
   );
-};
-
-// Mencari lokasi stok terbaik (Logika Prioritas: Display -> Stok Cukup -> Stok Terbanyak)
-// Menggantikan helper 'findBestLocation'
-export const findBestStock = async (connection, productId, qtyNeeded) => {
-  const [rows] = await connection.query(
-    `SELECT sl.location_id, sl.quantity
-     FROM stock_locations sl
-     JOIN locations l ON sl.location_id = l.id
-     WHERE sl.product_id = ?
-       AND sl.quantity > 0
-     ORDER BY
-       CASE
-         WHEN l.purpose = 'DISPLAY' THEN 1 ELSE 2
-       END ASC, -- Prioritas 1: Display
-       CASE
-         WHEN l.floor IN (1, 2) AND sl.quantity >= ? THEN 1 -- Prioritas 2: Lantai Bawah & Cukup
-         WHEN sl.quantity >= ? THEN 2                       -- Prioritas 3: Stok Cukup dimanapun
-         WHEN l.floor IN (1, 2) THEN 3                      -- Prioritas 4: Lantai Bawah (Partial)
-         ELSE 4                                             -- Prioritas 5: Sisanya
-       END ASC,
-       sl.quantity DESC -- Prioritas Tambahan: Stok terbanyak
-     LIMIT 1`,
-    [productId, qtyNeeded, qtyNeeded]
-  );
-
-  return rows.length > 0 ? rows[0].location_id : null;
 };

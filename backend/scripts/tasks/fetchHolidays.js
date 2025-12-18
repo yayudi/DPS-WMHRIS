@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 
-// ✅ 1. Impor fungsi-fungsi pembantu dari pustaka terpusat
+// ✅ Impor fungsi-fungsi pembantu dari pustaka terpusat
 import { log, ensureDir } from "./taskHelpers.js";
 
 /**
@@ -24,7 +24,7 @@ export async function fetchAndCacheHolidays() {
       throw new Error("Respons dari API bukan dalam format JSON array yang valid.");
     }
 
-    // ✅ 2. Path sekarang menggunakan process.cwd() untuk konsistensi
+    // ✅ Path sekarang menggunakan process.cwd() untuk konsistensi
     const outputDir = path.join(process.cwd(), "public", "json", "absensi", "holidays");
     const outFile = path.join(outputDir, `${year}.json`);
 

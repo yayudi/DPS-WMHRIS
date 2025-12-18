@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { fetchProducts as fetchProductsFromApi } from '@/api/helpers/wms.js'
 import { fetchAllLocations } from '@/api/helpers/stock.js'
+// import { EventSourcePolyfill } from 'event-source-polyfill'
 
 export function useWms() {
   const auth = useAuthStore()
@@ -13,7 +14,6 @@ export function useWms() {
   const totalProducts = ref(0)
   const loading = ref(true)
   const isLoadingMore = ref(false)
-  const isBackgroundLoading = ref(false)
   const error = ref(null)
   const pageSize = 30
   const loader = ref(null)
@@ -29,6 +29,10 @@ export function useWms() {
   const startDate = ref('')
   const endDate = ref('')
 
+  // const sseStatus = ref('disconnected')
+  // const recentlyUpdatedProducts = ref(new Set())
+  // let eventSource = null
+  // let reconnectTimer = null
   let refetchIntervalId = null
   let observer = null
   let debounceTimer = null
@@ -99,25 +103,26 @@ export function useWms() {
   }
 
   async function fetchInitialData() {
-    await Promise.all([
-      fetchProducts('init'),
-      fetchAllLocations().then((data) => {
-        allLocations.value = data
-      }),
-    ])
+    loading.value = true
+    error.value = null
+    try {
+      await Promise.all([
+        fetchProducts(true),
+        fetchAllLocations().then((data) => {
+          allLocations.value = data
+        }),
+      ])
+    } catch (err) {
+      console.error('Error fetching initial WMS data:', err)
+      error.value = 'Gagal memuat data awal WMS.'
+    } finally {
+      loading.value = false
+    }
   }
 
-  /**
-   * Fetch Products dengan 3 Mode:
-   * 'init'     -> Loading Penuh (Spinner Besar). Reset data.
-   * 'loadMore' -> Loading Bawah. Append data.
-   * 'silent'   -> Tidak ada Loading Spinner. Update data in-place (Patch).
-   */
-  async function fetchProducts(mode = 'init') {
-    if (mode === 'init') loading.value = true
-    else if (mode === 'loadMore') isLoadingMore.value = true
-    else if (mode === 'silent') isBackgroundLoading.value = true
-
+  async function fetchProducts(isNewSearch = false) {
+    if (isNewSearch) loading.value = true
+    else isLoadingMore.value = true
     error.value = null
 
     try {
@@ -140,11 +145,6 @@ export function useWms() {
       if (!params.startDate || !params.endDate) {
         delete params.startDate
         delete params.endDate
-      }
-
-      // [UPDATE] Anti-Cache Mechanism: Tambahkan timestamp unik ke request silent
-      if (mode === 'silent') {
-        params._t = Date.now()
       }
 
       const response = await fetchProductsFromApi(params)
@@ -173,112 +173,83 @@ export function useWms() {
         transformed.forEach((product) => delete product.price)
       }
 
-      // --- LOGIKA UPDATE STATE ---
-      if (mode === 'init') {
+      if (isNewSearch) {
         displayedProducts.value = transformed
-      } else if (mode === 'loadMore') {
+      } else {
         displayedProducts.value.push(...transformed)
-      } else if (mode === 'silent') {
-        // [DEBUG-TRACE] Logika Audit Perubahan Data
-        console.groupCollapsed(`[WMS] Silent Update Check @ ${new Date().toLocaleTimeString()}`)
-        console.log(`Incoming Items: ${transformed.length}`)
-
-        const incomingMap = new Map(transformed.map((p) => [p.id, p]))
-        let patchCount = 0
-        let realChangesCount = 0
-
-        displayedProducts.value.forEach((existingProduct) => {
-          const updatedData = incomingMap.get(existingProduct.id)
-          if (updatedData) {
-            // [FIXED LOGIC] Cek perubahan secara mendalam (Breakdown per lokasi)
-            const isTotalChanged = existingProduct.totalStock !== updatedData.totalStock
-            const isGudangChanged = existingProduct.stockGudang !== updatedData.stockGudang
-            const isPajanganChanged = existingProduct.stockPajangan !== updatedData.stockPajangan
-            const isLTCChanged = existingProduct.stockLTC !== updatedData.stockLTC
-            // Cek lokasi juga agar jika lokasi berpindah tapi jumlah sama tetap terdeteksi
-            const isLocationCodeChanged =
-              existingProduct.allLocationsCode !== updatedData.allLocationsCode
-
-            if (
-              isTotalChanged ||
-              isGudangChanged ||
-              isPajanganChanged ||
-              isLTCChanged ||
-              isLocationCodeChanged
-            ) {
-              console.log(
-                `%c[CHANGE] ${existingProduct.name} (SKU: ${existingProduct.sku})`,
-                'color: orange; font-weight: bold',
-              )
-              if (isTotalChanged)
-                console.log(
-                  `   Total Stock: ${existingProduct.totalStock} -> ${updatedData.totalStock}`,
-                )
-              if (isGudangChanged)
-                console.log(
-                  `   Gudang: ${existingProduct.stockGudang} -> ${updatedData.stockGudang}`,
-                )
-              if (isPajanganChanged)
-                console.log(
-                  `   Pajangan: ${existingProduct.stockPajangan} -> ${updatedData.stockPajangan}`,
-                )
-              if (isLocationCodeChanged)
-                console.log(
-                  `   Loc Codes: ${existingProduct.allLocationsCode} -> ${updatedData.allLocationsCode}`,
-                )
-
-              realChangesCount++
-            }
-
-            // Patching Data (Selalu update agar reaktif terhadap perubahan kecil sekalipun)
-            existingProduct.stock_locations = updatedData.stock_locations
-            existingProduct.totalStock = updatedData.totalStock
-
-            existingProduct.stockGudang = updatedData.stockGudang
-            existingProduct.stockPajangan = updatedData.stockPajangan
-            existingProduct.stockLTC = updatedData.stockLTC
-
-            existingProduct.lokasiGudang = updatedData.lokasiGudang
-            existingProduct.lokasiPajangan = updatedData.lokasiPajangan
-            existingProduct.lokasiLTC = updatedData.lokasiLTC
-
-            existingProduct.allLocationsCode = updatedData.allLocationsCode
-
-            existingProduct.name = updatedData.name
-            existingProduct.sku = updatedData.sku
-            existingProduct.price = updatedData.price
-            patchCount++
-          }
-        })
-
-        console.log(`Matched Items: ${patchCount}`)
-
-        if (realChangesCount > 0) {
-          console.log(
-            `%c[RESULT] Data Updated! ${realChangesCount} items changed.`,
-            'color: green; font-weight: bold',
-          )
-        } else {
-          console.log(`%c[RESULT] No data changes detected. UI will not update.`, 'color: gray')
-        }
-        console.groupEnd()
       }
-
       totalProducts.value = total
     } catch (err) {
       console.error('Error fetching WMS products from API:', err)
-      if (mode === 'init') error.value = 'Gagal memuat data produk.'
+      if (isNewSearch) error.value = 'Gagal memuat data produk.'
     } finally {
-      if (mode === 'init') loading.value = false
+      if (isNewSearch) loading.value = false
       isLoadingMore.value = false
-      isBackgroundLoading.value = false
     }
   }
+
+  // function setupRealtimeUpdates() {
+  //   if (eventSource) eventSource.close()
+  //   clearTimeout(reconnectTimer)
+
+  //   const token = auth.token
+  //   if (!token) return
+
+  //   sseStatus.value = 'connecting'
+  //   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
+  //   eventSource = new EventSource(`${apiBaseUrl}/realtime/stock-updates?token=${token}`)
+
+  //   eventSource.onopen = () => {
+  //     sseStatus.value = 'connected'
+  //   }
+
+  //   eventSource.onmessage = (event) => {
+  //     try {
+  //       const parsedData = JSON.parse(event.data)
+
+  //       // Abaikan jika pesan hanyalah status koneksi (Handshake)
+  //       if (parsedData.status === 'connected') {
+  //         return
+  //       }
+
+  //       // Pastikan data adalah Array sebelum di-loop (forEach)
+  //       if (Array.isArray(parsedData)) {
+  //         parsedData.forEach((update) => {
+  //           const productInView = displayedProducts.value.find((p) => p.id === update.productId)
+  //           if (productInView) {
+  //             const updatedProductData = {
+  //               ...productInView,
+  //               stock_locations: update.newStock,
+  //             }
+  //             const newTransformedProduct = transformProduct(updatedProductData)
+  //             Object.assign(productInView, newTransformedProduct)
+
+  //             recentlyUpdatedProducts.value.add(update.productId)
+  //             setTimeout(() => {
+  //               recentlyUpdatedProducts.value.delete(update.productId)
+  //             }, 2000)
+  //           }
+  //         })
+  //       } else {
+  //         console.warn('[SSE] Received non-array data:', parsedData)
+  //       }
+  //     } catch (err) {
+  //       console.error('[SSE] Error parsing message:', err)
+  //     }
+  //   }
+
+  //   eventSource.onerror = (err) => {
+  //     console.error('[SSE] Error connection', err)
+  //     sseStatus.value = 'disconnected'
+  //     eventSource.close()
+  //     reconnectTimer = setTimeout(setupRealtimeUpdates, 5000)
+  //   }
+  // }
 
   function loadMoreProducts() {
     if (hasMoreData.value && !isLoadingMore.value) {
       currentPage.value++
-      fetchProducts('loadMore')
+      fetchProducts(false)
     }
   }
 
@@ -287,7 +258,7 @@ export function useWms() {
     displayedProducts.value = []
     totalProducts.value = 0
     nextTick(() => {
-      fetchProducts('init')
+      fetchProducts(true)
     })
   }
 
@@ -320,6 +291,13 @@ export function useWms() {
     )
   })
 
+  // onUnmounted(() => {
+  //   if (eventSource) eventSource.close()
+  //   clearTimeout(reconnectTimer)
+  //   clearInterval(refetchIntervalId)
+  //   if (observer) observer.disconnect()
+  // })
+
   onUnmounted(() => {
     clearInterval(refetchIntervalId)
     if (observer) observer.disconnect()
@@ -330,9 +308,7 @@ export function useWms() {
     (newValue) => {
       if (newValue && !refetchIntervalId) {
         refetchIntervalId = setInterval(() => {
-          if (currentPage.value === 1) {
-            fetchProducts('silent')
-          }
+          fetchProducts(true)
         }, 30000)
       } else if (!newValue && refetchIntervalId) {
         clearInterval(refetchIntervalId)
@@ -347,6 +323,7 @@ export function useWms() {
     (isAuth) => {
       if (isAuth) {
         if (displayedProducts.value.length === 0) fetchInitialData()
+        // setupRealtimeUpdates()
       }
     },
     { immediate: true },
@@ -371,8 +348,10 @@ export function useWms() {
       endDate,
     ],
     () => {
-      // Trigger full reset on filter change
-      resetAndRefetch()
+      if ((startDate.value && endDate.value) || (!startDate.value && !endDate.value)) {
+        currentPage.value = 1
+        fetchProducts(true)
+      }
     },
   )
 
@@ -393,7 +372,6 @@ export function useWms() {
     currentPage,
     totalProducts,
     isLoadingMore,
-    isBackgroundLoading,
     hasMoreData,
     searchPlaceholder,
     selectedBuilding,
@@ -402,12 +380,14 @@ export function useWms() {
     sortOrder,
     allLocations,
     isAutoRefetching,
+    // sseStatus,
+    // recentlyUpdatedProducts,
     startDate,
     endDate,
     handleSearchInput,
     handleSort,
     toggleAutoRefetch,
     resetAndRefetch,
-    fetchProducts,
+    fetchProducts, // Exposed so we can refresh after Edit/Create
   }
 }

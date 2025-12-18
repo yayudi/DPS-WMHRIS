@@ -1,10 +1,13 @@
 // backend/controllers/pickingController.js
-import db from "../config/db.js";
 import path from "path";
 import fs from "fs";
 import ExcelJS from "exceljs";
 import { fileURLToPath } from "url";
-import * as pickingService from "../services/pickingDataService.js";
+
+// Services
+import * as pickingService from "../services/pickingDataService.js"; // Untuk Operasional (Get/Cancel/Complete)
+import * as importService from "../services/pickingImportService.js"; // Untuk Logic Import
+import * as jobService from "../services/jobService.js"; // Untuk Logging Job
 
 // ============================================================================
 // READ OPERATIONS (GET)
@@ -56,6 +59,7 @@ export const uploadAndValidate = async (req, res) => {
     const source = req.body.source || "Tokopedia";
     const jobType = `IMPORT_SALES_${source.toUpperCase()}`;
 
+    // Dynamic Import Parser
     const { ParserEngine } = await import("../services/parsers/ParserEngine.js");
     const parser = new ParserEngine();
 
@@ -71,49 +75,36 @@ export const uploadAndValidate = async (req, res) => {
       let jobId = null;
       let fileErrors = [];
       let parsedItems = [];
+      let headerRowIndex = 1;
 
       try {
-        jobId = await createImportJobLog(userId, file.originalname, jobType, "PROCESSING");
+        // Create Job (via JobService)
+        jobId = await jobService.createJobService({
+          userId,
+          type: jobType,
+          originalname: file.originalname,
+          serverFilePath: file.path,
+          notes: "Processing Import...",
+        });
 
-        // 1. PARSING
+        // PARSING
         console.log(`[CONTROLLER] Parsing file: ${file.path}`);
         const parseResult = await parser.run(file.path, source);
 
-        // 🕵️ DEBUG: CEK HASIL PARSER LANGSUNG (RAW DATA)
-        // Kita ambil sample order pertama yang punya item retur (jika ada)
-        console.log("---------------------------------------------------------------");
-        console.log("[CONTROLLER DEBUG] Inspecting Parser Result (First 3 Orders):");
-        let debugCount = 0;
-        for (const [invId, order] of parseResult.orders) {
-          if (debugCount >= 3) break;
-          console.log(`Invoice: ${invId}`);
-          console.table(
-            order.items.map((i) => ({
-              sku: i.sku,
-              qty: i.qty,
-              // Cek apakah key ini eksis di output parser
-              returnedQty: i.returnedQty,
-            }))
-          );
-          debugCount++;
-        }
-        console.log("---------------------------------------------------------------");
+        if (parseResult.headerRowIndex) headerRowIndex = parseResult.headerRowIndex;
 
-        // 2. TANGKAP ERROR PARSING
+        // TANGKAP ERROR PARSING
         if (parseResult.errors && parseResult.errors.length > 0) {
           parseResult.errors.forEach((e) => {
             fileErrors.push({
-              invoiceId: e.invoiceId || "PARSING_ERROR",
-              customer: e.customer || "-",
-              sku: e.sku || "ROW " + (e.row || "?"),
-              qty: e.qty || 0,
-              status: e.status || "-",
-              message: e.message,
+              row: e.row || null,
+              message: `[PARSER] ${e.message}`,
+              invoiceId: e.invoiceId,
             });
           });
         }
 
-        // 3. FLATTEN DATA (Siapkan untuk Validasi & Insert)
+        // FLATTEN DATA
         parseResult.orders.forEach((orderData) => {
           orderData.items.forEach((item) => {
             parsedItems.push({
@@ -122,21 +113,20 @@ export const uploadAndValidate = async (req, res) => {
               orderDate: orderData.orderDate,
               source: source,
               status: orderData.status,
-
               sku: item.sku,
               qty: item.qty,
-              returnedQty: item.returnedQty || 0, // [CHECKPOINT] Apakah ini masuk?
+              returnedQty: item.returnedQty || 0,
               row: item.row,
               originalFilename: file.originalname,
             });
           });
         });
 
-        // 4. VALIDASI LOGIC & INSERT DB
-        let processResult = { processedInvoices: 0, validItems: [], invalidSkus: [] };
+        // VALIDASI & INSERT (via ImportService)
+        let processResult = { processed: 0, errors: [] };
 
         if (parsedItems.length > 0) {
-          processResult = await pickingService.performPickingValidation({
+          processResult = await importService.performPickingValidation({
             items: parsedItems,
             userId,
             source,
@@ -144,84 +134,93 @@ export const uploadAndValidate = async (req, res) => {
           });
         }
 
-        // 5. TANGKAP ERROR LOGIC
-        if (processResult.invalidSkus && processResult.invalidSkus.length > 0) {
-          processResult.invalidSkus.forEach((msg) => {
-            const match = msg.match(/^\[(.*?)\] (.*)/);
-            const invId = match ? match[1] : null;
-            const errMsg = match ? match[2] : msg;
+        // MAPPING ERROR DARI SERVICE KE BARIS EXCEL
+        if (processResult.errors && processResult.errors.length > 0) {
+          processResult.errors.forEach((errObj) => {
+            const invId = errObj.invoice;
+            const errMsg = errObj.error;
 
-            const originalItems = parsedItems.filter((i) => i.invoiceId === invId);
+            const affectedItems = parsedItems.filter((i) => i.invoiceId === invId);
 
-            if (originalItems.length > 0) {
-              originalItems.forEach((orig) => {
-                if (errMsg.includes(orig.sku) || errMsg.includes("Komponen")) {
-                  fileErrors.push({
-                    invoiceId: orig.invoiceId,
-                    customer: orig.customer,
-                    sku: orig.sku,
-                    qty: orig.qty,
-                    status: orig.status,
-                    message: errMsg,
-                  });
-                } else {
-                  fileErrors.push({ ...orig, message: errMsg });
-                }
+            if (affectedItems.length > 0) {
+              affectedItems.forEach((item) => {
+                fileErrors.push({
+                  row: item.row,
+                  message: `[SISTEM] ${errMsg}`,
+                  invoiceId: item.invoiceId,
+                });
               });
             } else {
-              fileErrors.push({
-                invoiceId: invId || "UNKNOWN",
-                sku: "UNKNOWN",
-                qty: 0,
-                message: errMsg,
-              });
+              fileErrors.push({ row: null, message: errMsg, invoiceId: invId || "GENERAL" });
             }
           });
         }
 
-        // 6. FINALIZE
+        // FINALIZE & REPORT
         batchSummary.processedFiles++;
-        batchSummary.successInvoices += processResult.processedInvoices;
+        batchSummary.successInvoices += processResult.processed;
 
         if (fileErrors.length > 0) {
-          const downloadUrl = await generateErrorExcel(file.originalname, fileErrors, source);
+          // Generate Error Excel
+          const downloadUrl = await generateComprehensiveErrorExcel(
+            file.path,
+            file.originalname,
+            fileErrors,
+            headerRowIndex
+          );
+
           const logPayload = {
-            summary: `${processResult.processedInvoices} Sukses, ${fileErrors.length} Baris Bermasalah.`,
+            summary: `${processResult.processed} Sukses, ${fileErrors.length} Baris Bermasalah.`,
             download_url: downloadUrl,
             errors: fileErrors.slice(0, 50),
           };
-          await updateImportJobLog(jobId, "COMPLETED_WITH_ERRORS", logPayload.summary, logPayload);
+
+          // Update Job Failed/Partial (via JobService)
+          await jobService.updateJobStatusService(
+            jobId,
+            "COMPLETED_WITH_ERRORS",
+            logPayload.summary,
+            logPayload
+          );
+
           batchSummary.errors.push({
             filename: file.originalname,
-            message: "Sebagian data gagal. Download file perbaikan.",
+            message: "Terdapat data gagal. Silakan unduh file perbaikan.",
             downloadUrl,
           });
         } else {
-          const successMsg = `Sukses. ${processResult.processedInvoices} Invoice diproses.`;
-          await updateImportJobLog(jobId, "COMPLETED", successMsg, {
-            processed: processResult.processedInvoices,
+          // Update Job Success (via JobService)
+          const successMsg = `Sukses. ${processResult.processed} Invoice diproses.`;
+          await jobService.updateJobStatusService(jobId, "COMPLETED", successMsg, {
+            processed: processResult.processed,
           });
         }
       } catch (err) {
         console.error(`Fatal Error file ${file.originalname}:`, err);
-        const fatalMsg = err.message || "Kesalahan Sistem";
-        const downloadUrl = await generateErrorExcel(
-          file.originalname,
-          [{ invoiceId: "SYSTEM", message: fatalMsg }],
-          source
-        );
-        batchSummary.errors.push({ filename: file.originalname, message: fatalMsg });
+        const fatalMsg = err.message || "Kesalahan Sistem Fatal";
+
+        const downloadUrl = await generateSimpleErrorExcel(file.originalname, [
+          { message: fatalMsg },
+        ]);
+        batchSummary.errors.push({ filename: file.originalname, message: fatalMsg, downloadUrl });
+
         if (jobId) {
-          await updateImportJobLog(jobId, "FAILED", `System Error: ${fatalMsg}`, {
+          await jobService.updateJobStatusService(jobId, "FAILED", `System Error: ${fatalMsg}`, {
             download_url: downloadUrl,
           });
+        }
+      } finally {
+        if (fs.existsSync(file.path)) {
+          try {
+            fs.unlinkSync(file.path);
+          } catch (e) {}
         }
       }
     }
 
     res.json({
       success: true,
-      message: `Batch selesai. ${batchSummary.successInvoices} Invoice masuk.`,
+      message: `Proses Batch Selesai. ${batchSummary.successInvoices} Invoice Berhasil.`,
       data: batchSummary,
     });
   } catch (error) {
@@ -258,7 +257,7 @@ export const completeItems = async (req, res) => {
 };
 
 // ============================================================================
-// PRIVATE HELPERS
+// PRIVATE HELPERS (EXCEL GENERATOR)
 // ============================================================================
 
 const __filename = fileURLToPath(import.meta.url);
@@ -267,103 +266,98 @@ const UPLOAD_DIR_ERRORS = path.join(__dirname, "..", "uploads", "error_reports")
 
 if (!fs.existsSync(UPLOAD_DIR_ERRORS)) fs.mkdirSync(UPLOAD_DIR_ERRORS, { recursive: true });
 
-const SOURCE_HEADERS = {
-  Tokopedia: [
-    { header: "Order ID", key: "invoiceId", width: 25 },
-    { header: "Recipient", key: "customer", width: 25 },
-    { header: "Seller SKU", key: "sku", width: 25 },
-    { header: "Quantity", key: "qty", width: 10 },
-    { header: "Status", key: "status", width: 25 },
-    { header: ">> ALASAN ERROR <<", key: "message", width: 50 },
-  ],
-  Shopee: [
-    { header: "No. Pesanan", key: "invoiceId", width: 25 },
-    { header: "Nama Penerima", key: "customer", width: 25 },
-    { header: "Nomor Referensi SKU", key: "sku", width: 25 },
-    { header: "Jumlah", key: "qty", width: 10 },
-    { header: "Status", key: "status", width: 25 },
-    { header: ">> ALASAN ERROR <<", key: "message", width: 50 },
-  ],
-  Offline: [
-    { header: "*Nomor Tagihan", key: "invoiceId", width: 25 },
-    { header: "*Nama Kontak", key: "customer", width: 25 },
-    { header: "*Kode Produk (SKU)", key: "sku", width: 25 },
-    { header: "*Jumlah Produk", key: "qty", width: 10 },
-    { header: "Status", key: "status", width: 25 },
-    { header: ">> ALASAN ERROR <<", key: "message", width: 50 },
-  ],
-};
-
-export const createImportJobLog = async (userId, filename, jobType, status = "PENDING") => {
-  try {
-    const [res] = await db.query(
-      `INSERT INTO import_jobs (user_id, job_type, original_filename, file_path, status, created_at, updated_at)
-       VALUES (?, ?, ?, '', ?, NOW(), NOW())`,
-      [userId, jobType, filename, status]
-    );
-    return res.insertId;
-  } catch (e) {
-    console.error("Log DB Error:", e);
-    return null;
-  }
-};
-
-export const updateImportJobLog = async (jobId, status, summaryText, errorLogObj = null) => {
-  if (!jobId) return;
-  try {
-    const errorLogStr = errorLogObj ? JSON.stringify(errorLogObj) : null;
-    await db.query(
-      `UPDATE import_jobs SET status = ?, log_summary = ?, error_log = ?, updated_at = NOW() WHERE id = ?`,
-      [status, summaryText, errorLogStr, jobId]
-    );
-  } catch (e) {
-    console.error("Update Log DB Error:", e);
-  }
-};
-
-export const generateErrorExcel = async (originalFilename, failedItems, source) => {
+export const generateComprehensiveErrorExcel = async (
+  sourceFilePath,
+  originalFilename,
+  errors,
+  headerRowIndex = 1
+) => {
   try {
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("DATA PERBAIKAN");
+    const ext = path.extname(sourceFilePath).toLowerCase();
 
-    const columnsConfig = SOURCE_HEADERS[source] || SOURCE_HEADERS["Tokopedia"];
-    sheet.columns = columnsConfig;
+    if (ext === ".csv") {
+      await workbook.csv.readFile(sourceFilePath);
+    } else {
+      await workbook.xlsx.readFile(sourceFilePath);
+    }
 
-    const headerRow = sheet.getRow(1);
-    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
-    headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2C3E50" } };
-    headerRow.alignment = { vertical: "middle", horizontal: "center" };
+    const worksheet = workbook.worksheets[0];
 
-    const lastColIdx = columnsConfig.length;
-    headerRow.getCell(lastColIdx).fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FFDC3545" },
-    };
+    // Setup Header Kolom Error
+    const lastCol = worksheet.columnCount;
+    const errorColIdx = lastCol + 1;
 
-    failedItems.forEach((item) => {
-      const rowData = {
-        invoiceId: item.invoiceId || "UNKNOWN",
-        customer: item.customer || "",
-        sku: item.sku || "",
-        qty: item.qty || 0,
-        status: item.status || "",
-        message: item.message || "Error tidak diketahui",
-      };
+    const headerRow = worksheet.getRow(headerRowIndex);
+    const errorHeaderCell = headerRow.getCell(errorColIdx);
 
-      const row = sheet.addRow(rowData);
-      row.getCell("message").font = { color: { argb: "FFDC3545" }, bold: true };
+    errorHeaderCell.value = ">>> KETERANGAN ERROR <<<";
+    errorHeaderCell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    errorHeaderCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC3545" } };
+
+    const errorMap = new Map();
+    errors.forEach((e) => {
+      if (e.row) {
+        const currentMsg = errorMap.get(e.row);
+        errorMap.set(e.row, currentMsg ? `${currentMsg} | ${e.message}` : e.message);
+      }
     });
+
+    const totalRows = worksheet.rowCount;
+    for (let r = totalRows; r > headerRowIndex; r--) {
+      if (errorMap.has(r)) {
+        const cell = worksheet.getRow(r).getCell(errorColIdx);
+        cell.value = errorMap.get(r);
+        cell.font = { color: { argb: "FFDC3545" }, bold: true };
+      } else {
+        // Hapus baris yang sukses agar user fokus ke error
+        worksheet.spliceRows(r, 1);
+      }
+    }
+
+    worksheet.getColumn(errorColIdx).width = 60;
 
     const timestamp = Date.now();
     const safeName = path.parse(originalFilename).name.replace(/[^a-z0-9]/gi, "_");
-    const filename = `REPAIR_${source}_${safeName}_${timestamp}.xlsx`;
+    const filename = `REPAIR_${safeName}_${timestamp}.xlsx`;
     const absolutePath = path.join(UPLOAD_DIR_ERRORS, filename);
 
     await workbook.xlsx.writeFile(absolutePath);
     return `/uploads/error_reports/${filename}`;
   } catch (e) {
-    console.error("Excel Gen Error:", e);
+    console.error("Comprehensive Excel Gen Error:", e);
+    return generateSimpleErrorExcel(originalFilename, errors);
+  }
+};
+
+export const generateSimpleErrorExcel = async (originalFilename, failedItems) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Data Error");
+
+    sheet.columns = [
+      { header: "No.", key: "row", width: 10 },
+      { header: "Pesan Error", key: "message", width: 60 },
+      { header: "Detail Lain", key: "detail", width: 30 },
+    ];
+
+    failedItems.forEach((item) => {
+      sheet.addRow({
+        row: item.row || "-",
+        message: item.message || "Unknown Error",
+        detail: item.invoiceId || "",
+      });
+    });
+
+    const timestamp = Date.now();
+    const safeName = path.parse(originalFilename).name.replace(/[^a-z0-9]/gi, "_");
+    const filename = `ERROR_LOG_${safeName}_${timestamp}.xlsx`;
+    const absolutePath = path.join(UPLOAD_DIR_ERRORS, filename);
+
+    await workbook.xlsx.writeFile(absolutePath);
+    return `/uploads/error_reports/${filename}`;
+  } catch (e) {
+    console.error("Simple Excel Gen Error:", e);
     return null;
   }
 };

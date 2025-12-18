@@ -6,14 +6,14 @@
  * (dibuat oleh impor sebelumnya atau manual), tetapi kolom quantity-nya salah (misal 0).
  *
  * Prasyarat:
- * 1. Pastikan file .env di folder `backend` sudah dikonfigurasi.
- * 2. File CSV dengan data paket sudah ada.
- * 3. Dependensi: `mysql2` (harus sudah ada), `dotenv` (harus sudah ada)
+ * Pastikan file .env di folder `backend` sudah dikonfigurasi.
+ * File CSV dengan data paket sudah ada.
+ * Dependensi: `mysql2` (harus sudah ada), `dotenv` (harus sudah ada)
  *
  * Cara Menjalankan:
- * 1. Pindahkan file CSV ke folder `backend/scripts` (atau sesuaikan path).
- * 2. Buka terminal di folder `backend`.
- * 3. Jalankan: `node scripts/update_package_quantities.js`
+ * Pindahkan file CSV ke folder `backend/scripts` (atau sesuaikan path).
+ * Buka terminal di folder `backend`.
+ * Jalankan: `node scripts/update_package_quantities.js`
  */
 
 import path from "path";

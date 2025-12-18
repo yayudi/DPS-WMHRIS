@@ -1,6 +1,5 @@
-<!-- frontend\src\components\picking\PickingFilterBar.vue -->
 <script setup>
-import { reactive, watch, computed, ref } from 'vue'
+import { reactive, watch, computed } from 'vue'
 
 const props = defineProps({
   modelValue: {
@@ -40,7 +39,6 @@ function emitChange() {
 }
 
 // Debounced Search Input Handler
-// Mencegah re-render masif saat mengetik cepat
 function onSearchInput(event) {
   const val = event.target.value
   localValues.search = val
@@ -74,79 +72,69 @@ function clearFilters() {
 
 <template>
   <div
-    class="bg-background border border-secondary/20 p-4 rounded-xl mb-6 shadow-sm transition-all duration-300 hover:shadow-md"
+    class="bg-background border border-secondary/20 p-1.5 rounded-xl shadow-sm transition-all duration-300 hover:shadow-md flex flex-col lg:flex-row gap-2"
   >
-    <!-- Baris 1: Pencarian & Tanggal -->
-    <div class="flex flex-col lg:flex-row gap-3 mb-3">
-      <!-- 1. Global Search -->
-      <div class="relative flex-1 min-w-[200px] group">
+    <!-- Group 1: Search & Date (Flexible Grow) -->
+    <div class="flex flex-col sm:flex-row gap-2 flex-grow">
+      <!-- Search -->
+      <div class="relative flex-grow group">
         <input
           :value="localValues.search"
           @input="onSearchInput"
           type="text"
-          placeholder="Cari Invoice, SKU, atau Nama..."
-          class="w-full pl-10 pr-8 py-2.5 rounded-lg bg-secondary/5 border border-secondary/30 focus:bg-background focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm font-medium"
-          :class="{ 'border-primary/50 bg-primary/5': localValues.search }"
+          placeholder="Cari Invoice, SKU..."
+          class="w-full pl-9 pr-8 py-2 rounded-lg bg-secondary/5 border border-transparent hover:border-secondary/20 focus:bg-background focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm font-medium h-[42px]"
+          :class="{ '!bg-primary/5 !border-primary/30': localValues.search }"
         />
         <font-awesome-icon
           icon="fa-solid fa-search"
-          class="absolute left-3.5 top-3 text-text/40 text-sm transition-colors group-focus-within:text-primary"
+          class="absolute left-3 top-3 text-text/40 text-sm transition-colors group-focus-within:text-primary"
         />
-
         <button
           v-if="localValues.search"
           @click="((localValues.search = ''), emitChange())"
-          class="absolute right-2 top-2 h-7 w-7 flex items-center justify-center rounded-full hover:bg-secondary/20 text-text/40 hover:text-danger transition-all"
+          class="absolute right-2 top-2 h-6 w-6 flex items-center justify-center rounded-full hover:bg-secondary/20 text-text/40 hover:text-danger transition-all mt-0.5"
           title="Hapus pencarian"
         >
           <font-awesome-icon icon="fa-solid fa-times" class="text-xs" />
         </button>
       </div>
 
-      <!-- 2. Date Range Picker -->
-      <div class="flex gap-2 shrink-0">
-        <div class="relative">
-          <input
-            type="date"
-            v-model="localValues.startDate"
-            @change="emitChange"
-            class="pl-8 pr-3 py-2.5 rounded-lg bg-secondary/5 border border-secondary/30 text-sm text-text/80 focus:border-primary outline-none cursor-pointer"
-            :class="{ 'border-primary/50 bg-primary/5': localValues.startDate }"
-          />
-          <font-awesome-icon
-            icon="fa-solid fa-calendar"
-            class="absolute left-3 top-3 text-xs text-text/40 pointer-events-none"
-          />
-        </div>
-        <span class="self-center text-text/40">-</span>
-        <div class="relative">
-          <input
-            type="date"
-            v-model="localValues.endDate"
-            @change="emitChange"
-            class="pl-8 pr-3 py-2.5 rounded-lg bg-secondary/5 border border-secondary/30 text-sm text-text/80 focus:border-primary outline-none cursor-pointer"
-            :class="{ 'border-primary/50 bg-primary/5': localValues.endDate }"
-          />
-          <font-awesome-icon
-            icon="fa-solid fa-calendar"
-            class="absolute left-3 top-3 text-xs text-text/40 pointer-events-none"
-          />
-        </div>
+      <!-- Date Range (Joined) -->
+      <div
+        class="flex items-center bg-secondary/5 rounded-lg border border-transparent hover:border-secondary/20 focus-within:border-primary focus-within:bg-background focus-within:ring-1 focus-within:ring-primary transition-all h-[42px] px-2 shrink-0 overflow-hidden"
+        :class="{
+          '!bg-primary/5 !border-primary/30': localValues.startDate || localValues.endDate,
+        }"
+      >
+        <input
+          type="date"
+          v-model="localValues.startDate"
+          @change="emitChange"
+          class="bg-transparent border-none text-xs text-text/80 focus:ring-0 outline-none w-28 cursor-pointer p-0 font-medium"
+        />
+        <span class="text-text/30 px-2 text-xs">→</span>
+        <input
+          type="date"
+          v-model="localValues.endDate"
+          @change="emitChange"
+          class="bg-transparent border-none text-xs text-text/80 focus:ring-0 outline-none w-28 cursor-pointer p-0 font-medium"
+        />
       </div>
     </div>
 
-    <!-- Baris 2: Filter Dropdowns -->
-    <div class="flex flex-wrap lg:flex-nowrap gap-3 items-center">
+    <!-- Group 2: Dropdowns & Actions (Shrink if needed) -->
+    <div class="flex flex-wrap sm:flex-nowrap gap-2 items-center">
       <!-- Filter Source -->
       <div class="relative w-full sm:w-auto">
         <select
           v-model="localValues.source"
           @change="emitChange"
-          class="appearance-none w-full sm:w-auto pl-9 pr-8 py-2.5 rounded-lg bg-secondary border text-sm outline-none focus:border-primary cursor-pointer font-medium min-w-[150px] transition-colors"
+          class="appearance-none w-full sm:w-auto pl-9 pr-8 py-2 rounded-lg border text-xs font-bold outline-none focus:border-primary cursor-pointer h-[42px] transition-all"
           :class="
             localValues.source !== 'ALL'
-              ? 'border-primary/50 text-primary bg-primary/5'
-              : 'border-secondary/30 text-text/70'
+              ? 'bg-primary/5 text-primary border-primary shadow-sm'
+              : 'bg-secondary/5 border-transparent hover:border-secondary/20 text-text/60 hover:text-text'
           "
         >
           <option value="ALL">Semua Sumber</option>
@@ -157,11 +145,12 @@ function clearFilters() {
         <font-awesome-icon
           icon="fa-solid fa-shop"
           class="absolute left-3 top-3 text-xs pointer-events-none"
-          :class="localValues.source !== 'ALL' ? 'text-primary' : 'text-text/40'"
+          :class="localValues.source !== 'ALL' ? 'text-inherit' : 'text-text/40'"
         />
         <font-awesome-icon
           icon="fa-solid fa-chevron-down"
-          class="absolute right-3 top-3.5 text-[10px] opacity-50 pointer-events-none"
+          class="absolute right-3 top-3.5 text-[10px] pointer-events-none opacity-50"
+          :class="localValues.source !== 'ALL' ? 'text-inherit' : 'text-text/40'"
         />
       </div>
 
@@ -170,36 +159,43 @@ function clearFilters() {
         <select
           v-model="localValues.stockStatus"
           @change="emitChange"
-          class="appearance-none w-full sm:w-auto pl-9 pr-8 py-2.5 rounded-lg bg-secondary border text-sm outline-none focus:border-primary cursor-pointer font-medium min-w-[150px] transition-colors"
+          class="appearance-none w-full sm:w-auto pl-9 pr-8 py-2 rounded-lg border text-xs font-bold outline-none focus:border-primary cursor-pointer h-[42px] transition-all"
           :class="{
-            'border-secondary/30 text-text/70': localValues.stockStatus === 'ALL',
-            'border-success/50 text-success bg-success/5': localValues.stockStatus === 'READY',
-            'border-danger/50 text-danger bg-danger/5': localValues.stockStatus === 'EMPTY',
-            'border-warning/50 text-warning bg-warning/5': localValues.stockStatus === 'ISSUE',
+            'bg-secondary/5 border-transparent hover:border-secondary/20 text-text/60 hover:text-text':
+              localValues.stockStatus === 'ALL',
+            'bg-success/5 text-success border-success shadow-sm':
+              localValues.stockStatus === 'READY',
+            'bg-danger/5 text-danger border-danger shadow-sm': localValues.stockStatus === 'EMPTY',
+            'bg-warning/5 text-warning border-warning shadow-sm':
+              localValues.stockStatus === 'ISSUE',
           }"
         >
           <option value="ALL">Semua Status</option>
-          <option value="READY">✅ Siap Pick</option>
-          <option value="ISSUE">⚠️ Bermasalah</option>
-          <option value="EMPTY">❌ Stok Kosong</option>
+          <option value="READY">Siap Pick</option>
+          <option value="ISSUE">Bermasalah</option>
+          <option value="EMPTY">Stok Kosong</option>
         </select>
         <font-awesome-icon
           icon="fa-solid fa-cubes"
           class="absolute left-3 top-3 text-xs pointer-events-none"
-          :class="localValues.stockStatus !== 'ALL' ? 'opacity-100' : 'text-text/40'"
+          :class="localValues.stockStatus !== 'ALL' ? 'text-inherit' : 'text-text/40'"
         />
         <font-awesome-icon
           icon="fa-solid fa-chevron-down"
           class="absolute right-3 top-3.5 text-[10px] opacity-50 pointer-events-none"
+          :class="localValues.stockStatus !== 'ALL' ? 'text-inherit' : 'text-text/40'"
         />
       </div>
 
+      <!-- Separator -->
+      <div class="hidden sm:block w-px h-6 bg-secondary/20 mx-1"></div>
+
       <!-- Sort -->
-      <div class="relative w-full sm:w-auto">
+      <div class="relative w-1/2 sm:w-auto flex-grow sm:flex-grow-0">
         <select
           v-model="localValues.sortBy"
           @change="emitChange"
-          class="appearance-none w-full sm:w-auto pl-9 pr-8 py-2.5 rounded-lg bg-secondary border text-sm outline-none focus:border-primary cursor-pointer font-medium min-w-[150px] transition-colors"
+          class="appearance-none w-full pl-3 pr-8 py-2 rounded-lg bg-secondary/5 border border-transparent hover:border-secondary/20 text-xs font-medium outline-none focus:border-primary cursor-pointer h-[42px] text-text/70 transition-all"
         >
           <option value="newest">Terbaru</option>
           <option value="oldest">Terlama</option>
@@ -212,15 +208,17 @@ function clearFilters() {
         />
       </div>
 
-      <!-- View Toggle -->
-      <div class="flex bg-secondary/10 rounded-lg border border-secondary/20 p-1 shrink-0">
+      <!-- View Toggle (3 Modes: List, Grid, Compact) -->
+      <div
+        class="flex bg-secondary/10 rounded-lg p-1 shrink-0 h-[42px] w-auto flex-grow sm:flex-grow-0"
+      >
         <button
           @click="((localValues.viewMode = 'list'), emitChange())"
-          class="p-1.5 rounded-md transition-all text-xs w-8 flex justify-center"
+          class="w-9 rounded-md transition-all text-xs flex items-center justify-center"
           :class="
             localValues.viewMode === 'list'
-              ? 'bg-secondary text-primary shadow-sm'
-              : 'text-text/50 hover:text-text'
+              ? 'bg-background text-primary shadow-sm font-bold'
+              : 'text-text/40 hover:text-text'
           "
           title="Tampilan List"
         >
@@ -228,15 +226,27 @@ function clearFilters() {
         </button>
         <button
           @click="((localValues.viewMode = 'grid'), emitChange())"
-          class="p-1.5 rounded-md transition-all text-xs w-8 flex justify-center"
+          class="w-9 rounded-md transition-all text-xs flex items-center justify-center"
           :class="
             localValues.viewMode === 'grid'
-              ? 'bg-secondary text-primary shadow-sm'
-              : 'text-text/50 hover:text-text'
+              ? 'bg-background text-primary shadow-sm font-bold'
+              : 'text-text/40 hover:text-text'
           "
-          title="Tampilan Grid"
+          title="Tampilan Grid (Standard Card)"
         >
           <font-awesome-icon icon="fa-solid fa-border-all" />
+        </button>
+        <button
+          @click="((localValues.viewMode = 'compact'), emitChange())"
+          class="w-9 rounded-md transition-all text-xs flex items-center justify-center"
+          :class="
+            localValues.viewMode === 'compact'
+              ? 'bg-background text-primary shadow-sm font-bold'
+              : 'text-text/40 hover:text-text'
+          "
+          title="Tampilan Compact (Small Card)"
+        >
+          <font-awesome-icon icon="fa-solid fa-table-cells" />
         </button>
       </div>
 
@@ -245,11 +255,10 @@ function clearFilters() {
         <button
           v-if="hasActiveFilters"
           @click="clearFilters"
-          class="text-xs font-bold text-text/60 hover:text-danger hover:bg-danger/10 px-3 py-2 rounded-lg transition-all flex items-center gap-1 whitespace-nowrap border border-transparent hover:border-danger/20 ml-auto lg:ml-0"
-          title="Reset semua filter"
+          class="h-[42px] px-3 rounded-lg text-danger hover:bg-danger/10 transition-colors flex items-center justify-center border border-transparent hover:border-danger/20"
+          title="Reset Filter"
         >
           <font-awesome-icon icon="fa-solid fa-rotate-left" />
-          Reset
         </button>
       </transition>
     </div>

@@ -66,7 +66,7 @@ async function submitForm() {
       return show(`Baris ke-${index + 1}: Qty minimal 1.`, 'warning')
     if (!item.locationId) return show(`Baris ke-${index + 1}: Lokasi belum dipilih!`, 'warning')
 
-    // [FIX] Pisahkan payload sesuai backend controller
+    // Pisahkan payload sesuai backend controller
     validItems.push({
       reference: formData.invoiceId,
       productId: productId,
@@ -83,7 +83,7 @@ async function submitForm() {
 
     for (const itemPayload of validItems) {
       try {
-        // [FIX] Endpoint jamak '/returns/manual-entry'
+        // Endpoint jamak '/returns/manual-entry'
         await api.post('/returns/manual-entry', itemPayload)
         successCount++
       } catch (err) {

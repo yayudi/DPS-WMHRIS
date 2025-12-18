@@ -10,11 +10,13 @@ import axios from '../axios' // Pastikan instance axios ini sudah dikonfigurasi 
  * @param {string} [params.searchBy] - Kolom untuk pencarian ('name' atau 'sku').
  * @param {string} [params.location] - Filter lokasi ('pajangan', 'gudang', 'ltc').
  * @param {boolean} [params.minusStockOnly] - Filter untuk stok minus.
+ * @param {boolean} [params.packageOnly] - Filter untuk hanya menampilkan produk paket.
  * @returns {Promise<{products: Array, total: number}>} - Objek berisi produk untuk halaman saat ini dan jumlah total produk.
  */
 export async function fetchProducts(params) {
   try {
     // Mengirim parameter sebagai query string ke backend
+    // Axios akan otomatis mengubah object params menjadi query string (misal: ?page=1&packageOnly=true)
     const response = await axios.get('/products', { params })
 
     // Backend diharapkan mengembalikan struktur data seperti { data: [...], total: ... }

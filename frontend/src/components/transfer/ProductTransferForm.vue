@@ -121,7 +121,7 @@ async function submitTransfer() {
     <!-- Form Transfer -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end pt-6 border-t border-secondary/20">
       <div>
-        <label class="block text-sm font-medium text-text/90 mb-2">2. Pindahkan Dari</label>
+        <label class="block text-sm font-medium text-text/90 mb-2">Pindahkan Dari</label>
         <Multiselect
           v-model="fromLocation"
           :options="stockDetails"
@@ -138,7 +138,7 @@ async function submitTransfer() {
         </Multiselect>
       </div>
       <div>
-        <label class="block text-sm font-medium text-text/90 mb-2">3. Ke Lokasi</label>
+        <label class="block text-sm font-medium text-text/90 mb-2">Ke Lokasi</label>
         <Multiselect
           v-model="toLocation"
           :options="allLocations"
@@ -148,7 +148,7 @@ async function submitTransfer() {
         ></Multiselect>
       </div>
       <div>
-        <label class="block text-sm font-medium text-text/90 mb-2">4. Jumlah</label>
+        <label class="block text-sm font-medium text-text/90 mb-2">Jumlah</label>
         <input
           v-model.number="quantity"
           @blur="validateQuantity"
@@ -163,7 +163,7 @@ async function submitTransfer() {
 
     <!-- Input Catatan -->
     <div>
-      <label class="block text-sm font-medium text-text/90 mb-2">5. Catatan (Opsional)</label>
+      <label class="block text-sm font-medium text-text/90 mb-2">Catatan (Opsional)</label>
       <input
         v-model="notes"
         type="text"

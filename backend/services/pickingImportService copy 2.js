@@ -75,7 +75,7 @@ export const processImportData = async (parsedOrders, userId) => {
 
   log(null, `🚀 Memulai proses import ${parsedOrders.size} order...`);
 
-  // 1. Pre-fetch Data Produk
+  // Pre-fetch Data Produk
   const allSkus = new Set();
   for (const orderData of parsedOrders.values()) {
     orderData.items.forEach((i) => allSkus.add(i.sku));
@@ -92,7 +92,7 @@ export const processImportData = async (parsedOrders, userId) => {
     preFetchConnection.release();
   }
 
-  // 2. Loop Transaction per Invoice
+  // Loop Transaction per Invoice
   for (const [invoiceId, orderData] of parsedOrders) {
     // --------------------------------------------------------
     // 🔦 X-RAY LOG: Inspect Raw Data before processing
@@ -377,14 +377,14 @@ export const processImportData = async (parsedOrders, userId) => {
                   log(invoiceId, `      ACTION: Full Line Return Updated (${qtyToReturn})`);
                 } else {
                   // Partial Split
-                  // 1. Kurangi item lama (Sisa Sales)
+                  // Kurangi item lama (Sisa Sales)
                   const remainingQty = dbItem.quantity - qtyToReturn;
                   await connection.query(
                     `UPDATE picking_list_items SET quantity = ? WHERE id = ?`,
                     [remainingQty, dbItem.id]
                   );
 
-                  // 2. Buat item baru (Retur)
+                  // Buat item baru (Retur)
                   await connection.query(
                     `
                     INSERT INTO picking_list_items (

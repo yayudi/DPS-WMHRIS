@@ -1,4 +1,4 @@
-<!-- frontend\src\views\WMS.vue -->
+<!-- frontend\src\views\wms\Dashboard.vue -->
 <script setup>
 import { ref } from 'vue'
 import { useToast } from '@/composables/useToast.js'
@@ -17,10 +17,13 @@ const {
   activeView,
   displayedProducts,
   loading,
+  isLoadingMore, // Jika ingin dipakai untuk loader bawah
+  isBackgroundLoading, // [NEW] State untuk indikator update halus
   error,
   loader,
   searchBy,
   showMinusStockOnly,
+  showPackageOnly,
   hasMoreData,
   searchPlaceholder,
   handleSearchInput,
@@ -33,8 +36,6 @@ const {
   isAutoRefetching,
   toggleAutoRefetch,
   resetAndRefetch,
-  sseStatus,
-  // recentlyUpdatedProducts,
   fetchProducts,
 } = useWms()
 
@@ -149,7 +150,7 @@ function closeModal() {
   isTransferModalOpen.value = false
   isUploadModalOpen.value = false
   isAdjustModalOpen.value = false
-  isProductFormOpen.value = false // ✅ Close form
+  isProductFormOpen.value = false
   selectedProduct.value = null
 }
 
@@ -195,7 +196,7 @@ async function handleAdjustConfirm(payload) {
 
       <!-- ACTION BUTTON GROUP -->
       <div
-        class="bg-secondary/25 p-1.5 rounded-xl border border-secondary/20 shadow-sm flex gap-2 overflow-x-auto max-w-full items-center"
+        class="bg-secondary/35 p-1.5 rounded-xl border border-secondary/20 shadow-sm flex gap-2 overflow-x-auto max-w-full items-center"
       >
         <!-- Tombol 1: Perpindahan -->
         <router-link
@@ -249,24 +250,28 @@ async function handleAdjustConfirm(payload) {
     </div>
 
     <!-- Panel Kontrol Utama -->
-    <div class="bg-secondary/25 rounded-xl shadow-md border border-secondary/20 p-6 space-y-6">
-      <WmsControlPanel
-        :search-placeholder="searchPlaceholder"
-        :search-tabs="searchTabs"
-        :warehouse-views="warehouseViews"
-        :building-filter-options="buildingFilterOptions"
-        :floor-filter-options="floorFilterOptions"
-        :is-auto-refetching="isAutoRefetching"
-        :sse-status="sseStatus"
-        @search="handleSearchInput"
-        @toggle-refetch="toggleAutoRefetch"
-        v-model:search-by="searchBy"
-        v-model:searchValue="searchTerm"
-        v-model:active-view="activeView"
-        v-model:show-minus-stock-only="showMinusStockOnly"
-        v-model:selected-building="selectedBuilding"
-        v-model:selected-floor="selectedFloor"
-      />
+    <div class="bg-secondary/35 rounded-xl shadow-lg border border-secondary/20 p-6 pt-0 space-y-6">
+      <div
+        class="sticky top-14 z-10 bg-secondary/15 rounded-t-xl backdrop-blur-md -mx-6 px-6 py-4 border-b border-secondary/20 shadow-sm"
+      >
+        <WmsControlPanel
+          :search-placeholder="searchPlaceholder"
+          :search-tabs="searchTabs"
+          :warehouse-views="warehouseViews"
+          :building-filter-options="buildingFilterOptions"
+          :floor-filter-options="floorFilterOptions"
+          :is-auto-refetching="isAutoRefetching"
+          @search="handleSearchInput"
+          @toggle-refetch="toggleAutoRefetch"
+          v-model:search-by="searchBy"
+          v-model:searchValue="searchTerm"
+          v-model:active-view="activeView"
+          v-model:show-minus-stock-only="showMinusStockOnly"
+          v-model:show-package-only="showPackageOnly"
+          v-model:selected-building="selectedBuilding"
+          v-model:selected-floor="selectedFloor"
+        />
+      </div>
 
       <div v-if="loading" class="text-center py-16">
         <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-primary text-3xl" />
@@ -305,6 +310,17 @@ async function handleAdjustConfirm(payload) {
     </div>
   </div>
 
+  <!-- [NEW] Silent Update Indicator -->
+  <transition name="fade">
+    <div
+      v-if="isBackgroundLoading"
+      class="fixed bottom-6 right-6 z-50 bg-background/80 backdrop-blur-md border border-primary/20 text-primary px-4 py-2 rounded-full text-xs font-bold shadow-xl flex items-center gap-2 pointer-events-none"
+    >
+      <font-awesome-icon icon="fa-solid fa-sync" class="animate-spin" />
+      <span>Mengupdate Data...</span>
+    </div>
+  </transition>
+
   <WmsTransferModal
     :show="isTransferModalOpen"
     :product="selectedProduct"
@@ -341,5 +357,17 @@ async function handleAdjustConfirm(payload) {
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
 }
 </style>

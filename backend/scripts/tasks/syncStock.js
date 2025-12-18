@@ -31,14 +31,14 @@ function logToFile(msg) {
 export async function syncStockToDatabase() {
   logToFile("===== SIKLUS SINKRONISASI BARU DIMULAI =====");
   try {
-    logToFile("1. Memulai sinkronisasi stok (mode ekspor log)...");
-    logToFile("2. Memulai pengambilan data dari Google Sheets...");
+    logToFile("Memulai sinkronisasi stok (mode ekspor log)...");
+    logToFile("Memulai pengambilan data dari Google Sheets...");
     const [rekapData, skuMasterData] = await Promise.all([
       fetchSheet(SPREADSHEET_REKAP, RANGE_REKAP),
       fetchSheet(SPREADSHEET_MASTER, RANGE_MASTER),
     ]);
     logToFile(
-      `3. Pengambilan data selesai. Ditemukan ${rekapData.length} baris di REKAP dan ${skuMasterData.length} baris di MASTER.`
+      `Pengambilan data selesai. Ditemukan ${rekapData.length} baris di REKAP dan ${skuMasterData.length} baris di MASTER.`
     );
 
     skuMasterData.forEach((row) => {
@@ -49,7 +49,7 @@ export async function syncStockToDatabase() {
       }
     });
 
-    logToFile("4. Memulai penggabungan data...");
+    logToFile("Memulai penggabungan data...");
     const rekapMap = new Map(rekapData.map((row) => [row.SKU?.trim().toUpperCase(), row]));
     const merged = [];
     for (const row of skuMasterData) {
@@ -60,7 +60,7 @@ export async function syncStockToDatabase() {
         merged.push({ ...row, ...rekapRow });
       }
     }
-    logToFile(`5. Penggabungan data selesai. ${merged.length} produk ditemukan.`);
+    logToFile(`Penggabungan data selesai. ${merged.length} produk ditemukan.`);
     logToFile("✅ Proses selesai tanpa error fatal.");
     logToFile("===== SIKLUS SINKRONISASI SELESAI =====\n");
   } catch (error) {

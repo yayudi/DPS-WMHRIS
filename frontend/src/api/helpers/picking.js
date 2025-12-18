@@ -18,7 +18,7 @@ export const uploadSalesReport = async (file, source, notes) => {
 }
 
 /**
- * [NEW] Validasi & Upload Batch (CSV/JSON)
+ * Validasi & Upload Batch (CSV/JSON)
  * Digunakan oleh PickingUploadForm.vue untuk alur "Tagihan (CSV)"
  * Payload diharapkan: { items: [...], source: 'Tagihan (CSV)', filename: '...' }
  */
@@ -29,7 +29,7 @@ export const uploadBatchPickingListJson = async (payload) => {
 }
 
 /**
- * [NEW] Validasi Data Parsed (PDF)
+ * Validasi Data Parsed (PDF)
  * Digunakan oleh PickingUploadForm.vue untuk alur "Tokopedia/Shopee (PDF)"
  * Payload diharapkan: { items: [...], source: 'Tokopedia', filename: '...' }
  */
@@ -39,7 +39,7 @@ export const validateParsedPickingList = async (payload) => {
 }
 
 /**
- * [NEW] Mengambil Detail Item per Picking List
+ * Mengambil Detail Item per Picking List
  * Digunakan oleh PickingListDetailsModal.vue
  */
 export const fetchPickingDetails = async (pickingListId) => {

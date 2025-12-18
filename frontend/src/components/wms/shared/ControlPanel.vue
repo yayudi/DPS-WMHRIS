@@ -1,3 +1,4 @@
+<!-- frontend/src/components/wms/shared/ControlPanel.vue -->
 <script setup>
 import { computed } from 'vue'
 
@@ -11,13 +12,13 @@ const props = defineProps({
 
   // Status
   isAutoRefetching: Boolean,
-  sseStatus: String,
 
   // v-models
   searchBy: String,
   searchValue: String,
   activeView: String,
   showMinusStockOnly: Boolean,
+  showPackageOnly: Boolean,
   selectedBuilding: String,
   selectedFloor: String,
 })
@@ -27,6 +28,7 @@ const emit = defineEmits([
   'update:searchValue',
   'update:activeView',
   'update:showMinusStockOnly',
+  'update:showPackageOnly',
   'update:selectedBuilding',
   'update:selectedFloor',
   'search',
@@ -40,8 +42,8 @@ function onSearchInput(e) {
 
 // Fungsi untuk membersihkan search
 function clearSearch() {
-  emit('update:searchValue', '') // Kosongkan v-model
-  emit('search', '') // Trigger search ulang dengan string kosong
+  emit('update:searchValue', '')
+  emit('search', '')
 }
 </script>
 
@@ -131,6 +133,21 @@ function clearSearch() {
       </div>
 
       <div class="flex gap-2 shrink-0">
+        <!-- Tombol Filter Paket -->
+        <button
+          @click="emit('update:showPackageOnly', !showPackageOnly)"
+          class="px-4 rounded-lg text-xs font-bold border transition-all flex items-center gap-2 h-[42px] whitespace-nowrap"
+          :class="[
+            showPackageOnly
+              ? 'bg-accent/10 border-accent text-accent'
+              : 'bg-accent/5 border-accent/30 text-accent hover:bg-accent/10',
+          ]"
+          title="Tampilkan hanya produk paket"
+        >
+          <font-awesome-icon icon="fa-solid fa-box-open" />
+          <span>Paket</span>
+        </button>
+
         <button
           @click="emit('update:showMinusStockOnly', !showMinusStockOnly)"
           class="px-4 rounded-lg text-xs font-bold border transition-all flex items-center gap-2 h-[42px] whitespace-nowrap"
@@ -156,7 +173,7 @@ function clearSearch() {
         >
           <font-awesome-icon
             icon="fa-solid fa-sync"
-            :class="{ 'animate-spin': isAutoRefetching && sseStatus === 'connected' }"
+            :class="{ 'animate-spin': isAutoRefetching }"
           />
         </button>
       </div>

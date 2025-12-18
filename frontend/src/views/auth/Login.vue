@@ -61,7 +61,7 @@ async function runTest() {
   } catch (error) {
     console.error('Error saat tes koneksi:', error)
     testResult.value =
-      'Gagal terhubung ke backend.\n\nPastikan:\n1. Server backend berjalan.\n2. URL API di file .env sudah benar.'
+      'Gagal terhubung ke backend.\n\nPastikan:\nServer backend berjalan.\nURL API di file .env sudah benar.'
   } finally {
     isTestLoading.value = false
   }

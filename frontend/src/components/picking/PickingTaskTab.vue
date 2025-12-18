@@ -1,4 +1,3 @@
-<!-- frontend\src\components\picking\PickingTaskTab.vue -->
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useToast } from '@/composables/useToast.js'
@@ -12,6 +11,8 @@ import {
 
 import PickingFilterBar from '@/components/picking/PickingFilterBar.vue'
 import PickingListCard from '@/components/picking/PickingListCard.vue'
+import PickingListCardCompact from '@/components/picking/PickingListCardCompact.vue'
+import PickingListRow from '@/components/picking/PickingListRow.vue'
 import MasonryWall from '@yeger/vue-masonry-wall'
 
 const { show } = useToast()
@@ -26,9 +27,18 @@ const filterState = ref({
   source: 'ALL',
   stockStatus: 'ALL',
   sortBy: 'newest',
-  viewMode: 'grid',
+  viewMode: 'grid', // Default GRID
   startDate: '',
   endDate: '',
+})
+
+// --- OPTIMIZATION: ITEMS MAP ---
+const itemsMap = computed(() => {
+  const map = new Map()
+  pendingItems.value.forEach((item) => {
+    map.set(item.id, item)
+  })
+  return map
 })
 
 // --- LOGIC: GROUPING ---
@@ -45,7 +55,7 @@ watch(filterState, () => reset(), { deep: true })
 const stockUsage = computed(() => {
   const usage = {}
   selectedItems.value.forEach((id) => {
-    const item = pendingItems.value.find((i) => i.id === id)
+    const item = itemsMap.value.get(id)
     if (item && item.location_code) {
       const key = `${item.sku}_${item.location_code}`
       usage[key] = (usage[key] || 0) + Number(item.quantity)
@@ -56,18 +66,14 @@ const stockUsage = computed(() => {
 
 function canSelectItem(item) {
   if (!item) return false
-
-  // Backend support JIT Lookup, jadi item tanpa lokasi awal BOLEH dipilih
-  if (!item.location_code) return true
+  if (!item.location_code) return true // JIT Lookup support
 
   const key = `${item.sku}_${item.location_code}`
   const currentUsage = stockUsage.value[key] || 0
   const available = Number(item.available_stock || 0)
   const qtyNeeded = Number(item.quantity || 0)
 
-  // Jika item ini sendiri sudah dipilih, anggap valid
   if (selectedItems.value.has(item.id)) return true
-
   return currentUsage + qtyNeeded <= available
 }
 
@@ -77,7 +83,6 @@ async function fetchPendingItems() {
   isLoadingPicking.value = true
   try {
     const response = await getPendingPickingItems()
-
     let data = []
     if (Array.isArray(response)) data = response
     else if (response?.data && Array.isArray(response.data)) data = response.data
@@ -100,7 +105,7 @@ async function handleCompleteSelectedItems() {
   try {
     const payloadItems = idsToComplete
       .map((id) => {
-        const originalItem = pendingItems.value.find((i) => i.id === id)
+        const originalItem = itemsMap.value.get(id)
         if (!originalItem) return null
         return {
           id: originalItem.id,
@@ -116,15 +121,12 @@ async function handleCompleteSelectedItems() {
 
     if (res.success) {
       show(res.message, 'success')
-
-      // [OPTIMISTIC UPDATE] Hapus item yang sukses dari list agar tidak double-click
+      // Optimistic Update
       pendingItems.value = pendingItems.value.filter((item) => !selectedItems.value.has(item.id))
       selectedItems.value.clear()
     } else {
       show(res.message || 'Gagal memproses sebagian item.', 'warning')
     }
-
-    // Refresh data asli dari server
     await fetchPendingItems()
   } catch (error) {
     show(error.message || 'Gagal menyelesaikan item.', 'error')
@@ -145,13 +147,11 @@ async function handleCancelInvoice(pickingListId) {
   }
 }
 
-// [NEW] Logic Toggle per Invoice
+// --- SELECTION LOGIC ---
 function handleToggleInvoice({ inv, checked }) {
   const allItemIds = []
   if (inv.locations) {
-    Object.values(inv.locations).forEach((items) => {
-      items.forEach((item) => allItemIds.push(item))
-    })
+    Object.values(inv.locations).forEach((items) => items.forEach((item) => allItemIds.push(item)))
   } else if (inv.items) {
     inv.items.forEach((item) => allItemIds.push(item))
   }
@@ -165,14 +165,12 @@ function handleToggleInvoice({ inv, checked }) {
   })
 }
 
-// [NEW] Logic Select All
 function handleSelectAll() {
   displayedItems.value.forEach((inv) => {
     handleToggleInvoice({ inv, checked: true })
   })
 }
 
-// [NEW] Logic Uncheck All
 function handleUncheckAll() {
   selectedItems.value.clear()
 }
@@ -188,61 +186,74 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
-    <!-- Floating Action Bar -->
+  <div class="relative min-h-[500px]">
+    <!-- FLOATING ACTION BAR -->
     <transition name="slide-up">
       <div
-        v-if="selectedItems.size > 0"
-        class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] md:w-[600px] flex justify-between items-center bg-secondary/95 border border-secondary/20 p-4 rounded-2xl backdrop-blur-xl z-50 shadow-2xl"
+        v-if="pendingItems.length > 0"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] md:w-[600px] bg-secondary/95 border border-white/10 backdrop-blur-xl p-3 rounded-2xl shadow-2xl z-50 flex items-center justify-between gap-3 ring-1 ring-black/5"
       >
-        <div class="flex items-center gap-3">
-          <div class="h-3 w-3 rounded-full bg-primary animate-pulse shadow-glow"></div>
-          <div class="flex flex-col leading-tight">
-            <span class="font-black text-lg text-text">{{ selectedItems.size }}</span>
-            <span class="text-[10px] text-text/60 font-bold uppercase tracking-wider">
-              Item Terpilih
-            </span>
-          </div>
+        <!-- Kiri: Kontrol Seleksi -->
+        <div class="flex items-center gap-2">
+          <button
+            @click="handleSelectAll"
+            class="px-3 py-2 bg-secondary/50 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold transition-colors border border-primary/20 hover:border-primary/50 flex items-center gap-1.5 active:scale-95"
+            title="Pilih Semua Item Tampil"
+          >
+            <font-awesome-icon icon="fa-solid fa-check-double" />
+            <span class="hidden sm:inline">Pilih Semua</span>
+          </button>
+
+          <button
+            @click="handleUncheckAll"
+            :disabled="selectedItems.size === 0"
+            class="px-3 py-2 bg-secondary/50 hover:bg-danger/20 text-text/60 hover:text-danger rounded-lg text-xs font-bold transition-colors border border-secondary/30 hover:border-danger/50 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5 active:scale-95"
+            title="Reset Pilihan"
+          >
+            <font-awesome-icon icon="fa-solid fa-xmark" />
+            <span class="hidden sm:inline">Reset</span>
+          </button>
         </div>
 
+        <!-- Tengah: Info (Jika ada yang dipilih) -->
+        <div
+          v-if="selectedItems.size > 0"
+          class="flex flex-col items-center leading-none px-1 min-w-[60px]"
+        >
+          <span class="font-black text-lg text-text">{{ selectedItems.size }}</span>
+          <span class="text-[9px] font-bold text-text/50 uppercase tracking-wider">Item</span>
+        </div>
+        <div v-else class="text-xs text-text/30 italic px-1 hidden md:block">
+          Belum ada item dipilih
+        </div>
+
+        <!-- Kanan: Tombol Eksekusi -->
         <button
           @click="handleCompleteSelectedItems"
-          class="bg-primary hover:bg-primary/90 text-background px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-lg active:scale-95 flex items-center gap-2 disabled:opacity-70"
-          :disabled="isLoadingPicking"
+          class="flex-1 sm:flex-none group relative overflow-hidden bg-primary hover:bg-primary/90 text-background px-4 sm:pl-6 sm:pr-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-primary/30 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:bg-secondary disabled:text-text/50 disabled:shadow-none"
+          :disabled="isLoadingPicking || selectedItems.size === 0"
         >
+          <div
+            class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"
+          ></div>
+          <span class="relative">Selesaikan</span>
           <font-awesome-icon
-            v-if="isLoadingPicking"
-            icon="fa-solid fa-spinner"
-            class="animate-spin"
+            :icon="isLoadingPicking ? 'fa-solid fa-spinner' : 'fa-solid fa-arrow-right'"
+            :class="
+              isLoadingPicking ? 'animate-spin' : 'group-hover:translate-x-1 transition-transform'
+            "
+            class="relative"
           />
-          <span v-else>Selesaikan</span>
-          <font-awesome-icon v-if="!isLoadingPicking" icon="fa-solid fa-check-double" />
         </button>
       </div>
     </transition>
 
     <div class="space-y-6 animate-fade-in pb-32">
-      <!-- Filter & Bulk Actions -->
-      <div class="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-        <PickingFilterBar v-model="filterState" class="flex-1 w-full" />
-
-        <div class="flex items-center gap-2 w-full md:w-auto shrink-0">
-          <button
-            @click="handleSelectAll"
-            class="flex-1 md:flex-none px-4 py-2 bg-secondary/10 hover:bg-primary/10 text-primary rounded-lg text-xs font-bold transition-colors border border-dashed border-primary/30 hover:border-primary"
-          >
-            <font-awesome-icon icon="fa-solid fa-check-square" class="mr-1" />
-            Pilih Semua
-          </button>
-          <button
-            @click="handleUncheckAll"
-            class="flex-1 md:flex-none px-4 py-2 bg-secondary/10 hover:bg-danger/10 text-text/60 hover:text-danger rounded-lg text-xs font-bold transition-colors border border-dashed border-secondary/30 hover:border-danger"
-            :disabled="selectedItems.size === 0"
-          >
-            <font-awesome-icon icon="fa-solid fa-square" class="mr-1" />
-            Reset
-          </button>
-        </div>
+      <!--
+        TOP CONTROLS
+      -->
+      <div class="bg-secondary/5 p-4 rounded-xl border border-dashed border-secondary/20">
+        <PickingFilterBar v-model="filterState" class="w-full" />
       </div>
 
       <!-- Loading & Empty States -->
@@ -271,15 +282,21 @@ onMounted(() => {
 
       <!-- Main Content -->
       <div v-else>
+        <!--
+          Tampilan GRID & COMPACT (Masonry Layout)
+          - Grid: Pakai PickingListCard (Standard)
+          - Compact: Pakai PickingListCardCompact (Kecil)
+        -->
         <MasonryWall
-          v-if="filterState.viewMode === 'grid'"
+          v-if="filterState.viewMode === 'grid' || filterState.viewMode === 'compact'"
           :items="displayedItems"
           :ssr-columns="1"
           :column-width="320"
           :gap="16"
         >
           <template #default="{ item: inv }">
-            <PickingListCard
+            <component
+              :is="filterState.viewMode === 'compact' ? PickingListCardCompact : PickingListCard"
               :inv="inv"
               :selectedItems="selectedItems"
               :validate-stock="canSelectItem"
@@ -290,8 +307,15 @@ onMounted(() => {
           </template>
         </MasonryWall>
 
-        <div v-else class="flex flex-col gap-4">
-          <PickingListCard
+        <!--
+          Tampilan LIST (Stack)
+          - Menggunakan PickingListRow (Flat Table-like Look)
+        -->
+        <div
+          v-else
+          class="flex flex-col border border-secondary/10 rounded-xl overflow-hidden shadow-sm bg-background"
+        >
+          <PickingListRow
             v-for="inv in displayedItems"
             :key="inv.id"
             :inv="inv"
@@ -315,12 +339,11 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.shadow-glow {
-  box-shadow: 0 0 15px theme('colors.primary');
-}
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out forwards;
 }
+
+/* Animasi Slide Up untuk Floating Bar */
 .slide-up-enter-active,
 .slide-up-leave-active {
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -328,8 +351,9 @@ onMounted(() => {
 .slide-up-enter-from,
 .slide-up-leave-to {
   opacity: 0;
-  transform: translate(-50%, 20px);
+  transform: translate(-50%, 40px) scale(0.95);
 }
+
 @keyframes fadeIn {
   from {
     opacity: 0;

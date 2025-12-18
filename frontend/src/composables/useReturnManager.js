@@ -86,7 +86,7 @@ export function useReturnManager() {
     const { itemData, good, bad, notes } = processForm.value
     const totalQtyInput = parseInt(good.qty || 0) + parseInt(bad.qty || 0)
 
-    // 1. Validasi Total
+    // Validasi Total
     if (totalQtyInput === 0) {
       show('Mohon isi jumlah barang yang diterima (Bagus atau Rusak)', 'warning')
       return
@@ -96,7 +96,7 @@ export function useReturnManager() {
       return
     }
 
-    // 2. Validasi Lokasi
+    // Validasi Lokasi
     if (good.qty > 0 && !good.locationId) {
       show('Pilih lokasi rak untuk barang kondisi Bagus', 'warning')
       return

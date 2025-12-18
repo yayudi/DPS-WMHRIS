@@ -76,7 +76,7 @@ export const Mappers = {
       const sku = getter(["seller sku", "nomor sku", "sku"]);
       const qty = parseInt(getter(["quantity", "jumlah produk", "jumlah"]) || "0", 10);
 
-      // [FIX] Coba ambil return qty dengan berbagai kemungkinan key
+      // Coba ambil return qty dengan berbagai kemungkinan key
       // Debug: Kita cek nilai mentahnya
       const rawReturnQty = getter([
         "sku quantity of return",

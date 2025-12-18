@@ -57,7 +57,7 @@ function handleSubmit() {
       @change="onFileChange"
     />
 
-    <!-- 2. Tombol sekarang menggunakan prop 'loading' -->
+    <!-- Tombol sekarang menggunakan prop 'loading' -->
     <button
       type="submit"
       :disabled="loading || !file"

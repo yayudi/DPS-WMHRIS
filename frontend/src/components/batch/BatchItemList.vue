@@ -48,12 +48,12 @@ function emitRemove(sku) {
             </td>
             <td
               class="p-2 text-center font-bold"
-              :class="{ 'text-success': item.quantity > 0, 'text-accent': item.quantity < 0 }"
+              :class="{ 'text-success': item.quantity > 0, 'text-danger': item.quantity < 0 }"
             >
               {{ item.quantity }}
             </td>
             <td class="p-2 text-center">
-              <button @click="emitRemove(item.sku)" class="text-accent hover:text-accent/80">
+              <button @click="emitRemove(item.sku)" class="text-danger hover:text-danger/80">
                 <font-awesome-icon icon="fa-solid fa-trash" />
               </button>
             </td>

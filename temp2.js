@@ -1,4 +1,3 @@
-// backend/services/pickingImportService.js
 import db from "../config/db.js";
 import * as validationHelper from "./helpers/pickingValidationHelper.js";
 
@@ -9,7 +8,8 @@ const log = (msg) => {
 };
 
 /**
- * SERVICE: Process Import Data (Orchestrator)
+ * SERVICE: Process Import Data (Orchestrator Core)
+ * Menjalankan logika validasi database dan insert transaksi.
  */
 export const processImportData = async (groupedOrders, userId) => {
   const summary = { processed: 0, errors: [] };
@@ -17,15 +17,10 @@ export const processImportData = async (groupedOrders, userId) => {
 
   if (ordersToProcess.length === 0) return summary;
 
-  console.log(`[DEBUG-TRACE] Menerima ${ordersToProcess.length} order untuk diproses.`);
-  if (ordersToProcess.length > 0) {
-    console.log(`[DEBUG-TRACE] Sample Order ID ke-1: "${ordersToProcess[0].invoiceId}"`);
-  }
-
   const connection = await db.getConnection();
 
   try {
-    // Kumpulkan SKU
+    // Kumpulkan Semua SKU
     const allSkus = new Set();
     ordersToProcess.forEach((order) => {
       order.items.forEach((item) => allSkus.add(item.sku));
@@ -38,7 +33,6 @@ export const processImportData = async (groupedOrders, userId) => {
 
     // Handle Existing (Update/Cancel)
     const newOrders = await validationHelper.handleExistingInvoices(connection, ordersToProcess);
-    console.log(`[DEBUG-TRACE] ${newOrders.length} order lolos filter Existing Invoices.`);
 
     // Kalkulasi Validasi
     let allValidItems = [];
@@ -57,12 +51,6 @@ export const processImportData = async (groupedOrders, userId) => {
       }
 
       if (validItems.length > 0) {
-        // [DEBUG-TRACE] Cek apakah invoiceId ada sebelum di-attach
-        if (!order.invoiceId) {
-          console.error(`[DEBUG-TRACE] 🚨 CRITICAL: Order ditemukan TANPA Invoice ID!`, order);
-        }
-
-        // Attach metadata header ke setiap item valid
         validItems.forEach((item) => {
           item.meta = {
             userId,
@@ -78,45 +66,18 @@ export const processImportData = async (groupedOrders, userId) => {
       }
     }
 
-    console.log(`[DEBUG-TRACE] Total ${allValidItems.length} valid items siap di-grouping.`);
-
-    // Insert Batch (LOGIKA GROUPING DISINI SERING SALAH)
+    // Insert Batch
     const validGroups = new Map();
-
-    allValidItems.forEach((item, index) => {
-      // [DEBUG-TRACE] Cek sampel item
-      if (index === 0) {
-        console.log(`[DEBUG-TRACE] Sample Item Meta:`, item.meta);
-      }
-
-      const inv = item.meta?.originalInvoiceId;
-
-      if (!inv) {
-        console.error(
-          `[DEBUG-TRACE] ❌ Item pada index ${index} KEHILANGAN Invoice ID! Masuk ke 'undefined'.`,
-          item
-        );
-      }
-
+    allValidItems.forEach((item) => {
+      const inv = item.invoiceNos[0];
       if (!validGroups.has(inv)) validGroups.set(inv, []);
       validGroups.get(inv).push(item);
     });
-
-    console.log(
-      `[DEBUG-TRACE] Hasil Grouping: ${validGroups.size} Header Picking List akan dibuat.`
-    );
-    // Debug keys
-    let keys = Array.from(validGroups.keys());
-    console.log(`[DEBUG-TRACE] Sample Keys (Invoice IDs):`, keys.slice(0, 5));
 
     for (const [invoiceId, items] of validGroups) {
       await connection.beginTransaction();
       try {
         const firstItem = items[0];
-
-        // [DEBUG-TRACE]
-        // console.log(`[DEBUG-TRACE] Inserting Header untuk: ${invoiceId} dengan ${items.length} items.`);
-
         const pickingListId = await validationHelper.insertPickingHeader(
           connection,
           firstItem.meta
@@ -148,19 +109,22 @@ export const processImportData = async (groupedOrders, userId) => {
   return summary;
 };
 
-// Wrapper untuk Controller
+// Wrapper untuk ImportQueue Worker
+export const syncOrdersToDB = async (connection, ordersMap, userId, originalFilename) => {
+  for (const order of ordersMap.values()) {
+    order.originalFilename = originalFilename;
+  }
+  return await processImportData(ordersMap, userId);
+};
+
+// [MOVED HERE] Wrapper untuk Controller
+// Mengubah data flat dari controller menjadi struktur Map yang dibutuhkan processImportData
 export const performPickingValidation = async (payload) => {
   const { items, userId, source, originalFilename } = payload;
 
-  console.log(`[DEBUG-TRACE] performPickingValidation menerima ${items.length} raw items.`);
-
   const groupedOrders = new Map();
   items.forEach((item) => {
-    if (!item.invoiceId) {
-      console.warn(`[DEBUG-TRACE] Raw item missing invoiceId:`, item);
-      return;
-    }
-
+    if (!item.invoiceId) return;
     if (!groupedOrders.has(item.invoiceId)) {
       groupedOrders.set(item.invoiceId, {
         invoiceId: item.invoiceId,
@@ -179,17 +143,5 @@ export const performPickingValidation = async (payload) => {
     });
   });
 
-  console.log(`[DEBUG-TRACE] Grouping awal berhasil. Total Invoice Unik: ${groupedOrders.size}`);
-
   return await processImportData(groupedOrders, userId);
-};
-
-// Wrapper untuk ImportQueue Worker
-export const syncOrdersToDB = async (connection, ordersMap, userId, originalFilename) => {
-  // Inject filename
-  for (const order of ordersMap.values()) {
-    order.originalFilename = originalFilename;
-  }
-  // Note: Parameter connection diabaikan disini karena service buat koneksi sendiri
-  return await processImportData(ordersMap, userId);
 };

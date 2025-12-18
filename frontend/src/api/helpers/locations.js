@@ -1,3 +1,4 @@
+// frontend\src\api\helpers\locations.js
 import axios from '../axios'
 
 /**

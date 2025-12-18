@@ -2,10 +2,11 @@
 import db from "../../config/db.js";
 import fs from "fs";
 import path from "path";
+import ExcelJS from "exceljs";
 import { fileURLToPath } from "url";
 import { ParserEngine } from "../../services/parsers/ParserEngine.js";
-import { syncOrdersToDB } from "../../services/importSyncService.js";
-import ExcelJS from "exceljs";
+
+import { syncOrdersToDB } from "../../services/pickingImportService.js";
 
 // REPOSITORIES
 import * as jobRepo from "../../repositories/jobRepository.js";
@@ -113,7 +114,7 @@ async function generateErrorFile(originalFilePath, errors, headerRowIndex = 1, j
 }
 
 /**
- * REFACTORED: Memproses file Stock Opname menggunakan Repository
+ * REFACTORED: Memproses file Stock Opname dengan Dukungan Paket
  */
 async function processStockAdjustmentFile(job, connection) {
   console.log(`[ImportWorker] Memulai Stock Adjustment: ${job.original_filename}`);
@@ -125,47 +126,114 @@ async function processStockAdjustmentFile(job, connection) {
   if (!worksheet) throw new Error("Sheet 'Input Stok' tidak ditemukan dalam file Excel.");
 
   const rowCount = worksheet.rowCount;
+  const rawItems = [];
+
+  // Baca semua baris valid dulu
+  for (let i = 2; i <= rowCount; i++) {
+    const row = worksheet.getRow(i);
+    if (row.values.length === 0) continue;
+
+    const sku = row.getCell("A").value?.toString().trim();
+    const locCode = row.getCell("B").value?.toString().trim();
+    const newQty = parseInt(row.getCell("C").value, 10);
+    const notes = row.getCell("D").value?.toString().trim();
+
+    if (sku && locCode && !isNaN(newQty)) {
+      rawItems.push({ rowIdx: i, sku, locCode, newQty, notes });
+    }
+  }
+
+  if (rawItems.length === 0) {
+    return {
+      logSummary: "File kosong atau format salah.",
+      errors: [],
+      stats: { success: 0, failed: 0 },
+    };
+  }
+
+  // Pre-fetch Product Info untuk Cek Paket
+  const allSkus = new Set(rawItems.map((i) => i.sku));
+  const productMap = await productRepo.getProductMapWithComponents(connection, Array.from(allSkus));
+
   let successCounter = 0;
   const errors = [];
 
   await connection.beginTransaction();
   try {
-    for (let i = 2; i <= rowCount; i++) {
-      const row = worksheet.getRow(i);
-      if (row.values.length === 0) continue;
+    for (const item of rawItems) {
+      const product = productMap.get(item.sku);
 
-      const sku = row.getCell("A").value?.toString().trim();
-      const locCode = row.getCell("B").value?.toString().trim();
-      const newQty = parseInt(row.getCell("C").value, 10);
-      const notes = row.getCell("D").value?.toString().trim();
-
-      if (!sku || !locCode || isNaN(newQty)) continue;
-
-      // REPO: Validasi menggunakan Product & Location Repository
-      const productId = await productRepo.getIdBySku(connection, sku);
-      const locationId = await locationRepo.getIdByCode(connection, locCode);
-
-      if (!productId) {
-        errors.push({ row: i, sku: sku, message: `SKU ${sku} tidak ditemukan.` });
+      // Validasi Dasar
+      if (!product) {
+        errors.push({
+          row: item.rowIdx,
+          sku: item.sku,
+          message: `SKU ${item.sku} tidak ditemukan.`,
+        });
         continue;
       }
+
+      // Validasi Lokasi
+      const locationId = await locationRepo.getIdByCode(connection, item.locCode);
       if (!locationId) {
-        errors.push({ row: i, sku: sku, message: `Lokasi ${locCode} tidak ditemukan.` });
+        errors.push({
+          row: item.rowIdx,
+          sku: item.sku,
+          message: `Lokasi ${item.locCode} tidak ditemukan.`,
+        });
         continue;
       }
 
-      // REPO: Update Stok (Upsert)
-      await locationRepo.upsertStock(connection, productId, locationId, newQty);
+      // Logic Breakdown Paket vs Single
+      let itemsToProcess = [];
 
-      // REPO: Catat Movement
-      await stockRepo.createLog(connection, {
-        productId,
-        quantity: Math.abs(newQty), // Logika bisnis existing
-        toLocationId: locationId,
-        type: "ADJUST_OPNAME",
-        userId: job.user_id,
-        notes: `Opname: ${notes || "-"}`,
-      });
+      if (product.is_package) {
+        if (!product.components || product.components.length === 0) {
+          errors.push({
+            row: item.rowIdx,
+            sku: item.sku,
+            message: `Paket ${item.sku} tidak memiliki komponen.`,
+          });
+          continue;
+        }
+
+        // Breakdown ke komponen
+        itemsToProcess = product.components.map((comp) => ({
+          productId: comp.id,
+          qty: item.newQty * comp.qty_ratio, // Qty Paket * Ratio
+          isComponent: true,
+          originalSku: item.sku,
+        }));
+      } else {
+        // Single Item
+        itemsToProcess.push({
+          productId: product.id,
+          qty: item.newQty,
+          isComponent: false,
+        });
+      }
+
+      // Eksekusi DB
+      for (const proc of itemsToProcess) {
+        // REPO: Update Stok (Upsert - Absolute Set)
+        // Catatan: Jika ini Opname, kita menimpa nilai stok.
+        // Jika Paket di-opname, kita meng-override stok komponen sesuai hitungan paket.
+        await locationRepo.upsertStock(connection, proc.productId, locationId, proc.qty);
+
+        // REPO: Catat Movement
+        const noteText = proc.isComponent
+          ? `Opname Paket ${proc.originalSku}: ${item.notes || "-"}`
+          : `Opname: ${item.notes || "-"}`;
+
+        await stockRepo.createLog(connection, {
+          productId: proc.productId,
+          quantity: Math.abs(proc.qty),
+          toLocationId: locationId,
+          type: "ADJUST_OPNAME",
+          userId: job.user_id,
+          notes: noteText,
+        });
+      }
 
       successCounter++;
     }
@@ -178,7 +246,7 @@ async function processStockAdjustmentFile(job, connection) {
   if (fs.existsSync(job.file_path)) fs.unlinkSync(job.file_path);
 
   return {
-    logSummary: `Adjustment Selesai: ${successCounter} item diupdate.`,
+    logSummary: `Adjustment Selesai: ${successCounter} baris diproses (Paket dipecah otomatis).`,
     errors: errors,
     stats: { success: successCounter, failed: errors.length },
   };
@@ -244,20 +312,15 @@ export const importQueue = async () => {
         job.original_filename
       );
 
-      // ... (Logic Error Mapping tetap sama, disingkat untuk kejelasan) ...
-      // Kita fokus pada penggantian SQL query
       const logicErrors = [];
       const rawErrors = syncResult.errors || [];
 
       for (const err of rawErrors) {
-        // Logic mapping error sama persis seperti sebelumnya...
-        // (Tidak diubah karena logic murni JS, bukan SQL)
         if (typeof err === "object" && err.row) {
           logicErrors.push(err);
           continue;
         }
         const msg = typeof err === "string" ? err : err.message;
-        // ... Logic mapping ...
         logicErrors.push({ message: msg });
       }
 

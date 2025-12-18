@@ -1,4 +1,3 @@
-// frontend\src\api\helpers\products.js
 import api from '../axios' // Pastikan ini mengimpor instance axios Anda yang sudah dikonfigurasi
 
 /**
@@ -32,6 +31,28 @@ export const searchProducts = async (query, locationId) => {
     console.error('Error searching products:', error)
     // Melempar error agar bisa ditangkap oleh komponen Vue
     throw new Error(error.response?.data?.message || 'Gagal mencari produk')
+  }
+}
+
+/**
+ * Mengambil detail produk LENGKAP berdasarkan ID.
+ * Termasuk komponen paket (jika ada) dan struktur stok.
+ * @param {number|string} id - ID Produk
+ * @returns {Promise<object|null>}
+ */
+export const fetchProductById = async (id) => {
+  try {
+    const response = await api.get(`/products/${id}`)
+
+    // Backend mengembalikan: { success: true, data: { ... } }
+    if (response.data && response.data.success) {
+      return response.data.data
+    }
+    return null
+  } catch (error) {
+    console.error(`Error fetching product details for ID ${id}:`, error)
+    // Jangan throw error agar UI tidak crash total, cukup return null
+    return null
   }
 }
 

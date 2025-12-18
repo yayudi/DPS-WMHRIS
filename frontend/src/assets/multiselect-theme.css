@@ -53,10 +53,10 @@
 .multiselect__option {
   @apply text-text text-sm;
 
-  /* ✅ 1. Jadikan 'relative' agar 'stok' bisa diposisikan */
+  /* ✅ Jadikan 'relative' agar 'stok' bisa diposisikan */
   position: relative;
 
-  /* ✅ 2. Beri padding kanan agar stok tidak menimpa nama */
+  /* ✅ Beri padding kanan agar stok tidak menimpa nama */
   padding-right: 6rem; /* 96px */
 }
 
@@ -91,7 +91,7 @@
 .option__stock {
   @apply text-xs text-text/60;
 
-  /* ✅ 3. SOLUSI RATA KANAN: Posisikan 'stok' secara absolut */
+  /* ✅ SOLUSI RATA KANAN: Posisikan 'stok' secara absolut */
   position: absolute;
   right: 1.25rem; /* 20px (sesuaikan dengan padding .multiselect__option) */
   top: 50%;
@@ -111,7 +111,7 @@
  * dan "Selected" secara paksa.
  */
 
-/* 1. Sembunyikan banner "Press enter..." (yg solid) */
+/* Sembunyikan banner "Press enter..." (yg solid) */
 .multiselect__option span[data-select],
 .multiselect__option span[data-deselect],
 .multiselect__option span[data-no-options],
@@ -120,13 +120,13 @@
   -webkit-appearance: none;
 }
 
-/* 2. Sembunyikan 'limit' (cth: "...and 3 more") */
+/* Sembunyikan 'limit' (cth: "...and 3 more") */
 .multiselect__strong {
   display: none !important;
 }
 
 /*
- * 3. ✅ PERBAIKAN FINAL (Lebih Kuat)
+ * ✅ PERBAIKAN FINAL (Lebih Kuat)
  * Sembunyikan banner "Selected" DAN "Press enter..."
  * dengan menargetkan pseudo-element pada SEMUA status.
  */

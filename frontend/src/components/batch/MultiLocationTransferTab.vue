@@ -175,9 +175,9 @@ async function submitDetailedBatch() {
     <div
       class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end p-4 border border-secondary/20 rounded-lg"
     >
-      <!-- 1. Cari Produk -->
+      <!-- Cari Produk -->
       <div class="md:col-span-2">
-        <label class="block text-sm font-medium text-text/90 mb-2">1. Cari Produk</label>
+        <label class="block text-sm font-medium text-text/90 mb-2">Cari Produk</label>
         <Multiselect
           v-model="selectedProduct"
           :options="searchResults"
@@ -197,9 +197,9 @@ async function submitDetailedBatch() {
         </Multiselect>
       </div>
 
-      <!-- 2. Pindahkan Dari -->
+      <!-- Pindahkan Dari -->
       <div>
-        <label class="block text-sm font-medium text-text/90 mb-2">2. Pindahkan Dari</label>
+        <label class="block text-sm font-medium text-text/90 mb-2">Pindahkan Dari</label>
         <Multiselect
           v-model="fromLocation"
           :options="stockDetails"
@@ -219,9 +219,9 @@ async function submitDetailedBatch() {
         </Multiselect>
       </div>
 
-      <!-- 3. Ke Lokasi -->
+      <!-- Ke Lokasi -->
       <div>
-        <label class="block text-sm font-medium text-text/90 mb-2">3. Ke Lokasi</label>
+        <label class="block text-sm font-medium text-text/90 mb-2">Ke Lokasi</label>
         <Multiselect
           v-model="toLocation"
           :options="allLocations"
@@ -232,10 +232,10 @@ async function submitDetailedBatch() {
         ></Multiselect>
       </div>
 
-      <!-- 4. Jumlah & Tombol Tambah -->
+      <!-- Jumlah & Tombol Tambah -->
       <div class="flex items-end gap-2">
         <div class="flex-grow">
-          <label class="block text-sm font-medium text-text/90 mb-2">4. Jumlah</label>
+          <label class="block text-sm font-medium text-text/90 mb-2">Jumlah</label>
           <input
             v-model.number="quantity"
             @blur="validateQuantity"

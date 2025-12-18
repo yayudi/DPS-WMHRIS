@@ -1,7 +1,7 @@
 // backend/services/ParserEngine.js
 import { TokopediaParser } from "./TokopediaParser.js";
 import { ShopeeParser } from "./ShopeeParser.js";
-import { OfflineParser } from "./OfflineParser.js"; // [NEW] Import OfflineParser
+import { OfflineParser } from "./OfflineParser.js";
 import path from "path";
 
 export class ParserEngine {
@@ -26,7 +26,7 @@ export class ParserEngine {
         break;
 
       case "offline":
-        // [NEW] Aktifkan case Offline
+        // Aktifkan case Offline
         parser = new OfflineParser(filePath);
         break;
 
@@ -45,7 +45,7 @@ export class ParserEngine {
           fileName.includes("offline") ||
           fileName.includes("manual")
         ) {
-          // [NEW] Auto-detect Offline
+          // Auto-detect Offline
           console.log("[ParserEngine] Auto-detect: Menggunakan OfflineParser");
           parser = new OfflineParser(filePath);
         } else {

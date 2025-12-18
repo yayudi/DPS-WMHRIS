@@ -20,7 +20,6 @@ const tabs = [
   { label: 'Batch Transfer', value: 'TRANSFER' },
   { label: 'Detailed Transfer', value: 'DETAILED_TRANSFER' },
   { label: 'Inbound', value: 'INBOUND' },
-  { label: 'Return', value: 'RETURN' },
 ]
 </script>
 
@@ -30,10 +29,7 @@ const tabs = [
     <Tabs :tabs="tabs" v-model:model-value="activeTab" />
 
     <!-- Header Kontekstual Berdasarkan Tab -->
-    <div
-      v-if="activeTab !== 'DETAILED_TRANSFER' && activeTab !== 'RETURN'"
-      class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-secondary/20 pb-6 pt-6"
-    >
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-secondary/20 pb-6 pt-6">
       <!-- TRANSFER (BATCH) -->
       <template v-if="activeTab === 'TRANSFER'">
         <div>

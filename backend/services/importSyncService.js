@@ -30,10 +30,10 @@ export async function syncOrdersToDB(connection, ordersMap, userId, originalFile
       // log(invId, "------------------------------------------------");
 
       let listId;
-      // 1. Cek Header Existing
+      // Cek Header Existing
       const existingHeader = await pickingRepo.findActiveHeaderByInvoice(connection, invId);
 
-      // 2. Tentukan Status
+      // Tentukan Status
       const mpStatus = safe(order.status) || MP_STATUS.NEW;
       const isMpCancel = mpStatus === MP_STATUS.CANCELLED;
       const isMpReturn = mpStatus === MP_STATUS.RETURNED;
@@ -92,7 +92,7 @@ export async function syncOrdersToDB(connection, ordersMap, userId, originalFile
         }
       }
 
-      // 3. Proses Item
+      // Proses Item
       const existingSkus = await pickingRepo.getExistingItemSkus(connection, listId);
 
       for (const item of order.items) {

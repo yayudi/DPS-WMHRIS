@@ -35,7 +35,7 @@ function refreshActiveTab() {
   // Note: Tab Upload melakukan auto-polling, jadi tidak wajib di-refresh manual
 }
 
-// [NEW] Fungsi Navigasi Tab Otomatis
+// Fungsi Navigasi Tab Otomatis
 async function handleSwitchTab(targetTab) {
   activeTab.value = targetTab
 

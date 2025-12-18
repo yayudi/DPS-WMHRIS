@@ -138,7 +138,7 @@ export class BaseParser {
 
     workbook.eachSheet((sheet) => {
       const limit = 25;
-      // [FIX] Handle jika total baris < limit
+      // Handle jika total baris < limit
       const maxRow = Math.min(sheet.rowCount, limit);
 
       for (let r = 1; r <= maxRow; r++) {

@@ -33,16 +33,16 @@ Abaikan folder output hasil build
 /frontend/dist/
 
 File cache dan laporan
-.log
-.csv
-.xls
-.xlsx
-.pdf
-.doc
-.docx
-.ppt
-.pptx
-.tmp
+*.log
+*.csv
+*.xls
+*.xlsx
+*.pdf
+*.doc
+*.docx
+*.ppt
+*.pptx
+*.tmp
 .tmp.*
 .cache/
 .npm
