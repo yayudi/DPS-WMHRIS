@@ -85,11 +85,7 @@ export const processQueue = async () => {
     // Complete Job (Re-open short connection)
     const updateConnection = await db.getConnection();
     try {
-      await jobRepo.completeExportJob(
-        updateConnection,
-        jobId,
-        `/uploads/exports/stocks/${fileName}`
-      );
+      await jobRepo.completeExportJob(updateConnection, jobId, `${fileName}`);
     } finally {
       updateConnection.release();
     }

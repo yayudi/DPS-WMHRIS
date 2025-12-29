@@ -90,4 +90,21 @@ init_db.sql
 
 Abaikan file sementara development
 temp.js
+temp2.js
 temp.vue
+TODO.js
+
+===================================================================
+== Docker ==
+===================================================================
+Abaikan file konfigurasi Docker yang bersifat lokal
+.env.docker.local
+docker-compose.override.yml
+docker-compose.local.yml
+docker-compose.dev.yml
+docker-compose.prod.yml
+docker-compose.test.yml
+Dockerfile.local
+Dockerfile.dev
+Dockerfile.prod
+Dockerfile.test

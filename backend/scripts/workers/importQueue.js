@@ -4,9 +4,14 @@ import fs from "fs";
 import path from "path";
 import ExcelJS from "exceljs";
 import { fileURLToPath } from "url";
+
+// SERVICES
 import { ParserEngine } from "../../services/parsers/ParserEngine.js";
 
+// IMPORT SERVICES
 import { syncOrdersToDB } from "../../services/pickingImportService.js";
+import { processAttendanceImport } from "../../services/attendanceImportService.js";
+import { processStockImport } from "../../services/stockImportService.js";
 
 // REPOSITORIES
 import * as jobRepo from "../../repositories/jobRepository.js";
@@ -18,6 +23,9 @@ import * as stockRepo from "../../repositories/stockMovementRepository.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const EXPORT_DIR = path.join(__dirname, "..", "uploads", "exports");
+
+// Konfigurasi Retry
+const MAX_RETRIES = 3;
 
 if (!fs.existsSync(EXPORT_DIR)) {
   try {
@@ -113,143 +121,23 @@ async function generateErrorFile(originalFilePath, errors, headerRowIndex = 1, j
   }
 }
 
-/**
- * REFACTORED: Memproses file Stock Opname dengan Dukungan Paket
- */
-async function processStockAdjustmentFile(job, connection) {
-  console.log(`[ImportWorker] Memulai Stock Adjustment: ${job.original_filename}`);
+// Helper Deteksi Error Transient (Bisa dicoba ulang)
+function isRetriableError(error) {
+  const msg = (error.message || "").toLowerCase();
 
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.readFile(job.file_path);
-  const worksheet = workbook.getWorksheet("Input Stok");
+  // 1. Database Deadlocks / Lock Waits
+  if (msg.includes("deadlock") || msg.includes("lock wait timeout")) return true;
 
-  if (!worksheet) throw new Error("Sheet 'Input Stok' tidak ditemukan dalam file Excel.");
+  // 2. Koneksi Putus
+  if (msg.includes("connection lost") || msg.includes("econreset") || msg.includes("etimedout"))
+    return true;
+  if (msg.includes("protocol_connection_lost")) return true;
 
-  const rowCount = worksheet.rowCount;
-  const rawItems = [];
+  // 3. Too Many Connections
+  if (msg.includes("too many connections")) return true;
 
-  // Baca semua baris valid dulu
-  for (let i = 2; i <= rowCount; i++) {
-    const row = worksheet.getRow(i);
-    if (row.values.length === 0) continue;
-
-    const sku = row.getCell("A").value?.toString().trim();
-    const locCode = row.getCell("B").value?.toString().trim();
-    const newQty = parseInt(row.getCell("C").value, 10);
-    const notes = row.getCell("D").value?.toString().trim();
-
-    if (sku && locCode && !isNaN(newQty)) {
-      rawItems.push({ rowIdx: i, sku, locCode, newQty, notes });
-    }
-  }
-
-  if (rawItems.length === 0) {
-    return {
-      logSummary: "File kosong atau format salah.",
-      errors: [],
-      stats: { success: 0, failed: 0 },
-    };
-  }
-
-  // Pre-fetch Product Info untuk Cek Paket
-  const allSkus = new Set(rawItems.map((i) => i.sku));
-  const productMap = await productRepo.getProductMapWithComponents(connection, Array.from(allSkus));
-
-  let successCounter = 0;
-  const errors = [];
-
-  await connection.beginTransaction();
-  try {
-    for (const item of rawItems) {
-      const product = productMap.get(item.sku);
-
-      // Validasi Dasar
-      if (!product) {
-        errors.push({
-          row: item.rowIdx,
-          sku: item.sku,
-          message: `SKU ${item.sku} tidak ditemukan.`,
-        });
-        continue;
-      }
-
-      // Validasi Lokasi
-      const locationId = await locationRepo.getIdByCode(connection, item.locCode);
-      if (!locationId) {
-        errors.push({
-          row: item.rowIdx,
-          sku: item.sku,
-          message: `Lokasi ${item.locCode} tidak ditemukan.`,
-        });
-        continue;
-      }
-
-      // Logic Breakdown Paket vs Single
-      let itemsToProcess = [];
-
-      if (product.is_package) {
-        if (!product.components || product.components.length === 0) {
-          errors.push({
-            row: item.rowIdx,
-            sku: item.sku,
-            message: `Paket ${item.sku} tidak memiliki komponen.`,
-          });
-          continue;
-        }
-
-        // Breakdown ke komponen
-        itemsToProcess = product.components.map((comp) => ({
-          productId: comp.id,
-          qty: item.newQty * comp.qty_ratio, // Qty Paket * Ratio
-          isComponent: true,
-          originalSku: item.sku,
-        }));
-      } else {
-        // Single Item
-        itemsToProcess.push({
-          productId: product.id,
-          qty: item.newQty,
-          isComponent: false,
-        });
-      }
-
-      // Eksekusi DB
-      for (const proc of itemsToProcess) {
-        // REPO: Update Stok (Upsert - Absolute Set)
-        // Catatan: Jika ini Opname, kita menimpa nilai stok.
-        // Jika Paket di-opname, kita meng-override stok komponen sesuai hitungan paket.
-        await locationRepo.upsertStock(connection, proc.productId, locationId, proc.qty);
-
-        // REPO: Catat Movement
-        const noteText = proc.isComponent
-          ? `Opname Paket ${proc.originalSku}: ${item.notes || "-"}`
-          : `Opname: ${item.notes || "-"}`;
-
-        await stockRepo.createLog(connection, {
-          productId: proc.productId,
-          quantity: Math.abs(proc.qty),
-          toLocationId: locationId,
-          type: "ADJUST_OPNAME",
-          userId: job.user_id,
-          notes: noteText,
-        });
-      }
-
-      successCounter++;
-    }
-    await connection.commit();
-  } catch (e) {
-    await connection.rollback();
-    throw e;
-  }
-
-  if (fs.existsSync(job.file_path)) fs.unlinkSync(job.file_path);
-
-  return {
-    logSummary: `Adjustment Selesai: ${successCounter} baris diproses (Paket dipecah otomatis).`,
-    errors: errors,
-    stats: { success: successCounter, failed: errors.length },
-  };
+  // Error logika (e.g., "SKU tidak ditemukan") TIDAK boleh diretry
+  return false;
 }
 
 // --- MAIN WORKER LOGIC ---
@@ -261,7 +149,8 @@ export const importQueue = async () => {
   try {
     connection = await db.getConnection();
 
-    // REPO: Ambil Job Pending
+    // 1. Ambil Job (Pending atau Retrying)
+    // Query di repo sudah diupdate untuk menangani delay 10 detik
     const job = await jobRepo.getPendingImportJob(connection);
 
     if (!job) {
@@ -271,11 +160,12 @@ export const importQueue = async () => {
 
     jobId = job.id;
 
-    // REPO: Lock Job
+    // Lock Job (Set PROCESSING)
     await jobRepo.lockImportJob(connection, jobId);
     connection.release();
 
-    console.log(`[ImportWorker] Starting Job ${jobId} (${job.job_type})`);
+    const retryInfo = job.retry_count > 0 ? `(Retry #${job.retry_count})` : "";
+    console.log(`[ImportWorker] Starting Job ${jobId} ${retryInfo}: ${job.job_type}`);
 
     connection = await db.getConnection(); // Koneksi baru untuk proses berat
     let logSummary = "";
@@ -283,39 +173,47 @@ export const importQueue = async () => {
     let processStats = {};
     let headerRowIndex = 1;
 
-    if (job.job_type.startsWith("IMPORT_SALES_")) {
+    // Callback untuk Progress Tracking
+    const updateJobProgress = async (processed, total) => {
+      try {
+        await jobRepo.updateProgress(connection, jobId, processed, total);
+      } catch (e) {}
+    };
+
+    // Deteksi Dry Run
+    const isDryRun = job.job_type.endsWith("_DRY_RUN");
+    const realJobType = isDryRun ? job.job_type.replace("_DRY_RUN", "") : job.job_type;
+
+    // --- SWITCH CASE BERDASARKAN TIPE JOB ---
+    if (realJobType.startsWith("IMPORT_SALES_")) {
       const sourceMap = {
         IMPORT_SALES_TOKOPEDIA: "Tokopedia",
         IMPORT_SALES_SHOPEE: "Shopee",
         IMPORT_SALES_OFFLINE: "Offline",
       };
-      const source = sourceMap[job.job_type];
+      const source = sourceMap[realJobType];
       if (!source) throw new Error(`Unknown Import Type: ${job.job_type}`);
 
       const parser = new ParserEngine(job.file_path, source);
-      const {
-        orders: ordersMap = new Map(),
-        stats = {},
-        errors: parserErrors = [],
-        headerRowIndex: hIdx = 1,
-      } = await parser.run();
-
+      const { orders, stats, errors: pErrors, headerRowIndex: hIdx } = await parser.run();
       headerRowIndex = hIdx;
-      for (const order of ordersMap.values()) {
-        order.source = source;
-      }
 
+      for (const order of orders.values()) order.source = source;
+
+      // Jalankan Service Picking (Sales Import)
       const syncResult = await syncOrdersToDB(
         connection,
-        ordersMap,
+        orders,
         job.user_id,
-        job.original_filename
+        job.original_filename,
+        updateJobProgress,
+        isDryRun
       );
 
       const logicErrors = [];
       const rawErrors = syncResult.errors || [];
-
       for (const err of rawErrors) {
+        // Flatten error string array
         if (typeof err === "object" && err.row) {
           logicErrors.push(err);
           continue;
@@ -324,13 +222,48 @@ export const importQueue = async () => {
         logicErrors.push({ message: msg });
       }
 
-      errors = [...parserErrors, ...logicErrors];
+      errors = [...pErrors, ...logicErrors];
       processStats = stats;
-      logSummary = `Selesai ${source}. Scan: ${stats.totalRows || 0} baris. DB Update: ${
-        syncResult.updatedCount
+
+      const modeText = isDryRun ? "[SIMULASI] " : "";
+      logSummary = `${modeText}Selesai ${source}. DB Update: ${
+        syncResult.updatedCount || 0
       } Invoice.`;
-    } else if (job.job_type === "ADJUST_STOCK") {
-      const result = await processStockAdjustmentFile(job, connection);
+    } else if (realJobType === "ADJUST_STOCK") {
+      // Panggil Service Stock Import
+      const result = await processStockImport(
+        connection,
+        job.file_path,
+        job.user_id,
+        job.original_filename,
+        updateJobProgress,
+        isDryRun
+      );
+
+      logSummary = result.logSummary;
+      errors = (result.errors || []).map((e) => ({ row: e.row, message: e.message }));
+      processStats = result.stats || {};
+    } else if (realJobType === "IMPORT_ATTENDANCE") {
+      // Parse Options for Dynamic Mapping
+      let mapping = null;
+      try {
+        if (job.options) {
+          mapping = typeof job.options === "string" ? JSON.parse(job.options) : job.options;
+        }
+      } catch (e) {
+        console.warn("Failed to parse job options:", e);
+      }
+
+      // Panggil Service Absensi
+      const result = await processAttendanceImport(
+        connection,
+        job.file_path,
+        job.user_id,
+        job.original_filename,
+        updateJobProgress,
+        isDryRun,
+        mapping // Pass mapping here
+      );
       logSummary = result.logSummary;
       errors = result.errors || [];
       processStats = result.stats || {};
@@ -338,7 +271,8 @@ export const importQueue = async () => {
       throw new Error(`Job Type tidak dikenal: ${job.job_type}`);
     }
 
-    // Finalisasi Status
+    // --- SUCCESS PATH ---
+
     let finalStatus = "COMPLETED";
     if (errors.length > 0) {
       finalStatus = "COMPLETED_WITH_ERRORS";
@@ -350,7 +284,10 @@ export const importQueue = async () => {
     }
 
     let downloadUrl = null;
-    if (errors.length > 0 && job.job_type.startsWith("IMPORT_SALES_")) {
+    // Generate Error Excel jika ada error
+    if (errors.length > 0) {
+      // Mendukung error excel untuk semua tipe job yang punya info baris (row)
+      // Pastikan generateErrorFile support struktur error array yang dikirim
       downloadUrl = await generateErrorFile(job.file_path, errors, headerRowIndex, jobId);
     }
 
@@ -367,26 +304,57 @@ export const importQueue = async () => {
       errorLogJSON = JSON.stringify({ message: "Error log format invalid" });
     }
 
+    // Pastikan progress 100% saat selesai (jika ada stats success dan tidak gagal total)
+    if (processStats.success > 0 || finalStatus === "COMPLETED") {
+      const total = processStats.success + (errors.length || 0);
+      await jobRepo.updateProgress(connection, jobId, total, total);
+    }
+
     // REPO: Complete Job
     await jobRepo.completeImportJob(connection, jobId, finalStatus, logSummary, errorLogJSON);
 
+    // Hapus file hanya jika SUKSES atau FAILED (bukan retry)
     if (fs.existsSync(job.file_path)) {
       try {
         fs.unlinkSync(job.file_path);
-      } catch (err) {
-        console.warn(`Gagal hapus file: ${job.file_path}`);
-      }
+      } catch (err) {}
     }
 
-    console.log(`[ImportWorker] Job ${jobId} Finished: ${finalStatus}`);
+    console.log(`[ImportWorker] Job ${jobId} Finished: ${finalStatus} (DryRun: ${isDryRun})`);
   } catch (error) {
     console.error(`[ImportWorker] Job ${jobId} CRASHED:`, error);
+
+    // --- SMART RETRY LOGIC ---
     if (jobId && connection) {
       try {
-        // REPO: Fail Job
-        await jobRepo.failImportJob(connection, jobId, `CRASH: ${error.message.substring(0, 255)}`);
+        const job = await connection.query("SELECT retry_count FROM import_jobs WHERE id = ?", [
+          jobId,
+        ]);
+        const currentRetry = job[0][0]?.retry_count || 0;
+
+        // Cek apakah error ini layak diretry DAN belum limit
+        if (isRetriableError(error) && currentRetry < MAX_RETRIES) {
+          console.warn(
+            `[ImportWorker] Transient Error detected. Scheduling Retry #${
+              currentRetry + 1
+            } in 10s...`
+          );
+
+          // Set status RETRYING, update counter, update timestamp
+          await jobRepo.retryImportJob(connection, jobId, currentRetry, error.message);
+
+          // PENTING: Jangan hapus file, jangan set FAILED.
+          // Worker akan mengambil job ini lagi nanti via getPendingImportJob
+        } else {
+          // Error Fatal atau sudah limit retry -> FAILED Permanen
+          await jobRepo.failImportJob(
+            connection,
+            jobId,
+            `CRASH: ${error.message.substring(0, 255)}`
+          );
+        }
       } catch (e) {
-        console.error("Gagal mencatat CRASH ke DB:", e);
+        console.error("Gagal update status CRASH/RETRY ke DB:", e);
       }
     }
   } finally {

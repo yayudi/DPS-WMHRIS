@@ -1,4 +1,4 @@
-// backend\scripts\devExportWorker.js
+// backend\scripts\devExport.js
 import { processQueue } from "./exportQueue.js"; // Impor fungsi
 import db from "../../config/db.js"; // Impor db untuk rilis koneksi
 

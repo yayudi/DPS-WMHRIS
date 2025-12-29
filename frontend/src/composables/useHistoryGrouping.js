@@ -1,4 +1,3 @@
-// frontend/src/composables/useHistoryGrouping.js
 import { computed } from 'vue'
 
 export function useHistoryGrouping(itemsRef, filterStateRef) {
@@ -6,7 +5,7 @@ export function useHistoryGrouping(itemsRef, filterStateRef) {
     const rawItems = itemsRef.value || []
     const filter = filterStateRef.value
 
-    // FILTERING
+    // --- 1. FILTERING ---
     let filtered = rawItems
 
     // Filter Source
@@ -19,6 +18,7 @@ export function useHistoryGrouping(itemsRef, filterStateRef) {
       const q = filter.search.toLowerCase()
       filtered = filtered.filter(
         (i) =>
+          // Check clean ID (without _REV_) or raw ID
           (i.original_invoice_id || '').toLowerCase().includes(q) ||
           (i.sku || '').toLowerCase().includes(q) ||
           (i.product_name || '').toLowerCase().includes(q) ||
@@ -31,7 +31,9 @@ export function useHistoryGrouping(itemsRef, filterStateRef) {
       const start = filter.startDate
         ? new Date(filter.startDate + 'T00:00:00')
         : new Date('2000-01-01')
-      const end = filter.endDate ? new Date(filter.endDate + 'T23:59:59') : new Date()
+      // Fix: Default End Date should be far future to include "Today's" items fully
+      const end = filter.endDate ? new Date(filter.endDate + 'T23:59:59') : new Date('2100-12-31')
+
       filtered = filtered.filter((i) => {
         const d = new Date(i.order_date || i.created_at)
         return d >= start && d <= end
@@ -40,29 +42,37 @@ export function useHistoryGrouping(itemsRef, filterStateRef) {
 
     if (filtered.length === 0) return []
 
-    // GROUPING BY INVOICE ID
+    // --- 2. INTELLIGENT GROUPING (FIXED) ---
     const groups = new Map()
 
     filtered.forEach((item) => {
-      // Pastikan Invoice ID selalu ada, jika null pakai picking_list_id
-      const invId = item.original_invoice_id || `INV-MANUAL-${item.picking_list_id}`
+      const rawId = item.original_invoice_id || `INV-MANUAL-${item.picking_list_id}`
 
-      if (!groups.has(invId)) {
-        groups.set(invId, {
-          invoice: invId, // Property ini yang dibaca PickingListCard
+      // [CRITICAL FIX]: Deteksi & Hapus Suffix _REV_
+      // Jika ID = "INV-100_REV_123", maka Clean ID = "INV-100"
+      // Ini membuat Revisi dan Parent-nya masuk ke grup yang sama.
+      const cleanId = rawId.includes('_REV_') ? rawId.split('_REV_')[0] : rawId
+
+      if (!groups.has(cleanId)) {
+        groups.set(cleanId, {
+          invoice: cleanId, // Gunakan ID bersih untuk tampilan UI
           source: item.source,
           customer_name: item.customer_name,
           order_date: item.order_date,
-          sessionsMap: new Map(),
+          sessionsMap: new Map(), // Menampung Picking List ID yang berbeda (Revisi)
         })
       }
 
-      const group = groups.get(invId)
+      const group = groups.get(cleanId)
+
+      // Kita perlu ID unik untuk setiap sesi picking (biasanya picking_list_id)
       const listId = item.picking_list_id
 
       if (!group.sessionsMap.has(listId)) {
         group.sessionsMap.set(listId, {
           id: listId,
+          // Simpan raw ID di dalam sesi jika perlu debug
+          raw_invoice_id: rawId,
           status: item.status,
           marketplace_status: item.marketplace_status,
           created_at: item.created_at,
@@ -73,32 +83,40 @@ export function useHistoryGrouping(itemsRef, filterStateRef) {
 
       // Masukkan item ke sesi
       const session = group.sessionsMap.get(listId)
-      session.items.push(item) // Push raw item (ada sku, qty, status)
-      session.total_items += Number(item.quantity || 0) // Hitung total qty manual
+      session.items.push(item)
+      session.total_items += Number(item.quantity || 0)
     })
 
-    // FLATTENING & SORTING SESSIONS
+    // --- 3. FLATTENING & IDENTIFYING MAIN vs HISTORY ---
     const finalCards = Array.from(groups.values()).map((group) => {
+      // Urutkan sesi berdasarkan ID (Asumsi ID lebih besar = Paling Baru/Aktif)
       const sessions = Array.from(group.sessionsMap.values()).sort((a, b) => b.id - a.id)
 
+      // Sesi paling atas adalah "Main Card"
       const latestSession = sessions[0]
-      const historyLogs = sessions.slice(1) // Versi lama (jika ada revisi)
+
+      // Sisanya adalah "History Logs" (Revisi lama)
+      const historyLogs = sessions.slice(1)
 
       return {
-        ...latestSession, // id, status, items, dll
-        invoice: group.invoice, // Pastikan ini ter-set!
+        ...latestSession, // Spread properties sesi terbaru (status, items, dll)
+
+        // Timpa info header dari grup (konsisten)
+        invoice: group.invoice,
         source: group.source,
         customer_name: group.customer_name,
+
+        // Attach array history untuk dropdown di card
         historyLogs: historyLogs,
       }
     })
 
-    // FINAL SORTING
+    // --- 4. FINAL SORTING ---
     const sortKey = filter.sortBy
     return finalCards.sort((a, b) => {
       if (sortKey === 'oldest') return a.id - b.id
       if (sortKey === 'invoice_asc') return a.invoice.localeCompare(b.invoice)
-      return b.id - a.id // Default: Newest
+      return b.id - a.id // Default: Newest ID first
     })
   })
 

@@ -55,7 +55,7 @@ watch(
       summary.value = data.summary || null
       let fetchedUsers = data.users || []
 
-      // Logika RBAC (tidak berubah, tapi sekarang lebih aman dari race condition)
+      // Logika RBAC (Role Based Access Control)
       if (!canViewAll.value) {
         const currentUserData = fetchedUsers.find(
           (u) => u.nama.toLowerCase() === authStore.user.username.toLowerCase(),
@@ -160,26 +160,47 @@ async function handleUpload(formData) {
   show('Mengupload file...', 'info')
   try {
     const response = await uploadAbsensiFile(formData)
+
     if (response.success) {
-      show('Upload berhasil! Menampilkan data terbaru.', 'success')
       isUploadModalOpen.value = false
-      try {
-        const newIndexes = await getAvailableIndexes()
-        availableIndexes.value = newIndexes
-        const years = Object.keys(newIndexes).sort((a, b) => b - a)
-        const months = newIndexes[response.processed.year] || []
-        updateFilterOptions(
-          years,
-          months.sort((a, b) => a - b),
-        )
-      } catch (indexError) {
-        console.error('Gagal memperbarui index setelah upload:', indexError)
-        show('Data berhasil diupload, tetapi gagal memperbarui filter.', 'warning')
+
+      // CASE 1: Job Queue (Async)
+      if (response.jobId) {
+        show(response.message || 'File masuk antrian background.', 'success')
+        // Refresh index best effort
+        try {
+          const newIndexes = await getAvailableIndexes()
+          availableIndexes.value = newIndexes
+          // Jangan force update filterValues karena kita tidak tahu target tahun/bulan
+        } catch (e) {
+          console.warn('Gagal refresh index background', e)
+        }
       }
-      const { year, month } = response.processed
-      if (year && month) {
-        filterValues.value.year = year.toString()
-        filterValues.value.month = String(month).padStart(2, '0')
+      // CASE 2: Direct Processing (Sync - Legacy Support)
+      else if (response.processed) {
+        show('Upload berhasil! Menampilkan data terbaru.', 'success')
+        try {
+          const newIndexes = await getAvailableIndexes()
+          availableIndexes.value = newIndexes
+          const years = Object.keys(newIndexes).sort((a, b) => b - a)
+          // Safe check
+          const targetYear = response.processed?.year
+          const months = targetYear ? newIndexes[targetYear] || [] : []
+
+          updateFilterOptions(
+            years,
+            months.sort((a, b) => a - b),
+          )
+        } catch (indexError) {
+          console.error('Gagal memperbarui index setelah upload:', indexError)
+          show('Data berhasil diupload, tetapi gagal memperbarui filter.', 'warning')
+        }
+
+        const { year, month } = response.processed || {}
+        if (year && month) {
+          filterValues.value.year = year.toString()
+          filterValues.value.month = String(month).padStart(2, '0')
+        }
       }
     } else {
       throw new Error(response.message || 'Terjadi kesalahan di server.')
@@ -279,14 +300,23 @@ async function handleUpload(formData) {
       </div>
     </main>
 
+    <!-- MODAL UPLOAD -->
     <Modal :show="isUploadModalOpen" @close="isUploadModalOpen = false" title="Upload File Absensi">
-      <UploadForm @submit="handleUpload" :loading="isUploading" />
+      <!-- Menggunakan Component UploadForm Baru dengan Drag Drop & Dry Run -->
+      <UploadForm
+        @submit="handleUpload"
+        :loading="isUploading"
+        accept=".csv"
+        submit-label="Mulai Import"
+        :show-dry-run="true"
+      />
+
       <template #footer>
         <button
           @click="isUploadModalOpen = false"
           class="bg-background border border-secondary/30 text-text/80 hover:bg-secondary/20 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
         >
-          Batal
+          Tutup
         </button>
       </template>
     </Modal>

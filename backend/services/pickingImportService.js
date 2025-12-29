@@ -11,18 +11,24 @@ const log = (msg) => {
 /**
  * SERVICE: Process Import Data (Orchestrator)
  */
-export const processImportData = async (groupedOrders, userId) => {
-  const summary = { processed: 0, errors: [] };
+export const syncOrdersToDB = async (
+  connection,
+  groupedOrders,
+  userId,
+  originalFilename,
+  onProgress = null,
+  dryRun = false
+) => {
+  const summary = { processed: 0, updatedCount: 0, errors: [] };
   const ordersToProcess = Array.from(groupedOrders.values());
+  const totalOrders = ordersToProcess.length;
 
-  if (ordersToProcess.length === 0) return summary;
+  if (totalOrders === 0) return summary;
 
-  console.log(`[DEBUG-TRACE] Menerima ${ordersToProcess.length} order untuk diproses.`);
-  if (ordersToProcess.length > 0) {
-    console.log(`[DEBUG-TRACE] Sample Order ID ke-1: "${ordersToProcess[0].invoiceId}"`);
-  }
+  log(`🚀 Memulai proses ${totalOrders} order. Mode: ${dryRun ? "DRY RUN (Simulasi)" : "LIVE"}`);
 
-  const connection = await db.getConnection();
+  // Report Progress Awal
+  if (onProgress) await onProgress(0, totalOrders);
 
   try {
     // Kumpulkan SKU
@@ -31,165 +37,108 @@ export const processImportData = async (groupedOrders, userId) => {
       order.items.forEach((item) => allSkus.add(item.sku));
     });
 
-    log(`🚀 Memulai validasi ${ordersToProcess.length} order dengan ${allSkus.size} SKU unik...`);
-
-    // Fetch Data (Strict Display)
+    log(`📦 Mengambil referensi untuk ${allSkus.size} SKU unik...`);
     const dbData = await validationHelper.fetchReferenceData(connection, Array.from(allSkus));
 
-    // Handle Existing (Update/Cancel)
-    const newOrders = await validationHelper.handleExistingInvoices(connection, ordersToProcess);
-    console.log(`[DEBUG-TRACE] ${newOrders.length} order lolos filter Existing Invoices.`);
+    // 2. Mulai Transaksi Global
+    // Penting: Transaksi dimulai DI SINI, bukan di dalam helper, agar bisa di-rollback total.
+    await connection.beginTransaction();
 
-    // Kalkulasi Validasi
-    let allValidItems = [];
+    try {
+      // 3. Handle Existing Invoices (Sync Status / Archive / Cancel)
+      // Helper ini sekarang HANYA menjalankan query, tidak commit transaksi.
+      log(`🔄 Sinkronisasi status order lama...`);
 
-    for (const order of newOrders) {
-      const { validItems, invalidSkus } = validationHelper.calculateValidations(
-        order.items,
-        dbData
+      // Inject filename ke setiap order untuk keperluan logging/notes
+      ordersToProcess.forEach((o) => (o.originalFilename = originalFilename));
+
+      const newOrdersToInsert = await validationHelper.handleExistingInvoices(
+        connection,
+        ordersToProcess
       );
 
-      if (invalidSkus.length > 0) {
-        invalidSkus.forEach((err) => {
-          summary.errors.push({ invoice: order.invoiceId, error: err });
-        });
-        continue;
-      }
+      log(`✨ ${newOrdersToInsert.length} order baru siap divalidasi & insert.`);
 
-      if (validItems.length > 0) {
-        // [DEBUG-TRACE] Cek apakah invoiceId ada sebelum di-attach
-        if (!order.invoiceId) {
-          console.error(`[DEBUG-TRACE] 🚨 CRITICAL: Order ditemukan TANPA Invoice ID!`, order);
+      // 4. Proses Insert Order Baru
+      let processedCounter = 0;
+
+      // Grouping untuk Insert Batch (Validasi dulu per order)
+      for (const order of newOrdersToInsert) {
+        const { validItems, invalidSkus } = validationHelper.calculateValidations(
+          order.items,
+          dbData
+        );
+
+        if (invalidSkus.length > 0) {
+          invalidSkus.forEach((err) => summary.errors.push(`Order ${order.invoiceId}: ${err}`));
+          continue; // Skip order ini
         }
 
-        // Attach metadata header ke setiap item valid
-        validItems.forEach((item) => {
-          item.meta = {
+        if (validItems.length > 0) {
+          // Attach metadata
+          const meta = {
             userId,
             source: order.source,
-            originalFilename: order.originalFilename,
+            originalFilename: originalFilename,
             originalInvoiceId: order.invoiceId,
             customerName: order.customer,
             orderDate: order.orderDate,
             status: order.status,
           };
-        });
-        allValidItems.push(...validItems);
+
+          // Insert Header
+          const listId = await validationHelper.insertPickingHeader(connection, meta);
+
+          // Insert Items
+          await validationHelper.insertPickingItems(
+            connection,
+            listId,
+            validItems,
+            dbData.validProductMap
+          );
+
+          summary.processed++;
+        }
+
+        // Update Progress (Setiap 5 order agar tidak spam DB)
+        processedCounter++;
+        if (onProgress && processedCounter % 5 === 0) {
+          // Kita asumsikan progress 50% untuk sync, 50% untuk insert (simplified)
+          // Atau hitung kumulatif. Di sini kita hitung berdasarkan totalOrders.
+          await onProgress(processedCounter, totalOrders);
+        }
       }
-    }
 
-    console.log(`[DEBUG-TRACE] Total ${allValidItems.length} valid items siap di-grouping.`);
-
-    // Insert Batch (LOGIKA GROUPING DISINI SERING SALAH)
-    const validGroups = new Map();
-
-    allValidItems.forEach((item, index) => {
-      // [DEBUG-TRACE] Cek sampel item
-      if (index === 0) {
-        console.log(`[DEBUG-TRACE] Sample Item Meta:`, item.meta);
-      }
-
-      const inv = item.meta?.originalInvoiceId;
-
-      if (!inv) {
-        console.error(
-          `[DEBUG-TRACE] ❌ Item pada index ${index} KEHILANGAN Invoice ID! Masuk ke 'undefined'.`,
-          item
-        );
-      }
-
-      if (!validGroups.has(inv)) validGroups.set(inv, []);
-      validGroups.get(inv).push(item);
-    });
-
-    console.log(
-      `[DEBUG-TRACE] Hasil Grouping: ${validGroups.size} Header Picking List akan dibuat.`
-    );
-    // Debug keys
-    let keys = Array.from(validGroups.keys());
-    console.log(`[DEBUG-TRACE] Sample Keys (Invoice IDs):`, keys.slice(0, 5));
-
-    for (const [invoiceId, items] of validGroups) {
-      await connection.beginTransaction();
-      try {
-        const firstItem = items[0];
-
-        // [DEBUG-TRACE]
-        // console.log(`[DEBUG-TRACE] Inserting Header untuk: ${invoiceId} dengan ${items.length} items.`);
-
-        const pickingListId = await validationHelper.insertPickingHeader(
-          connection,
-          firstItem.meta
-        );
-
-        await validationHelper.insertPickingItems(
-          connection,
-          pickingListId,
-          items,
-          dbData.validProductMap
-        );
-
-        await connection.commit();
-        summary.processed++;
-      } catch (err) {
+      // 5. Finalisasi Transaksi
+      if (dryRun) {
+        log(`🛑 Dry Run Selesai. Melakukan ROLLBACK...`);
         await connection.rollback();
-        console.error(`Gagal insert invoice ${invoiceId}:`, err);
-        summary.errors.push({ invoice: invoiceId, error: "Database Insert Error: " + err.message });
+        summary.updatedCount = 0; // Reset count karena tidak ada yang tersimpan
+      } else {
+        await connection.commit();
+        log(`✅ Transaksi COMMITTED.`);
+        summary.updatedCount = summary.processed;
       }
+
+      // Report 100%
+      if (onProgress) await onProgress(totalOrders, totalOrders);
+    } catch (innerError) {
+      // Rollback jika ada error di tengah proses logic
+      await connection.rollback();
+      throw innerError;
     }
   } catch (error) {
-    console.error("Critical Import Error:", error);
+    console.error("[PickingImport] Critical Error:", error);
+    summary.errors.push(`System Error: ${error.message}`);
+    // Jika error terjadi sebelum beginTransaction (misal fetchReferenceData gagal), tidak perlu rollback.
+    // Jika sesudah, sudah dihandle oleh inner catch.
     throw error;
-  } finally {
-    connection.release();
   }
 
-  log(`🏁 Selesai. Processed: ${summary.processed}, Errors: ${summary.errors.length}`);
   return summary;
 };
 
-// Wrapper untuk Controller
+// Wrapper untuk Controller (Legacy Support - Jika ada controller lama yang memanggil ini langsung)
 export const performPickingValidation = async (payload) => {
-  const { items, userId, source, originalFilename } = payload;
-
-  console.log(`[DEBUG-TRACE] performPickingValidation menerima ${items.length} raw items.`);
-
-  const groupedOrders = new Map();
-  items.forEach((item) => {
-    if (!item.invoiceId) {
-      console.warn(`[DEBUG-TRACE] Raw item missing invoiceId:`, item);
-      return;
-    }
-
-    if (!groupedOrders.has(item.invoiceId)) {
-      groupedOrders.set(item.invoiceId, {
-        invoiceId: item.invoiceId,
-        customer: item.customer,
-        orderDate: item.orderDate,
-        status: item.status,
-        source: source,
-        items: [],
-        originalFilename: originalFilename,
-      });
-    }
-    groupedOrders.get(item.invoiceId).items.push({
-      sku: item.sku,
-      qty: item.qty,
-      returnedQty: item.returnedQty || 0,
-    });
-  });
-
-  console.log(`[DEBUG-TRACE] Grouping awal berhasil. Total Invoice Unik: ${groupedOrders.size}`);
-
-  return await processImportData(groupedOrders, userId);
-};
-
-// Wrapper untuk ImportQueue Worker
-export const syncOrdersToDB = async (connection, ordersMap, userId, originalFilename) => {
-  // Inject filename
-  for (const order of ordersMap.values()) {
-    order.originalFilename = originalFilename;
-  }
-  // Note: Parameter connection diabaikan disini karena service buat koneksi sendiri
-  return await processImportData(ordersMap, userId);
+  throw new Error("Deprecated: Use Job Queue Import instead.");
 };

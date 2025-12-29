@@ -94,13 +94,18 @@ export const findBestStock = async (connection, productId, qtyNeeded) => {
 // WRITE OPERATIONS
 // ============================================================================
 
-export const upsertStock = async (connection, productId, locationId, quantity) => {
-  return connection.query(
-    `INSERT INTO stock_locations (product_id, location_id, quantity)
-      VALUES (?, ?, ?)
-      ON DUPLICATE KEY UPDATE quantity = ?`,
-    [productId, locationId, quantity, quantity]
-  );
+/**
+ * Mengatur jumlah stok secara absolut (untuk Stock Opname)
+ * Jika record belum ada -> Insert
+ * Jika record ada -> Update quantity = newQty
+ */
+export const upsertStock = async (connection, productId, locationId, newQty) => {
+  const query = `
+    INSERT INTO stock_locations (product_id, location_id, quantity, updated_at)
+    VALUES (?, ?, ?, NOW())
+    ON DUPLICATE KEY UPDATE quantity = ?, updated_at = NOW()
+  `;
+  return connection.query(query, [productId, locationId, newQty, newQty]);
 };
 
 export const deductStock = async (connection, productId, locationId, quantity) => {

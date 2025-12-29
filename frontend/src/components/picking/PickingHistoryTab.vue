@@ -1,3 +1,4 @@
+<!-- frontend/src/components/picking/PickingHistoryTab.vue -->
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useToast } from '@/composables/useToast.js'

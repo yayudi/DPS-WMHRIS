@@ -8,8 +8,9 @@
 
 /* Kotak input utama (pengganti <input>) */
 .multiselect__tags {
-  @apply bg-background border-2 border-primary/30 rounded-lg text-text;
+  @apply border-2 border-primary/30 rounded-lg text-text;
   @apply min-h-[44px] p-2 flex items-center;
+  @apply bg-secondary !important;
   /* 44px agar tingginy_a sama dengan input lain (py-2 + text) */
 }
 
@@ -18,12 +19,14 @@
   @apply text-text/50;
 }
 .multiselect__single {
-  @apply text-text/90 bg-transparent p-0 m-0;
+  @apply text-text/90 p-0 m-0;
+  @apply bg-secondary !important;
 }
 
 /* Input saat mengetik */
 .multiselect__input {
   @apply text-text bg-transparent p-0 m-0;
+  @apply bg-secondary !important;
 }
 
 /* Menghapus outline biru bawaan saat fokus */
@@ -35,24 +38,43 @@
 /* Panah dropdown di kanan */
 .multiselect__select {
   height: 2.6rem;
+  @apply text-text;
 }
 .multiselect__select:before {
-  @apply text-primary/50;
-  border-color: rgb(var(--color-primary) / 0.5) transparent transparent !important;
+  @apply text-text;
 }
 
 /* --- Wrapper Dropdown (Panel Opsi) --- */
-.multiselect__content-wrapper {
-  @apply bg-background border border-secondary/30 rounded-b-lg shadow-md;
+:deep(.multiselect__content-wrapper) {
+  /* Pastikan background putih & z-index tinggi */
+  @apply bg-background border border-primary/50 rounded-xl shadow-2xl;
   border-top: none !important;
   /* Pastikan z-index tinggi agar muncul di atas modal */
   z-index: 60 !important;
 }
+/* Konten dropdown (daftar opsi) */
+.multiselect__content {
+  @apply max-h-60 overflow-y-auto;
+}
+
+/* --- Opsi Individual --- */
+.multiselect__option--selected {
+  @apply bg-primary text-text;
+}
+/* Opsi saat di-hover (highlight) */
+.multiselect__option--highlight:hover {
+  @apply bg-primary text-text;
+}
+
+/* Spinner loading */
+.multiselect__spinner:before,
+.multiselect__spinner:after {
+  background-color: yellow !important;
+}
 
 /* Opsi individual */
 .multiselect__option {
-  @apply text-text text-sm;
-
+  @apply text-text text-sm bg-secondary;
   /* ✅ Jadikan 'relative' agar 'stok' bisa diposisikan */
   position: relative;
 
@@ -62,17 +84,17 @@
 
 /* Opsi saat di-hover (highlight) */
 .multiselect__option--highlight {
-  @apply bg-secondary/20 text-text;
+  @apply bg-success text-secondary font-semibold  !important;
 }
 
 /* Opsi yang sedang dipilih */
 .multiselect__option--selected {
-  @apply bg-primary/10 text-primary font-semibold;
+  @apply bg-accent text-secondary font-semibold !important;
 }
 
 /* Opsi yang dipilih DAN di-hover */
 .multiselect__option--selected.multiselect__option--highlight {
-  @apply bg-primary/20 text-primary;
+  @apply bg-danger text-secondary font-semibold  !important;
 }
 
 /* --- Helper untuk Template Kustom (Sesuai Gambar Anda) --- */
@@ -104,12 +126,12 @@
 }
 
 /*
- * =============================================
- * ✅ PERBAIKAN UX (Menghilangkan Helper Teks)
- * =============================================
- * Sembunyikan *semua* helper teks bawaan (cth: "Press enter to select")
- * dan "Selected" secara paksa.
- */
+* =============================================
+* ✅ PERBAIKAN UX (Menghilangkan Helper Teks)
+* =============================================
+* Sembunyikan *semua* helper teks bawaan (cth: "Press enter to select")
+* dan "Selected" secara paksa.
+*/
 
 /* Sembunyikan banner "Press enter..." (yg solid) */
 .multiselect__option span[data-select],
@@ -126,12 +148,12 @@
 }
 
 /*
- * ✅ PERBAIKAN FINAL (Lebih Kuat)
- * Sembunyikan banner "Selected" DAN "Press enter..."
- * dengan menargetkan pseudo-element pada SEMUA status.
- */
-.multiselect__option.multiselect__option--highlight::after,  /* ✅ TAMBAHAN */
-.multiselect__option.multiselect__option--highlight:after,   /* ✅ TAMBAHAN */
+* ✅ PERBAIKAN FINAL (Lebih Kuat)
+* Sembunyikan banner "Selected" DAN "Press enter..."
+* dengan menargetkan pseudo-element pada SEMUA status.
+*/
+.multiselect__option.multiselect__option--highlight::after,
+.multiselect__option.multiselect__option--highlight:after,
 .multiselect__option.multiselect__option--selected::after,
 .multiselect__option.multiselect__option--selected:after,
 .multiselect__option.multiselect__option--selected::before,

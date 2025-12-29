@@ -46,10 +46,10 @@ async function ensureStockLocation(connection, productId, qtyNeeded, currentLocI
     );
 
     if (currentStock >= qtyNeeded) {
-      return { locationId: currentLocId, isChanged: false };
+      return { locationId: currentLocId, isChanged: false, currentStock };
     } else {
       fileLog(
-        `⚠️ Lokasi lama (ID ${currentLocId}) stok tidak cukup/hilang. Sisa: ${currentStock}, Butuh: ${qtyNeeded}. Mencari ulang...`
+        `⚠️ Lokasi lama (ID ${currentLocId}) stok tidak cukup. Sisa: ${currentStock}, Butuh: ${qtyNeeded}. Mencari ulang...`
       );
     }
   }
@@ -58,10 +58,25 @@ async function ensureStockLocation(connection, productId, qtyNeeded, currentLocI
   const newBestLocId = await locationRepo.findBestStock(connection, productId, qtyNeeded);
 
   if (newBestLocId) {
-    return { locationId: newBestLocId, isChanged: true };
+    // [SAFETY CHECK] Verifikasi stok di lokasi baru
+    // findBestStock mungkin mengembalikan lokasi terbaik yang ada, tapi belum tentu cukup (jika semua lokasi kurang)
+    const newStock = await locationRepo.getStockAtLocation(
+      connection,
+      productId,
+      newBestLocId,
+      true
+    );
+
+    if (newStock >= qtyNeeded) {
+      return { locationId: newBestLocId, isChanged: true, currentStock: newStock };
+    }
+
+    fileLog(
+      `⚠️ Lokasi alternatif (ID ${newBestLocId}) juga tidak cukup. Sisa: ${newStock}, Butuh: ${qtyNeeded}.`
+    );
   }
 
-  return { locationId: null, isChanged: false };
+  return { locationId: null, isChanged: false, currentStock: 0 };
 }
 
 // ==============================================================================
@@ -107,8 +122,8 @@ export const cancelPickingListService = async (pickingListId, userId) => {
     // Cek & Kembalikan Stok untuk item yang sudah divalidasi
     const [itemsToRestock] = await connection.query(
       `SELECT product_id, quantity, confirmed_location_id
-       FROM picking_list_items
-       WHERE picking_list_id = ? AND status = 'VALIDATED' AND confirmed_location_id IS NOT NULL`,
+        FROM picking_list_items
+        WHERE picking_list_id = ? AND status = 'VALIDATED' AND confirmed_location_id IS NOT NULL`,
       [pickingListId]
     );
 
@@ -153,6 +168,7 @@ export const cancelPickingListService = async (pickingListId, userId) => {
 
 /**
  * SERVICE UTAMA: Menyelesaikan Item Picking
+ * FITUR SAFETY CHECK: Memastikan picking list masih aktif & valid sebelum update.
  */
 export const completePickingItemsService = async (payloadItems, userId) => {
   const connection = await db.getConnection();
@@ -161,25 +177,51 @@ export const completePickingItemsService = async (payloadItems, userId) => {
   try {
     if (!payloadItems?.length) throw new Error("Tidak ada item dipilih.");
 
+    // --- SAFETY CHECK START (REAL-TIME INTERRUPTION) ---
+    // Pastikan order belum direvisi (menjadi _REV_) saat picker sedang bekerja
+    const listIds = [...new Set(payloadItems.map((i) => i.picking_list_id))];
+
+    for (const listId of listIds) {
+      const header = await pickingRepo.getHeaderById(connection, listId);
+
+      if (!header) {
+        throw new Error(`Data Picking List #${listId} tidak ditemukan. Mungkin sudah dihapus.`);
+      }
+
+      // Cek apakah status Header sudah "Obsolete" (ditandai dengan _REV_)
+      if (header.original_invoice_id && header.original_invoice_id.includes("_REV_")) {
+        throw new Error(
+          `PERHATIAN: Order ${header.original_invoice_id} telah direvisi oleh Admin! ` +
+            `Data Anda usang. Mohon refresh halaman dan kerjakan revisi terbaru.`
+        );
+      }
+
+      // Cek apakah status sudah Cancelled
+      if (header.status === "CANCELLED") {
+        throw new Error(`Order #${listId} telah dibatalkan. Tidak dapat diproses.`);
+      }
+    }
+    // --- SAFETY CHECK END ---
+
     const itemIds = payloadItems.map((i) => i.id);
     const dbItems = await pickingRepo.getItemsByIds(connection, itemIds);
 
-    const affectedListIds = new Set();
-    let processedCount = 0;
-    const failedItems = [];
+    // --- FASE 1: STRICT VALIDATION (SATPAM) ---
+    const validationErrors = [];
+    const executionPlan = []; // Menyimpan data valid untuk eksekusi nanti
 
     for (const itemData of dbItems) {
-      let {
+      const {
         id: itemId,
         product_id: prodId,
         quantity: qty,
         suggested_location_id: initialLocId,
+        picking_list_id,
+        original_sku: sku, // Pastikan repo mengembalikan ini atau ambil ulang
       } = itemData;
 
-      // ---------------------------------------------------------
-      // 🔥 CORE LOGIC: SMART ALLOCATION (Re-check & Find)
-      // ---------------------------------------------------------
-      const { locationId, isChanged } = await ensureStockLocation(
+      // Cek ketersediaan stok & lokasi
+      const { locationId, isChanged, currentStock } = await ensureStockLocation(
         connection,
         prodId,
         qty,
@@ -187,43 +229,69 @@ export const completePickingItemsService = async (payloadItems, userId) => {
       );
 
       if (!locationId) {
-        fileLog(`❌ Stok fisik HABIS untuk Item ID ${itemId} (Prod ${prodId}). Skip.`);
-        failedItems.push(itemId);
-        continue;
+        // Gagal: Stok tidak ditemukan sama sekali
+        validationErrors.push(
+          `Item ID ${itemId} (Prod ${prodId}): Stok habis/tidak cukup di lokasi manapun.`
+        );
+      } else {
+        // Sukses: Simpan rencana eksekusi
+        executionPlan.push({
+          ...itemData,
+          finalLocationId: locationId,
+          isLocationChanged: isChanged,
+        });
+      }
+    }
+
+    // [BLOCKER] Jika ada error, batalkan SEMUA.
+    if (validationErrors.length > 0) {
+      const errorMsg = `Validasi Gagal! ${
+        validationErrors.length
+      } item bermasalah:\n- ${validationErrors.join("\n- ")}`;
+      throw new Error(errorMsg);
+    }
+
+    // --- FASE 2: EKSEKUSI AMAN ---
+    const affectedListIds = new Set();
+    let processedCount = 0;
+
+    for (const plan of executionPlan) {
+      const {
+        id: itemId,
+        product_id: prodId,
+        quantity: qty,
+        finalLocationId,
+        isLocationChanged,
+        picking_list_id,
+      } = plan;
+
+      // Update Lokasi jika berubah
+      if (isLocationChanged) {
+        await pickingRepo.updateSuggestedLocation(connection, itemId, finalLocationId);
+        fileLog(`🔄 Re-route Item ID ${itemId} ke lokasi baru: ${finalLocationId}`);
       }
 
-      if (isChanged) {
-        await pickingRepo.updateSuggestedLocation(connection, itemId, locationId);
-        fileLog(`🔄 Re-route Item ID ${itemId} ke lokasi baru: ${locationId}`);
-      }
+      // 2. Update Status Item -> VALIDATED
+      await pickingRepo.validateItem(connection, itemId, finalLocationId);
 
-      // ---------------------------------------------------------
-      // EKSEKUSI TRANSAKSI STOK
-      // ---------------------------------------------------------
+      // 3. Potong Stok Fisik
+      await locationRepo.deductStock(connection, prodId, finalLocationId, qty);
 
-      // Update Status Item (Sekarang pasti punya locationId yang valid & stok cukup)
-      await pickingRepo.validateItem(connection, itemId, locationId);
-
-      // Potong Stok Fisik
-      await locationRepo.deductStock(connection, prodId, locationId, qty);
-
-      // Catat Log
+      // 4. Catat Log
       await stockRepo.createLog(connection, {
         productId: prodId,
         quantity: qty,
-        fromLocationId: locationId,
+        fromLocationId: finalLocationId,
         type: "SALE",
         userId: userId,
         notes: `Sale Ref: Item #${itemId}`,
       });
 
-      affectedListIds.add(itemData.picking_list_id);
+      affectedListIds.add(picking_list_id);
       processedCount++;
     }
 
-    // ---------------------------------------------------------
-    // HEADER VALIDATION CHECK
-    // ---------------------------------------------------------
+    // --- FASE 3: UPDATE HEADER ---
     for (const listId of affectedListIds) {
       const remainingCount = await pickingRepo.countPendingItems(connection, listId);
       if (remainingCount === 0) {
@@ -233,21 +301,13 @@ export const completePickingItemsService = async (payloadItems, userId) => {
 
     await connection.commit();
 
-    if (processedCount === 0) {
-      return {
-        success: false,
-        message: "Gagal memproses item. Stok fisik mungkin habis atau lokasi tidak ditemukan.",
-      };
-    }
-
-    let message = `${processedCount} item berhasil diproses.`;
-    if (failedItems.length > 0) {
-      message += ` ${failedItems.length} item gagal diproses (stok habis).`;
-    }
-
-    return { success: true, message };
+    return {
+      success: true,
+      message: `Sukses! ${processedCount} item berhasil diproses dan stok telah dipotong.`,
+    };
   } catch (error) {
     await connection.rollback();
+    console.error("[PickingService] Complete Transaction Failed:", error);
     throw error;
   } finally {
     connection.release();

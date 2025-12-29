@@ -28,11 +28,12 @@ export const getPendingItems = async (connection) => {
     LEFT JOIN products p ON pli.product_id = p.id
     LEFT JOIN locations loc_suggested ON pli.suggested_location_id = loc_suggested.id
     LEFT JOIN locations loc_picked ON pli.picked_from_location_id = loc_picked.id
+    -- Join stok berdasarkan lokasi yang disarankan
     LEFT JOIN stock_locations sl ON sl.location_id = pli.suggested_location_id AND sl.product_id = pli.product_id
     WHERE pl.status IN (?, ?)
       AND pl.is_active = 1
       AND pli.status = ?
-    ORDER BY pl.created_at DESC, pl.id DESC, location_code ASC
+    ORDER BY pl.created_at DESC, location_code ASC
   `;
 
   const [rows] = await connection.query(query, [
@@ -49,6 +50,7 @@ export const getHistoryItems = async (connection, limit = 1000) => {
       pl.id as picking_list_id, pl.original_invoice_id, pl.source, pl.status,
       pl.marketplace_status, pl.customer_name, pl.created_at, pl.order_date,
       pli.id as item_id, pli.original_sku as sku, pli.quantity, pli.status as item_status,
+      pli.return_condition, pli.return_notes,
       p.name as product_name
     FROM picking_lists pl
     JOIN picking_list_items pli ON pl.id = pli.picking_list_id
@@ -64,7 +66,14 @@ export const getHistoryItems = async (connection, limit = 1000) => {
 
 export const getListDetails = async (connection, pickingListId) => {
   const query = `
-    SELECT pli.original_sku as sku, pli.quantity as qty, p.name, pli.status
+    SELECT
+      pli.id,
+      pli.original_sku as sku,
+      pli.quantity as qty,
+      p.name,
+      pli.status,
+      pli.return_condition,
+      pli.return_notes
     FROM picking_list_items pli
     JOIN products p ON pli.product_id = p.id
     WHERE pli.picking_list_id = ?
@@ -73,11 +82,12 @@ export const getListDetails = async (connection, pickingListId) => {
   return items;
 };
 
+// Added original_sku so Service can log errors properly
 export const getItemsByIds = async (connection, itemIds) => {
   if (itemIds.length === 0) return [];
   const [rows] = await connection.query(
-    `SELECT id, picking_list_id, suggested_location_id, product_id, quantity
-     FROM picking_list_items WHERE id IN (?)`,
+    `SELECT id, picking_list_id, suggested_location_id, product_id, quantity, original_sku, status
+      FROM picking_list_items WHERE id IN (?)`,
     [itemIds]
   );
   return rows;
@@ -86,7 +96,7 @@ export const getItemsByIds = async (connection, itemIds) => {
 export const countPendingItems = async (connection, listId) => {
   const [rows] = await connection.query(
     `SELECT COUNT(*) as count FROM picking_list_items
-      WHERE picking_list_id = ? AND status NOT IN ('VALIDATED', 'CANCEL')`,
+     WHERE picking_list_id = ? AND status NOT IN ('VALIDATED', 'CANCEL', 'COMPLETED', 'RETURNED', 'OBSOLETE', 'ERROR')`,
     [listId]
   );
   return rows[0].count;
@@ -100,16 +110,13 @@ export const findActiveHeaderByInvoice = async (connection, invoiceId) => {
   return rows.length > 0 ? rows[0] : null;
 };
 
-// Bulk Check Existing Invoices
-export const getActiveHeadersByInvoiceIds = async (connection, invoiceIds) => {
-  if (invoiceIds.length === 0) return [];
+// Required for Safety Check in pickingDataService
+export const getHeaderById = async (connection, listId) => {
   const [rows] = await connection.query(
-    `SELECT id, original_invoice_id, status
-      FROM picking_lists
-      WHERE original_invoice_id IN (?) AND is_active = 1`,
-    [invoiceIds]
+    "SELECT id, original_invoice_id, status, is_active, marketplace_status FROM picking_lists WHERE id = ?",
+    [listId]
   );
-  return rows;
+  return rows.length > 0 ? rows[0] : null;
 };
 
 export const getItemsForComparison = async (connection, listId) => {
@@ -139,7 +146,7 @@ export const cancelHeader = async (connection, listId) => {
   );
 };
 
-// Update Header Status (Generic)
+// Update Header Status
 export const updateHeaderStatus = async (connection, listId, status, isActive) => {
   return connection.query(`UPDATE picking_lists SET status = ?, is_active = ? WHERE id = ?`, [
     status,
@@ -148,7 +155,7 @@ export const updateHeaderStatus = async (connection, listId, status, isActive) =
   ]);
 };
 
-// Update Items Status by List ID (Generic)
+// Update Items Status by List ID
 export const updateItemsStatusByListId = async (connection, listId, status) => {
   return connection.query(`UPDATE picking_list_items SET status = ? WHERE picking_list_id = ?`, [
     status,
@@ -156,6 +163,7 @@ export const updateItemsStatusByListId = async (connection, listId, status) => {
   ]);
 };
 
+// Archives header by renaming with _REV_ suffix
 export const archiveHeader = async (connection, listId) => {
   return connection.query(
     `UPDATE picking_lists
@@ -183,12 +191,33 @@ export const updateSuggestedLocation = async (connection, itemId, locationId) =>
   ]);
 };
 
+// PENTING: Fungsi ini mengupdate status sekaligus mengunci lokasi final
 export const validateItem = async (connection, itemId, locationId) => {
   return connection.query(
     `UPDATE picking_list_items
       SET status = 'VALIDATED', picked_from_location_id = ?, confirmed_location_id = ?
       WHERE id = ?`,
     [locationId, locationId, itemId]
+  );
+};
+
+// Opsional: Jika Anda butuh fungsi khusus untuk update status saja tanpa lokasi
+export const updateItemStatus = async (connection, itemId, status) => {
+  return connection.query(`UPDATE picking_list_items SET status = ? WHERE id = ?`, [
+    status,
+    itemId,
+  ]);
+};
+
+// Marks specific item as RETURNED with condition notes
+export const markItemAsReturned = async (connection, itemId, condition, notes) => {
+  return connection.query(
+    `UPDATE picking_list_items
+      SET status = 'RETURNED',
+        return_condition = ?,
+        return_notes = ?
+      WHERE id = ?`,
+    [condition, notes, itemId]
   );
 };
 
@@ -199,6 +228,7 @@ export const validateHeader = async (connection, listId) => {
   );
 };
 
+// Updates Marketplace status, optionally syncing WMS status too
 export const updateMarketplaceStatus = async (connection, listId, mpStatus, wmsStatus = null) => {
   if (wmsStatus) {
     return connection.query(
@@ -210,6 +240,31 @@ export const updateMarketplaceStatus = async (connection, listId, mpStatus, wmsS
     mpStatus,
     listId,
   ]);
+};
+
+// Bulk Check Existing Invoices (ACTIVE ONLY)
+export const getActiveHeadersByInvoiceIds = async (connection, invoiceIds) => {
+  if (invoiceIds.length === 0) return [];
+  const [rows] = await connection.query(
+    `SELECT id, original_invoice_id, status, marketplace_status
+      FROM picking_lists
+      WHERE original_invoice_id IN (?) AND is_active = 1`,
+    [invoiceIds]
+  );
+  return rows;
+};
+
+// [NEW] Bulk Check Existing Invoices (ALL - Active & Inactive/Cancelled)
+// Ini diperlukan untuk mendeteksi duplicate entry pada order yang sudah dicancel
+export const getAllHeadersByInvoiceIds = async (connection, invoiceIds) => {
+  if (invoiceIds.length === 0) return [];
+  const [rows] = await connection.query(
+    `SELECT id, original_invoice_id, status, marketplace_status, is_active
+      FROM picking_lists
+      WHERE original_invoice_id IN (?)`,
+    [invoiceIds]
+  );
+  return rows;
 };
 
 // ============================================================================
@@ -239,7 +294,7 @@ export const createItem = async (
   );
 };
 
-// Bulk Create Items (Optimization)
+// Bulk Create Items
 export const createItemsBulk = async (connection, rows) => {
   if (rows.length === 0) return;
   return connection.query(

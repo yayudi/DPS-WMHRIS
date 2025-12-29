@@ -18,7 +18,7 @@ const {
   displayedProducts,
   loading,
   isLoadingMore, // Jika ingin dipakai untuk loader bawah
-  isBackgroundLoading, // [NEW] State untuk indikator update halus
+  isBackgroundLoading, // State untuk indikator update halus
   error,
   loader,
   searchBy,
@@ -310,7 +310,7 @@ async function handleAdjustConfirm(payload) {
     </div>
   </div>
 
-  <!-- [NEW] Silent Update Indicator -->
+  <!-- Silent Update Indicator -->
   <transition name="fade">
     <div
       v-if="isBackgroundLoading"

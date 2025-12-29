@@ -1,14 +1,19 @@
 // backend\repositories\jobRepository.js
+import db from "../config/db.js";
 // ============================================================================
 // GENERAL CRUD (Used by jobService)
 // ============================================================================
 
-// Create Job Baru
-export const create = async (connection, { userId, jobType, filename, filePath, notes }) => {
+// [UPDATED] Support 'options' parameter
+export const create = async (
+  connection,
+  { userId, jobType, filename, filePath, notes, options }
+) => {
+  const optionsStr = options ? JSON.stringify(options) : null;
   const [result] = await connection.query(
-    `INSERT INTO import_jobs (user_id, job_type, original_filename, file_path, status, notes, created_at, updated_at)
-      VALUES (?, ?, ?, ?, 'PENDING', ?, NOW(), NOW())`,
-    [userId, jobType, filename, filePath, notes || null]
+    `INSERT INTO import_jobs (user_id, job_type, original_filename, file_path, status, notes, options, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'PENDING', ?, ?, NOW(), NOW())`,
+    [userId, jobType, filename, filePath, notes || null, optionsStr]
   );
   return result.insertId;
 };
@@ -37,14 +42,20 @@ export const update = async (connection, jobId, { status, summary, errorLog }) =
 // Ambil History Job User
 export const findByUser = async (connection, userId, limit = 20) => {
   const [rows] = await connection.query(
-    `SELECT id, status, job_type, original_filename, log_summary, error_log, created_at, notes
-      FROM import_jobs
-      WHERE user_id = ?
-      ORDER BY created_at DESC
-      LIMIT ?`,
+    `SELECT * FROM import_jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
     [userId, limit]
   );
   return rows;
+};
+
+// Fungsi Update Progress Ringan (dipanggil oleh Worker)
+export const updateProgress = async (connection, jobId, processed, total) => {
+  return connection.query(
+    `UPDATE import_jobs
+     SET processed_records = ?, total_records = ?, updated_at = NOW()
+     WHERE id = ?`,
+    [processed, total, jobId]
+  );
 };
 
 // Cancel Job (Hanya jika status PENDING)
@@ -62,9 +73,17 @@ export const cancel = async (connection, jobId, userId) => {
 // IMPORT JOBS (Worker Specific)
 // ============================================================================
 
+/**
+ * [UPDATED] Ambil Job Pending ATAU Job Retrying yang sudah menunggu > 10 detik
+ * Mencegah "Looping Hell" dengan jeda waktu (Backoff).
+ */
 export const getPendingImportJob = async (connection) => {
   const [rows] = await connection.query(
-    `SELECT * FROM import_jobs WHERE status = 'PENDING' ORDER BY created_at ASC LIMIT 1`
+    `SELECT * FROM import_jobs
+      WHERE status = 'PENDING'
+      OR (status = 'RETRYING' AND updated_at <= NOW() - INTERVAL 10 SECOND)
+      ORDER BY created_at ASC
+      LIMIT 1`
   );
   return rows.length > 0 ? rows[0] : null;
 };
@@ -76,6 +95,25 @@ export const lockImportJob = async (connection, jobId) => {
   );
 };
 
+// [NEW] Fungsi Retry
+// Menaikkan retry_count dan set status ke RETRYING.
+// updated_at diupdate agar query getPendingImportJob menundanya selama 10 detik.
+export const retryImportJob = async (connection, jobId, currentRetryCount, errorMessage) => {
+  const nextRetry = currentRetryCount + 1;
+  const note = `Retry #${nextRetry}: ${errorMessage.substring(0, 100)}...`;
+
+  return connection.query(
+    `UPDATE import_jobs
+      SET status = 'RETRYING',
+        retry_count = ?,
+        log_summary = IF(log_summary IS NULL, ?, CONCAT(log_summary, ' | ', ?)),
+        updated_at = NOW()
+      WHERE id = ?`,
+    [nextRetry, note, note, jobId]
+  );
+};
+
+// ... (Fungsi complete, fail, export lainnya TETAP SAMA) ...
 export const completeImportJob = async (
   connection,
   jobId,
@@ -85,8 +123,8 @@ export const completeImportJob = async (
 ) => {
   return connection.query(
     `UPDATE import_jobs
-     SET status = ?, log_summary = ?, error_log = ?, updated_at = NOW()
-     WHERE id = ?`,
+      SET status = ?, log_summary = ?, error_log = ?, updated_at = NOW()
+      WHERE id = ?`,
     [status, summary, errorLogJSON, jobId]
   );
 };

@@ -132,7 +132,7 @@
   --color-primary: 310 100 55; /* Magenta neon */
   --color-secondary: 240 10 20; /* Abu-abu gelap */
   --color-accent: 70 100 50; /* Hijau limau neon */
-  --color-success: 70 100 50; /* Hijau limau (sama dengan accent) */
+  --color-success: 190 80 60; /* Cyan neon */
   --color-warning: 55 100 50; /* Kuning neon */
   --color-danger: 0 100 55; /* Merah neon */
 }

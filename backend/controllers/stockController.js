@@ -3,9 +3,64 @@ import * as stockService from "../services/stockService.js";
 import * as jobService from "../services/jobService.js";
 
 // ============================================================================
-// CORE STOCK OPERATIONS (Transfer & Adjust)
+//                               READ OPERATIONS
 // ============================================================================
 
+export const getAllStocks = async (req, res) => {
+  try {
+    // Implementasi get stock (biasanya filter/pagination)
+    // ... (sesuaikan dengan logic lama jika ada, atau gunakan service)
+    const stocks = await stockService.getAllStocks(req.query);
+    res.json({ success: true, data: stocks });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================================================
+//                             WRITE OPERATIONS
+// ============================================================================
+
+/**
+ * Upload Stock Adjustment File (Job Queue Based).
+ * Supports Dry Run mode via req.body.dryRun.
+ */
+export const uploadAdjustment = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "Tidak ada file yang diunggah." });
+    }
+
+    const userId = req.user.id;
+    // Deteksi flag dryRun dari form-data
+    const isDryRun = req.body.dryRun === "true" || req.body.dryRun === true;
+
+    // Tentukan Tipe Job
+    const jobType = isDryRun ? "ADJUST_STOCK_DRY_RUN" : "ADJUST_STOCK";
+
+    // Create Job
+    const jobId = await jobService.createJobService({
+      userId,
+      type: jobType,
+      originalname: req.file.originalname,
+      serverFilePath: req.file.path,
+      notes: isDryRun ? "Simulasi Stock Opname" : "Stock Opname",
+    });
+
+    res.json({
+      success: true,
+      message: isDryRun ? "Simulasi validasi stok berjalan..." : "File adjustment masuk antrian.",
+      jobId: jobId,
+    });
+  } catch (error) {
+    console.error("[StockController] Upload Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Transfer Stock antar Lokasi
+ */
 export const transferStock = async (req, res) => {
   try {
     const { productId, fromLocationId, toLocationId, quantity, notes } = req.body;
@@ -14,57 +69,49 @@ export const transferStock = async (req, res) => {
     if (!productId || !fromLocationId || !toLocationId || !quantity) {
       return res.status(400).json({ success: false, message: "Data tidak lengkap." });
     }
-    if (Number(quantity) <= 0) {
-      return res.status(400).json({ success: false, message: "Jumlah harus lebih dari 0." });
-    }
-    if (fromLocationId === toLocationId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Lokasi asal dan tujuan tidak boleh sama." });
-    }
 
-    const result = await stockService.transferStockService({
+    await stockService.transferStockService({
       productId,
       fromLocationId,
       toLocationId,
-      quantity: Number(quantity),
+      quantity,
       userId,
       notes,
     });
-
-    res.json(result);
+    res.json({ success: true, message: "Transfer stok berhasil." });
   } catch (error) {
-    console.error("[StockController] Transfer Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
+/**
+ * Adjust Stock Manual (Single Item)
+ */
 export const adjustStock = async (req, res) => {
   try {
-    const { productId, locationId, quantity, notes } = req.body;
+    const { productId, locationId, quantity, type, notes } = req.body;
     const userId = req.user.id;
 
-    if (!productId || !locationId || quantity === 0 || !notes) {
+    if (!productId || !locationId || !quantity || !type) {
       return res.status(400).json({ success: false, message: "Data adjustment tidak lengkap." });
     }
 
-    const result = await stockService.adjustStockService({
+    await stockService.adjustStockService({
       productId,
       locationId,
-      quantity: Number(quantity),
+      quantity,
+      type, // ADJUST_PLUS / ADJUST_MINUS
       userId,
       notes,
     });
-
-    res.json(result);
+    res.json({ success: true, message: "Penyesuaian stok berhasil." });
   } catch (error) {
-    console.error("[StockController] Adjust Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // ============================================================================
-// IMPORT & ADJUSTMENT JOBS
+// BATCH PROCESS & HISTORY (Functions Restored)
 // ============================================================================
 
 export const downloadAdjustmentTemplate = async (req, res) => {
@@ -84,28 +131,9 @@ export const downloadAdjustmentTemplate = async (req, res) => {
 };
 
 export const requestAdjustmentUpload = async (req, res) => {
-  const userId = req.user.id;
-  const file = req.file;
-  const { notes } = req.body;
-
-  if (!file) {
-    return res.status(400).json({ success: false, message: "File tidak ditemukan." });
-  }
-
-  try {
-    // Menggunakan jobService untuk membuat job
-    const jobId = await jobService.createJobService({
-      userId,
-      type: "ADJUST_STOCK",
-      originalname: file.originalname,
-      serverFilePath: file.path,
-      notes,
-    });
-    res.status(202).json({ success: true, message: "File diterima.", jobId });
-  } catch (error) {
-    console.error("[StockController] Upload Request Error:", error);
-    res.status(500).json({ success: false, message: "Gagal membuat job." });
-  }
+  // Legacy wrapper - redirect to uploadAdjustment logic or deprecate
+  // For now, reuse logic or call uploadAdjustment internally if structure allows
+  return uploadAdjustment(req, res);
 };
 
 export const getImportJobs = async (req, res) => {

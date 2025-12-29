@@ -1,4 +1,4 @@
-// backend\scripts\devExportWorker.js
+// backend\scripts\devImport.js
 import { importQueue } from "./importQueue.js"; // Impor worker BARU
 import db from "../../config/db.js"; // Impor db untuk rilis koneksi
 
