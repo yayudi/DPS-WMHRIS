@@ -2,6 +2,10 @@
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import {
+  faAngleLeft,
+  faAngleRight,
+  faAnglesLeft,
+  faAnglesRight,
   faArrowLeft,
   faArrowRight,
   faArrowTrendDown,
@@ -26,6 +30,9 @@ import {
   faCheckDouble,
   faCheckSquare,
   faChevronDown,
+  faChevronLeft,
+  faChevronRight,
+  faChevronUp,
   faCircleCheck,
   faCircleExclamation,
   faCircleNotch,
@@ -98,6 +105,7 @@ import {
   faSquare,
   faStore,
   faSync,
+  faTags,
   faTableCells,
   faThumbsUp,
   faThumbsDown,
@@ -122,6 +130,10 @@ import {
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
 library.add(
+  faAngleLeft,
+  faAngleRight,
+  faAnglesLeft,
+  faAnglesRight,
   faArrowLeft,
   faArrowRight,
   faArrowTrendDown,
@@ -146,6 +158,9 @@ library.add(
   faCheckDouble,
   faCheckSquare,
   faChevronDown,
+  faChevronLeft,
+  faChevronRight,
+  faChevronUp,
   faCircleCheck,
   faCircleExclamation,
   faCircleNotch,
@@ -218,6 +233,7 @@ library.add(
   faSquare,
   faStore,
   faSync,
+  faTags,
   faTableCells,
   faThumbsUp,
   faThumbsDown,

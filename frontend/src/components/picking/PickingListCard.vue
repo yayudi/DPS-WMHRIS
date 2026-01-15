@@ -63,7 +63,8 @@ const isInvoiceSelected = computed(() => {
   if (props.inv.locations) {
     Object.values(props.inv.locations).forEach((items) => {
       items.forEach((i) => {
-        if (i.location_code && props.validateStock(i)) {
+        // Gunakan validateStock dari parent untuk logika checkbox
+        if (props.validateStock(i)) {
           validItems.push(i.id)
         }
       })
@@ -99,10 +100,22 @@ async function onCancelInvoice() {
   }
 }
 
-function isItemInvalid(item) {
+// Helper untuk visual error (Stok Kurang)
+// Terpisah dari validateStock agar tetap muncul warning meski item boleh dipilih
+function hasInsufficientStock(item) {
   if (props.mode === 'history') return false
+  // Jika tidak ada lokasi (Backorder/JIT), anggap warning
   if (!item.location_code) return true
-  return !props.validateStock({ ...item, quantity: Number(item.quantity) })
+
+  const available = Number(item.available_stock || 0)
+  const needed = Number(item.quantity || 0)
+  return available < needed
+}
+
+// Helper untuk Cek apakah item dipilih (checkbox logic dari parent)
+function isItemAllowed(item) {
+  if (props.mode === 'history') return false
+  return props.validateStock(item)
 }
 
 // --- STATUS BADGES ---
@@ -187,7 +200,7 @@ function getStatusBadge(status) {
 
         <!-- LOGO -->
         <div
-          class="p-1 rounded-lg bg-white border border-secondary/10 shadow-sm shrink-0 h-9 w-9 flex items-center justify-center overflow-hidden"
+          class="p-1 rounded-lg bg-background border border-secondary/10 shadow-sm shrink-0 h-9 w-9 flex items-center justify-center overflow-hidden"
         >
           <img
             v-if="inv.source === 'Tokopedia'"
@@ -301,13 +314,13 @@ function getStatusBadge(status) {
               v-for="item in items"
               :key="item.id"
               class="transition-colors"
-              :class="isItemInvalid(item) ? 'bg-danger/5' : ''"
+              :class="hasInsufficientStock(item) ? 'bg-danger/5' : ''"
             >
               <td class="pl-4 py-2">
                 <div class="font-bold text-xs text-text mb-0.5 flex items-center gap-2">
                   {{ item.sku }}
                   <span
-                    v-if="isInvoiceSelected && !isItemInvalid(item)"
+                    v-if="isInvoiceSelected && isItemAllowed(item)"
                     class="text-primary text-[10px]"
                   >
                     <font-awesome-icon icon="fa-solid fa-check-circle" />
@@ -317,7 +330,7 @@ function getStatusBadge(status) {
                   {{ item.product_name }}
                 </div>
                 <div
-                  v-if="isItemInvalid(item) && item.location_code"
+                  v-if="hasInsufficientStock(item) && item.location_code"
                   class="text-[9px] text-danger font-bold mt-1 flex items-center gap-1"
                 >
                   <font-awesome-icon icon="fa-solid fa-triangle-exclamation" />
@@ -330,7 +343,7 @@ function getStatusBadge(status) {
               <td class="px-4 py-2 text-right align-top w-16">
                 <span
                   class="font-bold text-sm"
-                  :class="isItemInvalid(item) ? 'text-danger' : 'text-text'"
+                  :class="hasInsufficientStock(item) ? 'text-danger' : 'text-text'"
                 >
                   {{ item.quantity }}
                 </span>

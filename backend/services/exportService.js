@@ -1,8 +1,12 @@
+// backend/services/exportService.js
 import db from "../config/db.js";
 import ExcelJS from "exceljs";
 import fs from "fs";
+import { Readable } from "stream";
+import { pipeline } from "stream/promises";
 import * as locationRepo from "../repositories/locationRepository.js";
-import * as reportRepo from "../repositories/reportRepository.js"; // Asumsi repo ini ada
+import * as reportRepo from "../repositories/reportRepository.js";
+import * as productRepo from "../repositories/productRepository.js";
 
 // Helper Styling
 const styleHeader = (
@@ -33,7 +37,7 @@ const styleHeader = (
  * Service: Generate Stock Report (Streaming)
  */
 export const generateStockReportStreaming = async (filters, filePath) => {
-  console.log(`[ExportService] Mulai generate ke: ${filePath}`);
+  console.log(`[ExportService] Mulai generate STOCK ke: ${filePath}`);
   let connection;
 
   const stream = fs.createWriteStream(filePath);
@@ -61,8 +65,6 @@ export const generateStockReportStreaming = async (filters, filePath) => {
       "Nama Produk",
       ...locationCodes,
       "Grand Total",
-      "Harga Satuan",
-      "Total Nilai",
     ];
 
     // Setup Columns
@@ -72,9 +74,7 @@ export const generateStockReportStreaming = async (filters, filePath) => {
     ];
     locationCodes.forEach((code) => pivotColumns.push({ key: code, width: 10 }));
     pivotColumns.push(
-      { key: "GrandTotal", width: 15 },
-      { key: "HargaSatuan", width: 15 },
-      { key: "TotalNilai", width: 20 }
+      { key: "GrandTotal", width: 15 }
     );
     pivotSheet.columns = pivotColumns;
 
@@ -97,16 +97,14 @@ export const generateStockReportStreaming = async (filters, filePath) => {
       "Nama Produk",
       "Lokasi",
       "Kuantitas",
-      "Harga Satuan",
-      "Total Nilai",
+      "Kuantitas",
     ];
     rawSheet.columns = [
       { key: "Sku", width: 20 },
       { key: "NamaProduk", width: 50 },
       { key: "Lokasi", width: 15 },
       { key: "Kuantitas", width: 12 },
-      { key: "HargaSatuan", width: 15 },
-      { key: "TotalNilai", width: 15 },
+      { key: "Kuantitas", width: 12 },
     ];
     rawSheet.getRow(1).values = rawHeaderTexts;
     styleHeader(rawSheet, 1, 6, "FFD9E1F2", "FF000000");
@@ -137,8 +135,7 @@ export const generateStockReportStreaming = async (filters, filePath) => {
             row.NamaProduk,
             row.Lokasi || "-",
             row.Kuantitas,
-            row.HargaSatuan,
-            row.TotalNilai,
+            row.Kuantitas,
           ];
           const addedRow = rawSheet.addRow(rowArray);
 
@@ -146,8 +143,7 @@ export const generateStockReportStreaming = async (filters, filePath) => {
           addedRow.getCell(1).numFmt = textFormat;
           addedRow.getCell(4).numFmt = numberFormat;
           if (Number(row.Kuantitas) < 0) addedRow.getCell(4).font = negativeRedText.font;
-          addedRow.getCell(5).numFmt = currencyFormat;
-          addedRow.getCell(6).numFmt = currencyFormat;
+          if (Number(row.Kuantitas) < 0) addedRow.getCell(4).font = negativeRedText.font;
           addedRow.commit();
 
           // B. Agregasi Pivot In-Memory
@@ -191,8 +187,7 @@ export const generateStockReportStreaming = async (filters, filePath) => {
               data.NamaProduk,
               ...locationCodes.map((code) => (data[code] === 0 ? "" : data[code])),
               data.GrandTotalKuantitas,
-              data.HargaSatuan,
-              data.GrandTotalNilai,
+              data.GrandTotalKuantitas,
             ];
             const addedRow = pivotSheet.addRow(rowArray);
 
@@ -214,8 +209,9 @@ export const generateStockReportStreaming = async (filters, filePath) => {
               grandTotalCell.font = { bold: true, ...negativeRedText.font };
 
             colIdx++;
-            addedRow.getCell(colIdx).numFmt = currencyFormat; // Harga
-            addedRow.getCell(colIdx + 1).numFmt = currencyFormat; // Total Nilai
+              grandTotalCell.font = { bold: true, ...negativeRedText.font };
+
+            colIdx++;
 
             addedRow.commit();
           }
@@ -246,5 +242,134 @@ export const generateStockReportStreaming = async (filters, filePath) => {
       } catch (e) {}
     }
     throw error;
+  }
+};
+
+import * as fastCsv from "fast-csv";
+
+/**
+ * Generate Product Master Export (XLSX or CSV)
+ */
+export const generateProductExportStreaming = async (filters, filePath) => {
+  const isCsv = filters.format === "csv";
+  console.log(
+    `[ExportService] Mulai generate MASTER PRODUK (${isCsv ? "CSV" : "XLSX"}) ke: ${filePath}`
+  );
+
+  let connection;
+  const stream = fs.createWriteStream(filePath);
+  let workbookWriter = null;
+  let csvStream = null;
+  console.log(`[ExportService] Stream created for ${filePath}`);
+
+  try {
+    connection = await db.getConnection();
+
+    // Setup Writter
+    if (isCsv) {
+      csvStream = fastCsv.format({ headers: true });
+      csvStream.pipe(stream);
+    } else {
+      workbookWriter = new ExcelJS.stream.xlsx.WorkbookWriter({
+        stream: stream,
+        useStyles: true,
+        useSharedStrings: true,
+      });
+    }
+
+    // --- QUERY DATA ---
+    // (Optimization: Fetch with stream if extremely large, but for now huge limit is fine)
+    // [PHASE 1] Force Regular Product Only (is_package=0)
+    const exportFilters = { ...filters, is_package: 0, packageOnly: false, limit: 1000000, offset: 0 };
+    const result = await productRepo.getProductsWithFilters(connection, exportFilters);
+    const products = result.data;
+
+    // --- WRITE DATA ---
+    if (isCsv) {
+      // CSV WRITING via Pipeline (Safer & Auto-close)
+      console.log("[ExportService] Starting CSV Pipeline...");
+
+      const transformRow = (p) => ({
+        sku: p.sku,
+        name: p.name,
+        price: p.price,
+        weight: p.weight || 0,
+        is_active: p.is_active ? 1 : 0,
+      });
+
+      await pipeline(
+        Readable.from(products),
+        fastCsv.format({ headers: true }).transform(transformRow),
+        stream
+      );
+
+      console.log("[ExportService] CSV Pipeline Completed.");
+    } else {
+      // EXCEL WRITING
+      const sheet = workbookWriter.addWorksheet("Master Produk");
+      const headers = ["sku", "name", "price", "weight", "is_active"];
+
+      sheet.columns = [
+        { key: "sku", width: 12 },
+        { key: "name", width: 75 },
+        { key: "price", width: 15 },
+        { key: "weight", width: 12 },
+        { key: "is_active", width: 12 },
+      ];
+
+      sheet.getRow(1).values = headers;
+      styleHeader(sheet, 1, headers.length, "FF4472C4", "FFFFFFFF");
+
+      products.forEach((p) => {
+        sheet
+          .addRow({
+            sku: p.sku,
+            name: p.name,
+            price: p.price,
+            weight: p.weight || 0,
+            is_active: p.is_active ? 1 : 0,
+          })
+          .commit();
+      });
+
+      sheet.commit();
+      await workbookWriter.commit();
+    }
+
+    // Tunggu stream selesai benar (Hanya untuk Excel, karena Pipeline CSV sudah auto-wait)
+    if (!isCsv) {
+      console.log("[ExportService] Waiting for stream finish/close...");
+      await new Promise((resolve, reject) => {
+        if (stream.writableEnded || stream.destroyed) {
+           console.log("[ExportService] Stream checks: already ended/destroyed. Resolving.");
+           return resolve();
+        }
+
+        stream.on("finish", () => {
+          console.log("[ExportService] Stream FINISHED.");
+          resolve();
+        });
+        stream.on("close", () => {
+          console.log("[ExportService] Stream CLOSED.");
+          resolve();
+        });
+        stream.on("error", (err) => {
+          console.error("[ExportService] Stream ERROR:", err);
+          reject(err);
+        });
+      });
+    }
+
+    console.log(`[ExportService] Selesai generate MASTER PRODUK.`);
+  } catch (error) {
+    if (workbookWriter) {
+      // Try to close writer/stream on error
+      try {
+        stream.end();
+      } catch (e) {}
+    }
+    throw error;
+  } finally {
+    if (connection) connection.release();
   }
 };

@@ -4,7 +4,7 @@ import { ref, computed } from 'vue'
 import { useToast } from '@/composables/useToast.js'
 import { fetchProductStockDetails, searchProducts } from '@/api/helpers/products.js'
 import { processBatchMovement } from '@/api/helpers/stock.js'
-import Multiselect from 'vue-multiselect'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 
 const props = defineProps({
   allLocations: { type: Array, required: true },
@@ -178,13 +178,13 @@ async function submitDetailedBatch() {
       <!-- Cari Produk -->
       <div class="md:col-span-2">
         <label class="block text-sm font-medium text-text/90 mb-2">Cari Produk</label>
-        <Multiselect
+        <BaseSelect
           v-model="selectedProduct"
           :options="searchResults"
           :loading="isSearching"
           :internal-search="false"
           @search-change="onSearchChange"
-          @select="onProductSelect"
+          @update:model-value="onProductSelect"
           placeholder="Ketik SKU atau Nama..."
           label="name"
           track-by="id"
@@ -194,13 +194,13 @@ async function submitDetailedBatch() {
               {{ option.name }} <span class="text-xs text-text/60">({{ option.sku }})</span>
             </div>
           </template>
-        </Multiselect>
+        </BaseSelect>
       </div>
 
       <!-- Pindahkan Dari -->
       <div>
         <label class="block text-sm font-medium text-text/90 mb-2">Pindahkan Dari</label>
-        <Multiselect
+        <BaseSelect
           v-model="fromLocation"
           :options="stockDetails"
           :loading="isLoadingDetails"
@@ -210,26 +210,26 @@ async function submitDetailedBatch() {
           placeholder="Pilih asal"
         >
           <template #option="{ option }">
-            <div class="flex justify-between">
+            <div class="flex justify-between w-full">
               <span>{{ option.location_code }}</span>
               <span class="font-bold">Stok: {{ option.quantity }}</span>
             </div>
           </template>
           <template #noResult>Stok tidak ditemukan.</template>
-        </Multiselect>
+        </BaseSelect>
       </div>
 
       <!-- Ke Lokasi -->
       <div>
         <label class="block text-sm font-medium text-text/90 mb-2">Ke Lokasi</label>
-        <Multiselect
+        <BaseSelect
           v-model="toLocation"
           :options="allLocations"
           :disabled="isLoadingLocations"
           label="code"
           track-by="id"
           placeholder="Pilih tujuan"
-        ></Multiselect>
+        />
       </div>
 
       <!-- Jumlah & Tombol Tambah -->

@@ -15,6 +15,15 @@ export const getAllLocationCodes = async (connection) => {
   return rows.map((r) => r.code);
 };
 
+export const getLocationMap = async (connection) => {
+  const [rows] = await connection.query("SELECT id, code FROM locations");
+  const map = new Map();
+  rows.forEach((r) => {
+    if (r.code) map.set(r.code, r.id);
+  });
+  return map;
+};
+
 export const getStockAtLocation = async (connection, productId, locationId, forUpdate = false) => {
   let query = "SELECT quantity FROM stock_locations WHERE product_id = ? AND location_id = ?";
   if (forUpdate) query += " FOR UPDATE";
@@ -124,4 +133,18 @@ export const incrementStock = async (connection, productId, locationId, quantity
       ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
     [productId, locationId, quantity, quantity]
   );
+};
+
+/**
+ * Membuat lokasi baru
+ * @param {object} connection - DB Connection
+ * @param {object} data - { code, building, floor, name, purpose }
+ */
+export const createLocation = async (connection, { code, building, floor, name, purpose }) => {
+  const [result] = await connection.query(
+    `INSERT INTO locations (code, building, floor, name, purpose)
+     VALUES (?, ?, ?, ?, ?)`,
+    [code, building, floor || null, name || null, purpose]
+  );
+  return result.insertId;
 };

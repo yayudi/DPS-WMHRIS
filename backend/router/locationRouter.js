@@ -2,6 +2,7 @@
 import express from "express";
 import db from "../config/db.js";
 import { canAccess } from "../middleware/permissionMiddleware.js";
+import * as locationController from "../controllers/locationController.js";
 
 const router = express.Router();
 
@@ -25,29 +26,7 @@ router.get("/", async (req, res) => {
  * POST /api/locations
  * Membuat lokasi baru. Hanya untuk admin dengan izin 'manage-locations'.
  */
-router.post("/", canAccess("manage-locations"), async (req, res) => {
-  const { code, building, floor, name, purpose } = req.body;
-  if (!code || !building || !purpose) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Kode, Gedung, dan Purpose wajib diisi." });
-  }
-  try {
-    const [result] = await db.query(
-      "INSERT INTO locations (code, building, floor, name, purpose) VALUES (?, ?, ?, ?, ?)", // Tambahkan purpose
-      [code, building, floor || null, name || null, purpose] // Tambahkan purpose
-    );
-    res
-      .status(201)
-      .json({ success: true, message: "Lokasi berhasil dibuat.", locationId: result.insertId });
-  } catch (error) {
-    if (error.code === "ER_DUP_ENTRY") {
-      return res.status(409).json({ success: false, message: "Kode lokasi sudah ada." });
-    }
-    console.error("Error saat membuat lokasi:", error);
-    res.status(500).json({ success: false, message: "Gagal membuat lokasi." });
-  }
-});
+router.post("/", canAccess("manage-locations"), locationController.createLocation);
 
 /**
  * PUT /api/locations/:id

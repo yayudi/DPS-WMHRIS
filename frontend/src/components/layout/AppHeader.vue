@@ -184,7 +184,7 @@ onUnmounted(() => {
     <div
       v-if="isMobileMenuOpen"
       ref="mobileMenuPanel"
-      class="md:hidden absolute w-full bg-secondary/15 backdrop-blur-md border-b border-secondary/20 shadow-lg z-30"
+      class="md:hidden absolute w-full bg-secondary backdrop-blur-md border-b border-secondary/20 shadow-lg z-99"
     >
       <nav class="container mx-auto px-4 sm:px-6 py-4 space-y-2">
         <RouterLink

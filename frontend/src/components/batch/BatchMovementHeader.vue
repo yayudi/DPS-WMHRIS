@@ -1,7 +1,7 @@
-<!-- frontend\src\components\batch\BatchMovementHeader.vue -->
 <script setup>
-import Multiselect from 'vue-multiselect'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 import Tabs from '@/components/ui/Tabs.vue'
+import FilterContainer from '@/components/ui/FilterContainer.vue'
 
 // Props untuk data dropdown
 defineProps({
@@ -29,69 +29,72 @@ const tabs = [
     <Tabs :tabs="tabs" v-model:model-value="activeTab" />
 
     <!-- Header Kontekstual Berdasarkan Tab -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-secondary/20 pb-6 pt-6">
-      <!-- TRANSFER (BATCH) -->
-      <template v-if="activeTab === 'TRANSFER'">
-        <div>
-          <label class="block text-sm font-medium text-text/90 mb-2">Pindahkan Dari</label>
-          <Multiselect
-            v-model="fromLocation"
-            :options="myLocations"
-            placeholder="Pilih lokasi asal"
-            label="code"
-            track-by="id"
-            :disabled="isLoading"
-          ></Multiselect>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-text/90 mb-2">Ke Lokasi</label>
-          <Multiselect
-            v-model="toLocation"
-            :options="allLocations"
-            placeholder="Pilih lokasi tujuan"
-            label="code"
-            track-by="id"
-            :disabled="isLoading"
-          ></Multiselect>
-        </div>
-      </template>
+    <!-- Wrapped in FilterContainer for mobile collapsibility -->
+    <FilterContainer
+      v-if="activeTab !== 'DETAILED_TRANSFER'"
+      title="Form Perpindahan"
+      class="mt-4"
+    >
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <!-- TRANSFER (BATCH) -->
+        <template v-if="activeTab === 'TRANSFER'">
+          <div class="md:col-span-4">
+            <label class="block text-sm font-medium text-text/90 mb-2">Pindahkan Dari</label>
+            <BaseSelect
+              v-model="fromLocation"
+              :options="myLocations"
+              placeholder="Pilih lokasi asal"
+              label="code"
+              track-by="id"
+              :disabled="isLoading"
+            />
+          </div>
+          <div class="md:col-span-4">
+            <label class="block text-sm font-medium text-text/90 mb-2">Ke Lokasi</label>
+            <BaseSelect
+              v-model="toLocation"
+              :options="allLocations"
+              placeholder="Pilih lokasi tujuan"
+              label="code"
+              track-by="id"
+              :disabled="isLoading"
+            />
+          </div>
+          <div class="md:col-span-4">
+            <label class="block text-sm font-medium text-text/90 mb-2">Catatan / Alasan</label>
+            <input
+              v-model="notes"
+              type="text"
+              placeholder="e.g., Pindah stok antar gudang"
+              class="w-full h-[42px] px-3 py-2 border border-secondary/50 rounded-lg bg-background focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all shadow-sm text-sm"
+            />
+          </div>
+        </template>
 
-      <!-- INBOUND ONLY (Sale Return removed from here) -->
-      <template v-if="activeTab === 'INBOUND'">
-        <div>
-          <label class="block text-sm font-medium text-text/90 mb-2">Masukkan Ke Lokasi</label>
-          <Multiselect
-            v-model="toLocation"
-            :options="allLocations"
-            placeholder="Pilih lokasi tujuan"
-            label="code"
-            track-by="id"
-            :disabled="isLoading"
-          ></Multiselect>
-        </div>
-      </template>
-
-      <!-- Catatan -->
-      <div class="flex-grow" v-if="activeTab !== 'TRANSFER'">
-        <label class="block text-sm font-medium text-text/90 mb-2">Catatan / Alasan</label>
-        <input
-          v-model="notes"
-          type="text"
-          placeholder="e.g., Stok opname, Barang rusak, PO-123"
-          class="w-full p-2 border border-secondary/50 rounded-lg bg-background"
-        />
+        <!-- INBOUND ONLY -->
+        <template v-if="activeTab === 'INBOUND'">
+          <div class="md:col-span-6">
+            <label class="block text-sm font-medium text-text/90 mb-2">Masukkan Ke Lokasi</label>
+            <BaseSelect
+              v-model="toLocation"
+              :options="allLocations"
+              placeholder="Pilih lokasi tujuan"
+              label="code"
+              track-by="id"
+              :disabled="isLoading"
+            />
+          </div>
+          <div class="md:col-span-6">
+            <label class="block text-sm font-medium text-text/90 mb-2">Catatan / Alasan</label>
+            <input
+              v-model="notes"
+              type="text"
+              placeholder="e.g., Stok opname, Barang rusak, PO-123"
+              class="w-full h-[42px] px-3 py-2 border border-secondary/50 rounded-lg bg-background focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all shadow-sm text-sm"
+            />
+          </div>
+        </template>
       </div>
-
-      <!-- Catatan untuk Transfer -->
-      <div class="flex-grow" v-if="activeTab === 'TRANSFER'">
-        <label class="block text-sm font-medium text-text/90 mb-2">Catatan / Alasan</label>
-        <input
-          v-model="notes"
-          type="text"
-          placeholder="e.g., Pindah stok antar gudang"
-          class="w-full p-2 border border-secondary/50 rounded-lg bg-background"
-        />
-      </div>
-    </div>
+    </FilterContainer>
   </div>
 </template>

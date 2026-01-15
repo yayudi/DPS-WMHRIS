@@ -97,7 +97,7 @@ const getSourceClass = (source) => {
   if (s.includes('tokopedia')) return 'bg-success/10 text-success border-success/20'
   if (s.includes('shopee')) return 'bg-warning/10 text-warning border-warning/20'
   if (s === 'manual') return 'bg-primary/10 text-primary border-primary/20'
-  if (s === 'system') return 'bg-accent/10 text-indigo-400 border-indigo-500/20'
+  if (s === 'system') return 'bg-accent/10 text-accent border-accent/20'
   return 'bg-secondary/10 text-text/60 border-secondary/20'
 }
 
@@ -171,14 +171,15 @@ onMounted(() => {
       class="bg-secondary/5 rounded-xl border border-secondary/20 overflow-hidden shadow-sm min-h-[400px] relative flex flex-col"
     >
       <!-- Table Header -->
+      <!-- Table Header (Desktop Only) -->
       <div
-        class="grid grid-cols-12 gap-4 px-6 py-3 bg-secondary/10 border-b border-secondary/20 text-[10px] font-bold uppercase tracking-wider text-text/60"
+        class="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-secondary/10 border-b border-secondary/20 text-[10px] font-bold uppercase tracking-wider text-text/60"
       >
-        <div class="col-span-4 md:col-span-3">Invoice / Ref</div>
-        <div class="col-span-4 md:col-span-4">Produk</div>
-        <div class="col-span-2 text-center">Qty</div>
-        <div class="hidden md:block md:col-span-2 text-center">Sumber</div>
-        <div class="col-span-2 md:col-span-1 text-right">
+        <div class="md:col-span-3">Invoice / Ref</div>
+        <div class="md:col-span-4">Produk</div>
+        <div class="md:col-span-2 text-center">Qty</div>
+        <div class="md:col-span-2 text-center">Sumber</div>
+        <div class="md:col-span-1 text-right">
           {{ activeTab === 'pending' ? 'Aksi' : 'Status' }}
         </div>
       </div>
@@ -186,21 +187,21 @@ onMounted(() => {
       <!-- SKELETON LOADING STATE -->
       <div v-if="isLoading" class="divide-y divide-secondary/10 animate-pulse bg-background">
         <div v-for="i in 5" :key="i" class="grid grid-cols-12 gap-4 px-6 py-4 items-start">
-          <div class="col-span-4 md:col-span-3 space-y-2">
+          <div class="col-span-12 md:col-span-3 space-y-2">
             <div class="h-4 bg-secondary/20 rounded w-24"></div>
             <div class="h-3 bg-secondary/10 rounded w-16"></div>
           </div>
-          <div class="col-span-4 md:col-span-4 space-y-2">
+          <div class="col-span-12 md:col-span-4 space-y-2">
             <div class="h-4 bg-secondary/20 rounded w-full"></div>
             <div class="h-3 bg-secondary/10 rounded w-2/3"></div>
           </div>
-          <div class="col-span-2 flex justify-center">
+          <div class="col-span-6 md:col-span-2 flex md:justify-center">
             <div class="h-6 w-8 bg-secondary/20 rounded"></div>
           </div>
-          <div class="hidden md:block md:col-span-2 flex justify-center">
+          <div class="col-span-6 md:col-span-2 flex md:justify-center">
             <div class="h-5 w-16 bg-secondary/10 rounded"></div>
           </div>
-          <div class="col-span-2 md:col-span-1 flex justify-end">
+          <div class="col-span-12 md:col-span-1 flex md:justify-end mt-2 md:mt-0">
             <div class="h-6 w-16 bg-secondary/20 rounded"></div>
           </div>
         </div>
@@ -229,7 +230,7 @@ onMounted(() => {
             class="grid grid-cols-12 gap-4 px-6 py-4 items-start hover:bg-primary/[0.02] transition-colors group"
           >
             <!-- Col 1: Invoice -->
-            <div class="col-span-4 md:col-span-3">
+            <div class="col-span-12 md:col-span-3">
               <div class="flex flex-col items-start gap-1.5">
                 <span
                   class="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded text-xs border border-primary/20 select-all"
@@ -253,7 +254,7 @@ onMounted(() => {
             </div>
 
             <!-- Col 2: Produk -->
-            <div class="col-span-4 md:col-span-4">
+            <div class="col-span-12 md:col-span-4">
               <div class="font-bold text-text text-sm mb-0.5">
                 {{ item.sku || item.original_sku }}
               </div>
@@ -266,17 +267,19 @@ onMounted(() => {
             </div>
 
             <!-- Col 3: Qty -->
-            <div class="col-span-2 flex justify-center">
-              <span
+            <div class="col-span-6 md:col-span-2 flex md:justify-center items-center gap-2 md:gap-0">
+               <span class="md:hidden text-[10px] font-bold text-text/40 uppercase">Qty:</span>
+               <span
                 class="font-mono font-bold text-sm bg-secondary/10 text-text border border-secondary/20 px-2.5 py-1 rounded-md h-fit"
               >
                 {{ item.quantity }}
               </span>
             </div>
 
-            <!-- Col 4: Sumber (Hidden on mobile) -->
-            <div class="hidden md:flex md:col-span-2 justify-center">
-              <span
+            <!-- Col 4: Sumber (Now Visible on Mobile) -->
+            <div class="col-span-6 md:col-span-2 flex md:justify-center items-center gap-2 md:gap-0">
+               <span class="md:hidden text-[10px] font-bold text-text/40 uppercase">Source:</span>
+               <span
                 :class="[
                   'px-2 py-1 rounded text-[10px] font-bold border capitalize',
                   getSourceClass(item.source || item.type || 'manual'),
@@ -287,33 +290,33 @@ onMounted(() => {
             </div>
 
             <!-- Col 5: Action -->
-            <div class="col-span-2 md:col-span-1 flex justify-end items-start">
+            <div class="col-span-12 md:col-span-1 flex justify-end items-start mt-2 md:mt-0">
               <button
                 v-if="activeTab === 'pending'"
                 @click="openProcessModal(item)"
-                class="bg-primary text-white p-2 md:px-3 md:py-1.5 rounded-lg text-xs font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center gap-2 transition-transform active:scale-95 group-hover:scale-105"
+                class="w-full md:w-auto bg-primary text-secondary p-2 md:px-3 md:py-1.5 rounded-lg text-xs font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-transform active:scale-95 group-hover:scale-105"
                 title="Proses Retur"
               >
                 <font-awesome-icon icon="fa-solid fa-check" />
-                <span class="hidden md:inline">Proses</span>
+                <span>Proses</span>
               </button>
 
-              <div v-else class="flex flex-col items-end gap-1">
+              <div v-else class="flex flex-col items-end gap-1 w-full md:w-auto">
                 <span
                   v-if="item.condition === 'BAD'"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border bg-danger/10 text-danger border-danger/20"
+                  class="w-full md:w-auto justify-center inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border bg-danger/10 text-danger border-danger/20"
                 >
                   <font-awesome-icon icon="fa-solid fa-thumbs-down" /> Rusak
                 </span>
                 <span
                   v-else-if="item.condition === 'GOOD'"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border bg-success/10 text-success border-success/20"
+                  class="w-full md:w-auto justify-center inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border bg-success/10 text-success border-success/20"
                 >
                   <font-awesome-icon icon="fa-solid fa-thumbs-up" /> Bagus
                 </span>
                 <span
                   v-else
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border bg-secondary/10 text-text/60 border-secondary/20"
+                  class="w-full md:w-auto justify-center inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border bg-secondary/10 text-text/60 border-secondary/20"
                 >
                   <font-awesome-icon icon="fa-solid fa-check-circle" /> Selesai
                 </span>

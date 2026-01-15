@@ -15,6 +15,7 @@ import pickingRouter from "./pickingRouter.js";
 import returnRouter from "./returnRouter.js";
 import statsRouter from "./statsRouter.js";
 import reportRouter from "./reportRouter.js";
+import packageRoutes from "./packageRouter.js";
 // import cronRouter from "./cronRouter.js";
 
 // Impor middleware yang diperlukan
@@ -41,6 +42,7 @@ apiRouter.use("/returns", authenticateToken, returnRouter);
 apiRouter.use("/return", authenticateToken, returnRouter);
 apiRouter.use("/stats", authenticateToken, statsRouter);
 apiRouter.use("/reports", authenticateToken, reportRouter);
+apiRouter.use("/packages", authenticateToken, packageRoutes);
 // apiRouter.use("/cron", authenticateToken, cronRouter);
 
 // Rute tes "canary"

@@ -25,7 +25,7 @@ function selectTab(value) {
       v-for="tab in tabs"
       :key="tab.value"
       @click="selectTab(tab.value)"
-      class="w-1/3 md:w-auto px-4 py-1.5 text-sm font-semibold rounded-md transition-all"
+      class="flex-1 md:w-auto px-4 py-1.5 text-sm font-semibold rounded-md transition-all whitespace-nowrap"
       :class="[
         modelValue === tab.value
           ? 'bg-primary text-white shadow' // Active state

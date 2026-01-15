@@ -140,6 +140,18 @@ export const failImportJob = async (connection, jobId, summary) => {
 // EXPORT JOBS
 // ============================================================================
 
+// ✅ NEW: Fungsi untuk membuat Job Export baru
+// ✅ NEW: Fungsi untuk membuat Job Export baru
+export const createExportJob = async (connection, { userId, filters, jobType }) => {
+  const filtersStr = JSON.stringify(filters);
+  const [result] = await connection.query(
+    `INSERT INTO export_jobs (user_id, status, filters, job_type, created_at)
+     VALUES (?, 'PENDING', ?, ?, NOW())`,
+    [userId, filtersStr, jobType || "STOCK_REPORT"]
+  );
+  return result.insertId;
+};
+
 export const getPendingExportJob = async (connection) => {
   const [rows] = await connection.query(
     `SELECT * FROM export_jobs WHERE status = 'PENDING' ORDER BY created_at ASC LIMIT 1`

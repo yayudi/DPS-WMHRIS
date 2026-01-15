@@ -1,4 +1,4 @@
-<!-- components/ui/UploadForm.vue -->
+<!-- frontend/src/components/ui/UploadForm.vue -->
 <script setup>
 import { ref } from 'vue'
 

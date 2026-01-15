@@ -1,3 +1,4 @@
+<!-- frontend/src/components/wms/shared/HistoryModal.vue -->
 <script setup>
 import { ref, watch } from 'vue'
 import Modal from '@/components/ui/Modal.vue'

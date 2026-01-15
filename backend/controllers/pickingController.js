@@ -2,7 +2,6 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-// import ExcelJS from "exceljs"; // Tidak lagi dibutuhkan di controller (dipindah ke worker)
 
 // --- SERVICES ---
 import * as pickingService from "../services/pickingDataService.js";

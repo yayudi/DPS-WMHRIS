@@ -1,8 +1,12 @@
-<!-- FilterBar.vue -->
 <script setup>
 import { reactive, watch } from 'vue'
+import FilterContainer from '@/components/ui/FilterContainer.vue'
 
 const props = defineProps({
+  title: {
+      type: String,
+      default: '',
+  },
   filters: {
     type: Array,
     required: true,
@@ -38,59 +42,59 @@ function emitClear() {
 </script>
 
 <template>
-  <div
-    class="flex flex-wrap gap-4 items-center bg-background p-3 rounded-lg shadow-sm border border-secondary"
-  >
-    <!-- Loop through filters -->
-    <template v-for="(filter, index) in filters" :key="index">
-      <!-- Date Input -->
-      <div v-if="filter.type === 'date'" class="flex items-center gap-2">
-        <label
-          v-if="filter.label"
-          :for="filter.key"
-          class="text-sm font-medium text-text/80 whitespace-nowrap"
-        >
-          {{ filter.label }}:
-        </label>
-        <input
-          :id="filter.key"
-          type="date"
-          class="px-3 py-2 bg-background border border-secondary text-text rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-primary/50 focus:border-primary"
-          v-model="localValues[filter.key]"
-          @input="emitChange"
-        />
-      </div>
+  <FilterContainer :title="title || 'Filter Data'">
+    <div class="flex flex-wrap gap-4 items-center">
+      <!-- Loop through filters -->
+      <template v-for="(filter, index) in filters" :key="index">
+        <!-- Date Input -->
+        <div v-if="filter.type === 'date'" class="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 w-full md:w-auto">
+          <label
+            v-if="filter.label"
+            :for="filter.key"
+            class="text-sm font-medium text-text/80 whitespace-nowrap"
+          >
+            {{ filter.label }}:
+          </label>
+          <input
+            :id="filter.key"
+            type="date"
+            class="w-full md:w-auto px-3 py-2 bg-background border border-secondary text-text rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-primary/50 focus:border-primary"
+            v-model="localValues[filter.key]"
+            @input="emitChange"
+          />
+        </div>
 
-      <!-- Select Input -->
-      <div v-else-if="filter.type === 'select'" class="flex items-center gap-2">
-        <label
-          v-if="filter.label"
-          :for="filter.key"
-          class="text-sm font-medium text-text/80 whitespace-nowrap"
-        >
-          {{ filter.label }}:
-        </label>
-        <select
-          :id="filter.key"
-          :multiple="filter.multiple || false"
-          class="px-3 py-2 bg-background border border-secondary text-text rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-primary/50 focus:border-primary"
-          v-model="localValues[filter.key]"
-          @change="emitChange"
-        >
-          <option v-for="opt in filter.options" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
-      </div>
-    </template>
+        <!-- Select Input -->
+        <div v-else-if="filter.type === 'select'" class="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 w-full md:w-auto">
+          <label
+            v-if="filter.label"
+            :for="filter.key"
+            class="text-sm font-medium text-text/80 whitespace-nowrap"
+          >
+            {{ filter.label }}:
+          </label>
+          <select
+            :id="filter.key"
+            :multiple="filter.multiple || false"
+            class="w-full md:w-auto px-3 py-2 bg-background border border-secondary text-text rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-primary/50 focus:border-primary"
+            v-model="localValues[filter.key]"
+            @change="emitChange"
+          >
+            <option v-for="opt in filter.options" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
+      </template>
 
-    <!-- Clear Button -->
-    <button
-      type="button"
-      class="ml-auto px-3 py-2 bg-secondary/60 hover:bg-secondary text-text/80 text-sm rounded-lg shadow-sm transition-colors"
-      @click="emitClear"
-    >
-      Reset Filter
-    </button>
-  </div>
+      <!-- Clear Button -->
+      <button
+        type="button"
+        class="ml-auto px-3 py-2 bg-secondary/60 hover:bg-secondary text-text/80 text-sm rounded-lg shadow-sm transition-colors"
+        @click="emitClear"
+      >
+        Reset Filter
+      </button>
+    </div>
+  </FilterContainer>
 </template>

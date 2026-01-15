@@ -1,3 +1,4 @@
+<!-- frontend\src\views\hr\AttendanceView.vue -->
 <script setup>
 import { ref, watch, onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
@@ -7,8 +8,7 @@ import SummaryView from '@/components/hr/SummaryView.vue'
 import DetailView from '@/components/hr/DetailView.vue'
 import Modal from '@/components/ui/Modal.vue'
 import UploadForm from '@/components/ui/UploadForm.vue'
-import Multiselect from 'vue-multiselect'
-import 'vue-multiselect/dist/vue-multiselect.css'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 import { useToast } from '@/composables/useToast.js'
 import { getAbsensiData, getAvailableIndexes, uploadAbsensiFile } from '@/api/helpers/attendance.js'
 import { fetchAllUsers } from '@/api/helpers/admin.js'
@@ -18,6 +18,7 @@ const authStore = useAuthStore()
 const { show } = useToast()
 const isUploadModalOpen = ref(false)
 const isUploading = ref(false)
+const isHeaderExpanded = ref(true)
 const activeTab = ref('summary')
 const summary = ref(null)
 const users = ref([])
@@ -74,7 +75,30 @@ watch(
   },
 )
 
-// Watcher untuk mengambil indeks (filter tahun/bulan) HANYA SETELAH login berhasil
+// 2. Watcher Khusus Tahun: Update Opsi Bulan saat Tahun Berubah (FIX BUG STUCK)
+watch(
+  () => filterValues.value.year,
+  (newYear) => {
+    if (!newYear || !availableIndexes.value[newYear]) return
+
+    // Ambil daftar bulan yang tersedia untuk tahun baru
+    const availableMonths = [...availableIndexes.value[newYear]].sort((a, b) => a - b)
+    const availableYears = Object.keys(availableIndexes.value).sort((a, b) => b - a)
+
+    // Update struktur filter (dropdown) agar opsi bulan sesuai tahun
+    updateFilterOptions(availableYears, availableMonths)
+
+    // Validasi: Apakah bulan yang sedang dipilih ada di tahun baru?
+    const currentMonth = parseInt(filterValues.value.month)
+    if (!availableMonths.includes(currentMonth)) {
+      // Jika tidak ada, pilih bulan terakhir yang tersedia di tahun tersebut
+      // (Misal pindah dari Des 2025 ke 2026 yang baru ada data Jan)
+      filterValues.value.month = availableMonths[availableMonths.length - 1]
+    }
+  },
+)
+
+// 3. Watcher User Login: Init Data Awal
 watch(
   () => authStore.user,
   async (user) => {
@@ -217,38 +241,65 @@ async function handleUpload(formData) {
 <template>
   <div class="bg-secondary/20 min-h-screen">
     <header
-      class="bg-background/80 backdrop-blur-sm sticky top-[65px] z-30 py-3 px-6 flex items-center gap-4 border-b border-secondary/20"
+      class="bg-background/80 backdrop-blur-sm sticky top-[65px] z-30 border-b border-secondary/20 transition-all duration-300"
     >
-      <Tabs
-        :tabs="[
-          { label: 'Ringkasan', value: 'summary' },
-          { label: 'Detail Log', value: 'detail' },
-        ]"
-        v-model="activeTab"
-      />
-      <FilterBar :filters="filters" v-model="filterValues" @clear="clearFilters" />
-
-      <div v-if="canViewAll" class="w-1/2">
-        <Multiselect
-          v-model="filterValues.name"
-          :options="allUsersForFilter"
-          :multiple="true"
-          :loading="isLoadingUsers"
-          :disabled="isLoadingUsers"
-          label="label"
-          track-by="value"
-          placeholder="Pilih satu atau beberapa nama..."
-        />
-      </div>
-
-      <button
-        v-if="canViewAll"
-        @click="isUploadModalOpen = true"
-        class="bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30 text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+      <transition
+        enter-active-class="transition-all duration-300 ease-out"
+        enter-from-class="transform -translate-y-4 opacity-0 max-h-0"
+        enter-to-class="transform translate-y-0 opacity-100 max-h-[500px]"
+        leave-active-class="transition-all duration-300 ease-in"
+        leave-from-class="transform translate-y-0 opacity-100 max-h-[500px]"
+        leave-to-class="transform -translate-y-4 opacity-0 max-h-0"
       >
-        <font-awesome-icon icon="fa-solid fa-file-import" />
-        <span>Import Data</span>
-      </button>
+        <div v-show="isHeaderExpanded" class="overflow-hidden">
+          <div class="py-3 px-4 md:px-6 flex flex-col md:flex-row items-stretch md:items-center gap-4">
+            <Tabs
+              :tabs="[
+                { label: 'Ringkasan', value: 'summary' },
+                { label: 'Detail Log', value: 'detail' },
+              ]"
+              v-model="activeTab"
+              class="w-full md:w-auto overflow-x-auto"
+            />
+
+            <div class="flex flex-col md:flex-row gap-4 flex-1 items-stretch md:items-center">
+              <FilterBar :filters="filters" v-model="filterValues" @clear="clearFilters" class="w-full md:w-auto" />
+
+              <div v-if="canViewAll" class="w-full md:flex-1 min-w-[200px]">
+                <BaseSelect
+                  v-model="filterValues.name"
+                  :options="allUsersForFilter"
+                  :multiple="true"
+                  :loading="isLoadingUsers"
+                  :disabled="isLoadingUsers"
+                  label="label"
+                  track-by="value"
+                  placeholder="Pilih satu atau beberapa nama..."
+                  class="w-full"
+                />
+              </div>
+
+              <button
+                v-if="canViewAll"
+                @click="isUploadModalOpen = true"
+                class="bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30 text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap w-full md:w-auto"
+              >
+                <font-awesome-icon icon="fa-solid fa-file-import" />
+                <span>Import Data</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
+
+      <!-- Toggle Handle -->
+      <div
+        @click="isHeaderExpanded = !isHeaderExpanded"
+        class="lg:hidden flex justify-center items-center py-1 cursor-pointer hover:bg-secondary/10 text-text/40 hover:text-primary transition-colors border-t border-secondary/10"
+        title="Toggle Header"
+      >
+        <font-awesome-icon :icon="isHeaderExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'" />
+      </div>
     </header>
 
     <main class="p-6">

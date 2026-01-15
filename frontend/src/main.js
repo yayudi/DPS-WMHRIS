@@ -5,7 +5,6 @@ import App from './App.vue'
 import router from './router'
 import './assets/main.css'
 import FontAwesomeIcon from './plugins/fontawesome.js'
-import 'vue-multiselect/dist/vue-multiselect.css'
 
 const app = createApp(App)
 app.use(createPinia())

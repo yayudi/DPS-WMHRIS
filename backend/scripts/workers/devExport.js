@@ -15,9 +15,9 @@ const runWorker = async () => {
 
   try {
     isWorking = true;
-    // console.log("[DevWorker] run processQueue...");
-    await processQueue(); // Panggil fungsi yang di-impor
-    // console.log("[DevWorker] processQueue finish");
+    console.log(`[DevWorker] [${new Date().toISOString()}] Start processQueue...`);
+    await processQueue();
+    console.log(`[DevWorker] [${new Date().toISOString()}] End processQueue`);
   } catch (err) {
     console.error("[DevWorker] processQueue:", err);
   } finally {

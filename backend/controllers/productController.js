@@ -1,6 +1,13 @@
+// backend/controllers/productController.js
 import db from "../config/db.js";
 import cache from "../config/cache.js";
-import * as productRepository from "../repositories/productRepository.js";
+import * as productService from "../services/productService.js";
+import * as productRepo from "../repositories/productRepository.js";
+import * as jobRepo from "../repositories/jobRepository.js";
+
+// ============================================================================
+// READ OPERATIONS (Direct Repo Access)
+// ============================================================================
 
 // GET /search
 // Mencari produk untuk autocomplete
@@ -8,9 +15,8 @@ export const searchProducts = async (req, res) => {
   try {
     const { q, locationId } = req.query;
     const searchTerm = `%${q ? q.toLowerCase() : ""}%`;
-
-    // Memanggil fungsi pencarian dari repository dengan db connection
-    const results = await productRepository.searchProducts(db, searchTerm, locationId);
+    // Pass 'db' pool directly to Repo
+    const results = await productRepo.searchProducts(db, searchTerm, locationId);
     res.json(results);
   } catch (error) {
     console.error("Error searching products:", error);
@@ -22,7 +28,7 @@ export const searchProducts = async (req, res) => {
 // Mengambil daftar ringkas untuk dropdown/list admin
 export const getAdminProductList = async (req, res) => {
   try {
-    const rows = await productRepository.getAllActiveProducts(db);
+    const rows = await productRepo.getAllActiveProducts(db);
     res.json({ success: true, data: rows });
   } catch (error) {
     console.error("Error admin list:", error);
@@ -31,55 +37,59 @@ export const getAdminProductList = async (req, res) => {
 };
 
 // GET /
-// Main WMS Product List (dengan filter, pagination, sort, dll)
+// Main Product List (Mendukung Filter Status, Tipe, Search, Sort)
 export const getProducts = async (req, res) => {
-  // Setup Cache Control
+  // Disable Cache untuk Admin Panel agar data selalu realtime
   res.setHeader("Cache-Control", "no-store");
-  const cacheKey = req.originalUrl;
-
-  if (cache.has(cacheKey)) {
-    return res.json(cache.get(cacheKey));
-  }
 
   try {
-    // Menyiapkan object filter dari query params
+    // 1. Parsing Query Params dari Frontend
     const filters = {
       page: parseInt(req.query.page) || 1,
-      limit: parseInt(req.query.limit) || 30,
+      limit: parseInt(req.query.limit) || 20,
       search: req.query.search || "",
       searchBy: req.query.searchBy === "sku" ? "sku" : "name",
-      location: req.query.location || "all",
+      location: req.query.location || "all", // Support filter WMS
+
+      // Filter Status (Active / Archived)
+      status: req.query.status || "active",
+
+      // Filter Tipe Produk (Satuan / Paket)
+      // Konversi string 'true'/'false' ke boolean jika ada
+      is_package: req.query.is_package !== undefined ? req.query.is_package === "true" : undefined,
+
+      // Backward compatibility untuk WMS Dashboard lama
+      packageOnly: req.query.packageOnly === "true",
       minusStockOnly: req.query.minusOnly === "true",
-      packageOnly: req.query.packageOnly === "true", // <--- Parameter baru untuk filter paket
+
       building: req.query.building || "all",
       floor: req.query.floor || "all",
-      sortBy: req.query.sortBy || "name",
-      sortOrder: req.query.sortOrder === "desc" ? "DESC" : "ASC",
+
+      // Default Sort: SKU Descending (Produk terbaru biasanya SKU lebih besar/akhir)
+      sortBy: req.query.sortBy || "sku",
+      sortOrder: req.query.sortOrder === "asc" ? "ASC" : "DESC",
     };
     filters.offset = (filters.page - 1) * filters.limit;
 
-    // Memanggil logika filter kompleks di repository
-    const result = await productRepository.getProductsWithFilters(db, filters);
+    // 2. Panggil Repo
+    const result = await productRepo.getProductsWithFilters(db, filters);
 
-    // Simpan ke cache dan kirim response
-    cache.set(cacheKey, result);
     res.json(result);
   } catch (error) {
-    console.error("Error saat mengambil data produk:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Gagal mengambil data produk.", error: error.message });
+    console.error("Error fetching products:", error);
+    res.status(500).json({
+      success: false,
+      message: "Gagal mengambil data produk.",
+      error: error.message,
+    });
   }
 };
 
 // GET /:id
-// Mengambil detail produk lengkap (termasuk komponen paket & stok)
 export const getProductById = async (req, res) => {
   const { id } = req.params;
   try {
-    // Pass 'db' karena fungsi repository ini membutuhkan parameter connection
-    const product = await productRepository.getProductDetailWithStock(db, id);
-
+    const product = await productRepo.getProductDetailWithStock(db, id);
     if (!product) {
       return res.status(404).json({ success: false, message: "Produk tidak ditemukan" });
     }
@@ -92,11 +102,10 @@ export const getProductById = async (req, res) => {
 };
 
 // GET /:id/stock-details
-// Mengambil rincian stok per lokasi
 export const getProductStockDetails = async (req, res) => {
   const { id } = req.params;
   try {
-    const rows = await productRepository.getProductStockDetails(db, id);
+    const rows = await productRepo.getProductStockDetails(db, id);
     res.json({ success: true, data: rows });
   } catch (error) {
     console.error(`Error stok detail ID ${id}:`, error);
@@ -104,10 +113,27 @@ export const getProductStockDetails = async (req, res) => {
   }
 };
 
+// ✅ GET /:id/history
+export const getProductHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const history = await productRepo.getProductHistory(db, id);
+    res.json({ success: true, data: history });
+  } catch (error) {
+    console.error("Error fetching product history:", error);
+    res.status(500).json({ success: false, message: "Gagal mengambil riwayat produk." });
+  }
+};
+
+// ============================================================================
+// WRITE OPERATIONS (Via Service Layer)
+// ============================================================================
+
 // POST /
 // Membuat produk baru
 export const createProduct = async (req, res) => {
-  const { sku, name, price, is_package, components } = req.body;
+  const { sku, name, price, weight, is_package, components } = req.body;
+  const userId = req.user.id; // ✅ Ambil ID User untuk Audit Log
 
   // Validasi Input
   if (!sku || !name) {
@@ -116,30 +142,20 @@ export const createProduct = async (req, res) => {
   if (is_package && (!components || components.length === 0)) {
     return res
       .status(400)
-      .json({ success: false, message: "Produk paket wajib memiliki minimal 1 komponen." });
+      .json({ success: false, message: "Produk paket wajib memiliki komponen." });
   }
 
   try {
-    // Cek apakah SKU sudah ada
-    const existingId = await productRepository.getIdBySku(db, sku);
-    if (existingId) {
-      return res.status(409).json({ success: false, message: "SKU ini sudah terdaftar." });
-    }
-
-    // Jalankan transaksi pembuatan produk via Repository
-    // Kita pass 'db' pool, repository akan membuat connection sendiri dari pool itu
-    const productId = await productRepository.createProductTransaction(
-      db,
-      { sku, name, price, is_package },
-      components
+    const productId = await productService.createProductService(
+      { sku, name, price, weight, is_package, components },
+      userId
     );
 
-    // Bersihkan cache agar data baru muncul
-    cache.flushAll();
+    cache.flushAll(); // Reset cache WMS
     res.status(201).json({ success: true, message: "Produk berhasil dibuat.", productId });
   } catch (error) {
     console.error("Create Product Error:", error);
-    if (error.code === "ER_DUP_ENTRY") {
+    if (error.code === "DUPLICATE_SKU" || error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({ success: false, message: "SKU sudah terdaftar." });
     }
     res.status(500).json({ success: false, message: "Gagal membuat produk." });
@@ -150,29 +166,39 @@ export const createProduct = async (req, res) => {
 // Memperbarui produk
 export const updateProduct = async (req, res) => {
   const { id } = req.params;
-  const { name, price, is_package, components } = req.body;
+  // ✅ Ambil 'weight' dari body
+  const { name, price, weight, is_package, components, is_active } = req.body;
+  const userId = req.user.id; // ✅ Ambil ID User untuk Audit Log
 
-  // Validasi Input
-  if (!name) return res.status(400).json({ success: false, message: "Nama wajib diisi." });
-  if (is_package && (!components || components.length === 0)) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Produk paket wajib memiliki komponen." });
+  // Handle Restore Action (Specific Case)
+  if (is_active === true && !name) {
+    try {
+      await productService.restoreProductService(id, userId);
+      cache.flushAll();
+      return res.json({ success: true, message: "Produk berhasil dipulihkan." });
+    } catch (error) {
+      console.error("Restore Error:", error);
+      return res.status(500).json({ success: false, message: "Gagal memulihkan produk." });
+    }
   }
 
+  // Regular Update
+  if (!name) return res.status(400).json({ success: false, message: "Nama wajib diisi." });
+
   try {
-    // Jalankan transaksi update via Repository
-    await productRepository.updateProductTransaction(
-      db,
+    await productService.updateProductService(
       id,
-      { name, price, is_package },
-      components
+      { name, price, weight, is_package, components },
+      userId
     );
 
     cache.flushAll();
     res.json({ success: true, message: "Produk berhasil diperbarui." });
   } catch (error) {
     console.error("Update Product Error:", error);
+    if (error.code === "PRODUCT_NOT_FOUND") {
+      return res.status(404).json({ success: false, message: "Produk tidak ditemukan." });
+    }
     res.status(500).json({ success: false, message: "Gagal update produk." });
   }
 };
@@ -181,12 +207,59 @@ export const updateProduct = async (req, res) => {
 // Soft delete produk (set is_active = 0)
 export const deleteProduct = async (req, res) => {
   const { id } = req.params;
+  const userId = req.user.id;
   try {
-    await productRepository.softDeleteProduct(db, id);
-
+    await productService.softDeleteProductService(id, userId);
     cache.flushAll();
-    res.json({ success: true, message: "Produk dinonaktifkan." });
+    res.json({ success: true, message: "Produk berhasil diarsipkan." });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================================================
+// EXPORT OPERATIONS
+// ============================================================================
+
+/**
+ * GET /api/products/export
+ * Mengenerate Job Export CSV berdasarkan filter yang aktif (untuk Template Edit Massal)
+ */
+export const exportProducts = async (req, res) => {
+  try {
+    // 1. Ambil filter dari Query Params (Sama persis dengan getProducts)
+    const filters = {
+      search: req.query.search || "",
+      searchBy: req.query.searchBy === "sku" ? "sku" : "name",
+      location: req.query.location || "all",
+      status: req.query.status || "active",
+      is_package: req.query.is_package !== undefined ? req.query.is_package === "true" : undefined,
+      packageOnly: req.query.packageOnly === "true",
+      minusStockOnly: req.query.minusOnly === "true",
+      building: req.query.building || "all",
+      floor: req.query.floor || "all",
+      sortBy: req.query.sortBy || "sku",
+      sortOrder: req.query.sortOrder === "desc" ? "DESC" : "ASC",
+
+      // Matikan Pagination untuk Export (Set limit sangat besar)
+      limit: 1000000,
+      offset: 0,
+
+      // ✅ TAMBAHKAN TIPE EXPORT
+      exportType: "PRODUCT_MASTER",
+      format: req.query.format || "xlsx",
+    };
+
+    const userId = req.user.id;
+    const jobId = await jobRepo.createExportJob(db, { userId, filters, jobType: "PRODUCT_MASTER" });
+
+    res.json({
+      success: true,
+      message: "Permintaan ekspor diterima. Silakan cek menu 'Laporan Saya' untuk mengunduh.",
+      jobId,
+    });
+  } catch (error) {
+    console.error("Export Request Error:", error);
+    res.status(500).json({ success: false, message: "Gagal membuat permintaan ekspor." });
   }
 };

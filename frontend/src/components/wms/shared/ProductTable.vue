@@ -44,7 +44,8 @@ function sortIcon(column) {
 </script>
 
 <template>
-  <div class="w-full text-left border-collapse min-w-[800px]">
+  <div class="w-full text-left border-collapse overflow-x-auto">
+    <div class="min-w-[800px]">
     <div
       class="grid p-3 bg-primary/5 border-b-2 border-primary/50 text-xs font-bold text-text/60 uppercase tracking-wider items-center"
       :class="gridClass"
@@ -95,6 +96,7 @@ function sortIcon(column) {
         @openEdit="(product) => emit('openEdit', product)"
         @delete="(product) => emit('delete', product)"
       />
+    </div>
     </div>
   </div>
 </template>

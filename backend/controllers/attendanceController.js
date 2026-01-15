@@ -3,11 +3,11 @@ import { createJobService } from "../services/jobService.js";
 import path from "path";
 import db from "../config/db.js";
 import { loadHolidays } from "../services/helpers/fileHelpers.js";
-
-// Konfigurasi Jam Kerja (Hardcoded sementara, idealnya dari DB Config)
-const JAM_KERJA_MULAI = 480; // 08:00
-const JAM_KERJA_SELESAI = 960; // 16:00
-const JAM_KERJA_SELESAI_SABTU = 840; // 14:00
+import {
+  JAM_KERJA_MULAI,
+  JAM_KERJA_SELESAI,
+  JAM_KERJA_SELESAI_SABTU,
+} from "../config/wmsConstants.js";
 
 // ============================================================================
 // READ OPERATIONS
@@ -141,7 +141,6 @@ export const uploadAttendanceLogs = async (req, res) => {
       type: jobType,
       originalname: req.file.originalname,
       serverFilePath: req.file.path,
-      // Catatan otomatis:
       notes: isDryRun ? "Simulasi Import Absensi (Dry Run)" : "Import Absensi",
     });
 

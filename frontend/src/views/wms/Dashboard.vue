@@ -191,7 +191,6 @@ async function handleAdjustConfirm(payload) {
           <font-awesome-icon icon="fa-solid fa-warehouse" class="text-primary" />
           <span>Warehouse Management</span>
         </h2>
-        <p class="text-text/60 text-sm mt-1 ml-9">Monitor stok, mutasi, dan opname.</p>
       </div>
 
       <!-- ACTION BUTTON GROUP -->

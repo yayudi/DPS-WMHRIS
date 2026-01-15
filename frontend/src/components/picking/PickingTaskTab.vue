@@ -64,17 +64,39 @@ const stockUsage = computed(() => {
   return usage
 })
 
+// Logika Validasi Seleksi Item
 function canSelectItem(item) {
   if (!item) return false
-  if (!item.location_code) return true // JIT Lookup support
 
+  // [UPDATE] Izinkan semua item dipilih.
+  // Backend memiliki logika "Smart Re-route" (JIT) yang akan mencari stok di lokasi lain
+  // jika lokasi yang disarankan saat ini tidak mencukupi (Backorder).
+
+  // Debugging log
+  const debugTag = `[Validasi Item #${item.id} ${item.sku}]`
+
+  if (item.status === 'BACKORDER' || !item.location_code) {
+    return true
+  }
+
+  // Cek stok sekadar untuk warning log (tidak memblokir)
   const key = `${item.sku}_${item.location_code}`
   const currentUsage = stockUsage.value[key] || 0
+
   const available = Number(item.available_stock || 0)
   const qtyNeeded = Number(item.quantity || 0)
 
-  if (selectedItems.value.has(item.id)) return true
-  return currentUsage + qtyNeeded <= available
+  if (currentUsage + qtyNeeded > available && !selectedItems.value.has(item.id)) {
+    console.warn(
+      `${debugTag} ❌ GAGAL: Stok Tidak Cukup di ${
+        item.location_code
+      }. Butuh: ${qtyNeeded}, Sisa Hitungan: ${
+        available - currentUsage
+      }. Item tetap diizinkan agar Backend bisa Re-route.`,
+    )
+  }
+
+  return true // ✅ SELALU IZINKAN (Trust Backend)
 }
 
 // --- ACTIONS (API CALLS) ---
@@ -88,7 +110,7 @@ async function fetchPendingItems() {
     else if (response?.data && Array.isArray(response.data)) data = response.data
 
     pendingItems.value = data
-    selectedItems.value.clear()
+    selectedItems.value = new Set() // ✅ Reset dengan Set baru
   } catch (error) {
     show(error.message || 'Gagal memuat data picking.', 'error')
   } finally {
@@ -121,12 +143,13 @@ async function handleCompleteSelectedItems() {
 
     if (res.success) {
       show(res.message, 'success')
-      // Optimistic Update
+      // Optimistic Update: Hapus item yang selesai dari list lokal agar UI responsif
       pendingItems.value = pendingItems.value.filter((item) => !selectedItems.value.has(item.id))
-      selectedItems.value.clear()
+      selectedItems.value = new Set() // ✅ Reset dengan Set baru
     } else {
       show(res.message || 'Gagal memproses sebagian item.', 'warning')
     }
+    // Refresh data untuk konsistensi penuh
     await fetchPendingItems()
   } catch (error) {
     show(error.message || 'Gagal menyelesaikan item.', 'error')
@@ -149,6 +172,7 @@ async function handleCancelInvoice(pickingListId) {
 
 // --- SELECTION LOGIC ---
 function handleToggleInvoice({ inv, checked }) {
+  console.log(`[Toggle Invoice] Invoice ID: ${inv.id}, Checked: ${checked}`)
   const allItemIds = []
   if (inv.locations) {
     Object.values(inv.locations).forEach((items) => items.forEach((item) => allItemIds.push(item)))
@@ -156,23 +180,52 @@ function handleToggleInvoice({ inv, checked }) {
     inv.items.forEach((item) => allItemIds.push(item))
   }
 
+  // ✅ FIX: Buat Set baru untuk memicu reaktivitas Vue
+  const newSet = new Set(selectedItems.value)
+
   allItemIds.forEach((item) => {
     if (checked) {
-      if (canSelectItem(item)) selectedItems.value.add(item.id)
+      if (canSelectItem(item)) {
+        newSet.add(item.id)
+      } else {
+        console.warn(`[Toggle Invoice] Item #${item.id} (${item.sku}) ditolak oleh validasi.`)
+      }
     } else {
-      selectedItems.value.delete(item.id)
+      newSet.delete(item.id)
     }
   })
+
+  // Re-assign untuk trigger update UI
+  selectedItems.value = newSet
+  console.log('Selected Items Count:', selectedItems.value.size)
 }
 
 function handleSelectAll() {
+  const newSet = new Set(selectedItems.value)
+
   displayedItems.value.forEach((inv) => {
-    handleToggleInvoice({ inv, checked: true })
+    const allItemIds = []
+    if (inv.locations) {
+      Object.values(inv.locations).forEach((items) =>
+        items.forEach((item) => allItemIds.push(item)),
+      )
+    } else if (inv.items) {
+      inv.items.forEach((item) => allItemIds.push(item))
+    }
+
+    allItemIds.forEach((item) => {
+      // Cek validasi sebelum add
+      if (canSelectItem(item)) newSet.add(item.id)
+    })
   })
+
+  // ✅ FIX: Re-assign
+  selectedItems.value = newSet
+  console.log('Select All - Total:', selectedItems.value.size)
 }
 
 function handleUncheckAll() {
-  selectedItems.value.clear()
+  selectedItems.value = new Set() // ✅ FIX: Re-assign empty set
 }
 
 defineExpose({
@@ -191,7 +244,7 @@ onMounted(() => {
     <transition name="slide-up">
       <div
         v-if="pendingItems.length > 0"
-        class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] md:w-[600px] bg-secondary/95 border border-white/10 backdrop-blur-xl p-3 rounded-2xl shadow-2xl z-50 flex items-center justify-between gap-3 ring-1 ring-black/5"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] md:w-[600px] bg-secondary/95 border border-secondary/20 backdrop-blur-xl p-3 rounded-2xl shadow-2xl z-50 flex items-center justify-between gap-3 ring-1 ring-black/5"
       >
         <!-- Kiri: Kontrol Seleksi -->
         <div class="flex items-center gap-2">
@@ -234,7 +287,7 @@ onMounted(() => {
           :disabled="isLoadingPicking || selectedItems.size === 0"
         >
           <div
-            class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"
+            class="absolute inset-0 bg-background/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"
           ></div>
           <span class="relative">Selesaikan</span>
           <font-awesome-icon

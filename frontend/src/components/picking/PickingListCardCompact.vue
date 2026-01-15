@@ -149,7 +149,7 @@ function getMpStatusBadge(status) {
 
         <!-- LOGO -->
         <div
-          class="p-0.5 rounded bg-white border border-secondary/10 shadow-sm shrink-0 h-6 w-6 flex items-center justify-center overflow-hidden"
+          class="p-0.5 rounded bg-background border border-secondary/10 shadow-sm shrink-0 h-6 w-6 flex items-center justify-center overflow-hidden"
         >
           <img
             v-if="inv.source === 'Tokopedia'"

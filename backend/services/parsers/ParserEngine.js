@@ -1,60 +1,80 @@
 // backend/services/ParserEngine.js
-import { TokopediaParser } from "./TokopediaParser.js";
-import { ShopeeParser } from "./ShopeeParser.js";
-import { OfflineParser } from "./OfflineParser.js";
 import path from "path";
+import { BaseParser } from "./BaseParser.js";
+import { Mappers } from "../../config/importMappers.js";
+
+// Jika Anda masih ingin menggunakan class spesifik untuk legacy, import di sini.
+// Namun, BaseParser + Mappers sudah cukup powerful untuk handle semuanya.
+// import { TokopediaParser } from "./TokopediaParser.js";
+// import { ShopeeParser } from "./ShopeeParser.js";
+// import { OfflineParser } from "./OfflineParser.js";
 
 export class ParserEngine {
   /**
-   * Factory method untuk menjalankan parser yang sesuai
-   * @param {string} filePath - Path absolut file
-   * @param {string} source - 'Tokopedia', 'Shopee', 'Offline'
+   * @param {string} filePath - Path absolut file di server
+   * @param {string} source - 'Tokopedia', 'Shopee', 'Offline', 'MassPriceUpdate', dll.
    */
-  async run(filePath, source) {
-    let parser;
-    const normalizedSource = (source || "").toLowerCase();
+  constructor(filePath, source) {
+    this.filePath = filePath;
+    this.source = source;
+  }
 
-    console.log(`[ParserEngine] Meminta parser untuk source: "${source}"`);
+  async run() {
+    console.log(
+      `[ParserEngine] Meminta parser untuk source: "${this.source}" | File: ${path.basename(
+        this.filePath
+      )}`
+    );
 
-    switch (normalizedSource) {
-      case "tokopedia":
-        parser = new TokopediaParser(filePath);
-        break;
+    let mapper = null;
+    let normalizedSource = (this.source || "").trim();
 
-      case "shopee":
-        parser = new ShopeeParser(filePath);
-        break;
+    // 1. Cek Mapper berdasarkan Source yang dikirim (Explicit)
+    if (normalizedSource && Mappers[normalizedSource]) {
+      mapper = Mappers[normalizedSource];
+    }
+    // 2. Fallback: Auto-detect dari nama file jika Source tidak valid/kosong
+    else {
+      const fileName = path.basename(this.filePath).toLowerCase();
+      console.log(
+        `[ParserEngine] Source '${this.source}' tidak spesifik. Mencoba auto-detect dari filename: ${fileName}`
+      );
 
-      case "offline":
-        // Aktifkan case Offline
-        parser = new OfflineParser(filePath);
-        break;
+      if (fileName.includes("tokopedia")) {
+        normalizedSource = "Tokopedia";
+      } else if (fileName.includes("shopee")) {
+        normalizedSource = "Shopee";
+      } else if (
+        fileName.includes("offline") ||
+        fileName.includes("manual") ||
+        fileName.includes("tagihan")
+      ) {
+        normalizedSource = "Offline";
+      } else if (fileName.includes("price") || fileName.includes("harga")) {
+        normalizedSource = "MassPriceUpdate";
+      } else {
+        // Default fallback (bisa disesuaikan)
+        throw new Error(`[ParserEngine] Gagal mendeteksi tipe parser untuk file: ${fileName}`);
+      }
 
-      default:
-        // Fallback cerdas: Coba tebak dari nama file
-        const fileName = path.basename(filePath).toLowerCase();
-
-        if (fileName.includes("tokopedia")) {
-          console.log("[ParserEngine] Auto-detect: Menggunakan TokopediaParser");
-          parser = new TokopediaParser(filePath);
-        } else if (fileName.includes("shopee")) {
-          console.log("[ParserEngine] Auto-detect: Menggunakan ShopeeParser");
-          parser = new ShopeeParser(filePath);
-        } else if (
-          fileName.includes("tagihan") ||
-          fileName.includes("offline") ||
-          fileName.includes("manual")
-        ) {
-          // Auto-detect Offline
-          console.log("[ParserEngine] Auto-detect: Menggunakan OfflineParser");
-          parser = new OfflineParser(filePath);
-        } else {
-          // Default fallback terakhir ke Tokopedia jika format tidak jelas (opsional, atau throw error)
-          throw new Error(`Source '${source}' tidak dikenali dan auto-detect gagal.`);
-        }
+      mapper = Mappers[normalizedSource];
+      console.log(`[ParserEngine] Auto-detect result: ${normalizedSource}`);
     }
 
-    // Jalankan Parser terpilih
+    if (!mapper) {
+      throw new Error(
+        `[ParserEngine] Konfigurasi Mapper tidak ditemukan untuk source: ${normalizedSource}`
+      );
+    }
+
+    // 3. Instansiasi BaseParser dengan konfigurasi yang ditemukan
+    // PENTING: Ambil delimiter dari mapper (Shopee pakai ';'), atau default ke koma
+    const goldenKeys = mapper.knownColumns || [];
+    const delimiter = mapper.csvDelimiter || ",";
+
+    // Teruskan delimiter ke BaseParser agar pembacaan CSV akurat
+    const parser = new BaseParser(this.filePath, normalizedSource, mapper, goldenKeys, delimiter);
+
     return await parser.run();
   }
 }

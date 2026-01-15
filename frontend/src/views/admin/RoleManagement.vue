@@ -287,37 +287,37 @@ function toggleGroup(groupName, value) {
           Pilih sebuah peran di sebelah kiri untuk melihat dan mengedit izinnya.
         </div>
         <div v-else>
-          <div
-            class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4 pb-4 border-b border-secondary/20"
-          >
-            <div>
-              <h3 class="text-lg font-bold text-text">
-                Izin untuk: <span class="text-primary">{{ selectedRole.name }}</span>
-              </h3>
-              <p class="text-sm text-text/60">{{ selectedRole.description }}</p>
-            </div>
-            <button
-              @click="handleSavePermissions"
-              :disabled="isSaving || !isDirty"
-              class="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg disabled:opacity-50 transition-all"
-              :class="isDirty ? 'ring-2 ring-primary/50 ring-offset-2' : ''"
-            >
-              <font-awesome-icon icon="fa-solid fa-save" class="mr-2" />
-              {{ isSaving ? 'Menyimpan...' : 'Simpan Perubahan' }}
-            </button>
-          </div>
-
-          <div v-if="isLoadingPermissions" class="text-center py-16">Memuat izin...</div>
-          <div v-else class="space-y-6 max-h-[60vh] overflow-y-auto">
-            <!-- v-for untuk Grup Izin -->
             <div
-              v-for="(permissionsInGroup, groupName) in groupedPermissions"
-              :key="groupName"
-              class="border border-secondary/20 rounded-lg"
+              class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4 pb-4 border-b border-secondary/20"
             >
-              <div
-                class="bg-secondary/10 px-4 py-2 flex justify-between items-center border-b border-secondary/20"
+              <div>
+                <h3 class="text-lg font-bold text-text">
+                  Izin untuk: <span class="text-primary">{{ selectedRole.name }}</span>
+                </h3>
+                <p class="text-sm text-text/60">{{ selectedRole.description }}</p>
+              </div>
+              <button
+                @click="handleSavePermissions"
+                :disabled="isSaving || !isDirty"
+                class="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg disabled:opacity-50 transition-all w-full sm:w-auto"
+                :class="isDirty ? 'ring-2 ring-primary/50 ring-offset-2' : ''"
               >
+                <font-awesome-icon icon="fa-solid fa-save" class="mr-2" />
+                {{ isSaving ? 'Menyimpan...' : 'Simpan Perubahan' }}
+              </button>
+            </div>
+
+            <div v-if="isLoadingPermissions" class="text-center py-16">Memuat izin...</div>
+            <div v-else class="space-y-6 max-h-[60vh] overflow-y-auto">
+              <!-- v-for untuk Grup Izin -->
+              <div
+                v-for="(permissionsInGroup, groupName) in groupedPermissions"
+                :key="groupName"
+                class="border border-secondary/20 rounded-lg"
+              >
+                <div
+                  class="bg-secondary/10 px-4 py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-secondary/20 gap-2"
+                >
                 <h4 class="font-bold text-text/90">{{ groupName }}</h4>
                 <div class="flex gap-4 text-xs font-semibold">
                   <button
@@ -346,7 +346,7 @@ function toggleGroup(groupName, value) {
                     :id="`perm-${permission.id}`"
                     :value="permission.id"
                     v-model="selectedPermissionIds"
-                    class="h-4 w-4 mt-1 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                    class="h-4 w-4 mt-1 rounded border-secondary/30 text-primary focus:ring-primary cursor-pointer"
                   />
                   <div class="ml-3">
                     <label

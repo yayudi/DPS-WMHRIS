@@ -2,7 +2,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import Modal from '@/components/ui/Modal.vue'
-import Multiselect from 'vue-multiselect'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 
 const props = defineProps({
   show: Boolean,
@@ -63,39 +63,37 @@ function handleConfirm() {
       <!-- From Location -->
       <div>
         <label class="block text-sm font-medium text-text/90 mb-1">Dari Lokasi</label>
-        <Multiselect
+        <BaseSelect
           v-model="fromLocationId"
           :options="locations"
-          :allow-empty="false"
           placeholder="Pilih lokasi asal"
           label="code"
           track-by="id"
-        ></Multiselect>
+        />
       </div>
 
       <!-- To Location -->
       <div>
         <label class="block text-sm font-medium text-text/90 mb-1">Ke Lokasi</label>
-        <Multiselect
+        <BaseSelect
           v-model="toLocationId"
           :options="locations"
-          :allow-empty="false"
           placeholder="Pilih lokasi tujuan"
           label="code"
           track-by="id"
         >
           <template #option="{ option }">
-            <div class="flex justify-between items-center">
-              <!-- ✅ Gunakan kelas .option__title -->
-              <span class="option__title">{{ option.code }}</span>
-
-              <!-- ✅ Gunakan kelas .option__stock (dengan binding kelas) -->
-              <span class="option__stock" :class="{ 'option__stock--low': option.quantity === 0 }">
+            <div class="flex justify-between items-center w-full">
+              <span class="font-medium font-mono text-xs">{{ option.code }}</span>
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded border"
+                :class="option.quantity === 0 ? 'bg-danger/10 text-danger border-danger/20' : 'bg-success/10 text-success border-success/20'"
+              >
                 Stok: {{ option.quantity }}
               </span>
             </div>
           </template>
-        </Multiselect>
+        </BaseSelect>
       </div>
 
       <!-- Quantity -->

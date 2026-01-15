@@ -3,7 +3,7 @@ import { ref, onMounted, watchEffect } from 'vue'
 import { useToast } from '@/composables/useToast.js'
 import { fetchProductStockDetails } from '@/api/helpers/products.js'
 import { processSingleTransfer } from '@/api/helpers/stock.js'
-import Multiselect from 'vue-multiselect'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 
 const props = defineProps({
   product: { type: Object, required: true },
@@ -122,7 +122,7 @@ async function submitTransfer() {
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end pt-6 border-t border-secondary/20">
       <div>
         <label class="block text-sm font-medium text-text/90 mb-2">Pindahkan Dari</label>
-        <Multiselect
+        <BaseSelect
           v-model="fromLocation"
           :options="stockDetails"
           label="location_code"
@@ -130,22 +130,22 @@ async function submitTransfer() {
           placeholder="Pilih asal"
         >
           <template #option="{ option }">
-            <div class="flex justify-between">
+            <div class="flex justify-between w-full">
               <span>{{ option.location_code }}</span>
               <span class="font-bold">Stok: {{ option.quantity }}</span>
             </div>
           </template>
-        </Multiselect>
+        </BaseSelect>
       </div>
       <div>
         <label class="block text-sm font-medium text-text/90 mb-2">Ke Lokasi</label>
-        <Multiselect
+        <BaseSelect
           v-model="toLocation"
           :options="allLocations"
           label="code"
           track-by="id"
           placeholder="Pilih tujuan"
-        ></Multiselect>
+        />
       </div>
       <div>
         <label class="block text-sm font-medium text-text/90 mb-2">Jumlah</label>

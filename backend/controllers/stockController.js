@@ -86,21 +86,31 @@ export const transferStock = async (req, res) => {
 
 /**
  * Adjust Stock Manual (Single Item)
+ * Updated: Tidak lagi mewajibkan 'type'. Menggunakan quantity +/-.
  */
 export const adjustStock = async (req, res) => {
   try {
-    const { productId, locationId, quantity, type, notes } = req.body;
+    let { productId, locationId, quantity, type, notes } = req.body;
     const userId = req.user.id;
 
-    if (!productId || !locationId || !quantity || !type) {
+    // FIX: Hapus 'type' dari validasi wajib
+    if (!productId || !locationId || quantity === undefined || quantity === null) {
       return res.status(400).json({ success: false, message: "Data adjustment tidak lengkap." });
+    }
+
+    // Logic Adaptor: Jika frontend mengirim type, sesuaikan tanda quantity
+    if (type) {
+      if ((type === "ADJUST_MINUS" || type === "OUT") && quantity > 0) {
+        quantity = -quantity;
+      } else if ((type === "ADJUST_PLUS" || type === "IN") && quantity < 0) {
+        quantity = Math.abs(quantity);
+      }
     }
 
     await stockService.adjustStockService({
       productId,
       locationId,
-      quantity,
-      type, // ADJUST_PLUS / ADJUST_MINUS
+      quantity, // Service sekarang menerima signed quantity (negatif/positif)
       userId,
       notes,
     });
@@ -125,8 +135,50 @@ export const downloadAdjustmentTemplate = async (req, res) => {
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
-    console.error("[StockController] Template Error:", error);
     res.status(500).json({ success: false, message: "Gagal membuat template." });
+  }
+};
+
+export const getInboundTemplate = async (req, res) => {
+  try {
+    const workbook = await stockService.generateInboundTemplateService();
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", "attachment; filename=Template_Inbound_Stok.xlsx");
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("[StockController] Template Inbound Error:", error);
+    res.status(500).json({ success: false, message: "Gagal membuat template inbound." });
+  }
+};
+
+export const importBatchInbound = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "Tidak ada file yang diunggah." });
+    }
+
+    const userId = req.user.id;
+    // Create Job IMPORT_STOCK_INBOUND
+    const jobId = await jobService.createJobService({
+      userId,
+      type: "IMPORT_STOCK_INBOUND",
+      originalname: req.file.originalname,
+      serverFilePath: req.file.path,
+      notes: "Batch Stock Inbound",
+    });
+
+    res.json({
+      success: true,
+      message: "File inbound masuk antrian.",
+      jobId: jobId,
+    });
+  } catch (error) {
+    console.error("[StockController] Import Inbound Error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

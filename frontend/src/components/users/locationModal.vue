@@ -80,7 +80,7 @@ async function handleSave() {
             :id="`loc-${location.id}`"
             :value="location.id"
             v-model="selectedLocationIds"
-            class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            class="h-4 w-4 rounded border-secondary/30 text-primary focus:ring-primary"
           />
           <label
             :for="`loc-${location.id}`"

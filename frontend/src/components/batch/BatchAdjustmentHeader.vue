@@ -1,5 +1,6 @@
 <script setup>
-import Multiselect from 'vue-multiselect'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
+import FilterContainer from '@/components/ui/FilterContainer.vue'
 
 // Props untuk data dropdown
 defineProps({
@@ -14,31 +15,33 @@ const notes = defineModel('notes')
 
 <template>
   <!-- Header Kontekstual Hanya Untuk Adjustment -->
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-secondary/20 pb-6 pt-2">
-    <!-- ADJUSTMENT -->
-    <div>
-      <label class="block text-sm font-medium text-text/90 mb-2"
-        >Lokasi Penyesuaian (Lokasi Anda)</label
-      >
-      <Multiselect
-        v-model="adjustmentLocation"
-        :options="myLocations"
-        placeholder="Pilih lokasi"
-        label="code"
-        track-by="id"
-        :disabled="isLoading"
-      ></Multiselect>
-    </div>
+  <FilterContainer title="Form Penyesuaian">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- ADJUSTMENT -->
+      <div>
+        <label class="block text-sm font-medium text-text/90 mb-2"
+          >Lokasi Penyesuaian (Lokasi Anda)</label
+        >
+        <BaseSelect
+          v-model="adjustmentLocation"
+          :options="myLocations"
+          placeholder="Pilih lokasi"
+          label="code"
+          track-by="id"
+          :disabled="isLoading"
+        />
+      </div>
 
-    <!-- Catatan -->
-    <div class="flex-grow">
-      <label class="block text-sm font-medium text-text mb-2">Catatan / Alasan (Wajib)</label>
-      <input
-        v-model="notes"
-        type="text"
-        placeholder="e.g., Stok opname, Barang rusak, PO-123"
-        class="w-full p-2 border border-secondary/50 rounded-lg bg-background"
-      />
+      <!-- Catatan -->
+      <div class="flex-grow">
+        <label class="block text-sm font-medium text-text mb-2">Catatan / Alasan (Wajib)</label>
+        <input
+          v-model="notes"
+          type="text"
+          placeholder="e.g., Stok opname, Barang rusak, PO-123"
+          class="w-full p-2 border border-secondary/50 rounded-lg bg-background"
+        />
+      </div>
     </div>
-  </div>
+  </FilterContainer>
 </template>

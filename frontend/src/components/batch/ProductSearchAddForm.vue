@@ -3,7 +3,7 @@
 import { ref } from 'vue'
 import { useToast } from '@/composables/useToast.js'
 import { searchProducts, fetchStockSampleForLocation } from '@/api/helpers/products.js'
-import Multiselect from 'vue-multiselect'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 
 const props = defineProps({
   activeTab: { type: String, required: true },
@@ -73,7 +73,7 @@ function onAddClick() {
   <div class="flex items-end gap-4">
     <div class="flex-grow">
       <label class="block text-sm font-medium text-text/90 mb-2">Cari Produk (SKU atau Nama)</label>
-      <Multiselect
+      <BaseSelect
         v-model="selectedProduct"
         :options="searchResults"
         :loading="isSearching"
@@ -85,7 +85,7 @@ function onAddClick() {
         :disabled="disabled"
       >
         <template #option="{ option }">
-          <div class="flex justify-between">
+          <div class="flex justify-between w-full">
             <span
               >{{ option.name }} <span class="text-xs text-text/60">({{ option.sku }})</span></span
             >
@@ -103,8 +103,7 @@ function onAddClick() {
           </div>
         </template>
         <template #noResult>Produk tidak ditemukan.</template>
-        <template #noOptions>Ketik untuk mencari produk...</template>
-      </Multiselect>
+      </BaseSelect>
     </div>
     <div class="w-28">
       <label class="block text-sm font-medium text-text/90 mb-2">Jumlah</label>

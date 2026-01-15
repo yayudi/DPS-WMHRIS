@@ -1,5 +1,6 @@
 <script setup>
 import { reactive, watch, computed } from 'vue'
+import FilterContainer from '@/components/ui/FilterContainer.vue'
 
 const props = defineProps({
   modelValue: {
@@ -71,9 +72,7 @@ function clearFilters() {
 </script>
 
 <template>
-  <div
-    class="bg-background border border-secondary/20 p-1.5 rounded-xl shadow-sm transition-all duration-300 hover:shadow-md flex flex-col lg:flex-row gap-2"
-  >
+  <FilterContainer title="Filter Picking">
     <!-- Group 1: Search & Date (Flexible Grow) -->
     <div class="flex flex-col sm:flex-row gap-2 flex-grow">
       <!-- Search -->
@@ -262,7 +261,7 @@ function clearFilters() {
         </button>
       </transition>
     </div>
-  </div>
+  </FilterContainer>
 </template>
 
 <style scoped>

@@ -118,6 +118,12 @@ const routes = [
         meta: { requiresPermission: 'manage-products' },
       },
       {
+        path: 'packages',
+        name: 'PackageManagement',
+        component: () => import('../views/admin/PackageManagement.vue'),
+        meta: { requiresPermission: 'manage-products' },
+      },
+      {
         path: 'locations',
         name: 'LocationManagement',
         component: () => import('../views/admin/LocationManagement.vue'),

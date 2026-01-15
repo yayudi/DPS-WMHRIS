@@ -2,18 +2,24 @@
 import express from "express";
 import multer from "multer";
 import path from "path";
+import fs from "fs"; // Tambahkan fs untuk memastikan folder ada
 import { canAccess } from "../middleware/permissionMiddleware.js";
 import * as attendanceController from "../controllers/attendanceController.js";
 
 const router = express.Router();
 
 // --- KONFIGURASI UPLOAD (MULTER) ---
-// Kita simpan sementara di folder uploads/attendance/ sebelum diproses oleh Worker
+// Pastikan folder upload ada
+const uploadDir = "uploads/attendance/";
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/attendance/"),
+  destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
+    cb(null, "csvFile-" + uniqueSuffix + path.extname(file.originalname));
   },
 });
 const upload = multer({ storage: storage });

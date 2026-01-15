@@ -68,7 +68,7 @@ function handleVoid() {
   <Modal :show="show" @close="emit('close')" :title="`Detail Picking List #${item?.id}`">
     <div class="space-y-4">
       <!-- Informasi Header -->
-      <div v-if="item" class="grid grid-cols-3 gap-4 text-sm bg-secondary/10 p-3 rounded-lg">
+      <div v-if="item" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm bg-secondary/10 p-3 rounded-lg">
         <div>
           <div class="text-xs text-text/70">Waktu Proses</div>
           <div class="font-semibold">{{ new Date(item.created_at).toLocaleString('id-ID') }}</div>

@@ -35,6 +35,7 @@ export const Mappers = {
   // TOKOPEDIA
   // =========================================
   Tokopedia: {
+    csvDelimiter: ",",
     knownColumns: [
       "order id",
       "nomor invoice",
@@ -85,7 +86,6 @@ export const Mappers = {
         "return quantity",
         "returned quantity",
       ]);
-
       const returnedQty = parseInt(rawReturnQty || "0", 10);
       console.log(`[MAPPER] Raw Return Qty for Invoice ${id}, SKU ${sku}:`, rawReturnQty);
       console.log(`[MAPPER] Parsed Return Qty:`, returnedQty);
@@ -108,7 +108,7 @@ export const Mappers = {
       const retType =
         getter([
           "cancelation/return type",
-          "Cancelation/Return Type", // <-- Match CSV
+          "Cancelation/Return Type",
           "jenis pembatalan/pengembalian",
         ])?.toLowerCase() || "";
 
@@ -118,19 +118,15 @@ export const Mappers = {
         retType.includes("refund")
       )
         return MP_STATUS.RETURNED;
-
       if (retType.includes("cancel") || retType.includes("batal")) return MP_STATUS.CANCELLED;
-
       if (status.includes("batal") || status.includes("dibatalkan") || status.includes("cancelled"))
         return MP_STATUS.CANCELLED;
-
       if (
         status.includes("selesai") ||
         status.includes("delivered") ||
         status.includes("completed")
       )
         return MP_STATUS.COMPLETED;
-
       if (
         status.includes("dikirim") ||
         status.includes("dalam pengiriman") ||
@@ -139,16 +135,14 @@ export const Mappers = {
         status.includes("sedang transit")
       )
         return MP_STATUS.SHIPPED;
-
       if (
         status.includes("siap dikirim") ||
         status.includes("sedang diproses") ||
         status.includes("pesanan baru") ||
         status.includes("perlu dikirim") ||
         status.includes("new")
-      ) {
+      )
         return MP_STATUS.NEW;
-      }
 
       return "IGNORE";
     },
@@ -158,6 +152,7 @@ export const Mappers = {
   // SHOPEE
   // =========================================
   Shopee: {
+    csvDelimiter: ";",
     knownColumns: [
       "no. pesanan",
       "no pesanan",
@@ -187,17 +182,14 @@ export const Mappers = {
       if (!sku) sku = getter(["sku induk", "parent sku"]);
 
       const qty = parseInt(getter(["jumlah", "quantity"]) || "0", 10);
-
       const returnedQty = parseInt(
         getter(["returned quantity", "jumlah dikembalikan", "quantity returned"]) || "0",
         10
       );
-
       const customer = getter(["username (pembeli)", "username pembeli", "nama penerima"]);
       const orderDate = parseDate(getter(["waktu pesanan dibuat", "order creation time"]));
 
       if (!id || !sku || isNaN(qty)) return null;
-
       return { invoiceId: id, sku, qty, returnedQty, customer, orderDate };
     },
     getStatus: (getter) => {
@@ -208,10 +200,8 @@ export const Mappers = {
         retStatus.includes("pengembalian") ||
         retStatus.includes("return") ||
         retStatus.includes("disetujui")
-      ) {
+      )
         return MP_STATUS.RETURNED;
-      }
-
       if (status.includes("batal") || status.includes("cancelled")) return MP_STATUS.CANCELLED;
       if (
         status.includes("selesai") ||
@@ -235,6 +225,7 @@ export const Mappers = {
   // OFFLINE
   // =========================================
   Offline: {
+    csvDelimiter: ",",
     knownColumns: [
       "*nomor tagihan",
       "nomor tagihan",
@@ -261,7 +252,6 @@ export const Mappers = {
       const orderDate = parseDate(getter(["*tanggal transaksi (dd/mm/yyyy)", "tanggal", "date"]));
 
       if (!id || !sku || isNaN(qty)) return null;
-
       return { invoiceId: id, sku, qty, returnedQty: 0, customer, orderDate };
     },
     getStatus: (getter) => {
@@ -269,5 +259,99 @@ export const Mappers = {
       if (status.includes("void") || status.includes("batal")) return MP_STATUS.CANCELLED;
       return MP_STATUS.NEW;
     },
+  },
+
+  // =========================================
+  // MASS PRODUCT UPDATE (REPLACES PRICE UPDATE)
+  // =========================================
+  MassProductUpdate: {
+    csvDelimiter: ",",
+    knownColumns: [
+      "sku",
+      "kode produk",
+      "nomor sku",
+      "name",
+      "nama",
+      "nama produk",
+      "product name",
+      "price",
+      "harga",
+      "harga jual",
+      "weight",
+      "berat",
+      "bobot",
+      "type",
+      "tipe",
+      "is_package",
+      "paket",
+      "status",
+      "is_active",
+      "aktif",
+    ],
+    extract: (getter) => {
+      // 1. Mandatory Identifier
+      const sku = getter(["sku", "kode produk", "nomor sku"]);
+      if (!sku) return null;
+
+      // 2. Optional Fields (Ambil jika ada)
+      const name = getter(["name", "nama", "nama produk", "product name"]);
+
+      // Harga
+      let rawPrice = getter(["price", "harga", "harga jual"]);
+      let price = undefined;
+      if (rawPrice) {
+        let clean = rawPrice
+          .toString()
+          .replace(/Rp\.?\s?/gi, "")
+          .trim();
+        if (clean.includes(".") && !clean.includes(",")) clean = clean.replace(/\./g, "");
+        else if (clean.includes(".") && clean.includes(","))
+          clean = clean.replace(/\./g, "").replace(/,/g, ".");
+        price = parseFloat(clean.replace(/[^0-9.]/g, ""));
+      }
+
+      // Berat
+      let rawWeight = getter(["weight", "berat", "bobot"]);
+      let weight = undefined;
+      if (rawWeight) {
+        weight = parseFloat(rawWeight.toString().replace(/[^0-9.]/g, ""));
+      }
+
+      // Tipe Paket (1/0, Yes/No, True/False)
+      let rawType = getter(["type", "tipe", "is_package", "paket"]);
+      let is_package = undefined;
+      if (rawType) {
+        const lower = rawType.toString().toLowerCase();
+        is_package =
+          lower === "1" ||
+          lower === "true" ||
+          lower === "yes" ||
+          lower === "ya" ||
+          lower === "paket";
+      }
+
+      // Status Aktif
+      let rawStatus = getter(["status", "is_active", "aktif"]);
+      let is_active = undefined;
+      if (rawStatus) {
+        const lower = rawStatus.toString().toLowerCase();
+        // Support: 1/0, Active/Inactive, Aktif/Nonaktif
+        is_active = lower === "1" || lower === "true" || lower === "active" || lower === "aktif";
+      }
+
+      return {
+        sku,
+        // Field berikut hanya akan undefined jika tidak ada di CSV
+        name,
+        price,
+        weight,
+        is_package,
+        is_active,
+
+        invoiceId: `UPD-${sku}`, // Dummy ID
+        status: "NEW",
+      };
+    },
+    getStatus: () => "NEW",
   },
 };

@@ -11,6 +11,7 @@ import BatchMovementHeader from '@/components/batch/BatchMovementHeader.vue'
 import ProductSearchAddForm from '@/components/batch/ProductSearchAddForm.vue'
 import BatchItemList from '@/components/batch/BatchItemList.vue'
 import MultiLocationTransferTab from '@/components/batch/MultiLocationTransferTab.vue'
+import BatchInboundModal from '@/components/stock/BatchInboundModal.vue'
 
 const { show } = useToast()
 
@@ -20,6 +21,7 @@ const allLocations = ref([])
 const isLoading = ref(false)
 const activeTab = ref('TRANSFER') // Tab default
 const batchList = ref([])
+const isBatchInboundModalOpen = ref(false)
 
 // --- STATE FORM BATCH (untuk header) ---
 const fromLocation = ref(null)
@@ -119,53 +121,44 @@ async function submitBatch() {
   <div class="p-6">
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-2xl font-bold text-text">Stock Movement (Transfer / Inbound)</h2>
+      <button v-if="activeTab === 'INBOUND'" @click="isBatchInboundModalOpen = true"
+        class="bg-green-50 text-green-600 border border-green-200 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-green-100 flex items-center gap-2 transition-all">
+        <font-awesome-icon icon="fa-solid fa-file-import" />
+        <span>Import Massal</span>
+      </button>
     </div>
 
     <div class="bg-background rounded-xl shadow-md border border-secondary/20 p-6 space-y-6">
       <!-- Komponen Header (Tabs + Form Lokasi Batch) -->
-      <BatchMovementHeader
-        v-model:activeTab="activeTab"
-        v-model:fromLocation="fromLocation"
-        v-model:toLocation="toLocation"
-        v-model:notes="notes"
-        :my-locations="myLocations"
-        :all-locations="allLocations"
-        :is-loading="isLoading"
-        :allow-adjustment="false"
-      />
+      <BatchMovementHeader v-model:activeTab="activeTab" v-model:fromLocation="fromLocation"
+        v-model:toLocation="toLocation" v-model:notes="notes" :my-locations="myLocations" :all-locations="allLocations"
+        :is-loading="isLoading" :allow-adjustment="false" />
 
       <!-- Panel Konten -->
-      <MultiLocationTransferTab
-        v-if="activeTab === 'DETAILED_TRANSFER'"
-        :all-locations="allLocations"
-        :is-loading-locations="isLoading"
-      />
+      <MultiLocationTransferTab v-if="activeTab === 'DETAILED_TRANSFER'" :all-locations="allLocations"
+        :is-loading-locations="isLoading" />
 
       <!-- Panel untuk semua mode 'BATCH' ('TRANSFER', 'INBOUND') -->
       <template v-else>
         <!-- Form Penambahan Item Batch -->
-        <ProductSearchAddForm
-          :active-tab="activeTab"
-          :search-location-id="batchSearchLocationId"
-          :disabled="!isBatchLocationSelected || isLoading"
-          @add-product="handleAddProduct"
-        />
+        <ProductSearchAddForm :active-tab="activeTab" :search-location-id="batchSearchLocationId"
+          :disabled="!isBatchLocationSelected || isLoading" @add-product="handleAddProduct" />
 
         <!-- Tabel Daftar Batch -->
         <BatchItemList :items="batchList" :active-tab="activeTab" @remove-item="removeFromBatch" />
 
         <!-- Tombol Aksi Final Batch -->
         <div class="flex justify-end pt-6 border-t border-secondary/20">
-          <button
-            @click="submitBatch"
-            :disabled="!isBatchLocationSelected || batchList.length === 0 || isLoading"
-            class="px-6 py-3 bg-accent text-white rounded-lg font-bold disabled:opacity-50 flex items-center gap-2"
-          >
+          <button @click="submitBatch" :disabled="!isBatchLocationSelected || batchList.length === 0 || isLoading"
+            class="px-6 py-3 bg-accent text-white rounded-lg font-bold disabled:opacity-50 flex items-center gap-2">
             <font-awesome-icon v-if="isLoading" icon="fa-solid fa-spinner" class="animate-spin" />
             <span>{{ isLoading ? 'Memproses...' : 'Submit Batch' }}</span>
           </button>
         </div>
       </template>
     </div>
+
+    <BatchInboundModal :isOpen="isBatchInboundModalOpen" @close="isBatchInboundModalOpen = false"
+      @success="() => show('Batch Inbound diproses!', 'success')" />
   </div>
 </template>

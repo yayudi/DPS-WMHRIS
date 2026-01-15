@@ -111,6 +111,18 @@ router.get("/batch-log", stockController.getBatchLogs);
 // ============================================================================
 
 /**
+ * GET /api/stock/template/inbound
+ * Download template Inbound
+ */
+router.get("/template/inbound", stockController.getInboundTemplate);
+
+/**
+ * POST /api/stock/import-batch
+ * Upload file Inbound (Background Job)
+ */
+router.post("/import-batch", upload.single("file"), stockController.importBatchInbound);
+
+/**
  * GET /api/stock/download-adjustment-template
  * Download template Excel untuk stock opname
  */

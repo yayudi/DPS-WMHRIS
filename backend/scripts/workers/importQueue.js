@@ -1,4 +1,5 @@
-// backend/scripts/importQueue.js
+// backend/scripts/workers/importQueue.js
+// IMPORTS
 import db from "../../config/db.js";
 import fs from "fs";
 import path from "path";
@@ -11,21 +12,22 @@ import { ParserEngine } from "../../services/parsers/ParserEngine.js";
 // IMPORT SERVICES
 import { syncOrdersToDB } from "../../services/pickingImportService.js";
 import { processAttendanceImport } from "../../services/attendanceImportService.js";
-import { processStockImport } from "../../services/stockImportService.js";
+// import * as attendanceService from "../../services/attendanceService.js"; // REMOVED: Unused & causing error
+import * as productImportService from "../../services/productImportService.js";
+import * as packageImportService from "../../services/packageImportService.js";
+import * as stockImportService from "../../services/stockImportService.js";
 
 // REPOSITORIES
 import * as jobRepo from "../../repositories/jobRepository.js";
-import * as productRepo from "../../repositories/productRepository.js";
-import * as locationRepo from "../../repositories/locationRepository.js";
-import * as stockRepo from "../../repositories/stockMovementRepository.js";
 
 // --- KONFIGURASI & PATH ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const EXPORT_DIR = path.join(__dirname, "..", "uploads", "exports");
+const EXPORT_DIR = path.join(__dirname, "..", "..", "uploads", "exports");
 
 // Konfigurasi Retry
 const MAX_RETRIES = 3;
+const JOB_TIMEOUT_MINUTES = 5;
 
 if (!fs.existsSync(EXPORT_DIR)) {
   try {
@@ -37,11 +39,34 @@ if (!fs.existsSync(EXPORT_DIR)) {
 
 // --- HELPER FUNCTIONS ---
 
+async function cleanupStuckJobs(connection) {
+  try {
+    const [result] = await connection.query(
+      `UPDATE import_jobs
+             SET status = 'FAILED',
+                 log_summary = CONCAT(COALESCE(log_summary, ''), ' [SYSTEM: Job Killed due to timeout/crash]'),
+                 updated_at = NOW()
+             WHERE status = 'PROCESSING'
+             AND updated_at < NOW() - INTERVAL ? MINUTE`,
+      [JOB_TIMEOUT_MINUTES]
+    );
+    if (result.affectedRows > 0) {
+      console.warn(`[ImportWorker] 🧹 Membersihkan ${result.affectedRows} job yang macet/zombie.`);
+    }
+  } catch (e) {
+    console.error("[ImportWorker] Gagal menjalankan cleanup:", e.message);
+  }
+}
+
 async function generateErrorFile(originalFilePath, errors, headerRowIndex = 1, jobId) {
   try {
+    // Cek file
+    if (!fs.existsSync(originalFilePath)) return null;
+
     const originalWorkbook = new ExcelJS.Workbook();
     const ext = path.extname(originalFilePath).toLowerCase();
 
+    // Setup options
     const readOptions = {
       parserOptions: {
         delimiter: ",",
@@ -72,7 +97,11 @@ async function generateErrorFile(originalFilePath, errors, headerRowIndex = 1, j
     const errorHeaderCell = errorSheet.getRow(1).getCell(errorColIdx);
     errorHeaderCell.value = "SYSTEM ERROR MESSAGE";
     errorHeaderCell.font = { color: { argb: "FFFFFFFF" }, bold: true };
-    errorHeaderCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCC0000" } };
+    errorHeaderCell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFCC0000" },
+    };
 
     const errorMap = new Map();
     errors.forEach((e) => {
@@ -121,22 +150,13 @@ async function generateErrorFile(originalFilePath, errors, headerRowIndex = 1, j
   }
 }
 
-// Helper Deteksi Error Transient (Bisa dicoba ulang)
 function isRetriableError(error) {
   const msg = (error.message || "").toLowerCase();
-
-  // 1. Database Deadlocks / Lock Waits
   if (msg.includes("deadlock") || msg.includes("lock wait timeout")) return true;
-
-  // 2. Koneksi Putus
   if (msg.includes("connection lost") || msg.includes("econreset") || msg.includes("etimedout"))
     return true;
   if (msg.includes("protocol_connection_lost")) return true;
-
-  // 3. Too Many Connections
   if (msg.includes("too many connections")) return true;
-
-  // Error logika (e.g., "SKU tidak ditemukan") TIDAK boleh diretry
   return false;
 }
 
@@ -149,8 +169,10 @@ export const importQueue = async () => {
   try {
     connection = await db.getConnection();
 
-    // 1. Ambil Job (Pending atau Retrying)
-    // Query di repo sudah diupdate untuk menangani delay 10 detik
+    // 0. SELF-HEALING
+    await cleanupStuckJobs(connection);
+
+    // 1. Ambil Job
     const job = await jobRepo.getPendingImportJob(connection);
 
     if (!job) {
@@ -160,31 +182,52 @@ export const importQueue = async () => {
 
     jobId = job.id;
 
-    // Lock Job (Set PROCESSING)
+    // Lock Job
     await jobRepo.lockImportJob(connection, jobId);
     connection.release();
 
+    // ✅ FIX PATH: Resolve path absolute agar FS bisa baca
+    let absoluteFilePath = job.file_path;
+    if (!path.isAbsolute(absoluteFilePath)) {
+      absoluteFilePath = path.resolve(__dirname, "../..", absoluteFilePath);
+    }
+
+    if (!fs.existsSync(absoluteFilePath)) {
+      throw new Error(`File fisik tidak ditemukan di server: ${absoluteFilePath}`);
+    }
+
     const retryInfo = job.retry_count > 0 ? `(Retry #${job.retry_count})` : "";
     console.log(`[ImportWorker] Starting Job ${jobId} ${retryInfo}: ${job.job_type}`);
+    console.log(`[ImportWorker] Processing File: ${absoluteFilePath}`);
 
-    connection = await db.getConnection(); // Koneksi baru untuk proses berat
+    connection = await db.getConnection();
     let logSummary = "";
     let errors = [];
     let processStats = {};
     let headerRowIndex = 1;
+    let isPartialSuccess = false;
+    let nextOptions = null;
 
-    // Callback untuk Progress Tracking
+    // Parse options
+    let jobOptions = {};
+    try {
+      if (job.options)
+        jobOptions = typeof job.options === "string" ? JSON.parse(job.options) : job.options;
+    } catch (e) {
+      console.warn("Invalid job options JSON", e);
+    }
+
     const updateJobProgress = async (processed, total) => {
       try {
         await jobRepo.updateProgress(connection, jobId, processed, total);
       } catch (e) {}
     };
 
-    // Deteksi Dry Run
     const isDryRun = job.job_type.endsWith("_DRY_RUN");
     const realJobType = isDryRun ? job.job_type.replace("_DRY_RUN", "") : job.job_type;
 
-    // --- SWITCH CASE BERDASARKAN TIPE JOB ---
+    // --- SWITCH CASE ---
+
     if (realJobType.startsWith("IMPORT_SALES_")) {
       const sourceMap = {
         IMPORT_SALES_TOKOPEDIA: "Tokopedia",
@@ -194,13 +237,12 @@ export const importQueue = async () => {
       const source = sourceMap[realJobType];
       if (!source) throw new Error(`Unknown Import Type: ${job.job_type}`);
 
-      const parser = new ParserEngine(job.file_path, source);
+      const parser = new ParserEngine(absoluteFilePath, source);
       const { orders, stats, errors: pErrors, headerRowIndex: hIdx } = await parser.run();
       headerRowIndex = hIdx;
 
       for (const order of orders.values()) order.source = source;
 
-      // Jalankan Service Picking (Sales Import)
       const syncResult = await syncOrdersToDB(
         connection,
         orders,
@@ -213,7 +255,6 @@ export const importQueue = async () => {
       const logicErrors = [];
       const rawErrors = syncResult.errors || [];
       for (const err of rawErrors) {
-        // Flatten error string array
         if (typeof err === "object" && err.row) {
           logicErrors.push(err);
           continue;
@@ -230,48 +271,104 @@ export const importQueue = async () => {
         syncResult.updatedCount || 0
       } Invoice.`;
     } else if (realJobType === "ADJUST_STOCK") {
-      // Panggil Service Stock Import
       const result = await processStockImport(
         connection,
-        job.file_path,
+        absoluteFilePath,
         job.user_id,
         job.original_filename,
         updateJobProgress,
         isDryRun
       );
-
       logSummary = result.logSummary;
       errors = (result.errors || []).map((e) => ({ row: e.row, message: e.message }));
       processStats = result.stats || {};
     } else if (realJobType === "IMPORT_ATTENDANCE") {
-      // Parse Options for Dynamic Mapping
-      let mapping = null;
-      try {
-        if (job.options) {
-          mapping = typeof job.options === "string" ? JSON.parse(job.options) : job.options;
-        }
-      } catch (e) {
-        console.warn("Failed to parse job options:", e);
-      }
-
-      // Panggil Service Absensi
+      // ✅ Attendance Import: Langsung pass file mentah & metadata via options
       const result = await processAttendanceImport(
         connection,
-        job.file_path,
+        absoluteFilePath,
         job.user_id,
         job.original_filename,
         updateJobProgress,
         isDryRun,
-        mapping // Pass mapping here
+        jobOptions
       );
       logSummary = result.logSummary;
       errors = result.errors || [];
       processStats = result.stats || {};
+    } else if (realJobType === "UPDATE_PRICE") {
+      const result = await processProductImport(
+        connection,
+        absoluteFilePath,
+        job.user_id,
+        job.original_filename,
+        updateJobProgress,
+        isDryRun,
+        jobOptions
+      );
+
+      logSummary = result.logSummary;
+      errors = (result.errors || []).map((e) => ({
+        row: e.row,
+        message: typeof e === "string" ? e : e.message,
+      }));
+      processStats = result.stats || {};
+
+      if (result.partial) {
+        isPartialSuccess = true;
+        nextOptions = result.nextOptions;
+      }
+    } else if (realJobType === "IMPORT_PACKAGES") {
+      const result = await processPackageImport(
+          absoluteFilePath,
+          jobId,
+          updateJobProgress
+      );
+      // Package Import returns { successCount, errors }
+      logSummary = `Selesai Import Paket. Berhasil: ${result.successCount}.`;
+      errors = (result.errors || []).map(e => ({
+          row: 0, // Simplified for now as errors are strings
+          message: e
+      }));
+      processStats = { success: result.successCount };
+    } else if (realJobType === "IMPORT_STOCK_INBOUND") {
+      const result = await stockImportService.processStockInboundImport(
+        jobId,
+        absoluteFilePath,
+        job.user_id
+      );
+      // Stock Import returns { success: boolean, count: number, errors: [] }
+      if (result.success) {
+        logSummary = `Selesai Inbound Massal via Excel. Berhasil: ${result.count} items.`;
+        processStats = { success: result.count };
+        errors = [];
+      } else {
+        logSummary = "Gagal memproses Inbound Massal.";
+        processStats = { success: 0 };
+        errors = result.errors || [];
+      }
     } else {
       throw new Error(`Job Type tidak dikenal: ${job.job_type}`);
     }
 
     // --- SUCCESS PATH ---
+
+    if (isPartialSuccess) {
+      const nextOptionsStr = JSON.stringify({ ...jobOptions, ...nextOptions });
+      const pauseMsg = ` [PAUSED] ${logSummary}`;
+
+      await connection.query(
+        `UPDATE import_jobs
+             SET status = 'PENDING',
+                 options = ?,
+                 log_summary = ?,
+                 updated_at = NOW()
+             WHERE id = ?`,
+        [nextOptionsStr, pauseMsg, jobId]
+      );
+      console.log(`[ImportWorker] Job ${jobId} PAUSED (Resumable). Next offset saved.`);
+      return;
+    }
 
     let finalStatus = "COMPLETED";
     if (errors.length > 0) {
@@ -284,11 +381,10 @@ export const importQueue = async () => {
     }
 
     let downloadUrl = null;
-    // Generate Error Excel jika ada error
     if (errors.length > 0) {
-      // Mendukung error excel untuk semua tipe job yang punya info baris (row)
-      // Pastikan generateErrorFile support struktur error array yang dikirim
-      downloadUrl = await generateErrorFile(job.file_path, errors, headerRowIndex, jobId);
+      // Note: generateErrorFile mungkin tidak sempurna untuk file absensi karena struktur headernya beda,
+      // tapi kita biarkan saja sebagai best effort.
+      downloadUrl = await generateErrorFile(absoluteFilePath, errors, headerRowIndex, jobId);
     }
 
     let errorLogJSON = null;
@@ -297,26 +393,25 @@ export const importQueue = async () => {
         timestamp: new Date().toISOString(),
         summary: logSummary,
         download_url: downloadUrl,
-        errors: errors,
+        download_url: downloadUrl,
+        errors: errors.length > 50 ? errors.slice(0, 50).concat([{ message: `... and ${errors.length - 50} more errors. See download file.` }]) : errors,
       };
       errorLogJSON = JSON.stringify(payload);
     } catch (e) {
       errorLogJSON = JSON.stringify({ message: "Error log format invalid" });
     }
 
-    // Pastikan progress 100% saat selesai (jika ada stats success dan tidak gagal total)
     if (processStats.success > 0 || finalStatus === "COMPLETED") {
       const total = processStats.success + (errors.length || 0);
       await jobRepo.updateProgress(connection, jobId, total, total);
     }
 
-    // REPO: Complete Job
     await jobRepo.completeImportJob(connection, jobId, finalStatus, logSummary, errorLogJSON);
 
-    // Hapus file hanya jika SUKSES atau FAILED (bukan retry)
-    if (fs.existsSync(job.file_path)) {
+    // Hapus file
+    if (fs.existsSync(absoluteFilePath)) {
       try {
-        fs.unlinkSync(job.file_path);
+        fs.unlinkSync(absoluteFilePath);
       } catch (err) {}
     }
 
@@ -324,29 +419,18 @@ export const importQueue = async () => {
   } catch (error) {
     console.error(`[ImportWorker] Job ${jobId} CRASHED:`, error);
 
-    // --- SMART RETRY LOGIC ---
     if (jobId && connection) {
       try {
-        const job = await connection.query("SELECT retry_count FROM import_jobs WHERE id = ?", [
-          jobId,
-        ]);
-        const currentRetry = job[0][0]?.retry_count || 0;
+        const jobQuery = await connection.query(
+          "SELECT retry_count FROM import_jobs WHERE id = ?",
+          [jobId]
+        );
+        const currentRetry = jobQuery[0][0]?.retry_count || 0;
 
-        // Cek apakah error ini layak diretry DAN belum limit
         if (isRetriableError(error) && currentRetry < MAX_RETRIES) {
-          console.warn(
-            `[ImportWorker] Transient Error detected. Scheduling Retry #${
-              currentRetry + 1
-            } in 10s...`
-          );
-
-          // Set status RETRYING, update counter, update timestamp
+          console.warn(`[ImportWorker] Transient Error. Scheduling Retry #${currentRetry + 1}...`);
           await jobRepo.retryImportJob(connection, jobId, currentRetry, error.message);
-
-          // PENTING: Jangan hapus file, jangan set FAILED.
-          // Worker akan mengambil job ini lagi nanti via getPendingImportJob
         } else {
-          // Error Fatal atau sudah limit retry -> FAILED Permanen
           await jobRepo.failImportJob(
             connection,
             jobId,

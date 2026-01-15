@@ -208,7 +208,7 @@ onUnmounted(() => {
                       :style="{ width: `${getProgress(job)}%` }"
                     >
                       <div
-                        class="absolute inset-0 bg-white/30 animate-[shimmer_1s_infinite] w-full transform -skew-x-12"
+                        class="absolute inset-0 bg-background/30 animate-[shimmer_1s_infinite] w-full transform -skew-x-12"
                       ></div>
                     </div>
                   </div>

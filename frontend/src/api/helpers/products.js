@@ -1,4 +1,5 @@
-import api from '../axios' // Pastikan ini mengimpor instance axios Anda yang sudah dikonfigurasi
+// frontend/src/api/helpers/products.js
+import api from '../axios'
 
 /**
  * Mencari produk berdasarkan nama/SKU.
@@ -101,4 +102,18 @@ export const fetchStockSampleForLocation = async (locationId) => {
     )
     return []
   }
+}
+
+/**
+ * Upload file untuk pembaruan harga produk secara massal.
+ * @param {*} formData
+ * @returns
+ */
+export const uploadPriceUpdate = (formData) => {
+  // Pastikan header Content-Type multipart/form-data
+  return api.post('/products/batch/price-update', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  })
 }

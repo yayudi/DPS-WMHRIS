@@ -77,11 +77,11 @@ onMounted(fetchData)
 
 <template>
   <div class="p-6">
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
       <h2 class="text-2xl font-bold text-text">Manajemen Pengguna</h2>
       <button
         @click="isCreateModalOpen = true"
-        class="bg-primary text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+        class="bg-primary text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 w-full md:w-auto justify-center"
       >
         <font-awesome-icon icon="fa-solid fa-plus" />
         <span>Tambah Pengguna</span>
@@ -93,7 +93,7 @@ onMounted(fetchData)
       v-else
       class="bg-background shadow-md rounded-xl border border-secondary/20 overflow-x-auto"
     >
-      <table class="w-full text-sm text-left text-text">
+      <table class="w-full min-w-[600px] text-sm text-left text-text">
         <thead class="text-xs text-text/80 uppercase bg-secondary/20">
           <tr>
             <th class="px-6 py-3">Username</th>

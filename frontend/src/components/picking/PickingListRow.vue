@@ -191,7 +191,7 @@ function getStatusBadge(status) {
         <!-- Col 1: Invoice & Source -->
         <div class="col-span-4 lg:col-span-3 flex items-center gap-3">
           <div
-            class="w-8 h-8 flex items-center justify-center rounded bg-white border border-secondary/10 shrink-0"
+            class="w-8 h-8 flex items-center justify-center rounded bg-background border border-secondary/10 shrink-0"
           >
             <img
               v-if="inv.source === 'Tokopedia'"
@@ -298,7 +298,7 @@ function getStatusBadge(status) {
           <div v-for="(items, locName) in inv.locations" :key="locName">
             <div class="flex items-center gap-2 mb-1.5">
               <span
-                class="text-[10px] font-bold px-2 py-0.5 rounded bg-white border border-secondary/20 shadow-sm"
+                class="text-[10px] font-bold px-2 py-0.5 rounded bg-background border border-secondary/20 shadow-sm"
                 :class="
                   !locName || locName === 'Unknown Loc'
                     ? 'text-danger border-danger/30 bg-danger/5'
@@ -310,7 +310,7 @@ function getStatusBadge(status) {
               </span>
             </div>
 
-            <div class="bg-white border border-secondary/10 rounded-lg overflow-hidden">
+            <div class="bg-background border border-secondary/10 rounded-lg overflow-hidden">
               <table class="w-full text-xs text-left">
                 <tbody class="divide-y divide-secondary/5">
                   <tr
@@ -348,7 +348,7 @@ function getStatusBadge(status) {
         <!-- === MODE: HISTORY (Flat List + Logs) === -->
         <div v-else class="space-y-3">
           <!-- Item Table -->
-          <div class="bg-white border border-secondary/10 rounded-lg overflow-hidden">
+          <div class="bg-background border border-secondary/10 rounded-lg overflow-hidden">
             <table class="w-full text-xs text-left">
               <thead class="bg-secondary/5 text-text/50 font-medium">
                 <tr>
@@ -397,7 +397,7 @@ function getStatusBadge(status) {
               <div
                 v-for="log in historyLogs"
                 :key="log.id"
-                class="flex justify-between items-center text-[10px] text-text/50 bg-white border border-secondary/10 px-3 py-1.5 rounded"
+                class="flex justify-between items-center text-[10px] text-text/50 bg-background border border-secondary/10 px-3 py-1.5 rounded"
               >
                 <div class="flex items-center gap-2">
                   <span class="font-mono text-text/70">#{{ log.id }}</span>

@@ -66,15 +66,15 @@ function close() {
     <div class="flex flex-col gap-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
       <div
         v-if="downloadUrl"
-        class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex flex-col gap-3"
+        class="bg-warning/10 border border-warning/20 rounded-xl p-4 flex flex-col gap-3"
       >
         <div class="flex items-start gap-3">
-          <div class="bg-yellow-100 p-2 rounded-lg text-yellow-600">
+          <div class="bg-warning/20 p-2 rounded-lg text-warning-dark">
             <font-awesome-icon icon="fa-solid fa-triangle-exclamation" />
           </div>
           <div>
-            <h4 class="text-yellow-800 font-bold text-sm">Tindakan Diperlukan</h4>
-            <p class="text-xs text-yellow-700/80 mt-1 leading-relaxed">
+            <h4 class="text-warning-dark font-bold text-sm">Tindakan Diperlukan</h4>
+            <p class="text-xs text-warning-dark/80 mt-1 leading-relaxed">
               Sebagian data gagal diproses. Sistem telah membuat file Excel perbaikan.
             </p>
           </div>
@@ -83,7 +83,7 @@ function close() {
         <a
           :href="`${apiBaseUrl}${downloadUrl}`"
           target="_blank"
-          class="w-full text-center bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-bold px-4 py-2.5 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2"
+          class="w-full text-center bg-warning hover:bg-warning-hover text-white text-sm font-bold px-4 py-2.5 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2"
         >
           <font-awesome-icon icon="fa-solid fa-file-excel" />
           Download File Perbaikan

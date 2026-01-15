@@ -230,8 +230,8 @@ export const processBatchMovementsService = async ({
     const mappedMovements = movements.map((m) => ({
       sku: m.sku,
       quantity: m.quantity,
-      fromLocationId: type === "TRANSFER_MULTI" ? m.fromLocationId : fromLocationId,
-      toLocationId: type === "TRANSFER_MULTI" ? m.toLocationId : toLocationId,
+      fromLocationId: m.fromLocationId || fromLocationId,
+      toLocationId: m.toLocationId || toLocationId,
     }));
 
     const resolvedItems = await resolveInventoryItems(connection, mappedMovements);
@@ -376,6 +376,45 @@ export const generateAdjustmentTemplateService = async () => {
       { header: "LT (Lokasi)", key: "location", width: 20 },
       { header: "ACTUAL", key: "actual", width: 10 },
       { header: "NOTES", key: "notes", width: 35 },
+    ];
+    mainSheet.getRow(1).font = { bold: true };
+
+    const validationFormula = `DataValidasi!$A$1:$A$${locationCodes.length}`;
+
+    for (let i = 2; i <= 1002; i++) {
+      mainSheet.getCell(`B${i}`).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        formulae: [validationFormula],
+        showErrorMessage: true,
+        errorStyle: "warning",
+        errorTitle: "Lokasi Tidak Valid",
+        error: "Silakan pilih lokasi yang valid dari daftar dropdown.",
+      };
+    }
+    return workbook;
+  } finally {
+    connection.release();
+  }
+};
+
+export const generateInboundTemplateService = async () => {
+  const connection = await db.getConnection();
+  try {
+    const locationCodes = await locationRepo.getAllLocationCodes(connection);
+
+    const workbook = new ExcelJS.Workbook();
+    const mainSheet = workbook.addWorksheet("Inbound Stok");
+    const validationSheet = workbook.addWorksheet("DataValidasi");
+
+    validationSheet.state = "hidden";
+    validationSheet.getColumn("A").values = locationCodes;
+
+    mainSheet.columns = [
+      { header: "SKU", key: "sku", width: 25 },
+      { header: "Lokasi Tujuan", key: "location", width: 20 },
+      { header: "Quantity", key: "quantity", width: 15 },
+      { header: "Notes", key: "notes", width: 35 },
     ];
     mainSheet.getRow(1).font = { bold: true };
 

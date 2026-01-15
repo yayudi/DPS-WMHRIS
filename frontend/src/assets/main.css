@@ -1,20 +1,19 @@
 /* frontend\src\assets\main.css */
-@import './multiselect-theme.css';
 /*
   Definisi Variabel Warna untuk Setiap Tema
   HSL (Hue, Saturation, Lightness)
 */
 :root[data-theme='terang'],
 :root {
-  /* Default theme */
-  --color-text: 220 15 20; /* Abu-abu kebiruan sangat gelap */
-  --color-background: 0 0 100; /* Putih bersih */
-  --color-primary: 225 85 55; /* Biru cerah (vibrant blue) */
-  --color-secondary: 220 20 95; /* Abu-abu sangat terang */
-  --color-accent: 350 90 60; /* Merah muda/oranye cerah */
-  --color-success: 145 65 45; /* Hijau */
-  --color-warning: 40 90 60; /* Kuning/Oranye */
-  --color-danger: 0 70 55; /* Merah */
+  /* Default theme (Premium Modern) */
+  --color-text: 222 47% 11%;      /* Slate 900 - Deep, readable charcoal */
+  --color-background: 210 40% 98%; /* Alice Blue - Very subtle tint, not harsh white */
+  --color-primary: 224 76% 48%;    /* Interstellar Blue - Vibrant, trustworthy */
+  --color-secondary: 214 32% 91%;  /* Slate 100 - Crisp, clean surface/border */
+  --color-accent: 262 83% 58%;     /* Vivid Violet - Premium highlight */
+  --color-success: 158 64% 52%;    /* Emerald 500 - Modern success green */
+  --color-warning: 38 92% 50%;     /* Amber 500 - Warm warning */
+  --color-danger: 344 87% 55%;     /* Rose 500 - Modern error red */
 }
 
 /* Tema Gelap    */
@@ -138,15 +137,7 @@
 }
 
 /* Style Override */
-:root {
-  --ms-bg: hsl(var(--color-background));
-  --ms-border-color: hsl(var(--color-secondary));
-  --ms-ring-color: hsl(var(--color-primary) / 0.3);
-  --ms-text-color: hsl(var(--color-text));
-  --ms-option-bg-pointed: hsl(var(--color-secondary));
-  --ms-option-bg-selected: hsl(var(--color-primary));
-  --ms-tag-bg: hsl(var(--color-primary));
-}
+
 
 /* @tailwind */
 @tailwind base;

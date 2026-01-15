@@ -2,7 +2,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import Modal from '@/components/ui/Modal.vue'
-import Multiselect from 'vue-multiselect'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 
 const props = defineProps({
   show: Boolean,
@@ -61,14 +61,13 @@ function handleConfirm() {
 
       <div>
         <label class="block text-sm font-medium text-text/90 mb-1">Lokasi Stok</label>
-        <Multiselect
+        <BaseSelect
           v-model="locationId"
           :options="locations"
-          :allow-empty="false"
           placeholder="Pilih lokasi yang akan disesuaikan"
           label="code"
           track-by="id"
-        ></Multiselect>
+        />
       </div>
 
       <div>

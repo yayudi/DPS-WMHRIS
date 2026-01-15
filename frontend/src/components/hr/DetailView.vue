@@ -55,7 +55,7 @@ function formatRow(log, nama) {
   <div
     class="overflow-x-auto max-h-[75vh] border border-secondary/30 rounded-lg shadow-sm bg-background"
   >
-    <table class="min-w-full bg-background text-sm text-text border-collapse">
+    <table class="min-w-[800px] bg-background text-sm text-text border-collapse">
       <!-- Themed table header -->
       <thead class="bg-secondary text-text/90 font-semibold sticky top-0">
         <tr>

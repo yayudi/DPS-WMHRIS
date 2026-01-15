@@ -1,8 +1,10 @@
+<!-- frontend/src/components/wms/shared/ProductFormModal.vue -->
 <script setup>
 import { ref, watch } from 'vue'
 import axios from '@/api/axios.js'
 import { useToast } from '@/composables/useToast.js'
 import { formatCurrency } from '@/utils/formatters.js'
+import ProductHistoryList from '@/components/products/ProductHistoryList.vue'
 
 const props = defineProps({
   show: Boolean,
@@ -17,6 +19,7 @@ const form = ref({
   sku: '',
   name: '',
   price: 0,
+  weight: 0,
   is_package: false,
 })
 
@@ -46,6 +49,7 @@ watch(
               sku: data.data.sku,
               name: data.data.name,
               price: data.data.price || 0,
+              weight: data.data.weight || 0,
               is_package: Boolean(data.data.is_package),
             }
             // Mapping komponen jika ada
@@ -60,7 +64,7 @@ watch(
         }
       } else {
         // MODE CREATE: Kosongkan form
-        form.value = { sku: '', name: '', price: 0, is_package: false }
+        form.value = { sku: '', name: '', price: 0, weight: 0, is_package: false }
         components.value = []
       }
     }
@@ -194,7 +198,7 @@ async function handleSubmit() {
                     v-model="form.sku"
                     type="text"
                     :disabled="mode === 'edit'"
-                    class="w-full pl-9 pr-3 py-2 bg-secondary/10 border border-secondary/30 rounded-lg font-mono uppercase focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed text-text"
+                    class="w-full pl-9 pr-3 py-2 bg-secondary/10 border border-secondary/30 rounded-lg font-mono uppercase focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed text-text transition-all"
                     placeholder="PPxxxxxxx"
                   />
                   <font-awesome-icon
@@ -216,7 +220,7 @@ async function handleSubmit() {
                     v-model.number="form.price"
                     type="number"
                     min="0"
-                    class="w-full pl-8 pr-3 py-2 bg-secondary/10 border border-secondary/30 rounded-lg font-mono focus:outline-none focus:border-primary text-text text-right"
+                    class="w-full pl-8 pr-3 py-2 bg-secondary/10 border border-secondary/30 rounded-lg font-mono focus:outline-none focus:border-primary text-text text-right transition-all"
                   />
                 </div>
               </div>
@@ -228,9 +232,24 @@ async function handleSubmit() {
               <input
                 v-model="form.name"
                 type="text"
-                class="w-full px-3 py-2 bg-secondary/10 border border-secondary/30 rounded-lg focus:outline-none focus:border-primary text-text"
+                class="w-full px-3 py-2 bg-secondary/10 border border-secondary/30 rounded-lg focus:outline-none focus:border-primary text-text transition-all"
                 placeholder="Contoh: Paket Bundling Hemat A"
               />
+            </div>
+
+            <!-- Berat Input -->
+            <div>
+              <label class="block text-xs font-bold text-text/60 mb-1">Berat (Gram)</label>
+              <div class="relative">
+                <input
+                  v-model.number="form.weight"
+                  type="number"
+                  min="0"
+                  class="w-full pl-3 pr-8 py-2 bg-secondary/10 border border-secondary/30 rounded-lg font-mono focus:outline-none focus:border-primary text-text transition-all"
+                  placeholder="0"
+                />
+                <span class="absolute right-3 top-2 text-text/40 text-xs font-bold">gr</span>
+              </div>
             </div>
 
             <!-- Checkbox Paket -->
@@ -374,6 +393,11 @@ async function handleSubmit() {
                 </p>
               </div>
             </div>
+
+            <!-- ✅ Integrasi Riwayat Perubahan (Audit Log) -->
+            <div v-if="mode === 'edit' && productData.id">
+              <ProductHistoryList :productId="productData.id" />
+            </div>
           </template>
         </div>
 
@@ -390,7 +414,7 @@ async function handleSubmit() {
           <button
             @click="handleSubmit"
             :disabled="loading || fetchLoading"
-            class="px-5 py-2.5 rounded-lg bg-primary text-white font-bold hover:bg-primary-dark shadow-lg shadow-primary/30 flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+            class="px-5 py-2.5 rounded-lg bg-primary text-text font-bold hover:bg-primary-dark shadow-lg shadow-primary/30 flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
           >
             <font-awesome-icon
               v-if="loading"
@@ -439,10 +463,10 @@ async function handleSubmit() {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0.3);
+  background-color: hsl(var(--color-secondary) / 0.3);
   border-radius: 20px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(156, 163, 175, 0.5);
+  background-color: hsl(var(--color-secondary) / 0.5);
 }
 </style>

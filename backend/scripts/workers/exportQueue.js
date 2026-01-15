@@ -8,7 +8,11 @@ import { fileURLToPath } from "url";
 import * as jobRepo from "../../repositories/jobRepository.js";
 
 // SERVICE
-import { generateStockReportStreaming } from "../../services/exportService.js";
+import {
+  generateStockReportStreaming,
+  generateProductExportStreaming,
+} from "../../services/exportService.js";
+import * as packageExportService from "../../services/packageExportService.js";
 
 // --- KONFIGURASI ---
 const JOB_TIMEOUT_MINUTES = 15;
@@ -43,11 +47,13 @@ export const processQueue = async () => {
     connection = await db.getConnection();
 
     // Clean Up Stuck Jobs
+    // console.log("[ExportWorker] Checking stuck jobs...");
     await jobRepo.timeoutStuckExportJobs(connection, JOB_TIMEOUT_MINUTES);
 
     // Ambil Job Pending
     const job = await jobRepo.getPendingExportJob(connection);
     if (!job) {
+      // console.log("[ExportWorker] No pending job found.");
       connection.release();
       return;
     }
@@ -56,19 +62,37 @@ export const processQueue = async () => {
     console.log(`[ExportWorker] Memulai Job ID: ${jobId}`);
 
     // Lock Job
+    console.log(`[ExportWorker] Locking Job ${jobId}...`);
     await jobRepo.lockExportJob(connection, jobId);
+    console.log(`[ExportWorker] Job ${jobId} LOCKED. Releasing main connection.`);
 
     // Release koneksi utama karena proses generate akan memakan waktu dan menggunakan koneksi streaming sendiri di service
     connection.release();
 
-    // Prepare File Path
-    const dateStr = getFormattedDateTime();
-    const fileName = `Laporan_Stok_${dateStr}_(Job-${jobId}).xlsx`;
-    const filePath = path.join(EXPORT_DIR_PATH, fileName);
+    // Parse Filters & Determine Type
     const filters = JSON.parse(job.filters || "{}");
+    const exportType = filters.exportType || "STOCK_REPORT";
 
-    // Panggil Service untuk Generate Excel
-    await generateStockReportStreaming(filters, filePath);
+    // ✅ FORCE EXCEL EXTENSION
+    const dateStr = getFormattedDateTime();
+    const fileName =
+      exportType === "PRODUCT_MASTER"
+        ? `Master_Produk_${dateStr}_(Job-${jobId}).xlsx`
+        : exportType === "EXPORT_PACKAGES"
+        ? `Data_Paket_${dateStr}_(Job-${jobId}).xlsx`
+        : `Laporan_Stok_${dateStr}_(Job-${jobId}).xlsx`;
+
+    const filePath = path.join(EXPORT_DIR_PATH, fileName);
+
+    // DISPATCHER
+    console.log(`[ExportWorker] Dispatching service for type: ${exportType}`);
+    if (exportType === "PRODUCT_MASTER") {
+      await generateProductExportStreaming(filters, filePath);
+    } else if (exportType === "EXPORT_PACKAGES") {
+      await packageExportService.generatePackageExport(filters, filePath);
+    } else {
+      await generateStockReportStreaming(filters, filePath);
+    }
 
     // Validasi File Size
     let fileSize = 0;
@@ -82,15 +106,16 @@ export const processQueue = async () => {
 
     if (fileSize === 0) throw new Error("File Excel yang dihasilkan kosong (0 bytes).");
 
-    // Complete Job (Re-open short connection)
+    // Complete Job
     const updateConnection = await db.getConnection();
     try {
+      console.log(`[ExportWorker] Updating job ${jobId} status to COMPLETED...`);
       await jobRepo.completeExportJob(updateConnection, jobId, `${fileName}`);
     } finally {
       updateConnection.release();
     }
 
-    console.log(`[ExportWorker] Job ID ${jobId} SELESAI.`);
+    console.log(`[ExportWorker] Job ID ${jobId} SELESAI. File: ${fileName}`);
   } catch (error) {
     console.error(`[ExportWorker] Job ID ${jobId} GAGAL: ${error.message}`);
     if (jobId) {

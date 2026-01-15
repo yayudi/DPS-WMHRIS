@@ -3,6 +3,7 @@
 import { ref } from 'vue'
 import { fetchBatchLogs } from '@/api/helpers/stock.js'
 import { useToast } from '@/composables/useToast.js'
+import FilterContainer from '@/components/ui/FilterContainer.vue'
 
 const { show } = useToast()
 const startDate = ref('')
@@ -34,10 +35,10 @@ async function handleSearch() {
       <h2 class="text-2xl font-bold text-text">Batch Movement Log</h2>
     </div>
 
-    <div class="bg-background rounded-xl shadow-md border border-secondary/20 p-6 space-y-6">
-      <!-- Filter Tanggal -->
-      <div class="flex items-end gap-4 p-4 bg-secondary/10 rounded-lg">
-        <div class="flex-1">
+    <!-- Filter Section -->
+    <FilterContainer title="Filter Log" class="mb-6">
+      <div class="flex flex-col sm:flex-row items-end gap-4">
+        <div class="w-full sm:flex-1">
           <label for="startDate" class="block text-sm font-medium text-text/90 mb-1"
             >Tanggal Mulai</label
           >
@@ -45,10 +46,10 @@ async function handleSearch() {
             type="date"
             id="startDate"
             v-model="startDate"
-            class="w-full bg-background border-2 border-primary/30 text-text text-sm rounded-lg p-2"
+            class="w-full bg-background border border-secondary/50 text-text text-sm rounded-lg p-2 focus:ring-primary focus:border-primary"
           />
         </div>
-        <div class="flex-1">
+        <div class="w-full sm:flex-1">
           <label for="endDate" class="block text-sm font-medium text-text/90 mb-1"
             >Tanggal Selesai</label
           >
@@ -56,19 +57,23 @@ async function handleSearch() {
             type="date"
             id="endDate"
             v-model="endDate"
-            class="w-full bg-background border-2 border-primary/30 text-text text-sm rounded-lg p-2"
+            class="w-full bg-background border border-secondary/50 text-text text-sm rounded-lg p-2 focus:ring-primary focus:border-primary"
           />
         </div>
-        <button
-          @click="handleSearch"
-          :disabled="loading"
-          class="px-4 py-2 bg-primary text-white rounded-lg text-sm disabled:opacity-50"
-        >
-          {{ loading ? 'Mencari...' : 'Tampilkan Log' }}
-        </button>
+        <div class="w-full sm:w-auto">
+           <button
+            @click="handleSearch"
+            :disabled="loading"
+            class="w-full sm:w-auto px-6 py-2 bg-primary text-white rounded-lg text-sm font-bold shadow-md hover:bg-primary/90 disabled:opacity-50 transition-all"
+          >
+            {{ loading ? 'Mencari...' : 'Tampilkan Log' }}
+          </button>
+        </div>
       </div>
+    </FilterContainer>
 
-      <!-- Hasil Log -->
+    <!-- Hasil Log -->
+    <div class="bg-background rounded-xl shadow-md border border-secondary/20 p-6">
       <div class="max-h-[70vh] overflow-y-auto">
         <div v-if="loading" class="text-center p-8">Memuat data log...</div>
         <div v-else-if="logs.length === 0 && hasSearched" class="text-center p-8 text-text/60">
