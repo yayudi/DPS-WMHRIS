@@ -4,6 +4,10 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth.js'
 import { formatCurrency } from '@/utils/formatters.js'
 import { fetchProductById } from '@/api/helpers/products.js'
+import { formatNumber } from '@/api/helpers/format'
+import FloatingTooltip from '@/components/ui/FloatingTooltip.vue'
+
+const PPN_RATE = 0.11
 
 const props = defineProps({
   product: { type: Object, required: true },
@@ -42,6 +46,22 @@ const hasFetchedComponents = ref(false)
 const isMenuVisible = ref(false)
 const menuX = ref(0)
 const menuY = ref(0)
+
+// Price Tooltip State
+const isPriceTooltipVisible = ref(false)
+const priceTooltipX = ref(0)
+const priceTooltipY = ref(0)
+
+function handlePriceMouseEnter(event) {
+  const rect = event.target.getBoundingClientRect()
+  priceTooltipX.value = rect.left + rect.width / 2
+  priceTooltipY.value = rect.top
+  isPriceTooltipVisible.value = true
+}
+
+function handlePriceMouseLeave() {
+  isPriceTooltipVisible.value = false
+}
 
 // --- TOOLTIP LOGIC ---
 const locationsForTooltip = computed(() => {
@@ -209,225 +229,161 @@ const currentLocation = computed(() => {
 </script>
 
 <template>
-  <div
-    ref="tooltipContainer"
-    class="grid items-center py-1 px-3 transition-colors duration-500 grid-cols-12 gap-4"
-    :class="[isUpdated ? 'bg-success/20' : 'hover:bg-primary/10']"
-  >
-    <div
-      class="group relative flex flex-col justify-center"
-      :class="[auth.canViewPrices ? 'col-span-4' : 'col-span-5']"
-    >
+  <tr ref="tooltipContainer" class="group relative transition-colors duration-500"
+    :class="[isUpdated ? 'bg-success/20' : 'hover:bg-secondary/20']">
+    <!-- NAME (Sticky Left) -->
+    <td
+      class="px-6 py-2 whitespace-nowrap border-b border-secondary/80 sticky left-0 z-20 group-hover:bg-secondary/5 transition-colors shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
       <div class="flex items-center gap-2">
-        <span
-          @click="copyToClipboard(product.name, 'Nama Produk')"
-          class="font-semibold text-sm text-text cursor-pointer hover:text-primary transition-colors truncate"
-          :title="product.name"
-        >
+        <span @click="copyToClipboard(product.name, 'Nama Produk')"
+          class="font-bold text-text cursor-pointer hover:text-primary transition-colors truncate"
+          :title="product.name">
           {{ product.name }}
         </span>
-        <span
-          v-if="product.is_package"
-          ref="packageTriggerRef"
-          @click.stop="handleTogglePackageTooltip"
-          class="package-badge-trigger shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-accent/10 text-accent border border-accent/20 tracking-wide cursor-pointer hover:bg-accent/20 transition-colors"
-        >
+        <span v-if="product.is_package" ref="packageTriggerRef" @click.stop="handleTogglePackageTooltip"
+          class="package-badge-trigger shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-accent/10 text-accent border border-accent/20 tracking-wide cursor-pointer hover:bg-accent/20 transition-colors">
           PAKET
         </span>
       </div>
-    </div>
+    </td>
 
-    <div class="col-span-2 text-left text-xs text-text/70 font-mono group relative truncate">
-      <span
-        @click="copyToClipboard(product.sku, 'SKU')"
-        class="cursor-pointer hover:text-primary bg-secondary/5 px-1.5 py-0.5 rounded border border-secondary/10"
-      >
-        {{ product.sku }}
-      </span>
-    </div>
+    <!-- SKU -->
+    <td class="px-6 py-2 whitespace-nowrap border-b border-secondary/80">
+      <div class="text-left text-xs text-text/70 font-mono">
+        <span @click="copyToClipboard(product.sku, 'SKU')"
+          class="cursor-pointer hover:text-primary bg-secondary/5 px-2 py-1 rounded border border-secondary/80 transition-colors">
+          {{ product.sku }}
+        </span>
+      </div>
+    </td>
 
-    <div
-      v-if="auth.canViewPrices"
-      class="col-span-2 text-right text-sm text-text/70 font-mono truncate"
-    >
-      <span
-        @click="copyToClipboard(product.price, 'Harga')"
-        class="cursor-pointer hover:text-primary"
-      >
+    <!-- WEIGHT -->
+    <td class="px-6 py-2 text-right whitespace-nowrap text-xs text-text/70 font-mono border-b border-secondary/80">
+      {{ formatNumber(product.weight || 0) }} gr
+    </td>
+
+    <!-- PRICE -->
+    <td v-if="auth.canViewPrices"
+      class="px-6 py-2 text-right whitespace-nowrap text-sm text-text/70 font-mono border-b border-secondary/80">
+      <span @click="copyToClipboard(product.price, 'Harga')" @mouseenter="handlePriceMouseEnter"
+        @mouseleave="handlePriceMouseLeave" class="cursor-pointer hover:text-primary transition-colors">
         {{ formatCurrency(product.price) }}
       </span>
-    </div>
+    </td>
 
-    <div
-      class="location-cell text-center text-xs text-text/70 font-mono relative"
-      :class="[
-        auth.canViewPrices ? 'col-span-2' : 'col-span-3',
-        { 'cursor-pointer hover:text-primary text-primary font-bold': showTooltip },
-      ]"
-      @click="handleToggleTooltip"
-    >
-      <span class="truncate block w-full" :title="currentLocation">{{ currentLocation }}</span>
-    </div>
+    <!-- LOCATION -->
+    <td class="px-6 py-2 text-center whitespace-nowrap location-cell relative border-b border-secondary/80"
+      :class="{ 'cursor-pointer hover:text-primary text-primary font-bold': showTooltip }" @click="handleToggleTooltip">
+      <span class="text-xs text-text/70 font-mono truncate block max-w-[150px] mx-auto" :title="currentLocation">
+        {{ currentLocation }}
+      </span>
+    </td>
 
-    <div
-      class="col-span-1 text-center text-sm font-mono font-bold"
-      :class="{
+    <!-- STOCK -->
+    <td class="px-6 py-2 text-center whitespace-nowrap border-b border-secondary/80">
+      <span class="text-sm font-mono font-bold" :class="{
         'text-accent': currentStock < 0,
         'text-primary': currentStock > 0,
         'text-text/50': currentStock === 0 || currentStock === null,
-      }"
-    >
-      {{ currentStock || 0 }}
-    </div>
+      }">
+        {{ currentStock || 0 }}
+      </span>
+    </td>
 
-    <div class="col-span-1 flex justify-center items-center relative">
-      <button
-        @click="handleToggleMenu"
-        class="action-btn w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary/20 text-text/60 hover:text-primary transition-colors"
-      >
-        <font-awesome-icon icon="fa-solid fa-ellipsis-vertical" />
-      </button>
-    </div>
-  </div>
+    <!-- ACTIONS (Sticky Right) -->
+    <td
+      class="px-6 py-2 w-[80px] text-center sticky right-0 z-20 group-hover:bg-secondary/5 transition-colors shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)] border-b border-secondary/80">
+      <div class="flex justify-center items-center relative">
+        <button @click="handleToggleMenu"
+          class="action-btn w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary/20 text-text/60 hover:text-primary transition-colors">
+          <font-awesome-icon icon="fa-solid fa-ellipsis-vertical" />
+        </button>
 
-  <!-- Location Tooltip -->
-  <Teleport to="body">
-    <div
-      v-if="showTooltip && isTooltipVisible"
-      class="tooltip-teleported fixed z-[99999] w-48 bg-background text-primary text-xs rounded-lg shadow-xl p-3 border border-primary backdrop-blur-sm"
-      :style="{
-        left: tooltipX + 'px',
-        top: tooltipY + 'px',
-        transform: 'translateX(-50%) translateY(-100%)',
-        marginTop: '-8px',
-      }"
-    >
-      <div
-        class="font-bold text-primary mb-2 uppercase text-[10px] tracking-wider border-b border-primary pb-1"
-      >
-        Detail Lokasi
+        <!-- Location Tooltip -->
+        <FloatingTooltip :show="showTooltip && isTooltipVisible" :x="tooltipX" :y="tooltipY" title="Detail Lokasi">
+          <ul class="space-y-1.5">
+            <li v-for="loc in locationsForTooltip" :key="loc.location_code" class="flex justify-between items-center">
+              <span class="font-mono text-primary-light">{{ loc.location_code }}</span>
+              <span class="font-bold bg-primary/10 text-primary px-1.5 rounded">{{
+                loc.quantity
+                }}</span>
+            </li>
+          </ul>
+        </FloatingTooltip>
+
+        <!-- Package Components Tooltip -->
+        <FloatingTooltip :show="isPackageTooltipVisible" :x="packageTooltipX" :y="packageTooltipY"
+          title="Komponen Paket" :loading="isLoadingComponents">
+          <div v-if="localComponents && localComponents.length > 0">
+            <ul class="space-y-2">
+              <li v-for="comp in localComponents" :key="comp.id || comp.component_product_id"
+                class="flex items-start gap-2">
+                <div class="font-bold bg-accent/10 text-accent px-1.5 py-0.5 rounded text-[10px] shrink-0 font-mono">
+                  {{ comp.quantity || comp.quantity_per_package }}x
+                </div>
+                <div class="flex flex-col min-w-0">
+                  <span class="font-semibold text-text truncate leading-tight">{{ comp.name }}</span>
+                  <span class="text-[10px] text-text/60 font-mono truncate">{{ comp.sku }}</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div v-else class="text-center py-2 text-text/50 italic">Tidak ada data komponen</div>
+        </FloatingTooltip>
+
+        <!-- Price PPN Tooltip -->
+        <FloatingTooltip :show="isPriceTooltipVisible" :x="priceTooltipX" :y="priceTooltipY" title="Harga + PPN">
+          <div class="flex justify-between gap-4 min-w-[120px]">
+            <span class="text-text/70">DPP:</span>
+            <span class="font-mono">{{ formatCurrency(product.price) }}</span>
+          </div>
+          <div class="flex justify-between gap-4 font-bold text-primary mt-1 pt-1 border-t border-secondary/20">
+            <span>Final (11%):</span>
+            <span class="font-mono">{{ formatCurrency(product.price * (1 + PPN_RATE)) }}</span>
+          </div>
+        </FloatingTooltip>
+
+        <!-- Action Menu -->
+        <Teleport to="body">
+          <div v-if="isMenuVisible"
+            class="menu-teleported fixed z-[99999] text-text w-48 rounded-lg shadow-xl border border-secondary py-1 text-sm overflow-hidden animate-scale-in"
+            :style="{ left: menuX + 'px', top: menuY + 'px' }">
+            <button v-if="auth.hasPermission('manage-stock-adjustment')" @click="handleMenuAction('openAdjust')"
+              class="w-full text-left px-4 py-2.5 hover:bg-primary/10 hover:text-primary flex items-center gap-3 transition-colors">
+              <font-awesome-icon icon="fa-solid fa-calculator" class="w-4 text-center" /> Sesuaikan Stok
+            </button>
+
+            <button @click="handleMenuAction('openTransfer')"
+              class="w-full text-left px-4 py-2.5 hover:bg-primary/10 hover:text-primary flex items-center gap-3 transition-colors">
+              <font-awesome-icon icon="fa-solid fa-right-left" class="w-4 text-center" /> Transfer Stok
+            </button>
+
+            <div class="h-px bg-primary/10 my-1"></div>
+
+            <button v-if="auth.hasPermission('manage-products')" @click="handleMenuAction('openEdit')"
+              class="w-full text-left px-4 py-2.5 hover:bg-warning/10 hover:text-warning flex items-center gap-3 transition-colors">
+              <font-awesome-icon icon="fa-solid fa-pencil" class="w-4 text-center" /> Edit Produk
+            </button>
+
+            <button @click="handleMenuAction('openHistory')"
+              class="w-full text-left px-4 py-2.5 hover:bg-info/10 hover:text-info flex items-center gap-3 transition-colors">
+              <font-awesome-icon icon="fa-solid fa-clock-rotate-left" class="w-4 text-center" /> Riwayat
+            </button>
+
+            <div v-if="auth.hasPermission('manage-products')" class="h-px bg-secondary/10 my-1"></div>
+
+            <button v-if="auth.hasPermission('manage-products')" @click="handleMenuAction('delete')"
+              class="w-full text-left px-4 py-2.5 text-danger hover:bg-danger/10 flex items-center gap-3 transition-colors">
+              <font-awesome-icon icon="fa-solid fa-trash" class="w-4 text-center" /> Hapus Produk
+            </button>
+          </div>
+        </Teleport>
       </div>
-      <ul class="space-y-1.5">
-        <li
-          v-for="loc in locationsForTooltip"
-          :key="loc.location_code"
-          class="flex justify-between items-center"
-        >
-          <span class="font-mono text-primary-light">{{ loc.location_code }}</span>
-          <span class="font-bold bg-primary/10 text-primary px-1.5 rounded">{{
-            loc.quantity
-          }}</span>
-        </li>
-      </ul>
-      <div
-        class="absolute left-1/2 -translate-x-1/2 bottom-[-5px] w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[5px] border-t-gray-900"
-      ></div>
-    </div>
-  </Teleport>
+    </td>
+  </tr>
 
-  <!-- Package Components Tooltip -->
-  <Teleport to="body">
-    <div
-      v-if="isPackageTooltipVisible"
-      class="package-tooltip-teleported fixed z-[99999] min-w-[200px] max-w-xs bg-background text-text text-xs rounded-lg shadow-xl p-3 border border-accent backdrop-blur-sm"
-      :style="{
-        left: packageTooltipX + 'px',
-        top: packageTooltipY + 'px',
-        transform: 'translateX(-50%) translateY(-100%)',
-        marginTop: '-8px',
-      }"
-    >
-      <div
-        class="font-bold text-accent mb-2 uppercase text-[10px] tracking-wider border-b border-accent pb-1"
-      >
-        Komponen Paket
-      </div>
 
-      <!-- Loading State -->
-      <div v-if="isLoadingComponents" class="flex justify-center items-center py-4">
-        <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-accent text-lg" />
-      </div>
 
-      <!-- Data State -->
-      <div v-else-if="localComponents && localComponents.length > 0">
-        <ul class="space-y-2">
-          <li
-            v-for="comp in localComponents"
-            :key="comp.id || comp.component_product_id"
-            class="flex items-start gap-2"
-          >
-            <div
-              class="font-bold bg-accent/10 text-accent px-1.5 py-0.5 rounded text-[10px] shrink-0 font-mono"
-            >
-              {{ comp.quantity || comp.quantity_per_package }}x
-            </div>
-            <div class="flex flex-col min-w-0">
-              <span class="font-semibold text-text truncate leading-tight">{{ comp.name }}</span>
-              <span class="text-[10px] text-text/60 font-mono truncate">{{ comp.sku }}</span>
-            </div>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Empty State -->
-      <div v-else class="text-center py-2 text-text/50 italic">Tidak ada data komponen</div>
-
-      <div
-        class="absolute left-1/2 -translate-x-1/2 bottom-[-5px] w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[5px] border-t-accent"
-      ></div>
-    </div>
-  </Teleport>
-
-  <!-- Action Menu -->
-  <Teleport to="body">
-    <div
-      v-if="isMenuVisible"
-      class="menu-teleported fixed z-[99999] text-text w-48 bg-background rounded-lg shadow-xl border border-secondary py-1 text-sm overflow-hidden animate-scale-in"
-      :style="{ left: menuX + 'px', top: menuY + 'px' }"
-    >
-      <button
-        v-if="auth.hasPermission('manage-stock-adjustment')"
-        @click="handleMenuAction('openAdjust')"
-        class="w-full text-left px-4 py-2.5 hover:bg-primary/10 hover:text-primary flex items-center gap-3 transition-colors"
-      >
-        <font-awesome-icon icon="fa-solid fa-calculator" class="w-4 text-center" /> Sesuaikan Stok
-      </button>
-
-      <button
-        @click="handleMenuAction('openTransfer')"
-        class="w-full text-left px-4 py-2.5 hover:bg-primary/10 hover:text-primary flex items-center gap-3 transition-colors"
-      >
-        <font-awesome-icon icon="fa-solid fa-right-left" class="w-4 text-center" /> Transfer Stok
-      </button>
-
-      <div class="h-px bg-primary/10 my-1"></div>
-
-      <button
-        v-if="auth.hasPermission('manage-products')"
-        @click="handleMenuAction('openEdit')"
-        class="w-full text-left px-4 py-2.5 hover:bg-warning/10 hover:text-warning flex items-center gap-3 transition-colors"
-      >
-        <font-awesome-icon icon="fa-solid fa-pencil" class="w-4 text-center" /> Edit Produk
-      </button>
-
-      <button
-        @click="handleMenuAction('openHistory')"
-        class="w-full text-left px-4 py-2.5 hover:bg-info/10 hover:text-info flex items-center gap-3 transition-colors"
-      >
-        <font-awesome-icon icon="fa-solid fa-clock-rotate-left" class="w-4 text-center" /> Riwayat
-      </button>
-
-      <div v-if="auth.hasPermission('manage-products')" class="h-px bg-secondary/10 my-1"></div>
-
-      <button
-        v-if="auth.hasPermission('manage-products')"
-        @click="handleMenuAction('delete')"
-        class="w-full text-left px-4 py-2.5 text-danger hover:bg-danger/10 flex items-center gap-3 transition-colors"
-      >
-        <font-awesome-icon icon="fa-solid fa-trash" class="w-4 text-center" /> Hapus Produk
-      </button>
-    </div>
-  </Teleport>
 </template>
 
 <style scoped>
@@ -441,6 +397,7 @@ const currentLocation = computed(() => {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);

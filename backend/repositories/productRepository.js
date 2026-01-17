@@ -138,7 +138,7 @@ export const getProductsWithFilters = async (connection, filters) => {
 
   // --- 3. Ambil Data Produk (Main Select) ---
   const productsQuery = `
-      SELECT p.id, p.sku, p.name, p.price, p.weight, p.is_package, p.is_active, p.deleted_at
+      SELECT p.id, p.sku, p.name, p.category, p.price, p.weight, p.is_package, p.is_active, p.deleted_at
       FROM products p
       ${whereSql}
       GROUP BY p.id
@@ -184,8 +184,50 @@ export const getProductsWithFilters = async (connection, filters) => {
       stock_locations: relevantLocations,
       total_stock: total_stock,
       all_locations_code: all_locations_code,
+      components: [], // Initialize components array
     };
   });
+
+  // --- 5. Attach Components (Jika ada paket) ---
+  const packageIds = products.filter((p) => p.is_package === 1).map((p) => p.id);
+
+  if (packageIds.length > 0) {
+    const componentsQuery = `
+      SELECT
+        pc.package_product_id,
+        pc.component_product_id as id,
+        pc.quantity_per_package as quantity,
+        p.name,
+        p.sku
+      FROM package_components pc
+      JOIN products p ON pc.component_product_id = p.id
+      WHERE pc.package_product_id IN (?)
+    `;
+
+    // Gunakan try-catch atau pastikan packageIds valid (sudah dicek length > 0)
+    const [componentRows] = await connection.query(componentsQuery, [packageIds]);
+
+    // Grouping components by package_product_id
+    const componentsMap = {};
+    componentRows.forEach((row) => {
+      if (!componentsMap[row.package_product_id]) {
+        componentsMap[row.package_product_id] = [];
+      }
+      componentsMap[row.package_product_id].push({
+        id: row.id,
+        name: row.name,
+        sku: row.sku,
+        quantity: row.quantity,
+      });
+    });
+
+    // Assign to products
+    productsWithStock.forEach((product) => {
+      if (product.is_package && componentsMap[product.id]) {
+        product.components = componentsMap[product.id];
+      }
+    });
+  }
 
   return { data: productsWithStock, total: totalProducts };
 };
@@ -274,13 +316,13 @@ export const getAllActiveProducts = async (connection) => {
 export const searchProducts = async (connection, searchTerm, locationId) => {
   let query, queryParams;
   if (locationId && locationId !== "null" && locationId !== "undefined" && locationId !== "") {
-    query = `SELECT p.id, p.sku, p.name, sl.quantity AS current_stock
+    query = `SELECT p.id, p.sku, p.name, p.price, p.weight, sl.quantity AS current_stock
              FROM products p JOIN stock_locations sl ON p.id = sl.product_id
              WHERE sl.location_id = ? AND (LOWER(p.name) LIKE ? OR LOWER(p.sku) LIKE ?)
              AND sl.quantity != 0 LIMIT 10`;
     queryParams = [locationId, searchTerm, searchTerm];
   } else {
-    query = `SELECT id, sku, name FROM products
+    query = `SELECT id, sku, name, price, weight FROM products
              WHERE (LOWER(name) LIKE ? OR LOWER(sku) LIKE ?) AND is_active = 1 LIMIT 10`;
     queryParams = [searchTerm, searchTerm];
   }
@@ -363,7 +405,7 @@ export const getProductHistory = async (connection, productId) => {
       pal.id,
       pal.action,
       pal.field,
-      pal.old_value,
+      pal.old_value,system_audit_logs
       pal.new_value,
       pal.created_at,
       u.username as user_name,
@@ -400,18 +442,18 @@ export const getAllPackagesWithComponents = async (connection) => {
 // WRITE OPERATIONS (ATOMIC SQL ONLY)
 // ============================================================================
 
-export const createProduct = async (connection, { sku, name, price, weight, is_package }) => {
+export const createProduct = async (connection, { sku, name, category, price, weight, is_package }) => {
   const [result] = await connection.query(
-    "INSERT INTO products (sku, name, price, weight, is_package, is_active) VALUES (?, ?, ?, ?, ?, 1)",
-    [sku, name, parseFloat(price || 0), parseFloat(weight || 0), is_package ? 1 : 0]
+    "INSERT INTO products (sku, name, category, price, weight, is_package, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)",
+    [sku, name, category, parseFloat(price || 0), parseFloat(weight || 0), is_package ? 1 : 0]
   );
   return result.insertId;
 };
 
-export const updateProduct = async (connection, id, { name, price, weight, is_package }) => {
+export const updateProduct = async (connection, id, { name, category, price, weight, is_package }) => {
   await connection.query(
-    "UPDATE products SET name = ?, price = ?, weight = ?, is_package = ? WHERE id = ?",
-    [name, parseFloat(price || 0), parseFloat(weight || 0), is_package ? 1 : 0, id]
+    "UPDATE products SET name = ?, category = ?, price = ?, weight = ?, is_package = ? WHERE id = ?",
+    [name, category, parseFloat(price || 0), parseFloat(weight || 0), is_package ? 1 : 0, id]
   );
 };
 
@@ -445,10 +487,14 @@ export const insertAuditLog = async (
   connection,
   { productId, userId, action, field, oldVal, newVal }
 ) => {
+  const changes = {
+    [field]: { old: String(oldVal || ""), new: String(newVal || "") }
+  };
+
   await connection.query(
-    `INSERT INTO product_audit_logs (product_id, user_id, action, field, old_value, new_value, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-    [productId, userId, action, field, String(oldVal || ""), String(newVal || "")]
+    `INSERT INTO system_audit_logs (user_id, action, target_type, target_id, changes, created_at)
+      VALUES (?, ?, 'PRODUCT', ?, ?, NOW())`,
+    [userId, action, productId, JSON.stringify(changes)]
   );
 };
 
@@ -482,9 +528,9 @@ export const updateProductTransaction = async (
       // Gunakan epsilon untuk float comparison jika perlu, atau simple inequality
       if (numNew !== numOld) isChanged = true;
     } else if (type === "boolean") {
-        const boolNew = !!newValue;
-        const boolOld = !!oldValue;
-        if (boolNew !== boolOld) isChanged = true;
+      const boolNew = !!newValue;
+      const boolOld = !!oldValue;
+      if (boolNew !== boolOld) isChanged = true;
     } else {
       // String Comparison
       if (String(newValue).trim() !== String(oldValue).trim()) isChanged = true;
@@ -493,11 +539,11 @@ export const updateProductTransaction = async (
     if (isChanged) {
       // 1. Add to SQL Update
       if (type === 'boolean') {
-          fields.push(`${fieldName} = ?`);
-          values.push(newValue ? 1 : 0);
+        fields.push(`${fieldName} = ?`);
+        values.push(newValue ? 1 : 0);
       } else {
-          fields.push(`${fieldName} = ?`);
-          values.push(newValue);
+        fields.push(`${fieldName} = ?`);
+        values.push(newValue);
       }
 
       // 2. Add to Audit Log
@@ -516,6 +562,7 @@ export const updateProductTransaction = async (
 
   // Cek setiap field
   if (updates.name !== undefined) processField("name", updates.name, "string");
+  if (updates.category !== undefined) processField("category", updates.category, "string");
   if (updates.price !== undefined) processField("price", updates.price, "number");
   if (updates.weight !== undefined) processField("weight", updates.weight, "number");
   if (updates.is_package !== undefined) processField("is_package", updates.is_package, "boolean");

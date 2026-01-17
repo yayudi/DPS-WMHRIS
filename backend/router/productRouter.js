@@ -42,12 +42,12 @@ const upload = multer({ storage: storage });
 // ============================================================================
 
 /**
- * POST /api/products/batch/price-update
+ * POST /api/products/batch/product-update
  * Upload CSV untuk update harga massal via background worker.
  * Memerlukan permission 'manage-products'.
  */
 router.post(
-  "/batch/price-update",
+  "/batch/product-update",
   canAccess("manage-products"),
   upload.single("file"),
   async (req, res) => {
@@ -60,7 +60,7 @@ router.post(
 
       // Tentukan Tipe Job
       // Jika dryRun=true, tambahkan suffix _DRY_RUN agar worker tahu mode simulasi
-      const jobType = dryRun === "true" ? "UPDATE_PRICE_DRY_RUN" : "UPDATE_PRICE";
+      const jobType = dryRun === "true" ? "BATCH_EDIT_PRODUCT_DRY_RUN" : "BATCH_EDIT_PRODUCT";
 
       // Buat Job di Database
       const jobId = await createJobService({

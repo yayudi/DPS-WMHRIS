@@ -4,6 +4,7 @@ import { ref } from 'vue'
 import { fetchBatchLogs } from '@/api/helpers/stock.js'
 import { useToast } from '@/composables/useToast.js'
 import FilterContainer from '@/components/ui/FilterContainer.vue'
+import DateRangeFilter from '@/components/ui/DateRangeFilter.vue'
 
 const { show } = useToast()
 const startDate = ref('')
@@ -39,33 +40,11 @@ async function handleSearch() {
     <FilterContainer title="Filter Log" class="mb-6">
       <div class="flex flex-col sm:flex-row items-end gap-4">
         <div class="w-full sm:flex-1">
-          <label for="startDate" class="block text-sm font-medium text-text/90 mb-1"
-            >Tanggal Mulai</label
-          >
-          <input
-            type="date"
-            id="startDate"
-            v-model="startDate"
-            class="w-full bg-background border border-secondary/50 text-text text-sm rounded-lg p-2 focus:ring-primary focus:border-primary"
-          />
-        </div>
-        <div class="w-full sm:flex-1">
-          <label for="endDate" class="block text-sm font-medium text-text/90 mb-1"
-            >Tanggal Selesai</label
-          >
-          <input
-            type="date"
-            id="endDate"
-            v-model="endDate"
-            class="w-full bg-background border border-secondary/50 text-text text-sm rounded-lg p-2 focus:ring-primary focus:border-primary"
-          />
+          <DateRangeFilter v-model:startDate="startDate" v-model:endDate="endDate" class="w-full" />
         </div>
         <div class="w-full sm:w-auto">
-           <button
-            @click="handleSearch"
-            :disabled="loading"
-            class="w-full sm:w-auto px-6 py-2 bg-primary text-white rounded-lg text-sm font-bold shadow-md hover:bg-primary/90 disabled:opacity-50 transition-all"
-          >
+          <button @click="handleSearch" :disabled="loading"
+            class="w-full sm:w-auto px-6 py-2 bg-primary text-secondary rounded-lg text-sm font-bold shadow-md hover:bg-primary/90 disabled:opacity-50 transition-all h-[42px]">
             {{ loading ? 'Mencari...' : 'Tampilkan Log' }}
           </button>
         </div>
@@ -83,16 +62,16 @@ async function handleSearch() {
           Pilih rentang tanggal dan klik "Tampilkan Log" untuk melihat riwayat.
         </div>
         <table v-else class="min-w-full text-xs">
-          <thead class="bg-secondary/10 uppercase text-text/70 sticky top-0">
+          <thead class="bg-secondary/10 uppercase text-text/70 sticky top-0 text-center">
             <tr>
-              <th class="p-2 text-left">Waktu</th>
-              <th class="p-2 text-left">Produk</th>
-              <th class="p-2 text-center">Jml</th>
-              <th class="p-2 text-left">Tipe</th>
-              <th class="p-2 text-left">Dari</th>
-              <th class="p-2 text-left">Ke</th>
-              <th class="p-2 text-left">Oleh</th>
-              <th class="p-2 text-left">Catatan</th>
+              <th class="p-2">Waktu</th>
+              <th class="p-2">Produk</th>
+              <th class="p-2">Jml</th>
+              <th class="p-2">Tipe</th>
+              <th class="p-2">Dari</th>
+              <th class="p-2">Ke</th>
+              <th class="p-2">Oleh</th>
+              <th class="p-2">Catatan</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-secondary/20">

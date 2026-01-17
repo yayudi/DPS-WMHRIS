@@ -3,6 +3,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import axios from '@/api/axios.js'
 import { useToast } from '@/composables/useToast.js'
+import TableSkeleton from '@/components/ui/TableSkeleton.vue'
 import dayjs from 'dayjs'
 
 const { show } = useToast()
@@ -123,42 +124,52 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <button
-        @click="fetchJobs"
-        class="px-4 py-2 bg-[hsl(var(--color-secondary))] hover:bg-[hsl(var(--color-secondary))/0.8] rounded-lg font-medium transition-colors flex items-center gap-2"
-      >
+      <button @click="fetchJobs"
+        class="px-4 py-2 bg-[hsl(var(--color-secondary))] hover:bg-[hsl(var(--color-secondary))/0.8] rounded-lg font-medium transition-colors flex items-center gap-2">
         <font-awesome-icon icon="fa-solid fa-rotate-right" :spin="loading" />
         Refresh
       </button>
     </div>
 
     <!-- Job List -->
-    <div class="bg-[hsl(var(--color-background))] rounded-xl shadow-lg border border-[hsl(var(--color-secondary))/0.2] overflow-x-auto">
-      <div v-if="loading && jobs.length === 0" class="p-8 text-center opacity-50">
-        <font-awesome-icon icon="fa-solid fa-spinner" spin class="text-3xl mb-3" />
-        <p>Memuat riwayat...</p>
-      </div>
+    <div
+      class="bg-background rounded-xl shadow-lg border border-secondary/20 overflow-x-auto overflow-y-auto relative custom-scrollbar h-[calc(100vh-250px)]">
 
-      <div v-else-if="jobs.length === 0" class="p-12 text-center text-[hsl(var(--color-text))/0.5]">
-        <font-awesome-icon icon="fa-solid fa-folder-open" class="text-5xl mb-4 opacity-30" />
-        <p class="font-bold text-lg">Belum Ada Laporan</p>
-        <p class="text-sm">Silakan lakukan export di menu Produk atau Stok.</p>
-      </div>
-
-      <table v-else class="w-full min-w-[600px] text-left border-collapse">
-        <thead class="bg-[hsl(var(--color-secondary))/0.05] border-b border-[hsl(var(--color-secondary))/0.2] text-xs uppercase font-bold text-[hsl(var(--color-text))/0.6]">
+      <table class="w-full min-w-[800px] text-left border-collapse">
+        <thead
+          class="sticky top-0 z-30 bg-background/95 backdrop-blur-md shadow-sm ring-1 ring-secondary/5 text-xs uppercase font-bold text-text/60">
           <tr>
-            <th class="p-4 w-16 text-center">#</th>
-            <th class="p-4">Tipe</th>
-            <th class="p-4">File</th>
-            <th class="p-4">Waktu Request</th>
-            <th class="p-4">Status</th>
-            <th class="p-4 text-right">Aksi</th>
+            <th
+              class="p-4 w-16 text-center sticky left-0 z-30 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+              #</th>
+            <th class="p-4 border-b border-secondary/10">Tipe</th>
+            <th class="p-4 border-b border-secondary/10">File</th>
+            <th class="p-4 border-b border-secondary/10">Waktu Request</th>
+            <th class="p-4 border-b border-secondary/10">Status</th>
+            <th
+              class="p-4 text-right sticky right-0 z-30 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+              Aksi</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-[hsl(var(--color-secondary))/0.1]">
-          <tr v-for="(job, index) in jobs" :key="job.id" class="hover:bg-[hsl(var(--color-secondary))/0.02] transition-colors">
-            <td class="p-4 text-center font-mono opacity-50">{{ index + 1 }}</td>
+        <TransitionGroup tag="tbody" name="list" class="divide-y divide-secondary/10 relative">
+          <!-- Loading State -->
+          <template v-if="loading && jobs.length === 0">
+            <TableSkeleton v-for="n in 5" :key="`skeleton-${n}`" />
+          </template>
+
+          <tr v-else-if="jobs.length === 0" key="empty">
+            <td colspan="6" class="p-12 text-center text-text/50">
+              <font-awesome-icon icon="fa-solid fa-folder-open" class="text-5xl mb-4 opacity-30" />
+              <p class="font-bold text-lg">Belum Ada Laporan</p>
+              <p class="text-sm">Silakan lakukan export di menu Produk atau Stok.</p>
+            </td>
+          </tr>
+
+          <tr v-else v-for="(job, index) in jobs" :key="job.id"
+            class="hover:bg-secondary/5 transition-colors group relative">
+            <td
+              class="p-4 text-center font-mono opacity-50 sticky left-0 z-20 bg-background group-hover:bg-secondary/5 transition-colors shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+              {{ index + 1 }}</td>
             <td class="p-4">
               <span class="font-bold text-xs uppercase tracking-wider px-2 py-1 rounded border"
                 :class="getJobTypeClass(job.type)">
@@ -167,7 +178,7 @@ onUnmounted(() => {
             </td>
             <td class="p-4">
               <div class="font-bold text-sm">{{ job.file_path || 'Menunggu Proses...' }}</div>
-              <div v-if="job.error_message" class="text-xs text-[hsl(var(--color-danger))] mt-1">
+              <div v-if="job.error_message" class="text-xs text-danger mt-1">
                 Error: {{ job.error_message }}
               </div>
             </td>
@@ -175,42 +186,72 @@ onUnmounted(() => {
               {{ formatDate(job.created_at) }}
             </td>
             <td class="p-4">
-              <span
-                class="px-2.5 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1.5"
-                :class="getStatusClass(job.status)"
-              >
-                <span v-if="job.status === 'PROCESSING'" class="w-1.5 h-1.5 rounded-full bg-current animate-ping"></span>
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1.5"
+                :class="getStatusClass(job.status)">
+                <span v-if="job.status === 'PROCESSING'"
+                  class="w-1.5 h-1.5 rounded-full bg-current animate-ping"></span>
                 {{ job.status }}
               </span>
             </td>
-            <td class="p-4 text-right">
-              <button
-                v-if="job.status === 'COMPLETED' && job.download_url"
+            <td
+              class="p-4 text-right sticky right-0 z-20 bg-background group-hover:bg-secondary/5 transition-colors shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+              <button v-if="job.status === 'COMPLETED' && job.download_url"
                 @click="handleDownload(job.download_url, job.file_path)"
-                class="px-3 py-1.5 bg-[hsl(var(--color-primary))] text-white rounded-lg text-sm font-bold shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-2 ml-auto"
-              >
+                class="px-3 py-1.5 bg-primary text-secondary rounded-lg text-sm font-bold shadow-md hover:scale-105 active:scale-95 transition-all inline-flex items-center gap-2">
                 <font-awesome-icon icon="fa-solid fa-download" />
                 Download
               </button>
-              <button
-                v-else-if="job.status === 'FAILED'"
-                class="px-3 py-1.5 text-[hsl(var(--color-text))/0.4] cursor-not-allowed text-sm font-medium"
-                disabled
-              >
+              <button v-else-if="job.status === 'FAILED'"
+                class="px-3 py-1.5 text-text/40 cursor-not-allowed text-sm font-medium" disabled>
                 Gagal
               </button>
-               <button
-                v-else
-                class="px-3 py-1.5 text-[hsl(var(--color-primary))] opacity-70 cursor-wait text-sm font-medium flex items-center gap-2 ml-auto"
-                disabled
-              >
+              <button v-else
+                class="px-3 py-1.5 text-primary opacity-70 cursor-wait text-sm font-medium inline-flex items-center gap-2"
+                disabled>
                 <font-awesome-icon icon="fa-solid fa-spinner" spin />
                 Proses...
               </button>
             </td>
           </tr>
-        </tbody>
+        </TransitionGroup>
       </table>
     </div>
   </div>
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--color-secondary) / 0.3);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--color-secondary) / 0.5);
+}
+
+/* List Transitions */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.3s ease;
+}
+
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+.list-leave-active {
+  position: absolute;
+  width: 100%;
+}
+</style>

@@ -63,32 +63,20 @@ function handleConfirm() {
       <!-- From Location -->
       <div>
         <label class="block text-sm font-medium text-text/90 mb-1">Dari Lokasi</label>
-        <BaseSelect
-          v-model="fromLocationId"
-          :options="locations"
-          placeholder="Pilih lokasi asal"
-          label="code"
-          track-by="id"
-        />
+        <BaseSelect v-model="fromLocationId" :options="locations" placeholder="Pilih lokasi asal" label="code"
+          track-by="id" />
       </div>
 
       <!-- To Location -->
       <div>
         <label class="block text-sm font-medium text-text/90 mb-1">Ke Lokasi</label>
-        <BaseSelect
-          v-model="toLocationId"
-          :options="locations"
-          placeholder="Pilih lokasi tujuan"
-          label="code"
-          track-by="id"
-        >
+        <BaseSelect v-model="toLocationId" :options="locations" placeholder="Pilih lokasi tujuan" label="code"
+          track-by="id">
           <template #option="{ option }">
             <div class="flex justify-between items-center w-full">
               <span class="font-medium font-mono text-xs">{{ option.code }}</span>
-              <span
-                class="text-[10px] px-1.5 py-0.5 rounded border"
-                :class="option.quantity === 0 ? 'bg-danger/10 text-danger border-danger/20' : 'bg-success/10 text-success border-success/20'"
-              >
+              <span class="text-[10px] px-1.5 py-0.5 rounded border"
+                :class="option.quantity === 0 ? 'bg-danger/10 text-danger border-danger/20' : 'bg-success/10 text-success border-success/20'">
                 Stok: {{ option.quantity }}
               </span>
             </div>
@@ -99,12 +87,8 @@ function handleConfirm() {
       <!-- Quantity -->
       <div>
         <label class="block text-sm font-medium text-text/90 mb-1">Jumlah</label>
-        <input
-          v-model.number="quantity"
-          type="number"
-          min="1"
-          class="w-full px-3 py-2 bg-background border border-secondary/50 text-text rounded-lg"
-        />
+        <input v-model.number="quantity" type="number" min="1"
+          class="w-full px-3 py-2 bg-background border border-secondary/50 text-text rounded-lg" />
       </div>
 
       <p v-if="error" class="text-accent text-sm">{{ error }}</p>
@@ -114,7 +98,7 @@ function handleConfirm() {
       <button @click="emit('close')" class="px-4 py-2 bg-secondary/20 text-text/80 rounded-lg">
         Batal
       </button>
-      <button @click="handleConfirm" class="px-4 py-2 bg-primary text-white rounded-lg">
+      <button @click="handleConfirm" class="px-4 py-2 bg-primary text-secondary rounded-lg">
         Konfirmasi Transfer
       </button>
     </template>

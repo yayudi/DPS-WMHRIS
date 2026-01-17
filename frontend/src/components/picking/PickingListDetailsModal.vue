@@ -112,19 +112,14 @@ function handleVoid() {
     </div>
 
     <template #footer>
-      <button
-        @click="emit('close')"
-        class="px-4 py-2 bg-secondary/30 text-text/90 rounded-lg text-sm font-semibold hover:bg-secondary/40"
-      >
+      <button @click="emit('close')"
+        class="px-4 py-2 bg-secondary/30 text-text/90 rounded-lg text-sm font-semibold hover:bg-secondary/40">
         Tutup
       </button>
       <div class="flex-grow"></div>
       <!-- Tombol Void hanya muncul jika statusnya COMPLETED -->
-      <button
-        v-if="item?.status === 'COMPLETED'"
-        @click="handleVoid"
-        class="px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:bg-accent/90"
-      >
+      <button v-if="item?.status === 'COMPLETED'" @click="handleVoid"
+        class="px-4 py-2 bg-accent text-secondary rounded-lg text-sm font-semibold hover:bg-accent/90">
         Batalkan Transaksi (Void)
       </button>
     </template>

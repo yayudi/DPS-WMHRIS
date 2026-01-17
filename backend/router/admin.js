@@ -2,6 +2,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import db from "../config/db.js";
+import { createLog } from "../repositories/systemLogRepository.js";
 
 const router = express.Router();
 
@@ -49,6 +50,18 @@ router.post("/", async (req, res) => {
       nickname,
       role_id,
     };
+
+    // LOGGING
+    const adminId = req.user.id;
+    await createLog(db, {
+      userId: adminId,
+      action: "CREATE",
+      targetType: "USER",
+      targetId: String(result.insertId),
+      changes: { username, role_id, nickname },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
 
     res.status(201).json({ success: true, message: "Pengguna berhasil dibuat.", data: newUser });
   } catch (error) {
@@ -105,6 +118,21 @@ router.put("/:id", async (req, res) => {
     updateValues.push(id);
 
     await db.query(query, updateValues);
+
+    // LOGGING
+    const adminId = req.user.id;
+    await createLog(db, {
+      userId: adminId,
+      action: "UPDATE",
+      targetType: "USER",
+      targetId: String(id),
+      changes: {
+        note: "Updated User Profile",
+        updates: { username, nickname, role_id, passwordChanged: !!newPassword }
+      },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
     res.json({ success: true, message: "Data pengguna berhasil diperbarui." });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
@@ -130,6 +158,17 @@ router.delete("/:id", async (req, res) => {
 
   try {
     await db.query("DELETE FROM users WHERE id = ?", [id]);
+
+    // LOGGING
+    await createLog(db, {
+      userId: req.user.id,
+      action: "DELETE",
+      targetType: "USER",
+      targetId: String(id),
+      changes: { note: "Deleted User" },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
     res.json({ success: true, message: "User berhasil dihapus." });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
@@ -178,6 +217,17 @@ router.put("/:id/locations", async (req, res) => {
         values,
       ]);
     }
+
+    // LOGGING
+    await createLog(connection, {
+      userId: req.user.id,
+      action: "UPDATE",
+      targetType: "USER",
+      targetId: String(id),
+      changes: { note: "Updated User Locations", locationIds },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
 
     await connection.commit();
     res.json({ success: true, message: "Izin lokasi pengguna berhasil diperbarui." });

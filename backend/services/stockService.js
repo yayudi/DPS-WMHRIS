@@ -50,6 +50,7 @@ const resolveInventoryItems = async (connection, movements) => {
           toLocationId: mov.toLocationId,
           isComponent: true,
           parentSku: product.sku,
+          notes: mov.notes,
         });
       });
     } else {
@@ -62,6 +63,7 @@ const resolveInventoryItems = async (connection, movements) => {
         fromLocationId: mov.fromLocationId,
         toLocationId: mov.toLocationId,
         isComponent: false,
+        notes: mov.notes,
       });
     }
   }
@@ -109,7 +111,7 @@ export const transferStockService = async ({
       if (currentStock < item.quantity) {
         throw new Error(
           `Stok tidak cukup untuk ${item.sku}. Butuh: ${item.quantity}, Ada: ${currentStock}.` +
-            (item.isComponent ? ` (Komponen dari paket ${item.parentSku})` : "")
+          (item.isComponent ? ` (Komponen dari paket ${item.parentSku})` : "")
         );
       }
 
@@ -232,6 +234,7 @@ export const processBatchMovementsService = async ({
       quantity: m.quantity,
       fromLocationId: m.fromLocationId || fromLocationId,
       toLocationId: m.toLocationId || toLocationId,
+      notes: m.notes, // Pass per-item notes
     }));
 
     const resolvedItems = await resolveInventoryItems(connection, mappedMovements);
@@ -246,7 +249,10 @@ export const processBatchMovementsService = async ({
         isComponent,
         parentSku,
       } = item;
-      const itemNote = isComponent ? `${notes} [Via ${parentSku}]` : notes;
+
+      // Determine Note: Item-specific note > Global note
+      const baseNote = item.notes || notes;
+      const itemNote = isComponent ? `${baseNote} [Via ${parentSku}]` : baseNote;
 
       switch (type) {
         case "TRANSFER":

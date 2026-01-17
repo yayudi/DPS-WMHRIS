@@ -72,7 +72,7 @@ export const processStockInboundImport = async (jobId, filePath, userId) => {
       type: "INBOUND",
       fromLocationId: null,
       toLocationId: null, // Individual items carry their own toLocationId
-      notes: `Batch Inbound Job #${jobId}`,
+      notes: "Batch Inbound",
       movements,
       userId,
       userRoleId: 1, // Assume Admin for Batch Import for now

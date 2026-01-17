@@ -210,55 +210,36 @@ async function submitBatch() {
 
     <div class="bg-background rounded-xl shadow-md border border-secondary/20 p-6 space-y-6">
       <div class="flex justify-center p-1 bg-secondary/10 rounded-lg max-w-md mx-auto">
-        <button
-          @click="inputMode = 'manual'"
-          class="flex-1 py-2 px-4 rounded-md text-sm font-bold transition-all duration-200"
-          :class="
-            inputMode === 'manual'
-              ? 'bg-primary text-white shadow-md'
+        <button @click="inputMode = 'manual'"
+          class="flex-1 py-2 px-4 rounded-md text-sm font-bold transition-all duration-200" :class="inputMode === 'manual'
+              ? 'bg-primary text-secondary shadow-md'
               : 'text-text/60 hover:bg-secondary/20 hover:text-text'
-          "
-        >
+            ">
           <font-awesome-icon icon="fa-solid fa-pencil" class="mr-2" />
           Input Manual
         </button>
-        <button
-          @click="inputMode = 'upload'"
-          class="flex-1 py-2 px-4 rounded-md text-sm font-bold transition-all duration-200"
-          :class="
-            inputMode === 'upload'
-              ? 'bg-primary text-white shadow-md'
+        <button @click="inputMode = 'upload'"
+          class="flex-1 py-2 px-4 rounded-md text-sm font-bold transition-all duration-200" :class="inputMode === 'upload'
+              ? 'bg-primary text-secondary shadow-md'
               : 'text-text/60 hover:bg-secondary/20 hover:text-text'
-          "
-        >
+            ">
           <font-awesome-icon icon="fa-solid fa-file-excel" class="mr-2" />
           Upload Excel
         </button>
       </div>
 
       <div v-if="inputMode === 'manual'" class="space-y-6 animate-fade-in">
-        <BatchAdjustmentHeader
-          v-model:adjustmentLocation="adjustmentLocation"
-          v-model:notes="notes"
-          :my-locations="myLocations"
-          :is-loading="isLoading"
-        />
+        <BatchAdjustmentHeader v-model:adjustmentLocation="adjustmentLocation" v-model:notes="notes"
+          :my-locations="myLocations" :is-loading="isLoading" />
 
-        <ProductSearchAddForm
-          active-tab="ADJUSTMENT"
-          :search-location-id="batchSearchLocationId"
-          :disabled="!isBatchLocationSelected || isLoading"
-          @add-product="handleAddProduct"
-        />
+        <ProductSearchAddForm active-tab="ADJUSTMENT" :search-location-id="batchSearchLocationId"
+          :disabled="!isBatchLocationSelected || isLoading" @add-product="handleAddProduct" />
 
         <BatchItemList :items="batchList" active-tab="ADJUSTMENT" @remove-item="removeFromBatch" />
 
         <div class="flex justify-end pt-6 border-t border-secondary/20">
-          <button
-            @click="submitBatch"
-            :disabled="!isBatchLocationSelected || batchList.length === 0 || isLoading"
-            class="px-6 py-3 bg-primary text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-[0.98]"
-          >
+          <button @click="submitBatch" :disabled="!isBatchLocationSelected || batchList.length === 0 || isLoading"
+            class="px-6 py-3 bg-primary text-secondary rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
             <font-awesome-icon v-if="isLoading" icon="fa-solid fa-spinner" class="animate-spin" />
             <font-awesome-icon v-else icon="fa-solid fa-paper-plane" />
             <span>{{ isLoading ? 'Memproses...' : 'Submit Batch Adjustment' }}</span>
@@ -268,8 +249,7 @@ async function submitBatch() {
 
       <div v-if="inputMode === 'upload'" class="space-y-6 animate-fade-in">
         <div
-          class="p-4 bg-primary/10 border border-primary/20 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4"
-        >
+          class="p-4 bg-primary/10 border border-primary/20 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div class="flex items-center gap-3">
             <div class="bg-primary/20 p-2 rounded-full text-primary">
               <font-awesome-icon icon="fa-solid fa-circle-info" />
@@ -279,16 +259,9 @@ async function submitBatch() {
             </span>
           </div>
 
-          <button
-            @click="downloadTemplate"
-            :disabled="isDownloading"
-            class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 flex items-center gap-2 disabled:opacity-50 transition-all whitespace-nowrap shadow-sm"
-          >
-            <font-awesome-icon
-              v-if="isDownloading"
-              icon="fa-solid fa-spinner"
-              class="animate-spin"
-            />
+          <button @click="downloadTemplate" :disabled="isDownloading"
+            class="px-4 py-2 bg-primary text-secondary rounded-lg text-sm font-bold hover:bg-primary/90 flex items-center gap-2 disabled:opacity-50 transition-all whitespace-nowrap shadow-sm">
+            <font-awesome-icon v-if="isDownloading" icon="fa-solid fa-spinner" class="animate-spin" />
             <font-awesome-icon v-else icon="fa-solid fa-download" />
             <span>{{ isDownloading ? 'Mengunduh...' : 'Unduh Template' }}</span>
           </button>
@@ -299,13 +272,9 @@ async function submitBatch() {
             <label for="upload-notes" class="block text-xs font-bold text-text/60 uppercase mb-1.5">
               Catatan/Alasan Penyesuaian
             </label>
-            <textarea
-              id="upload-notes"
-              v-model="notes"
-              rows="2"
+            <textarea id="upload-notes" v-model="notes" rows="2"
               class="w-full p-3 border border-secondary/30 rounded-lg bg-background text-sm focus:ring-1 focus:ring-primary/50 focus:border-primary outline-none transition-colors placeholder:text-text/30"
-              placeholder="Contoh: Stock Opname Bulanan Gudang A..."
-            ></textarea>
+              placeholder="Contoh: Stock Opname Bulanan Gudang A..."></textarea>
           </div>
 
           <div>
@@ -313,25 +282,17 @@ async function submitBatch() {
               Pilih File Penyesuaian (.xlsx)
             </label>
             <div class="relative group">
-              <input
-                type="file"
-                :key="uploadInputKey"
-                id="file-upload"
-                @change="handleFileSelect"
+              <input type="file" :key="uploadInputKey" id="file-upload" @change="handleFileSelect"
                 accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                class="w-full text-sm text-text/70 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:transition-colors cursor-pointer border border-secondary/30 rounded-lg bg-background"
-              />
+                class="w-full text-sm text-text/70 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:transition-colors cursor-pointer border border-secondary/30 rounded-lg bg-background" />
             </div>
             <p class="text-[10px] text-text/40 mt-1.5 italic">
               *Hanya format .xlsx yang didukung. Maksimal ukuran file 5MB.
             </p>
           </div>
 
-          <button
-            @click="handleUploadAdjustment"
-            :disabled="isUploading || !selectedFile || !notes.trim()"
-            class="w-full px-4 py-3 bg-primary text-white rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-[0.98] mt-2"
-          >
+          <button @click="handleUploadAdjustment" :disabled="isUploading || !selectedFile || !notes.trim()"
+            class="w-full px-4 py-3 bg-primary text-secondary rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-[0.98] mt-2">
             <font-awesome-icon v-if="isUploading" icon="fa-solid fa-spinner" class="animate-spin" />
             <font-awesome-icon v-else icon="fa-solid fa-cloud-arrow-up" />
             <span>{{ isUploading ? 'Mengunggah...' : 'Unggah dan Proses File' }}</span>
@@ -341,15 +302,9 @@ async function submitBatch() {
         <div class="mt-8">
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-sm font-bold text-text/70 uppercase tracking-wide">Riwayat Impor</h3>
-            <button
-              @click="loadImportHistory"
-              :disabled="isImportHistoryLoading"
-              class="text-xs text-primary font-bold hover:text-primary/80 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
-            >
-              <font-awesome-icon
-                icon="fa-solid fa-rotate"
-                :class="{ 'animate-spin': isImportHistoryLoading }"
-              />
+            <button @click="loadImportHistory" :disabled="isImportHistoryLoading"
+              class="text-xs text-primary font-bold hover:text-primary/80 disabled:opacity-50 flex items-center gap-1.5 transition-colors">
+              <font-awesome-icon icon="fa-solid fa-rotate" :class="{ 'animate-spin': isImportHistoryLoading }" />
               Refresh
             </button>
           </div>
@@ -370,10 +325,8 @@ async function submitBatch() {
               <tbody class="bg-background divide-y divide-secondary/10">
                 <tr v-if="importJobHistory.length === 0 && !isImportHistoryLoading">
                   <td colspan="4" class="px-4 py-8 text-sm text-text/40 text-center italic">
-                    <font-awesome-icon
-                      icon="fa-solid fa-clock-rotate-left"
-                      class="mb-2 text-xl opacity-20 block mx-auto"
-                    />
+                    <font-awesome-icon icon="fa-solid fa-clock-rotate-left"
+                      class="mb-2 text-xl opacity-20 block mx-auto" />
                     Belum ada riwayat impor.
                   </td>
                 </tr>
@@ -383,11 +336,7 @@ async function submitBatch() {
                     Memuat data...
                   </td>
                 </tr>
-                <tr
-                  v-for="job in importJobHistory"
-                  :key="job.id"
-                  class="hover:bg-secondary/5 transition-colors"
-                >
+                <tr v-for="job in importJobHistory" :key="job.id" class="hover:bg-secondary/5 transition-colors">
                   <td class="px-4 py-3 text-xs text-text">
                     <div class="font-medium">
                       {{ new Date(job.created_at).toLocaleDateString('id-ID') }}
@@ -400,29 +349,20 @@ async function submitBatch() {
                     {{ job.original_filename }}
                   </td>
                   <td class="px-4 py-3 text-xs">
-                    <span
-                      v-if="job.status === 'COMPLETED'"
-                      class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-success/10 text-success border border-success/20"
-                    >
+                    <span v-if="job.status === 'COMPLETED'"
+                      class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-success/10 text-success border border-success/20">
                       <font-awesome-icon icon="fa-solid fa-check" /> Selesai
                     </span>
-                    <span
-                      v-else-if="job.status === 'FAILED'"
-                      class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-danger/10 text-danger border border-danger/20"
-                    >
+                    <span v-else-if="job.status === 'FAILED'"
+                      class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-danger/10 text-danger border border-danger/20">
                       <font-awesome-icon icon="fa-solid fa-xmark" /> Gagal
                     </span>
-                    <span
-                      v-else
-                      class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-warning/10 text-warning border border-warning/20"
-                    >
+                    <span v-else
+                      class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-warning/10 text-warning border border-warning/20">
                       <font-awesome-icon icon="fa-solid fa-spinner" spin /> {{ job.status }}
                     </span>
                   </td>
-                  <td
-                    class="px-4 py-3 text-xs text-text/60 max-w-[200px] truncate"
-                    :title="job.log_summary"
-                  >
+                  <td class="px-4 py-3 text-xs text-text/60 max-w-[200px] truncate" :title="job.log_summary">
                     {{ job.log_summary || '-' }}
                   </td>
                 </tr>
@@ -440,11 +380,13 @@ async function submitBatch() {
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out forwards;
 }
+
 @keyframes fadeIn {
   from {
     opacity: 0;
     transform: translateY(5px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

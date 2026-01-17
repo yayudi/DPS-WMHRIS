@@ -16,6 +16,8 @@ import returnRouter from "./returnRouter.js";
 import statsRouter from "./statsRouter.js";
 import reportRouter from "./reportRouter.js";
 import packageRoutes from "./packageRouter.js";
+import jobRoutes from "./jobRouter.js";
+import systemLogRoutes from "./systemLogRouter.js";
 // import cronRouter from "./cronRouter.js";
 
 // Impor middleware yang diperlukan
@@ -43,6 +45,8 @@ apiRouter.use("/return", authenticateToken, returnRouter);
 apiRouter.use("/stats", authenticateToken, statsRouter);
 apiRouter.use("/reports", authenticateToken, reportRouter);
 apiRouter.use("/packages", authenticateToken, packageRoutes);
+apiRouter.use("/jobs", authenticateToken, jobRoutes);
+apiRouter.use("/logs", authenticateToken, canAccess("manage-users"), systemLogRoutes);
 // apiRouter.use("/cron", authenticateToken, cronRouter);
 
 // Rute tes "canary"

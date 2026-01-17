@@ -78,25 +78,14 @@ async function runTest() {
       </div>
 
       <form @submit.prevent="login" class="space-y-4">
-        <input
-          v-model="username"
-          type="text"
-          placeholder="Username"
+        <input v-model="username" type="text" placeholder="Username"
           class="w-full px-3 py-2 bg-background border border-secondary/50 text-text rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition"
-          required
-        />
-        <input
-          v-model="password"
-          type="password"
-          placeholder="Password"
+          required />
+        <input v-model="password" type="password" placeholder="Password"
           class="w-full px-3 py-2 bg-background border border-secondary/50 text-text rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition"
-          required
-        />
-        <button
-          type="submit"
-          :disabled="loading"
-          class="w-full bg-primary text-white py-2 rounded-lg hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
-        >
+          required />
+        <button type="submit" :disabled="loading"
+          class="w-full bg-primary text-secondary py-2 rounded-lg hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold">
           <font-awesome-icon v-if="loading" icon="fa-solid fa-spinner" class="animate-spin" />
           <span>{{ loading ? 'Loading...' : 'Login' }}</span>
         </button>
@@ -105,19 +94,14 @@ async function runTest() {
       <p v-if="error" class="text-accent mt-4 text-center text-sm">{{ error }}</p>
     </div>
 
-    <div
-      class="w-full max-w-sm bg-background p-6 rounded-xl shadow-lg border border-secondary/20 mt-8"
-    >
+    <div class="w-full max-w-sm bg-background p-6 rounded-xl shadow-lg border border-secondary/20 mt-8">
       <h3 class="text-lg font-semibold text-text mb-4 text-center">Uji Koneksi Backend</h3>
       <p class="text-text/80 mb-4 text-center text-sm">
         Klik tombol ini untuk memastikan frontend bisa berkomunikasi dengan backend.
       </p>
 
-      <button
-        @click="runTest"
-        :disabled="isTestLoading"
-        class="w-full bg-secondary text-white py-2 px-4 rounded-lg hover:bg-secondary/90 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-      >
+      <button @click="runTest" :disabled="isTestLoading"
+        class="w-full bg-secondary text-secondary py-2 px-4 rounded-lg hover:bg-secondary/90 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
         {{ isTestLoading ? 'Mengetes...' : 'Jalankan Tes Koneksi' }}
       </button>
 

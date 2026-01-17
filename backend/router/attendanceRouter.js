@@ -55,4 +55,10 @@ router.post(
  */
 router.get("/:year/:month", attendanceController.getMonthlyData);
 
+/**
+ * GET /history
+ * Mengambil data history absensi realtime berdasarkan range tanggal.
+ */
+router.get("/history", attendanceController.getHistory);
+
 export default router;

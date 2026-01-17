@@ -73,31 +73,17 @@ function onAddClick() {
   <div class="flex items-end gap-4">
     <div class="flex-grow">
       <label class="block text-sm font-medium text-text/90 mb-2">Cari Produk (SKU atau Nama)</label>
-      <BaseSelect
-        v-model="selectedProduct"
-        :options="searchResults"
-        :loading="isSearching"
-        :internal-search="false"
-        @search-change="onSearchChange"
-        placeholder="Ketik min. 2 karakter..."
-        label="name"
-        track-by="sku"
-        :disabled="disabled"
-      >
+      <BaseSelect v-model="selectedProduct" :options="searchResults" :loading="isSearching" :internal-search="false"
+        @search-change="onSearchChange" placeholder="Ketik min. 2 karakter..." label="name" track-by="sku"
+        :disabled="disabled">
         <template #option="{ option }">
           <div class="flex justify-between w-full">
-            <span
-              >{{ option.name }} <span class="text-xs text-text/60">({{ option.sku }})</span></span
-            >
+            <span>{{ option.name }} <span class="text-xs text-text/60">({{ option.sku }})</span></span>
             <!-- Tampilkan stok hanya jika relevan (bukan inbound/return) -->
-            <span
-              v-if="option.current_stock !== undefined"
-              class="text-xs font-semibold"
-              :class="{
-                'text-accent': option.current_stock < 0,
-                'text-text/80': option.current_stock >= 0,
-              }"
-            >
+            <span v-if="option.current_stock !== undefined" class="text-xs font-semibold" :class="{
+              'text-accent': option.current_stock < 0,
+              'text-text/80': option.current_stock >= 0,
+            }">
               Stok: {{ option.current_stock }}
             </span>
           </div>
@@ -107,38 +93,28 @@ function onAddClick() {
     </div>
     <div class="w-28">
       <label class="block text-sm font-medium text-text/90 mb-2">Jumlah</label>
-      <input
-        v-model.number="quantityToAdd"
-        type="number"
+      <input v-model.number="quantityToAdd" type="number"
         :placeholder="activeTab === 'ADJUSTMENT' ? 'e.g., -5' : 'e.g., 5'"
         class="w-full p-2 border border-secondary/50 rounded-lg bg-background"
-        :disabled="disabled || !selectedProduct"
-      />
+        :disabled="disabled || !selectedProduct" />
     </div>
 
     <!-- STOK AKTUAL DITAMBAHKAN DI SINI -->
-    <div
-      v-if="activeTab === 'TRANSFER' || activeTab === 'ADJUSTMENT'"
-      class="h-[42px] flex flex-col justify-center items-center px-3 bg-secondary/10 rounded-lg"
-    >
+    <div v-if="activeTab === 'TRANSFER' || activeTab === 'ADJUSTMENT'"
+      class="h-[42px] flex flex-col justify-center items-center px-3 bg-secondary/10 rounded-lg">
       <span class="text-xs text-text/70">Stok</span>
-      <span
-        class="font-bold"
-        :class="{
-          'text-accent': selectedProduct && selectedProduct.current_stock < 0,
-          'text-text': !selectedProduct || selectedProduct.current_stock >= 0,
-        }"
-      >
+      <span class="font-bold" :class="{
+        'text-accent': selectedProduct && selectedProduct.current_stock < 0,
+        'text-text': !selectedProduct || selectedProduct.current_stock >= 0,
+      }">
         {{ selectedProduct ? selectedProduct.current_stock : '-' }}
       </span>
     </div>
     <!-- AKHIR BLOK BARU -->
 
-    <button
-      @click="onAddClick"
-      class="px-4 py-2 bg-primary text-white rounded-lg font-semibold h-[42px] disabled:opacity-50"
-      :disabled="disabled || !selectedProduct"
-    >
+    <button @click="onAddClick"
+      class="px-4 py-2 bg-primary text-secondary rounded-lg font-semibold h-[42px] disabled:opacity-50"
+      :disabled="disabled || !selectedProduct">
       Tambah
     </button>
   </div>

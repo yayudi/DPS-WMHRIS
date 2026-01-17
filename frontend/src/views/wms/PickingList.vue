@@ -64,9 +64,7 @@ console.groupEnd()
 <template>
   <div class="p-4 md:p-8 min-h-screen bg-background text-text transition-colors duration-300">
     <!-- Header Section -->
-    <header
-      class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4"
-    >
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
       <div>
         <h1 class="text-3xl font-black tracking-tight text-text">
           Picking <span class="text-primary">Gudang</span>
@@ -75,49 +73,35 @@ console.groupEnd()
           Kelola tugas pengambilan barang dan laporan penjualan.
         </p>
       </div>
-      <button
-        @click="refreshActiveTab"
-        class="h-10 w-10 rounded-full bg-secondary/20 hover:bg-primary hover:text-white border border-secondary/30 flex items-center justify-center transition-all duration-300 group"
-        title="Refresh Data"
-      >
-        <font-awesome-icon
-          icon="fa-solid fa-rotate"
-          class="group-hover:rotate-180 transition-transform duration-500"
-        />
+      <button @click="refreshActiveTab"
+        class="h-10 w-10 rounded-full bg-secondary/20 hover:bg-primary hover:text-secondary border border-secondary/30 flex items-center justify-center transition-all duration-300 group"
+        title="Refresh Data">
+        <font-awesome-icon icon="fa-solid fa-rotate" class="group-hover:rotate-180 transition-transform duration-500" />
       </button>
     </header>
 
     <!-- Tabs Navigation -->
-    <div
-      class="bg-secondary/50 p-1.5 rounded-xl flex w-full md:w-auto mb-4 border border-secondary/20"
-    >
-      <button
-        v-for="tab in [
-          {
-            id: 'pickingList',
-            label: 'Daftar Tugas',
-            icon: 'fa-boxes-packing',
-            count: pendingCount,
-          },
-          { id: 'history', label: 'Riwayat Picking', icon: 'fa-clock-rotate-left' },
-          { id: 'upload', label: 'Unggah Laporan', icon: 'fa-cloud-upload-alt' },
-        ]"
-        :key="tab.id"
-        @click="activeTab = tab.id"
+    <div class="bg-secondary/50 p-1.5 rounded-xl flex w-full md:w-auto mb-4 border border-secondary/20">
+      <button v-for="tab in [
+        {
+          id: 'pickingList',
+          label: 'Daftar Tugas',
+          icon: 'fa-boxes-packing',
+          count: pendingCount,
+        },
+        { id: 'history', label: 'Riwayat Picking', icon: 'fa-clock-rotate-left' },
+        { id: 'upload', label: 'Unggah Laporan', icon: 'fa-cloud-upload-alt' },
+      ]" :key="tab.id" @click="activeTab = tab.id"
         class="flex-1 py-2.5 px-4 rounded-md text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2"
-        :class="
-          activeTab === tab.id
+        :class="activeTab === tab.id
             ? 'bg-primary text-secondary shadow-lg scale-[1.02]'
             : 'text-text/60 hover:text-text hover:bg-secondary/20'
-        "
-      >
+          ">
         <font-awesome-icon :icon="`fa-solid ${tab.icon}`" />
         {{ tab.label }}
-        <span
-          v-if="tab.count"
-          class="bg-secondary text-accent text-[10px] font-bold px-2 py-0.5 rounded-full ml-1 shadow-sm"
-          >{{ tab.count }}</span
-        >
+        <span v-if="tab.count"
+          class="bg-secondary text-accent text-[10px] font-bold px-2 py-0.5 rounded-full ml-1 shadow-sm">{{ tab.count
+          }}</span>
       </button>
     </div>
 
@@ -132,19 +116,11 @@ console.groupEnd()
       <PickingHistoryTab v-if="activeTab === 'history'" ref="historyTabRef" />
 
       <!-- Tab 3: Upload (Emit event saat tombol error diklik) -->
-      <PickingUploadTab
-        v-if="activeTab === 'upload'"
-        @view-errors="handleViewErrors"
-        @switch-tab="handleSwitchTab"
-      />
+      <PickingUploadTab v-if="activeTab === 'upload'" @view-errors="handleViewErrors" @switch-tab="handleSwitchTab" />
     </div>
 
     <!-- Shared Error Modal -->
-    <JobErrorModal
-      :show="showJobErrorModal"
-      :job="selectedJob"
-      :api-base-url="API_BASE_URL"
-      @close="showJobErrorModal = false"
-    />
+    <JobErrorModal :show="showJobErrorModal" :job="selectedJob" :api-base-url="API_BASE_URL"
+      @close="showJobErrorModal = false" />
   </div>
 </template>

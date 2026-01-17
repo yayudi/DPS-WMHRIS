@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import ProductRow from './ProductRow.vue'
+import TableSkeleton from '@/components/ui/TableSkeleton.vue'
 
 const props = defineProps({
   products: { type: Array, required: true, default: () => [] },
@@ -79,143 +80,116 @@ function getSortIcon(field) {
 
 <template>
   <div
-    class="flex-1 bg-background rounded-2xl shadow-sm border border-secondary/20 overflow-hidden flex flex-col relative h-full"
-  >
+    class="flex-1 bg-background rounded-2xl shadow-sm border border-secondary/20 overflow-hidden flex flex-col relative h-full">
     <!-- Table Scroll Area -->
     <div class="flex-1 overflow-auto relative custom-scrollbar">
-      <table class="w-full min-w-[800px] text-left border-collapse">
+      <table class="w-full min-w-[1000px] text-left border-collapse">
         <!-- HEADER (Sticky) -->
-        <thead class="sticky top-0 z-10 bg-background shadow-sm ring-1 ring-secondary/10">
-          <tr class="bg-secondary/5 text-text/60 text-xs font-bold uppercase tracking-wider">
-            <!-- CHECKBOX ALL -->
-            <th class="px-4 py-3 w-12 text-center">
+        <thead class="sticky top-0 z-30 bg-background/95 backdrop-blur-md shadow-sm ring-1 ring-secondary/5">
+          <tr class="text-text/60 text-xs font-bold uppercase tracking-wider">
+            <!-- CHECKBOX ALL (Sticky Left) -->
+            <th
+              class="px-4 py-3 w-12 text-center sticky left-0 z-30 bg-background/95 backdrop-blur-md border-b border-secondary/10">
               <div class="flex items-center justify-center">
-                <input
-                  type="checkbox"
+                <input type="checkbox"
                   class="w-4 h-4 rounded border-secondary/30 text-primary focus:ring-primary bg-background cursor-pointer transition-all"
-                  :checked="isAllSelected"
-                  @change="emit('toggleSelectAll')"
-                />
+                  :checked="isAllSelected" @change="emit('toggleSelectAll')" />
               </div>
             </th>
 
-            <!-- NAMA PRODUK (Sortable) -->
+            <!-- NAMA PRODUK (Sortable, Sticky Left) -->
             <th
-              class="px-4 py-3 cursor-pointer hover:bg-secondary/10 transition-colors group select-none"
-              @click="handleSort('name')"
-            >
+              class="px-4 py-3 cursor-pointer hover:bg-secondary/5 transition-colors group select-none sticky left-12 z-30 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]"
+              @click="handleSort('name')">
               <div class="flex items-center gap-2">
                 Nama Produk
-                <font-awesome-icon
-                  :icon="getSortIcon('name')"
+                <font-awesome-icon :icon="getSortIcon('name')"
                   class="text-text/30 group-hover:text-primary transition-colors"
-                  :class="{ 'text-primary': sortBy === 'name' }"
-                />
+                  :class="{ 'text-primary': sortBy === 'name' }" />
               </div>
             </th>
 
             <!-- SKU (Sortable) -->
             <th
-              class="px-4 py-3 cursor-pointer hover:bg-secondary/10 transition-colors group select-none"
-              @click="handleSort('sku')"
-            >
+              class="px-4 py-3 cursor-pointer hover:bg-secondary/5 transition-colors group select-none border-b border-secondary/10"
+              @click="handleSort('sku')">
               <div class="flex items-center gap-2">
                 SKU
-                <font-awesome-icon
-                  :icon="getSortIcon('sku')"
+                <font-awesome-icon :icon="getSortIcon('sku')"
                   class="text-text/30 group-hover:text-primary transition-colors"
-                  :class="{ 'text-primary': sortBy === 'sku' }"
-                />
+                  :class="{ 'text-primary': sortBy === 'sku' }" />
               </div>
             </th>
 
             <!-- BERAT -->
-            <th class="px-4 py-3 text-right">Berat</th>
+            <th class="px-4 py-3 text-right border-b border-secondary/10">Berat</th>
 
             <!-- HARGA (Sortable) -->
             <th
-              class="px-4 py-3 text-right cursor-pointer hover:bg-secondary/10 transition-colors group select-none"
-              @click="handleSort('price')"
-            >
+              class="px-4 py-3 text-right cursor-pointer hover:bg-secondary/5 transition-colors group select-none border-b border-secondary/10"
+              @click="handleSort('price')">
               <div class="flex items-center justify-end gap-2">
                 Harga
-                <font-awesome-icon
-                  :icon="getSortIcon('price')"
+                <font-awesome-icon :icon="getSortIcon('price')"
                   class="text-text/30 group-hover:text-primary transition-colors"
-                  :class="{ 'text-primary': sortBy === 'price' }"
-                />
+                  :class="{ 'text-primary': sortBy === 'price' }" />
               </div>
             </th>
 
-            <th class="px-4 py-3 text-center">Status</th>
-            <th class="px-4 py-3 text-center w-32">Aksi</th>
+            <!-- STATUS -->
+            <th class="px-4 py-3 text-center border-b border-secondary/10">Status</th>
+
+            <!-- AKSI (Sticky Right) -->
+            <th
+              class="px-4 py-3 text-center w-32 sticky right-0 z-30 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+              Aksi</th>
           </tr>
         </thead>
 
-        <!-- BODY -->
-        <tbody class="divide-y divide-secondary/10">
+        <!-- BODY (Animated) -->
+        <TransitionGroup tag="tbody" name="list" class="divide-y divide-secondary/5 relative">
           <!-- Loading State -->
-          <tr v-if="loading">
-            <td colspan="7" class="py-32 text-center">
-              <div class="flex flex-col items-center gap-3">
-                <font-awesome-icon
-                  icon="fa-solid fa-circle-notch"
-                  spin
-                  class="text-4xl text-primary"
-                />
-                <p class="text-sm text-text/60 animate-pulse">Sedang memuat data...</p>
-              </div>
-            </td>
-          </tr>
+          <template v-if="loading">
+            <TableSkeleton v-for="n in 5" :key="n" />
+          </template>
 
           <!-- Empty State -->
-          <tr v-else-if="!products || products.length === 0">
-            <td colspan="7" class="py-32 text-center">
-              <div class="flex flex-col items-center gap-4">
+          <tr v-else-if="!products || products.length === 0" key="empty">
+            <td colspan="7" class="py-24 text-center">
+              <div
+                class="flex flex-col items-center justify-center p-8 border-2 border-dashed border-secondary/20 rounded-2xl max-w-md mx-auto bg-secondary/5">
                 <div
-                  class="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center text-3xl text-text/30"
-                >
+                  class="w-20 h-20 bg-background rounded-full flex items-center justify-center text-4xl text-primary/40 shadow-sm mb-4">
                   <font-awesome-icon icon="fa-solid fa-box-open" />
                 </div>
-                <div>
-                  <h3 class="text-lg font-bold mb-1">Tidak ada produk ditemukan</h3>
-                  <p class="text-sm text-text/50">
-                    Coba ubah kata kunci pencarian atau filter Anda.
-                  </p>
-                </div>
+                <h3 class="text-lg font-bold text-text mb-2">Tidak ada produk ditemukan</h3>
+                <p class="text-sm text-text/60 max-w-xs mx-auto">
+                  Coba sesuaikan kata kunci pencarian atau filter untuk menemukan produk yang Anda cari.
+                </p>
               </div>
             </td>
           </tr>
 
           <!-- Data Rows -->
           <template v-else>
-            <ProductRow
-              v-for="product in products"
-              :key="product.id"
-              :product="product"
+            <ProductRow v-for="product in products" :key="product.id" :product="product"
               :is-selected="selectedIds && selectedIds.has(product.id)"
-              @toggle-selection="(id) => emit('toggleSelection', id)"
-              @edit="(p) => emit('edit', p)"
-              @restore="(p) => emit('restore', p)"
-              @delete="(p) => emit('delete', p)"
-            />
+              @toggle-selection="(id) => emit('toggleSelection', id)" @edit="(p) => emit('edit', p)"
+              @restore="(p) => emit('restore', p)" @delete="(p) => emit('delete', p)" />
           </template>
-        </tbody>
+        </TransitionGroup>
       </table>
     </div>
 
     <!-- PAGINATION FOOTER -->
     <div
-      class="shrink-0 px-6 py-3 border-t border-secondary/10 bg-secondary/5 flex flex-col sm:flex-row items-center justify-between gap-4 select-none"
-    >
+      class="shrink-0 px-6 py-3 border-t border-secondary/10 bg-secondary/5 flex flex-col sm:flex-row items-center justify-between gap-4 select-none">
       <div class="flex items-center gap-4 text-xs text-text/70">
         <div class="flex items-center gap-2">
           <span>Limit:</span>
-          <select
-            :value="pagination ? pagination.limit : 20"
+          <select :value="pagination ? pagination.limit : 20"
             @change="emit('update:limit', parseInt($event.target.value))"
-            class="bg-background border border-secondary/20 rounded px-2 py-1 focus:outline-none focus:border-primary cursor-pointer hover:border-primary/50 transition-colors"
-          >
+            class="bg-background border border-secondary/20 rounded px-2 py-1 focus:outline-none focus:border-primary cursor-pointer hover:border-primary/50 transition-colors">
             <option v-for="opt in limitOptions" :key="opt" :value="opt">{{ opt }}</option>
           </select>
         </div>
@@ -228,62 +202,43 @@ function getSortIcon(field) {
       </div>
 
       <div class="flex items-center gap-1" v-if="pagination">
-        <button
-          @click="changePage(1)"
-          :disabled="pagination.page === 1"
+        <button @click="changePage(1)" :disabled="pagination.page === 1"
           class="w-8 h-8 flex items-center justify-center rounded-lg border border-secondary/20 hover:bg-secondary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="Halaman Pertama"
-        >
+          title="Halaman Pertama">
           <font-awesome-icon icon="fa-solid fa-angles-left" />
         </button>
-        <button
-          @click="changePage(pagination.page - 1)"
-          :disabled="pagination.page === 1"
+        <button @click="changePage(pagination.page - 1)" :disabled="pagination.page === 1"
           class="w-8 h-8 flex items-center justify-center rounded-lg border border-secondary/20 hover:bg-secondary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="Halaman Sebelumnya"
-        >
+          title="Halaman Sebelumnya">
           <font-awesome-icon icon="fa-solid fa-angle-left" />
         </button>
 
         <div class="flex items-center gap-1 mx-1">
           <template v-for="(p, i) in visiblePages" :key="i">
             <div v-if="p === '...'" class="relative w-8 h-8 group">
-              <input
-                type="number"
+              <input type="number"
                 class="w-full h-full text-center text-xs font-bold bg-transparent border border-secondary/20 rounded-lg focus:border-primary outline-none remove-arrow transition-all"
-                placeholder="..."
-                @keydown.enter="handleJumpPage"
-              />
+                placeholder="..." @keydown.enter="handleJumpPage" />
             </div>
-            <button
-              v-else
-              @click="changePage(p)"
-              class="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all"
-              :class="[
+            <button v-else @click="changePage(p)"
+              class="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all" :class="[
                 p === pagination.page
-                  ? 'bg-primary text-white shadow-md shadow-primary/20'
+                  ? 'bg-primary text-secondary shadow-md shadow-primary/20'
                   : 'border border-secondary/20 hover:bg-secondary/10 hover:text-primary text-text/70',
-              ]"
-            >
+              ]">
               {{ p }}
             </button>
           </template>
         </div>
 
-        <button
-          @click="changePage(pagination.page + 1)"
-          :disabled="pagination.page === pagination.totalPages"
+        <button @click="changePage(pagination.page + 1)" :disabled="pagination.page === pagination.totalPages"
           class="w-8 h-8 flex items-center justify-center rounded-lg border border-secondary/20 hover:bg-secondary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="Halaman Selanjutnya"
-        >
+          title="Halaman Selanjutnya">
           <font-awesome-icon icon="fa-solid fa-angle-right" />
         </button>
-        <button
-          @click="changePage(pagination.totalPages)"
-          :disabled="pagination.page === pagination.totalPages"
+        <button @click="changePage(pagination.totalPages)" :disabled="pagination.page === pagination.totalPages"
           class="w-8 h-8 flex items-center justify-center rounded-lg border border-secondary/20 hover:bg-secondary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="Halaman Terakhir"
-        >
+          title="Halaman Terakhir">
           <font-awesome-icon icon="fa-solid fa-angles-right" />
         </button>
       </div>
@@ -296,23 +251,47 @@ function getSortIcon(field) {
   width: 6px;
   height: 6px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background-color: hsl(var(--color-secondary) / 0.3);
   border-radius: 4px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: hsl(var(--color-secondary) / 0.5);
 }
+
 .remove-arrow::-webkit-outer-spin-button,
 .remove-arrow::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
+
 .remove-arrow {
   appearance: textfield;
   -moz-appearance: textfield;
+}
+
+/* List Transitions */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.3s ease;
+}
+
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+.list-leave-active {
+  position: absolute;
+  width: 100%;
+  /* This might break table layout during exit, but prevents layout jumps */
+  /* For tables, fade out is safer than translate/absolute */
 }
 </style>

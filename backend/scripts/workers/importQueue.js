@@ -12,7 +12,6 @@ import { ParserEngine } from "../../services/parsers/ParserEngine.js";
 // IMPORT SERVICES
 import { syncOrdersToDB } from "../../services/pickingImportService.js";
 import { processAttendanceImport } from "../../services/attendanceImportService.js";
-// import * as attendanceService from "../../services/attendanceService.js"; // REMOVED: Unused & causing error
 import * as productImportService from "../../services/productImportService.js";
 import * as packageImportService from "../../services/packageImportService.js";
 import * as stockImportService from "../../services/stockImportService.js";
@@ -107,6 +106,9 @@ async function generateErrorFile(originalFilePath, errors, headerRowIndex = 1, j
     errors.forEach((e) => {
       if (e.row) errorMap.set(e.row, e.message);
     });
+
+    console.log(`[ImportWorker] Generate Error File: ${errors.length} total errors, ${errorMap.size} mapped to rows.`);
+
 
     let targetRowIdx = 2;
     const sortedRowIndices = Array.from(errorMap.keys()).sort((a, b) => a - b);
@@ -220,11 +222,11 @@ export const importQueue = async () => {
     const updateJobProgress = async (processed, total) => {
       try {
         await jobRepo.updateProgress(connection, jobId, processed, total);
-      } catch (e) {}
+      } catch (e) { }
     };
 
     const isDryRun = job.job_type.endsWith("_DRY_RUN");
-    const realJobType = isDryRun ? job.job_type.replace("_DRY_RUN", "") : job.job_type;
+    const realJobType = (isDryRun ? job.job_type.replace("_DRY_RUN", "") : job.job_type).trim();
 
     // --- SWITCH CASE ---
 
@@ -267,9 +269,8 @@ export const importQueue = async () => {
       processStats = stats;
 
       const modeText = isDryRun ? "[SIMULASI] " : "";
-      logSummary = `${modeText}Selesai ${source}. DB Update: ${
-        syncResult.updatedCount || 0
-      } Invoice.`;
+      logSummary = `${modeText}Selesai ${source}. DB Update: ${syncResult.updatedCount || 0
+        } Invoice.`;
     } else if (realJobType === "ADJUST_STOCK") {
       const result = await processStockImport(
         connection,
@@ -296,8 +297,8 @@ export const importQueue = async () => {
       logSummary = result.logSummary;
       errors = result.errors || [];
       processStats = result.stats || {};
-    } else if (realJobType === "UPDATE_PRICE") {
-      const result = await processProductImport(
+    } else if (realJobType === "BATCH_EDIT_PRODUCT" || job.job_type === "BATCH_EDIT_PRODUCT_DRY_RUN") {
+      const result = await productImportService.processProductImport(
         connection,
         absoluteFilePath,
         job.user_id,
@@ -320,15 +321,15 @@ export const importQueue = async () => {
       }
     } else if (realJobType === "IMPORT_PACKAGES") {
       const result = await processPackageImport(
-          absoluteFilePath,
-          jobId,
-          updateJobProgress
+        absoluteFilePath,
+        jobId,
+        updateJobProgress
       );
       // Package Import returns { successCount, errors }
       logSummary = `Selesai Import Paket. Berhasil: ${result.successCount}.`;
       errors = (result.errors || []).map(e => ({
-          row: 0, // Simplified for now as errors are strings
-          message: e
+        row: 0, // Simplified for now as errors are strings
+        message: e
       }));
       processStats = { success: result.successCount };
     } else if (realJobType === "IMPORT_STOCK_INBOUND") {
@@ -412,7 +413,7 @@ export const importQueue = async () => {
     if (fs.existsSync(absoluteFilePath)) {
       try {
         fs.unlinkSync(absoluteFilePath);
-      } catch (err) {}
+      } catch (err) { }
     }
 
     console.log(`[ImportWorker] Job ${jobId} Finished: ${finalStatus} (DryRun: ${isDryRun})`);

@@ -18,6 +18,7 @@ const { show: toast } = useToast()
 const form = ref({
   sku: '',
   name: '',
+  category: '',
   price: 0,
   weight: 0,
   is_package: false,
@@ -48,6 +49,7 @@ watch(
             form.value = {
               sku: data.data.sku,
               name: data.data.name,
+              category: data.data.category || '',
               price: data.data.price || 0,
               weight: data.data.weight || 0,
               is_package: Boolean(data.data.is_package),
@@ -64,7 +66,7 @@ watch(
         }
       } else {
         // MODE CREATE: Kosongkan form
-        form.value = { sku: '', name: '', price: 0, weight: 0, is_package: false }
+        form.value = { sku: '', name: '', category: '', price: 0, weight: 0, is_package: false }
         components.value = []
       }
     }
@@ -158,17 +160,11 @@ async function handleSubmit() {
 
 <template>
   <Transition name="modal-fade">
-    <div
-      v-if="show"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-    >
+    <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div
-        class="bg-background w-full max-w-2xl rounded-xl shadow-2xl border border-secondary/20 flex flex-col max-h-[90vh]"
-      >
+        class="bg-background w-full max-w-2xl rounded-xl shadow-2xl border border-secondary/20 flex flex-col max-h-[90vh]">
         <!-- Header -->
-        <div
-          class="p-4 border-b border-secondary/20 flex justify-between items-center bg-secondary/5 rounded-t-xl"
-        >
+        <div class="p-4 border-b border-secondary/20 flex justify-between items-center bg-secondary/5 rounded-t-xl">
           <h3 class="font-bold text-lg text-text">
             {{ mode === 'create' ? 'Tambah Produk Baru' : 'Edit Produk' }}
           </h3>
@@ -181,10 +177,7 @@ async function handleSubmit() {
         <div class="p-6 overflow-y-auto space-y-4 custom-scrollbar">
           <!-- Loading State saat fetch detail edit -->
           <div v-if="fetchLoading" class="text-center py-10">
-            <font-awesome-icon
-              icon="fa-solid fa-spinner"
-              class="animate-spin text-3xl text-primary"
-            />
+            <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-3xl text-primary" />
             <p class="text-sm text-text/50 mt-2">Memuat detail produk...</p>
           </div>
 
@@ -194,17 +187,10 @@ async function handleSubmit() {
               <div class="col-span-1">
                 <label class="block text-xs font-bold text-text/60 mb-1">SKU (Kode Unik)</label>
                 <div class="relative">
-                  <input
-                    v-model="form.sku"
-                    type="text"
-                    :disabled="mode === 'edit'"
+                  <input v-model="form.sku" type="text" :disabled="mode === 'edit'"
                     class="w-full pl-9 pr-3 py-2 bg-secondary/10 border border-secondary/30 rounded-lg font-mono uppercase focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed text-text transition-all"
-                    placeholder="PPxxxxxxx"
-                  />
-                  <font-awesome-icon
-                    icon="fa-solid fa-barcode"
-                    class="absolute left-3 top-2.5 text-text/40"
-                  />
+                    placeholder="PPxxxxxxx" />
+                  <font-awesome-icon icon="fa-solid fa-barcode" class="absolute left-3 top-2.5 text-text/40" />
                 </div>
                 <p v-if="mode === 'edit'" class="text-[10px] text-text/40 mt-1 italic">
                   SKU tidak dapat diubah.
@@ -216,12 +202,8 @@ async function handleSubmit() {
                 <label class="block text-xs font-bold text-text/60 mb-1">Harga Jual (Rp)</label>
                 <div class="relative">
                   <span class="absolute left-3 top-2 text-text/40 font-bold text-xs">Rp</span>
-                  <input
-                    v-model.number="form.price"
-                    type="number"
-                    min="0"
-                    class="w-full pl-8 pr-3 py-2 bg-secondary/10 border border-secondary/30 rounded-lg font-mono focus:outline-none focus:border-primary text-text text-right transition-all"
-                  />
+                  <input v-model.number="form.price" type="number" min="0"
+                    class="w-full pl-8 pr-3 py-2 bg-secondary/10 border border-secondary/30 rounded-lg font-mono focus:outline-none focus:border-primary text-text text-right transition-all" />
                 </div>
               </div>
             </div>
@@ -229,25 +211,26 @@ async function handleSubmit() {
             <!-- Nama Produk -->
             <div>
               <label class="block text-xs font-bold text-text/60 mb-1">Nama Produk</label>
-              <input
-                v-model="form.name"
-                type="text"
+              <input v-model="form.name" type="text"
                 class="w-full px-3 py-2 bg-secondary/10 border border-secondary/30 rounded-lg focus:outline-none focus:border-primary text-text transition-all"
-                placeholder="Contoh: Paket Bundling Hemat A"
-              />
+                placeholder="Contoh: Paket Bundling Hemat A" />
+            </div>
+
+            <!-- Kategori Produk (STATISTIK ONLY) -->
+            <div>
+              <label class="block text-xs font-bold text-text/60 mb-1">Kategori</label>
+              <input v-model="form.category" type="text"
+                class="w-full px-3 py-2 bg-secondary/10 border border-secondary/30 rounded-lg focus:outline-none focus:border-primary text-text transition-all"
+                placeholder="Contoh: Alat Tulis, Elektronik (Opsional)" />
             </div>
 
             <!-- Berat Input -->
             <div>
               <label class="block text-xs font-bold text-text/60 mb-1">Berat (Gram)</label>
               <div class="relative">
-                <input
-                  v-model.number="form.weight"
-                  type="number"
-                  min="0"
+                <input v-model.number="form.weight" type="number" min="0"
                   class="w-full pl-3 pr-8 py-2 bg-secondary/10 border border-secondary/30 rounded-lg font-mono focus:outline-none focus:border-primary text-text transition-all"
-                  placeholder="0"
-                />
+                  placeholder="0" />
                 <span class="absolute right-3 top-2 text-text/40 text-xs font-bold">gr</span>
               </div>
             </div>
@@ -256,34 +239,24 @@ async function handleSubmit() {
             <div class="pt-2 border-t border-secondary/10">
               <label
                 class="flex items-start gap-3 p-3 border border-secondary/20 rounded-lg hover:bg-secondary/5 cursor-pointer transition-colors"
-                :class="{ 'bg-primary/5 border-primary/30': form.is_package }"
-              >
+                :class="{ 'bg-primary/5 border-primary/30': form.is_package }">
                 <div class="pt-0.5">
-                  <input
-                    v-model="form.is_package"
-                    type="checkbox"
-                    class="w-5 h-5 text-primary rounded border-secondary/30 bg-secondary/10 focus:ring-primary"
-                  />
+                  <input v-model="form.is_package" type="checkbox"
+                    class="w-5 h-5 text-primary rounded border-secondary/30 bg-secondary/10 focus:ring-primary" />
                 </div>
                 <div>
-                  <span
-                    class="block text-sm font-bold text-text"
-                    :class="{ 'text-primary': form.is_package }"
-                    >Produk Paket (Bundling)</span
-                  >
-                  <span class="block text-xs text-text/50 mt-0.5"
-                    >Produk ini merupakan gabungan dari beberapa produk lain (stok otomatis dipotong
-                    dari komponen).</span
-                  >
+                  <span class="block text-sm font-bold text-text" :class="{ 'text-primary': form.is_package }">Produk
+                    Paket (Bundling)</span>
+                  <span class="block text-xs text-text/50 mt-0.5">Produk ini merupakan gabungan dari beberapa produk
+                    lain (stok otomatis dipotong
+                    dari komponen).</span>
                 </div>
               </label>
             </div>
 
             <!-- Bagian Komponen Paket (Hanya muncul jika dicentang) -->
-            <div
-              v-if="form.is_package"
-              class="mt-2 p-4 bg-secondary/5 rounded-lg border border-secondary/20 animate-fade-in"
-            >
+            <div v-if="form.is_package"
+              class="mt-2 p-4 bg-secondary/5 rounded-lg border border-secondary/20 animate-fade-in">
               <h4 class="font-bold text-sm text-text mb-3 flex items-center gap-2">
                 <font-awesome-icon icon="fa-solid fa-layer-group" class="text-primary" />
                 Komponen Paket
@@ -291,44 +264,25 @@ async function handleSubmit() {
 
               <!-- Search Component -->
               <div class="relative mb-4">
-                <label class="text-xs font-bold text-text/40 mb-1 block"
-                  >Cari Produk Komponen</label
-                >
+                <label class="text-xs font-bold text-text/40 mb-1 block">Cari Produk Komponen</label>
                 <div class="relative">
-                  <input
-                    v-model="componentSearch"
-                    @input="handleSearch"
-                    type="text"
+                  <input v-model="componentSearch" @input="handleSearch" type="text"
                     placeholder="Ketik SKU atau Nama produk..."
-                    class="w-full pl-9 pr-4 py-2 bg-background border border-secondary/30 rounded-lg text-sm focus:outline-none focus:border-primary text-text"
-                  />
-                  <font-awesome-icon
-                    v-if="isSearching"
-                    icon="fa-solid fa-circle-notch"
-                    class="absolute left-3 top-2.5 text-primary animate-spin"
-                  />
-                  <font-awesome-icon
-                    v-else
-                    icon="fa-solid fa-search"
-                    class="absolute left-3 top-2.5 text-text/40"
-                  />
+                    class="w-full pl-9 pr-4 py-2 bg-background border border-secondary/30 rounded-lg text-sm focus:outline-none focus:border-primary text-text" />
+                  <font-awesome-icon v-if="isSearching" icon="fa-solid fa-circle-notch"
+                    class="absolute left-3 top-2.5 text-primary animate-spin" />
+                  <font-awesome-icon v-else icon="fa-solid fa-search" class="absolute left-3 top-2.5 text-text/40" />
                 </div>
 
                 <!-- Search Results Dropdown -->
-                <div
-                  v-if="searchResults.length > 0"
-                  class="absolute z-10 w-full mt-1 bg-background border border-secondary/20 rounded-lg shadow-xl max-h-48 overflow-y-auto custom-scrollbar"
-                >
-                  <div
-                    v-for="res in searchResults"
-                    :key="res.id"
-                    @click="addComponent(res)"
-                    class="p-2.5 hover:bg-primary/10 cursor-pointer flex justify-between items-center text-sm border-b border-secondary/10 last:border-0 group transition-colors"
-                  >
+                <div v-if="searchResults.length > 0"
+                  class="absolute z-10 w-full mt-1 bg-background border border-secondary/20 rounded-lg shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+                  <div v-for="res in searchResults" :key="res.id" @click="addComponent(res)"
+                    class="p-2.5 hover:bg-primary/10 cursor-pointer flex justify-between items-center text-sm border-b border-secondary/10 last:border-0 group transition-colors">
                     <div class="flex flex-col">
                       <span class="font-medium text-text group-hover:text-primary">{{
                         res.name
-                      }}</span>
+                        }}</span>
                       <span class="font-mono text-[10px] text-text/40">{{ res.sku }}</span>
                     </div>
                     <div class="text-primary text-xs font-bold opacity-0 group-hover:opacity-100">
@@ -340,19 +294,14 @@ async function handleSubmit() {
 
               <!-- List Components Table -->
               <div v-if="components.length > 0" class="space-y-1">
-                <div
-                  class="grid grid-cols-12 gap-2 text-[10px] uppercase font-bold text-text/40 px-3 pb-1"
-                >
+                <div class="grid grid-cols-12 gap-2 text-[10px] uppercase font-bold text-text/40 px-3 pb-1">
                   <div class="col-span-7">Nama Produk</div>
                   <div class="col-span-3 text-center">Qty</div>
                   <div class="col-span-2 text-right">Hapus</div>
                 </div>
 
-                <div
-                  v-for="(comp, idx) in components"
-                  :key="comp.id"
-                  class="grid grid-cols-12 gap-2 items-center bg-background p-2 rounded-lg border border-secondary/10 shadow-sm"
-                >
+                <div v-for="(comp, idx) in components" :key="comp.id"
+                  class="grid grid-cols-12 gap-2 items-center bg-background p-2 rounded-lg border border-secondary/10 shadow-sm">
                   <div class="col-span-7 overflow-hidden">
                     <div class="text-sm font-medium text-text truncate" :title="comp.name">
                       {{ comp.name }}
@@ -360,19 +309,13 @@ async function handleSubmit() {
                     <div class="text-[10px] text-text/40 font-mono">{{ comp.sku }}</div>
                   </div>
                   <div class="col-span-3">
-                    <input
-                      v-model.number="comp.quantity"
-                      type="number"
-                      min="1"
-                      class="w-full px-1 py-1 text-center bg-secondary/10 rounded border border-secondary/20 text-sm font-bold focus:border-primary focus:outline-none"
-                    />
+                    <input v-model.number="comp.quantity" type="number" min="1"
+                      class="w-full px-1 py-1 text-center bg-secondary/10 rounded border border-secondary/20 text-sm font-bold focus:border-primary focus:outline-none" />
                   </div>
                   <div class="col-span-2 text-right">
-                    <button
-                      @click="removeComponent(idx)"
+                    <button @click="removeComponent(idx)"
                       class="w-7 h-7 inline-flex items-center justify-center rounded-full text-danger hover:bg-danger/10 transition-colors"
-                      title="Hapus komponen"
-                    >
+                      title="Hapus komponen">
                       <font-awesome-icon icon="fa-solid fa-trash-alt" class="text-xs" />
                     </button>
                   </div>
@@ -380,14 +323,8 @@ async function handleSubmit() {
               </div>
 
               <!-- Empty State -->
-              <div
-                v-else
-                class="text-center py-6 border-2 border-dashed border-secondary/10 rounded-lg"
-              >
-                <font-awesome-icon
-                  icon="fa-solid fa-basket-shopping"
-                  class="text-2xl text-text/20 mb-2"
-                />
+              <div v-else class="text-center py-6 border-2 border-dashed border-secondary/10 rounded-lg">
+                <font-awesome-icon icon="fa-solid fa-basket-shopping" class="text-2xl text-text/20 mb-2" />
                 <p class="text-xs text-text/40">
                   Belum ada komponen yang ditambahkan.<br />Cari produk di atas untuk menambahkan.
                 </p>
@@ -402,25 +339,14 @@ async function handleSubmit() {
         </div>
 
         <!-- Footer -->
-        <div
-          class="p-4 border-t border-secondary/20 bg-secondary/5 rounded-b-xl flex justify-end gap-3"
-        >
-          <button
-            @click="$emit('close')"
-            class="px-5 py-2.5 rounded-lg text-text/60 font-bold hover:bg-secondary/10 transition-colors text-sm"
-          >
+        <div class="p-4 border-t border-secondary/20 bg-secondary/5 rounded-b-xl flex justify-end gap-3">
+          <button @click="$emit('close')"
+            class="px-5 py-2.5 rounded-lg text-text/60 font-bold hover:bg-secondary/10 transition-colors text-sm">
             Batal
           </button>
-          <button
-            @click="handleSubmit"
-            :disabled="loading || fetchLoading"
-            class="px-5 py-2.5 rounded-lg bg-primary text-text font-bold hover:bg-primary-dark shadow-lg shadow-primary/30 flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
-          >
-            <font-awesome-icon
-              v-if="loading"
-              icon="fa-solid fa-circle-notch"
-              class="animate-spin"
-            />
+          <button @click="handleSubmit" :disabled="loading || fetchLoading"
+            class="px-5 py-2.5 rounded-lg bg-primary text-text font-bold hover:bg-primary-dark shadow-lg shadow-primary/30 flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95">
+            <font-awesome-icon v-if="loading" icon="fa-solid fa-circle-notch" class="animate-spin" />
             <span v-else><font-awesome-icon icon="fa-solid fa-save" /></span>
             <span>{{ mode === 'create' ? 'Simpan Produk' : 'Simpan Perubahan' }}</span>
           </button>
@@ -435,6 +361,7 @@ async function handleSubmit() {
 .modal-fade-leave-active {
   transition: opacity 0.2s ease;
 }
+
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
@@ -449,6 +376,7 @@ async function handleSubmit() {
     opacity: 0;
     transform: translateY(-5px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -459,13 +387,16 @@ async function handleSubmit() {
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background-color: hsl(var(--color-secondary) / 0.3);
   border-radius: 20px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: hsl(var(--color-secondary) / 0.5);
 }

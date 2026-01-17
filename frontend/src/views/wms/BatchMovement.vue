@@ -150,7 +150,7 @@ async function submitBatch() {
         <!-- Tombol Aksi Final Batch -->
         <div class="flex justify-end pt-6 border-t border-secondary/20">
           <button @click="submitBatch" :disabled="!isBatchLocationSelected || batchList.length === 0 || isLoading"
-            class="px-6 py-3 bg-accent text-white rounded-lg font-bold disabled:opacity-50 flex items-center gap-2">
+            class="px-6 py-3 bg-accent text-secondary rounded-lg font-bold disabled:opacity-50 flex items-center gap-2">
             <font-awesome-icon v-if="isLoading" icon="fa-solid fa-spinner" class="animate-spin" />
             <span>{{ isLoading ? 'Memproses...' : 'Submit Batch' }}</span>
           </button>

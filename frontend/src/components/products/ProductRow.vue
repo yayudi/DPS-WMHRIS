@@ -26,31 +26,26 @@ const isArchived = computed(() => {
 </script>
 
 <template>
-  <tr
-    class="hover:bg-secondary/5 transition-colors group border-b border-secondary/5 last:border-0"
-    :class="{ 'bg-primary/5': isSelected, 'opacity-60 grayscale-[50%]': isArchived }"
-  >
-    <!-- CHECKBOX -->
-    <td class="px-4 py-4 text-center w-12">
+  <tr class="hover:bg-secondary/5 transition-colors group border-b border-secondary/5 last:border-0"
+    :class="{ 'bg-primary/5': isSelected, 'opacity-60 grayscale-[50%]': isArchived }">
+    <!-- CHECKBOX (Sticky Left) -->
+    <td
+      class="px-4 py-4 text-center w-12 sticky left-0 z-20 bg-background group-hover:bg-secondary/5 transition-colors border-b border-secondary/5">
       <div class="flex items-center justify-center">
-        <input
-          type="checkbox"
+        <input type="checkbox"
           class="w-4 h-4 rounded border-secondary/30 text-primary focus:ring-primary bg-background cursor-pointer transition-all"
-          :checked="isSelected"
-          @change="$emit('toggle-selection', product.id)"
-        />
+          :checked="isSelected" @change="$emit('toggle-selection', product.id)" />
       </div>
     </td>
 
-    <!-- NAMA PRODUK -->
-    <td class="px-4 py-4">
+    <!-- NAMA PRODUK (Sticky Left) -->
+    <td
+      class="px-4 py-4 sticky left-12 z-20 bg-background group-hover:bg-secondary/5 transition-colors border-b border-secondary/5 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
       <div class="flex flex-col">
         <div class="font-bold text-text text-sm flex items-center gap-2">
           {{ product.name }}
-          <span
-            v-if="product.is_package"
-            class="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded border border-accent/20 font-bold uppercase tracking-wider"
-          >
+          <span v-if="product.is_package"
+            class="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded border border-accent/20 font-bold uppercase tracking-wider">
             Paket
           </span>
         </div>
@@ -58,74 +53,60 @@ const isArchived = computed(() => {
     </td>
 
     <!-- SKU -->
-    <td class="px-4 py-4">
+    <td class="px-4 py-4 border-b border-secondary/5">
       <span
-        class="font-mono text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20 select-all"
-      >
+        class="font-mono text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20 select-all">
         {{ product.sku }}
       </span>
     </td>
 
     <!-- BERAT -->
-    <td class="px-4 py-4 text-right text-sm font-mono text-text/70">
+    <td class="px-4 py-4 text-right text-sm font-mono text-text/70 border-b border-secondary/5">
       {{ product.weight ? product.weight + ' gr' : '-' }}
     </td>
 
     <!-- HARGA -->
-    <td class="px-4 py-4 text-right font-medium text-sm text-text">
+    <td class="px-4 py-4 text-right font-medium text-sm text-text border-b border-secondary/5">
       {{ formattedPrice }}
     </td>
 
     <!-- STATUS -->
-    <td class="px-4 py-4 text-center">
-      <span
-        v-if="isArchived"
-        class="px-2 py-1 text-[10px] font-bold rounded-full bg-secondary/20 text-text/50 border border-secondary/30 flex items-center justify-center gap-1 w-fit mx-auto"
-      >
+    <td class="px-4 py-4 text-center border-b border-secondary/5">
+      <span v-if="isArchived"
+        class="px-2 py-1 text-[10px] font-bold rounded-full bg-secondary/20 text-text/50 border border-secondary/30 flex items-center justify-center gap-1 w-fit mx-auto">
         <font-awesome-icon icon="fa-solid fa-box-archive" />
         DIARSIPKAN
       </span>
-      <span
-        v-else
-        class="px-2 py-1 text-[10px] font-bold rounded-full bg-success/10 text-success border border-success/20 flex items-center justify-center gap-1 w-fit mx-auto"
-      >
+      <span v-else
+        class="px-2 py-1 text-[10px] font-bold rounded-full bg-success/10 text-success border border-success/20 flex items-center justify-center gap-1 w-fit mx-auto">
         <font-awesome-icon icon="fa-solid fa-check" />
         AKTIF
       </span>
     </td>
 
-    <!-- AKSI -->
-    <td class="px-4 py-4">
+    <!-- AKSI (Sticky Right) -->
+    <td
+      class="px-4 py-4 sticky right-0 z-20 bg-background group-hover:bg-secondary/5 transition-colors border-b border-secondary/5 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]">
       <div
-        class="flex items-center justify-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200"
-      >
+        class="flex items-center justify-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
         <!-- Edit -->
-        <button
-          v-if="!isArchived"
-          @click="$emit('edit', product)"
+        <button v-if="!isArchived" @click="$emit('edit', product)"
           class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-primary/10 text-text/40 hover:text-primary transition-colors"
-          title="Edit Data"
-        >
+          title="Edit Data">
           <font-awesome-icon icon="fa-solid fa-pen-to-square" />
         </button>
 
         <!-- Restore -->
-        <button
-          v-if="isArchived"
-          @click="$emit('restore', product)"
+        <button v-if="isArchived" @click="$emit('restore', product)"
           class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-success/10 text-text/40 hover:text-success transition-colors"
-          title="Pulihkan Produk"
-        >
+          title="Pulihkan Produk">
           <font-awesome-icon icon="fa-solid fa-rotate-left" />
         </button>
 
         <!-- Archive/Delete -->
-        <button
-          v-if="!isArchived"
-          @click="$emit('delete', product)"
+        <button v-if="!isArchived" @click="$emit('delete', product)"
           class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-danger/10 text-text/40 hover:text-danger transition-colors"
-          title="Arsipkan Produk"
-        >
+          title="Arsipkan Produk">
           <font-awesome-icon icon="fa-solid fa-box-archive" />
         </button>
       </div>

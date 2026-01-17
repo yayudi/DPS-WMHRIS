@@ -82,6 +82,7 @@ export function useWms() {
       sku: apiProduct.sku,
       name: apiProduct.name,
       price: apiProduct.price,
+      weight: apiProduct.weight,
       is_package: Boolean(apiProduct.is_package),
 
       stockPajangan,
@@ -247,6 +248,7 @@ export function useWms() {
             existingProduct.name = updatedData.name
             existingProduct.sku = updatedData.sku
             existingProduct.price = updatedData.price
+            existingProduct.weight = updatedData.weight
             patchCount++
           }
         })

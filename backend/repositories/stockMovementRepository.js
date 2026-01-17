@@ -12,7 +12,7 @@ export const createLog = async (
   return connection.query(
     `INSERT INTO stock_movements
      (product_id, quantity, from_location_id, to_location_id, movement_type, user_id, notes, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-    [productId, quantity, fromLocationId, toLocationId, type, userId, notes]
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [productId, quantity, fromLocationId, toLocationId, type, userId, notes, new Date()]
   );
 };

@@ -68,3 +68,22 @@ export const fetchReportFilters = async () => {
     throw error.response?.data || error
   }
 }
+
+/**
+ * Mengambil data history absensi dari backend.
+ * @param {object} params - { startDate, endDate, search }
+ * @returns {Promise<Array>} List log absensi
+ */
+export const fetchAttendanceEvents = async (params) => {
+  try {
+    const response = await api.get('/attendance/history', { params })
+    if (response.data && response.data.success) {
+      return response.data.data
+    } else {
+      throw new Error(response.data.message || 'Gagal mengambil data absensi.')
+    }
+  } catch (error) {
+    console.error('Error fetching attendance events:', error)
+    throw error.response?.data || error
+  }
+}

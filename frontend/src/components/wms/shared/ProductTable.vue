@@ -3,6 +3,7 @@
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth.js'
 import WmsProductRow from './ProductRow.vue'
+import TableSkeleton from '@/components/ui/TableSkeleton.vue'
 
 const props = defineProps({
   products: { type: Array, required: true },
@@ -14,6 +15,7 @@ const props = defineProps({
     required: false,
     default: () => new Set(),
   },
+  loading: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -44,59 +46,124 @@ function sortIcon(column) {
 </script>
 
 <template>
-  <div class="w-full text-left border-collapse overflow-x-auto">
-    <div class="min-w-[800px]">
-    <div
-      class="grid p-3 bg-primary/5 border-b-2 border-primary/50 text-xs font-bold text-text/60 uppercase tracking-wider items-center"
-      :class="gridClass"
-    >
-      <div
-        @click="handleSort('name')"
-        class="cursor-pointer hover:text-primary flex items-center gap-2"
-        :class="[auth.canViewPrices ? 'col-span-4' : 'col-span-5']"
-      >
-        Produk <font-awesome-icon :icon="sortIcon('name')" />
-      </div>
+  <div
+    class="bg-background rounded-xl shadow-md border border-secondary/20 overflow-x-auto overflow-y-auto relative custom-scrollbar h-[65vh] table-container">
+    <table class="min-w-[1000px] w-full bg-background text-sm text-text border-collapse">
+      <!-- STATIC HEADER -->
+      <thead class="sticky top-0 z-30 bg-background/95 backdrop-blur-md shadow-sm ring-1 ring-secondary/5">
+        <tr>
+          <!-- Name Column (Sticky) -->
+          <th
+            class="px-6 py-3 border-b border-secondary/10 sticky left-0 z-30 bg-background/95 backdrop-blur-md shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)] text-left uppercase text-xs font-bold text-text/60 cursor-pointer hover:text-primary transition-colors w-[350px]"
+            @click="handleSort('name')">
+            <div class="flex items-center gap-2">
+              Produk <font-awesome-icon :icon="sortIcon('name')" />
+            </div>
+          </th>
 
-      <div
-        @click="handleSort('sku')"
-        class="col-span-2 cursor-pointer hover:text-primary flex items-center gap-2"
-      >
-        SKU <font-awesome-icon :icon="sortIcon('sku')" />
-      </div>
+          <!-- SKU -->
+          <th
+            class="px-6 py-3 border-b border-secondary/10 text-left uppercase text-xs font-bold text-text/60 cursor-pointer hover:text-primary transition-colors"
+            @click="handleSort('sku')">
+            <div class="flex items-center gap-2">
+              SKU <font-awesome-icon :icon="sortIcon('sku')" />
+            </div>
+          </th>
 
-      <div
-        v-if="auth.canViewPrices"
-        @click="handleSort('price')"
-        class="col-span-2 text-right cursor-pointer hover:text-primary flex items-center justify-end gap-2"
-      >
-        Harga <font-awesome-icon :icon="sortIcon('price')" />
-      </div>
+          <!-- WEIGHT -->
+          <th
+            class="px-6 py-3 border-b border-secondary/10 text-right uppercase text-xs font-bold text-text/60 cursor-pointer hover:text-primary transition-colors"
+            @click="handleSort('weight')">
+            <div class="flex items-center justify-end gap-2">
+              Berat <font-awesome-icon :icon="sortIcon('weight')" />
+            </div>
+          </th>
 
-      <div class="text-center" :class="[auth.canViewPrices ? 'col-span-2' : 'col-span-3']">
-        Lokasi
-      </div>
+          <!-- PRICE (Conditional) -->
+          <th v-if="auth.canViewPrices"
+            class="px-6 py-3 border-b border-secondary/10 text-right uppercase text-xs font-bold text-text/60 cursor-pointer hover:text-primary transition-colors"
+            @click="handleSort('price')">
+            <div class="flex items-center justify-end gap-2">
+              Harga <font-awesome-icon :icon="sortIcon('price')" />
+            </div>
+          </th>
 
-      <div class="col-span-1 text-center">Stok</div>
+          <!-- LOCATION -->
+          <th class="px-6 py-3 border-b border-secondary/10 text-center uppercase text-xs font-bold text-text/60">
+            Lokasi
+          </th>
 
-      <div class="col-span-1 text-center">Aksi</div>
-    </div>
+          <!-- STOCK -->
+          <th class="px-6 py-3 border-b border-secondary/10 text-center uppercase text-xs font-bold text-text/60">
+            Stok
+          </th>
 
-    <div class="divide-y divide-primary/20">
-      <WmsProductRow
-        v-for="product in products"
-        :key="product.id"
-        :product="product"
-        :active-view="activeView"
-        :is-updated="recentlyUpdatedProducts.has(product.id)"
-        @copy="(payload) => emit('copy', payload)"
-        @openAdjust="(product) => emit('openAdjust', product)"
-        @openTransfer="(product) => emit('openTransfer', product)"
-        @openHistory="(product) => emit('openHistory', product)"
-        @openEdit="(product) => emit('openEdit', product)"
-        @delete="(product) => emit('delete', product)"
-      />
-    </div>
-    </div>
+          <!-- ACTIONS (Sticky Right) -->
+          <th
+            class="px-6 py-3 border-b border-secondary/10 sticky right-0 z-30 bg-background/95 backdrop-blur-md shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)] text-center uppercase text-xs font-bold text-text/60 w-[80px]">
+            Aksi
+          </th>
+        </tr>
+      </thead>
+
+      <!-- TABLE BODY -->
+      <TransitionGroup tag="tbody" name="list" class="divide-y divide-secondary/5 relative">
+        <template v-if="loading">
+          <TableSkeleton v-for="n in 10" :key="`skeleton-${n}`" />
+        </template>
+
+        <tr v-else-if="!products.length" key="empty">
+          <td :colspan="auth.canViewPrices ? 7 : 6" class="py-12 text-center text-text/50 italic">
+            Tidak ada produk yang ditemukan.
+          </td>
+        </tr>
+
+        <!-- ROW COMPONENT (Now must be TR) -->
+        <WmsProductRow v-else v-for="product in products" :key="product.id" :product="product" :active-view="activeView"
+          :is-updated="recentlyUpdatedProducts.has(product.id)" @copy="(payload) => emit('copy', payload)"
+          @openAdjust="(product) => emit('openAdjust', product)"
+          @openTransfer="(product) => emit('openTransfer', product)"
+          @openHistory="(product) => emit('openHistory', product)" @openEdit="(product) => emit('openEdit', product)"
+          @delete="(product) => emit('delete', product)" />
+      </TransitionGroup>
+    </table>
+    <slot name="footer" />
   </div>
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--color-secondary) / 0.3);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--color-secondary) / 0.5);
+}
+
+/* List Transitions */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.3s ease;
+}
+
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+.list-leave-active {
+  position: absolute;
+  width: 100%;
+}
+</style>

@@ -10,6 +10,7 @@ import {
 import { useToast } from '@/composables/useToast.js'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import FilterContainer from '@/components/ui/FilterContainer.vue'
+import TableSkeleton from '@/components/ui/TableSkeleton.vue'
 
 const { show: showToast } = useToast()
 const isSidebarOpen = ref(false)
@@ -37,11 +38,11 @@ const reportFilters = ref({
 })
 
 // State untuk navigasi laporan
-const activeReport = ref('kpi')
+const activeReport = ref('overview')
 
 // Menu navigasi untuk sidebar (dengan ikon)
 const reportsMenu = [
-  { key: 'kpi', label: 'Ringkasan KPI', group: 'Overview', icon: 'fa-solid fa-chart-pie' },
+  { key: 'overview', label: 'Overview', group: 'Overview', icon: 'fa-solid fa-chart-pie' },
   {
     key: 'sales',
     label: 'Laporan Penjualan',
@@ -59,12 +60,6 @@ const reportsMenu = [
     label: 'Laporan Nilai Inventaris',
     group: 'Laporan Utama',
     icon: 'fa-solid fa-dollar-sign',
-  },
-  {
-    key: 'user-performance',
-    label: 'Laporan Kinerja Pengguna',
-    group: 'Laporan Utama',
-    icon: 'fa-solid fa-users',
   },
   {
     key: 'channel-performance',
@@ -125,7 +120,7 @@ async function loadHistory() {
 
 // Muat data KPI saat komponen pertama kali dimuat
 onMounted(() => {
-  if (activeReport.value === 'kpi') {
+  if (activeReport.value === 'overview') {
     loadKpiData()
   }
   loadReportFilters()
@@ -193,17 +188,13 @@ const formatCurrency = (num) => {
 <template>
   <div class="flex min-h-screen bg-secondary/10 font-sans text-text">
     <!-- Mobile Backdrop -->
-    <div
-      v-if="isSidebarOpen"
-      @click="isSidebarOpen = false"
-      class="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
-    ></div>
+    <div v-if="isSidebarOpen" @click="isSidebarOpen = false"
+      class="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"></div>
 
     <!-- Sidebar -->
     <aside
       class="fixed md:sticky top-0 h-screen z-50 w-64 bg-background border-r border-secondary/20 transform transition-transform duration-300 ease-in-out flex flex-col shadow-lg md:shadow-none"
-      :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
-    >
+      :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'">
       <!-- Logo / Header -->
       <div class="p-6 border-b border-secondary/20 flex justify-between items-center bg-secondary/5">
         <h2 class="text-xl font-bold text-text flex items-center gap-3">
@@ -211,39 +202,26 @@ const formatCurrency = (num) => {
           <span>Statistik</span>
         </h2>
         <!-- Close button for mobile -->
-        <button
-          @click="isSidebarOpen = false"
-          class="md:hidden text-text/60 hover:text-danger p-1 rounded-md transition-colors"
-        >
+        <button @click="isSidebarOpen = false"
+          class="md:hidden text-text/60 hover:text-danger p-1 rounded-md transition-colors">
           <font-awesome-icon icon="fa-solid fa-xmark" size="lg" />
         </button>
       </div>
 
       <!-- Navigation -->
       <nav class="flex-1 overflow-y-auto py-6 px-4 space-y-6">
-        <div
-          v-for="groupName in ['Overview', 'Laporan Utama', 'Audit & Lainnya']"
-          :key="groupName"
-        >
+        <div v-for="groupName in ['Overview', 'Laporan Utama', 'Audit & Lainnya']" :key="groupName">
           <h4 class="text-xs font-bold text-text/40 uppercase tracking-wider mb-2 px-3">
             {{ groupName }}
           </h4>
           <div class="space-y-1">
-            <a
-              v-for="item in reportsMenu.filter((m) => m.group === groupName)"
-              :key="item.key"
-              href="#"
-              @click.prevent="
-                activeReport = item.key;
-                isSidebarOpen = false
-              "
-              class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all"
-              :class="
-                activeReport === item.key
-                  ? 'bg-primary/10 text-primary shadow-sm font-bold ring-1 ring-primary/20'
-                  : 'text-text/70 hover:bg-secondary/20 hover:text-text'
-              "
-            >
+            <a v-for="item in reportsMenu.filter((m) => m.group === groupName)" :key="item.key" href="#" @click.prevent="
+              activeReport = item.key;
+            isSidebarOpen = false
+              " class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all" :class="activeReport === item.key
+                ? 'bg-primary/10 text-primary shadow-sm font-bold ring-1 ring-primary/20'
+                : 'text-text/70 hover:bg-secondary/20 hover:text-text'
+                ">
               <div class="w-6 flex justify-center mr-2">
                 <font-awesome-icon :icon="item.icon" />
               </div>
@@ -256,13 +234,14 @@ const formatCurrency = (num) => {
       <!-- Footer / User Info -->
       <div class="p-4 border-t border-secondary/20 bg-secondary/5">
         <div class="flex items-center gap-3">
-           <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
-              <font-awesome-icon icon="fa-solid fa-user" />
-           </div>
-           <div class="text-sm">
-              <p class="font-semibold text-text">Dashboard User</p>
-              <p class="text-xs text-text/60">Laporan & Analisis</p>
-           </div>
+          <div
+            class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
+            <font-awesome-icon icon="fa-solid fa-user" />
+          </div>
+          <div class="text-sm">
+            <p class="font-semibold text-text">Dashboard User</p>
+            <p class="text-xs text-text/60">Laporan & Analisis</p>
+          </div>
         </div>
       </div>
     </aside>
@@ -271,12 +250,9 @@ const formatCurrency = (num) => {
     <div class="flex-1 flex flex-col min-w-0 transition-all duration-300">
       <!-- Mobile Header -->
       <header
-        class="md:hidden h-16 bg-background/80 backdrop-blur-md border-b border-secondary/20 flex items-center justify-between px-4 sticky top-0 z-30 shadow-sm"
-      >
-        <button
-          @click="isSidebarOpen = !isSidebarOpen"
-          class="p-2 -ml-2 text-text/70 hover:text-primary rounded-lg hover:bg-secondary/10 transition-colors"
-        >
+        class="md:hidden h-16 bg-background/80 backdrop-blur-md border-b border-secondary/20 flex items-center justify-between px-4 sticky top-0 z-30 shadow-sm">
+        <button @click="isSidebarOpen = !isSidebarOpen"
+          class="p-2 -ml-2 text-text/70 hover:text-primary rounded-lg hover:bg-secondary/10 transition-colors">
           <font-awesome-icon icon="fa-solid fa-bars" size="lg" />
         </button>
         <span class="font-bold text-text truncate">Statistik & Laporan</span>
@@ -287,21 +263,13 @@ const formatCurrency = (num) => {
       <main class="flex-1 p-4 md:p-8 overflow-x-hidden w-full">
         <div class="max-w-7xl mx-auto">
           <div
-            class="bg-background rounded-xl shadow-md border border-secondary/20 p-6 min-h-[500px] relative overflow-hidden animate-fade-in"
-          >
+            class="bg-background rounded-xl shadow-md border border-secondary/20 p-6 min-h-[500px] relative overflow-hidden animate-fade-in">
             <div v-if="isLoading" class="flex flex-col items-center justify-center h-80">
-              <font-awesome-icon
-                icon="fa-solid fa-circle-notch"
-                spin
-                class="text-primary text-4xl mb-3"
-              />
+              <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-primary text-4xl mb-3" />
               <span class="text-text/50 font-medium">Memuat Data...</span>
             </div>
 
-            <div
-              v-else-if="errorMessage"
-              class="flex flex-col items-center justify-center h-80 text-danger"
-            >
+            <div v-else-if="errorMessage" class="flex flex-col items-center justify-center h-80 text-danger">
               <div class="bg-danger/10 p-4 rounded-full mb-3">
                 <font-awesome-icon icon="fa-solid fa-triangle-exclamation" class="text-3xl" />
               </div>
@@ -309,9 +277,9 @@ const formatCurrency = (num) => {
               <p class="text-sm opacity-80 mt-1">{{ errorMessage }}</p>
             </div>
 
-            <div v-else-if="activeReport === 'kpi' && kpiData" class="animate-fade-in">
+            <div v-else-if="activeReport === 'overview' && kpiData" class="animate-fade-in">
               <div class="flex justify-between items-center mb-6">
-                <h3 class="text-lg font-bold text-text">Ringkasan Operasional (Hari Ini)</h3>
+                <h3 class="text-lg font-bold text-text">Overall Summary</h3>
                 <span class="text-xs text-text/40 font-mono">{{
                   new Date().toLocaleDateString('id-ID', {
                     weekday: 'long',
@@ -379,26 +347,15 @@ const formatCurrency = (num) => {
                     <div class="space-y-5 w-full">
                       <div>
                         <label class="label-input">Cari Produk</label>
-                        <SearchInput
-                          id="search-filter"
-                          v-model="selectedFilters.searchQuery"
-                          placeholder="Cari SKU atau Nama Produk..."
-                        />
+                        <SearchInput id="search-filter" v-model="selectedFilters.searchQuery"
+                          placeholder="Cari SKU atau Nama Produk..." />
                       </div>
 
                       <div>
                         <label class="label-input">Gedung</label>
-                        <select
-                          multiple
-                          id="building-filter"
-                          v-model="selectedFilters.building"
-                          class="input-select h-32"
-                        >
-                          <option
-                            v-for="building in availableBuildings"
-                            :key="building"
-                            :value="building"
-                          >
+                        <select multiple id="building-filter" v-model="selectedFilters.building"
+                          class="input-select h-32">
+                          <option v-for="building in availableBuildings" :key="building" :value="building">
                             {{ building }}
                           </option>
                         </select>
@@ -410,23 +367,14 @@ const formatCurrency = (num) => {
                       <div>
                         <label class="label-input">Tujuan</label>
                         <div class="relative">
-                          <select
-                            id="purpose-filter"
-                            v-model="selectedFilters.purpose"
-                            class="input-select appearance-none"
-                          >
+                          <select id="purpose-filter" v-model="selectedFilters.purpose"
+                            class="input-select appearance-none">
                             <option value="">-- Semua Tujuan --</option>
-                            <option
-                              v-for="purpose in reportFilters.purposes"
-                              :key="purpose"
-                              :value="purpose"
-                            >
+                            <option v-for="purpose in reportFilters.purposes" :key="purpose" :value="purpose">
                               {{ purpose }}
                             </option>
                           </select>
-                          <div
-                            class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-text/40"
-                          >
+                          <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-text/40">
                             <font-awesome-icon icon="fa-solid fa-chevron-down" size="xs" />
                           </div>
                         </div>
@@ -436,18 +384,13 @@ const formatCurrency = (num) => {
                         <div>
                           <label class="label-input">Tipe</label>
                           <div class="relative">
-                            <select
-                              id="type-filter"
-                              v-model="selectedFilters.isPackage"
-                              class="input-select appearance-none"
-                            >
+                            <select id="type-filter" v-model="selectedFilters.isPackage"
+                              class="input-select appearance-none">
                               <option value="">Semua</option>
                               <option value="0">Tunggal</option>
                               <option value="1">Paket</option>
                             </select>
-                            <div
-                              class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-text/40"
-                            >
+                            <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-text/40">
                               <font-awesome-icon icon="fa-solid fa-chevron-down" size="xs" />
                             </div>
                           </div>
@@ -455,29 +398,21 @@ const formatCurrency = (num) => {
                         <div>
                           <label class="label-input">Status Stok</label>
                           <div class="relative">
-                            <select
-                              id="stock-status-filter"
-                              v-model="selectedFilters.stockStatus"
-                              class="input-select appearance-none"
-                            >
+                            <select id="stock-status-filter" v-model="selectedFilters.stockStatus"
+                              class="input-select appearance-none">
                               <option value="positive">Positif</option>
                               <option value="negative">Minus</option>
                               <option value="all">Semua</option>
                             </select>
-                            <div
-                              class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-text/40"
-                            >
+                            <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-text/40">
                               <font-awesome-icon icon="fa-solid fa-chevron-down" size="xs" />
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      <button
-                        @click="handleRequestExport"
-                        :disabled="isRequesting"
-                        class="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-[0.98]"
-                      >
+                      <button @click="handleRequestExport" :disabled="isRequesting"
+                        class="w-full py-3 bg-primary text-secondary rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
                         <font-awesome-icon v-if="isRequesting" icon="fa-solid fa-circle-notch" spin />
                         <font-awesome-icon v-else icon="fa-solid fa-file-export" />
                         <span>{{ isRequesting ? 'Memproses...' : 'Generate Laporan' }}</span>
@@ -491,112 +426,94 @@ const formatCurrency = (num) => {
                     <h4 class="text-sm font-bold text-text/70 uppercase tracking-wide">
                       Riwayat Generate
                     </h4>
-                    <button
-                      @click="loadHistory"
-                      :disabled="isHistoryLoading"
-                      class="text-xs text-primary font-bold hover:text-primary/80 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
-                    >
-                      <font-awesome-icon
-                        icon="fa-solid fa-rotate"
-                        :class="{ 'animate-spin': isHistoryLoading }"
-                      />
+                    <button @click="loadHistory" :disabled="isHistoryLoading"
+                      class="text-xs text-primary font-bold hover:text-primary/80 disabled:opacity-50 flex items-center gap-1.5 transition-colors">
+                      <font-awesome-icon icon="fa-solid fa-rotate" :class="{ 'animate-spin': isHistoryLoading }" />
                       Refresh
                     </button>
                   </div>
 
                   <div
-                    class="bg-background border border-secondary/20 rounded-xl overflow-hidden shadow-sm overflow-x-auto"
-                  >
-                    <table class="w-full text-left text-sm min-w-[500px]">
-                      <thead class="bg-secondary/10 border-b border-secondary/20">
+                    class="bg-background border border-secondary/20 rounded-xl overflow-hidden shadow-md overflow-x-auto overflow-y-auto relative custom-scrollbar max-h-[400px]">
+                    <table class="w-full text-left text-sm min-w-[500px] border-collapse">
+                      <thead
+                        class="sticky top-0 z-30 bg-background/95 backdrop-blur-md shadow-sm ring-1 ring-secondary/5">
                         <tr>
-                          <th class="px-4 py-3 font-bold text-xs text-text/60 uppercase">Waktu</th>
-                          <th class="px-4 py-3 font-bold text-xs text-text/60 uppercase">Status</th>
-                          <th class="px-4 py-3 font-bold text-xs text-text/60 uppercase text-right">
+                          <th
+                            class="px-6 py-3 font-bold text-xs text-text/60 uppercase sticky left-0 z-30 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+                            Waktu</th>
+                          <th class="px-6 py-3 font-bold text-xs text-text/60 uppercase border-b border-secondary/10">
+                            Status</th>
+                          <th
+                            class="px-6 py-3 font-bold text-xs text-text/60 uppercase text-right border-b border-secondary/10 sticky right-0 z-30 bg-background/95 backdrop-blur-md shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]">
                             Aksi
                           </th>
                         </tr>
                       </thead>
-                      <tbody class="divide-y divide-secondary/10">
-                        <tr v-if="jobHistory.length === 0 && !isHistoryLoading">
-                          <td colspan="3" class="px-4 py-8 text-sm text-text/40 text-center italic">
-                            <font-awesome-icon
-                              icon="fa-solid fa-clock-rotate-left"
-                              class="mb-2 text-2xl opacity-20 block mx-auto"
-                            />
+                      <TransitionGroup tag="tbody" name="list" class="divide-y divide-secondary/5 relative">
+                        <template v-if="isHistoryLoading && jobHistory.length === 0">
+                          <TableSkeleton v-for="n in 3" :key="`skeleton-${n}`" />
+                        </template>
+
+                        <tr v-else-if="jobHistory.length === 0" key="empty">
+                          <td colspan="3" class="px-6 py-12 text-sm text-text/40 text-center italic">
+                            <font-awesome-icon icon="fa-solid fa-clock-rotate-left"
+                              class="mb-3 text-3xl opacity-20 block mx-auto" />
                             Belum ada riwayat permintaan.
                           </td>
                         </tr>
-                        <tr v-if="isHistoryLoading && jobHistory.length === 0">
-                          <td colspan="3" class="px-4 py-8 text-center text-text/40">
-                            Memuat riwayat...
-                          </td>
-                        </tr>
-                        <tr
-                          v-for="job in jobHistory"
-                          :key="job.id"
-                          class="hover:bg-secondary/5 transition-colors"
-                        >
-                          <td class="px-4 py-3 text-text text-xs">
-                            <div class="font-medium">
-                              {{ new Date(job.created_at).toLocaleDateString('id-ID') }}
-                            </div>
-                            <div class="text-text/40">
-                              {{ new Date(job.created_at).toLocaleTimeString('id-ID') }}
+
+                        <tr v-else v-for="job in jobHistory" :key="job.id"
+                          class="hover:bg-secondary/5 transition-colors group relative">
+                          <td
+                            class="px-6 py-4 text-text text-xs sticky left-0 z-20 bg-background group-hover:bg-secondary/5 transition-colors shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+                            <div class="flex flex-col">
+                              <span class="font-bold text-sm">{{ new Date(job.created_at).toLocaleDateString('id-ID')
+                                }}</span>
+                              <span class="text-text/40 text-[10px]">{{ new
+                                Date(job.created_at).toLocaleTimeString('id-ID') }}</span>
                             </div>
                           </td>
-                          <td class="px-4 py-3">
-                            <span
-                              v-if="job.status === 'COMPLETED'"
-                              class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-success/10 text-success border border-success/20"
-                            >
+                          <td class="px-6 py-4">
+                            <span v-if="job.status === 'COMPLETED'"
+                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-success/10 text-success border border-success/20">
                               <font-awesome-icon icon="fa-solid fa-check" /> Selesai
                             </span>
-                            <span
-                              v-else-if="job.status === 'FAILED'"
-                              class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-danger/10 text-danger border border-danger/20"
-                              :title="job.error_message"
-                            >
+                            <span v-else-if="job.status === 'FAILED'"
+                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-danger/10 text-danger border border-danger/20"
+                              :title="job.error_message">
                               <font-awesome-icon icon="fa-solid fa-xmark" /> Gagal
                             </span>
-                            <span
-                              v-else
-                              class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-warning/10 text-warning border border-warning/20"
-                            >
-                              <font-awesome-icon icon="fa-solid fa-spinner" spin /> Proses
+                            <span v-else
+                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-warning/10 text-warning border border-warning/20">
+                              <span class="w-1.5 h-1.5 rounded-full bg-current animate-ping"></span>
+                              Proses
                             </span>
                           </td>
-                          <td class="px-4 py-3 text-right">
-                            <a
-                              v-if="job.status === 'COMPLETED'"
-                              :href="job.download_url"
-                              download
-                              class="inline-block px-3 py-1 bg-primary/10 text-primary rounded-lg text-xs font-bold hover:bg-primary hover:text-white transition-all"
-                            >
-                              <font-awesome-icon icon="fa-solid fa-download" class="mr-1" /> Unduh
+                          <td
+                            class="px-6 py-4 text-right sticky right-0 z-20 bg-background group-hover:bg-secondary/5 transition-colors shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+                            <a v-if="job.status === 'COMPLETED'" :href="job.download_url" download
+                              class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-bold hover:bg-primary hover:text-secondary transition-all shadow-sm">
+                              <font-awesome-icon icon="fa-solid fa-download" /> Unduh
                             </a>
-                            <span
-                              v-else-if="job.status === 'FAILED'"
-                              class="text-xs text-danger/60 italic cursor-help"
-                              :title="job.error_message"
-                            >
+                            <span v-else-if="job.status === 'FAILED'"
+                              class="text-xs text-danger/60 italic cursor-help underline decoration-dotted"
+                              :title="job.error_message">
                               Lihat Error
                             </span>
                             <span v-else class="text-xs text-text/30 italic"> Menunggu... </span>
                           </td>
                         </tr>
-                      </tbody>
+                      </TransitionGroup>
                     </table>
                   </div>
                 </div>
               </div>
             </div>
 
+            <!-- [NEW] Attendance Stats Section -->
             <div v-else class="flex flex-col items-center justify-center h-80 text-text/30">
-              <font-awesome-icon
-                icon="fa-solid fa-screwdriver-wrench"
-                class="text-4xl mb-3 opacity-20"
-              />
+              <font-awesome-icon icon="fa-solid fa-screwdriver-wrench" class="text-4xl mb-3 opacity-20" />
               <h3 class="text-lg font-medium italic">Laporan ini sedang dalam pengembangan.</h3>
               <p class="text-sm">Silakan kembali lagi nanti.</p>
             </div>
@@ -644,9 +561,45 @@ const formatCurrency = (num) => {
     opacity: 0;
     transform: translateY(5px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--color-secondary) / 0.3);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--color-secondary) / 0.5);
+}
+
+/* List Transitions */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.3s ease;
+}
+
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+.list-leave-active {
+  position: absolute;
+  width: 100%;
 }
 </style>

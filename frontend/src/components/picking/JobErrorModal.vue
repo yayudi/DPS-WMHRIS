@@ -34,12 +34,12 @@ watch(
       if (typeof raw === 'string') {
         try {
           raw = JSON.parse(raw)
-        } catch (e) {}
+        } catch (e) { }
       }
       if (typeof raw === 'string') {
         try {
           raw = JSON.parse(raw)
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // Mapping Data
@@ -64,10 +64,7 @@ function close() {
 <template>
   <Modal :show="show" @close="close" :title="`Laporan Error: ${filename}`">
     <div class="flex flex-col gap-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
-      <div
-        v-if="downloadUrl"
-        class="bg-warning/10 border border-warning/20 rounded-xl p-4 flex flex-col gap-3"
-      >
+      <div v-if="downloadUrl" class="bg-warning/10 border border-warning/20 rounded-xl p-4 flex flex-col gap-3">
         <div class="flex items-start gap-3">
           <div class="bg-warning/20 p-2 rounded-lg text-warning-dark">
             <font-awesome-icon icon="fa-solid fa-triangle-exclamation" />
@@ -80,11 +77,8 @@ function close() {
           </div>
         </div>
 
-        <a
-          :href="`${apiBaseUrl}${downloadUrl}`"
-          target="_blank"
-          class="w-full text-center bg-warning hover:bg-warning-hover text-white text-sm font-bold px-4 py-2.5 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2"
-        >
+        <a :href="`${apiBaseUrl}${downloadUrl}`" target="_blank"
+          class="w-full text-center bg-warning hover:bg-warning-hover text-secondary text-sm font-bold px-4 py-2.5 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2">
           <font-awesome-icon icon="fa-solid fa-file-excel" />
           Download File Perbaikan
         </a>
@@ -104,20 +98,13 @@ function close() {
               </tr>
             </thead>
             <tbody class="divide-y divide-secondary/10">
-              <tr
-                v-for="(err, idx) in errorList"
-                :key="idx"
-                class="hover:bg-secondary/5 transition-colors"
-              >
+              <tr v-for="(err, idx) in errorList" :key="idx" class="hover:bg-secondary/5 transition-colors">
                 <td class="p-3 text-center font-mono text-xs text-text/50 bg-secondary/5">
                   {{ err.row || '-' }}
                 </td>
                 <td class="p-3">
                   <div class="flex flex-col">
-                    <span
-                      class="font-bold text-xs text-text/80 mb-0.5"
-                      v-if="err.sku && err.sku !== 'UNKNOWN'"
-                    >
+                    <span class="font-bold text-xs text-text/80 mb-0.5" v-if="err.sku && err.sku !== 'UNKNOWN'">
                       {{ err.sku }}
                     </span>
                     <span class="text-xs text-danger leading-relaxed">
@@ -138,10 +125,8 @@ function close() {
     </div>
 
     <template #footer>
-      <button
-        @click="close"
-        class="px-4 py-2 text-sm font-medium text-text/60 hover:text-text hover:bg-secondary/10 rounded-lg transition-colors"
-      >
+      <button @click="close"
+        class="px-4 py-2 text-sm font-medium text-text/60 hover:text-text hover:bg-secondary/10 rounded-lg transition-colors">
         Tutup
       </button>
     </template>
@@ -153,13 +138,16 @@ function close() {
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.1);
   border-radius: 10px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.2);
 }

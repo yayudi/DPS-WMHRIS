@@ -3,6 +3,7 @@ import express from "express";
 import db from "../config/db.js";
 import { canAccess } from "../middleware/permissionMiddleware.js";
 import * as locationController from "../controllers/locationController.js";
+import { createLog } from "../repositories/systemLogRepository.js";
 
 const router = express.Router();
 
@@ -50,6 +51,17 @@ router.put("/:id", canAccess("manage-locations"), async (req, res) => {
       return res.status(404).json({ success: false, message: "Lokasi tidak ditemukan." });
     }
     res.json({ success: true, message: "Lokasi berhasil diperbarui." });
+
+    // LOGGING
+    await createLog(db, {
+      userId: req.user.id,
+      action: "UPDATE",
+      targetType: "LOCATION",
+      targetId: String(id),
+      changes: { code, building, floor, name, purpose },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({ success: false, message: "Kode lokasi sudah digunakan." });
@@ -71,6 +83,17 @@ router.delete("/:id", canAccess("manage-locations"), async (req, res) => {
       return res.status(404).json({ success: false, message: "Lokasi tidak ditemukan." });
     }
     res.json({ success: true, message: "Lokasi berhasil dihapus." });
+
+    // LOGGING
+    await createLog(db, {
+      userId: req.user.id,
+      action: "DELETE",
+      targetType: "LOCATION",
+      targetId: String(id),
+      changes: { note: "Deleted Location" },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
   } catch (error) {
     // Jika lokasi masih digunakan di tabel lain, akan error
     if (error.code === "ER_ROW_IS_REFERENCED_2") {

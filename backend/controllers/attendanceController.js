@@ -3,6 +3,7 @@ import { createJobService } from "../services/jobService.js";
 import path from "path";
 import db from "../config/db.js";
 import { loadHolidays } from "../services/helpers/fileHelpers.js";
+import * as attendanceService from "../services/attendanceService.js";
 import {
   JAM_KERJA_MULAI,
   JAM_KERJA_SELESAI,
@@ -12,6 +13,27 @@ import {
 // ============================================================================
 // READ OPERATIONS
 // ============================================================================
+
+/**
+ * Get attendance history (Realtime Log).
+ * @param {object} req
+ * @param {object} res
+ */
+export const getHistory = async (req, res) => {
+  try {
+    const { startDate, endDate, search } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ success: false, message: "Start Date and End Date is required." });
+    }
+
+    const data = await attendanceService.getHistory(startDate, endDate, search);
+    res.json({ success: true, data: data.logs });
+  } catch (error) {
+    console.error("Error fetching attendance history:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 /**
  * Get available year/month indexes for attendance data.

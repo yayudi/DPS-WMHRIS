@@ -132,7 +132,7 @@ export const getProductHistory = async (req, res) => {
 // POST /
 // Membuat produk baru
 export const createProduct = async (req, res) => {
-  const { sku, name, price, weight, is_package, components } = req.body;
+  const { sku, name, category, price, weight, is_package, components } = req.body;
   const userId = req.user.id; // ✅ Ambil ID User untuk Audit Log
 
   // Validasi Input
@@ -147,7 +147,7 @@ export const createProduct = async (req, res) => {
 
   try {
     const productId = await productService.createProductService(
-      { sku, name, price, weight, is_package, components },
+      { sku, name, category, price, weight, is_package, components },
       userId
     );
 
@@ -167,7 +167,7 @@ export const createProduct = async (req, res) => {
 export const updateProduct = async (req, res) => {
   const { id } = req.params;
   // ✅ Ambil 'weight' dari body
-  const { name, price, weight, is_package, components, is_active } = req.body;
+  const { name, category, price, weight, is_package, components, is_active } = req.body;
   const userId = req.user.id; // ✅ Ambil ID User untuk Audit Log
 
   // Handle Restore Action (Specific Case)
@@ -188,7 +188,7 @@ export const updateProduct = async (req, res) => {
   try {
     await productService.updateProductService(
       id,
-      { name, price, weight, is_package, components },
+      { name, category, price, weight, is_package, components },
       userId
     );
 

@@ -16,6 +16,10 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// [FIX V5] Enable Trust Proxy for Reverse Proxies (Cloudflare/Nginx)
+// Ensure req.protocol detects 'https' correctly
+app.set('trust proxy', true);
+
 // ==================================================================
 // [FIX CORS V5] Konfigurasi CORS Permissive
 // ==================================================================

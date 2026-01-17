@@ -64,51 +64,40 @@ onUnmounted(() => {
 
 <template>
   <!-- Header dibuat 'relative' agar menu mobile bisa 'absolute' thd-nya -->
-  <header
-    class="bg-secondary/15 backdrop-blur-md sticky top-0 z-40 border-b border-secondary/20 relative shadow-sm"
-  >
+  <header class="bg-secondary/15 backdrop-blur-md sticky top-0 z-40 border-b border-secondary/20 relative shadow-sm">
     <nav class="container mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
       <!-- Sisi Kiri: Logo & Nav Desktop -->
       <div class="flex items-center gap-6">
-        <RouterLink
-          to="/"
-          class="font-bold text-lg text-primary hover:opacity-80 transition-opacity flex-shrink-0"
-          @click="isMobileMenuOpen = false"
-        >
+        <RouterLink to="/" class="font-bold text-lg text-primary hover:opacity-80 transition-opacity flex-shrink-0"
+          @click="isMobileMenuOpen = false">
           Dunia Pratama Sejahtera
         </RouterLink>
 
         <!-- Navigasi Desktop: Sembunyi di mobile, tampil di desktop -->
         <div class="hidden md:flex items-center gap-6 text-sm font-medium">
-          <RouterLink
-            to="/absensi"
-            class="border-b-2 text-text/80 hover:text-primary transition-colors"
-            active-class="!text-primary text-lg font-bold border-primary"
-          >
-            Absensi
+          <RouterLink to="/absensi"
+            class="border-b-2 text-text/80 hover:text-primary transition-colors flex items-center gap-2"
+            active-class="!text-primary text-lg font-bold border-primary">
+            <font-awesome-icon icon="fa-solid fa-clock" />
+            <span>Absensi</span>
           </RouterLink>
-          <RouterLink
-            to="/wms"
-            class="border-b-2 text-text/80 hover:text-primary transition-colors"
-            active-class="!text-primary text-lg font-bold border-primary"
-          >
-            WMS
+          <RouterLink to="/wms"
+            class="border-b-2 text-text/80 hover:text-primary transition-colors flex items-center gap-2"
+            active-class="!text-primary text-lg font-bold border-primary">
+            <font-awesome-icon icon="fa-solid fa-warehouse" />
+            <span>WMS</span>
           </RouterLink>
-          <RouterLink
-            to="/stats"
-            v-if="auth.user?.permissions?.includes('view-reports')"
-            class="border-b-2 text-text/80 hover:text-primary transition-colors"
-            active-class="!text-primary text-lg font-bold border-primary"
-          >
-            Stats & Reports
+          <RouterLink to="/stats" v-if="auth.user?.permissions?.includes('view-reports')"
+            class="border-b-2 text-text/80 hover:text-primary transition-colors flex items-center gap-2"
+            active-class="!text-primary text-lg font-bold border-primary">
+            <font-awesome-icon icon="fa-solid fa-chart-line" />
+            <span>Stats & Reports</span>
           </RouterLink>
-          <RouterLink
-            to="/admin/users"
-            v-if="auth.user?.permissions?.includes('manage-users')"
-            class="border-b-2 text-text/80 hover:text-primary transition-colors"
-            active-class="!text-primary text-lg font-bold border-primary"
-          >
-            Panel Admin
+          <RouterLink to="/admin/users" v-if="auth.user?.permissions?.includes('manage-users')"
+            class="border-b-2 text-text/80 hover:text-primary transition-colors flex items-center gap-2"
+            active-class="!text-primary text-lg font-bold border-primary">
+            <font-awesome-icon icon="fa-solid fa-user-shield" />
+            <span>Panel Admin</span>
           </RouterLink>
         </div>
       </div>
@@ -117,37 +106,25 @@ onUnmounted(() => {
       <div class="flex items-center gap-2">
         <!-- Dropdown User -->
         <div class="relative" ref="dropdownContainer">
-          <button
-            @click="isDropdownOpen = !isDropdownOpen"
-            class="flex items-center gap-2 px-3 text-text/80 hover:text-primary transition-colors"
-          >
+          <button @click="isDropdownOpen = !isDropdownOpen"
+            class="flex items-center gap-2 px-3 text-text/80 hover:text-primary transition-colors">
             <font-awesome-icon icon="fa-solid fa-user-circle" class="text-xl" />
             <span class="hidden sm:inline text-sm font-medium">{{ displayName }}</span>
-            <font-awesome-icon
-              icon="fa-solid fa-chevron-down"
-              class="text-xs transition-transform duration-200"
-              :class="isDropdownOpen && 'rotate-180'"
-            />
+            <font-awesome-icon icon="fa-solid fa-chevron-down" class="text-xs transition-transform duration-200"
+              :class="isDropdownOpen && 'rotate-180'" />
           </button>
 
           <!-- Panel Dropdown User -->
-          <div
-            v-if="isDropdownOpen"
-            class="absolute right-0 mt-2 w-64 bg-background border border-secondary/30 rounded-lg shadow-lg py-2 z-40"
-          >
-            <RouterLink
-              to="/account"
-              @click="isDropdownOpen = false"
-              class="w-full text-left px-4 py-2 text-sm text-text/90 hover:bg-secondary/20 flex items-center gap-3"
-            >
+          <div v-if="isDropdownOpen"
+            class="absolute right-0 mt-2 w-64 bg-background border border-secondary/30 rounded-lg shadow-lg py-2 z-40">
+            <RouterLink to="/account" @click="isDropdownOpen = false"
+              class="w-full text-left px-4 py-2 text-sm text-text/90 hover:bg-secondary/20 flex items-center gap-3">
               <font-awesome-icon icon="fa-solid fa-user-cog" class="w-4" />
               <span>Akun Saya</span>
             </RouterLink>
 
-            <a
-              href="#"
-              class="w-full text-left px-4 py-2 text-sm text-text/90 hover:bg-secondary/20 flex items-center gap-3"
-            >
+            <a href="#"
+              class="w-full text-left px-4 py-2 text-sm text-text/90 hover:bg-secondary/20 flex items-center gap-3">
               <font-awesome-icon icon="fa-solid fa-language" class="w-4" />
               <span>Bahasa</span>
             </a>
@@ -157,10 +134,8 @@ onUnmounted(() => {
             </div>
 
             <div class="border-t border-secondary/20 mt-2 pt-2">
-              <button
-                @click="handleLogout"
-                class="w-full text-left px-4 py-2 text-sm text-accent hover:bg-accent/10 flex items-center gap-3"
-              >
+              <button @click="handleLogout"
+                class="w-full text-left px-4 py-2 text-sm text-accent hover:bg-accent/10 flex items-center gap-3">
                 <font-awesome-icon icon="fa-solid fa-sign-out-alt" class="w-4" />
                 <span>Logout</span>
               </button>
@@ -169,57 +144,34 @@ onUnmounted(() => {
         </div>
 
         <!-- Tombol Hamburger: Tampil di mobile, sembunyi di desktop -->
-        <button
-          @click="isMobileMenuOpen = !isMobileMenuOpen"
-          ref="hamburgerButton"
-          class="md:hidden p-2 text-text/80 hover:text-primary"
-          aria-label="Buka menu"
-        >
+        <button @click="isMobileMenuOpen = !isMobileMenuOpen" ref="hamburgerButton"
+          class="md:hidden p-2 text-text/80 hover:text-primary" aria-label="Buka menu">
           <font-awesome-icon icon="fa-solid fa-bars" class="text-xl w-5" />
         </button>
       </div>
     </nav>
 
     <!-- Panel Menu Mobile: Tampil di mobile, sembunyi di desktop -->
-    <div
-      v-if="isMobileMenuOpen"
-      ref="mobileMenuPanel"
-      class="md:hidden absolute w-full bg-secondary backdrop-blur-md border-b border-secondary/20 shadow-lg z-99"
-    >
+    <div v-if="isMobileMenuOpen" ref="mobileMenuPanel"
+      class="md:hidden absolute w-full bg-secondary backdrop-blur-md border-b border-secondary/20 shadow-lg z-99">
       <nav class="container mx-auto px-4 sm:px-6 py-4 space-y-2">
-        <RouterLink
-          to="/absensi"
-          @click="isMobileMenuOpen = false"
+        <RouterLink to="/absensi" @click="isMobileMenuOpen = false"
           class="block px-3 py-2 rounded-md text-base font-medium text-text/80 hover:bg-secondary/20 hover:text-primary"
-          active-class="!text-primary font-bold bg-secondary/10"
-          >Absensi</RouterLink
-        >
+          active-class="!text-primary font-bold bg-secondary/10">Absensi</RouterLink>
 
-        <RouterLink
-          to="/wms"
-          @click="isMobileMenuOpen = false"
+        <RouterLink to="/wms" @click="isMobileMenuOpen = false"
           class="block px-3 py-2 rounded-md text-base font-medium text-text/80 hover:bg-secondary/20 hover:text-primary"
-          active-class="!text-primary font-bold bg-secondary/10"
-          >WMS</RouterLink
-        >
+          active-class="!text-primary font-bold bg-secondary/10">WMS</RouterLink>
 
-        <RouterLink
-          to="/stats"
-          @click="isMobileMenuOpen = false"
+        <RouterLink to="/stats" @click="isMobileMenuOpen = false"
           v-if="auth.user?.permissions?.includes('view-reports')"
           class="block px-3 py-2 rounded-md text-base font-medium text-text/80 hover:bg-secondary/20 hover:text-primary"
-          active-class="!text-primary font-bold bg-secondary/10"
-          >Stats & Reports</RouterLink
-        >
+          active-class="!text-primary font-bold bg-secondary/10">Stats & Reports</RouterLink>
 
-        <RouterLink
-          to="/admin/users"
-          @click="isMobileMenuOpen = false"
+        <RouterLink to="/admin/users" @click="isMobileMenuOpen = false"
           v-if="auth.user?.permissions?.includes('manage-users')"
           class="block px-3 py-2 rounded-md text-base font-medium text-text/80 hover:bg-secondary/20 hover:text-primary"
-          active-class="!text-primary font-bold bg-secondary/10"
-          >Panel Admin</RouterLink
-        >
+          active-class="!text-primary font-bold bg-secondary/10">Panel Admin</RouterLink>
       </nav>
     </div>
   </header>

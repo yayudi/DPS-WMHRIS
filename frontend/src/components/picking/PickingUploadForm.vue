@@ -138,9 +138,7 @@ async function triggerUpload() {
   <div class="space-y-6">
     <!-- 1. Source Tabs -->
     <div>
-      <label class="block text-[10px] font-bold uppercase text-text/40 mb-2 tracking-wider"
-        >Sumber Data</label
-      >
+      <label class="block text-[10px] font-bold uppercase text-text/40 mb-2 tracking-wider">Sumber Data</label>
       <Tabs :tabs="tabs" v-model:model-value="selectedSource" class="w-full" />
     </div>
 
@@ -151,46 +149,27 @@ async function triggerUpload() {
       </label>
 
       <!-- Hidden Input -->
-      <input
-        ref="fileInputRef"
-        type="file"
-        class="hidden"
-        @change="handleFileChange"
-        :accept="fileAcceptString"
-        multiple
-      />
+      <input ref="fileInputRef" type="file" class="hidden" @change="handleFileChange" :accept="fileAcceptString"
+        multiple />
 
       <!-- Custom Dropzone -->
-      <div
-        @click="triggerFileSelect"
-        @dragover.prevent="isDragging = true"
-        @dragleave.prevent="isDragging = false"
-        @drop.prevent="onDrop"
-        :class="[
+      <div @click="triggerFileSelect" @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false"
+        @drop.prevent="onDrop" :class="[
           'relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-200 group',
           isDragging
             ? 'border-primary bg-primary/5 scale-[1.01]'
             : 'border-secondary/30 hover:border-primary/50 hover:bg-secondary/5 bg-background',
-        ]"
-      >
+        ]">
         <div class="flex flex-col items-center justify-center gap-3 py-4">
           <!-- Icon berubah jika ada file -->
-          <div
-            class="w-12 h-12 rounded-full flex items-center justify-center transition-colors"
-            :class="
-              selectedFiles.length > 0
-                ? 'bg-success/10 text-success'
-                : 'bg-primary/10 text-primary group-hover:bg-primary/20'
-            "
-          >
-            <font-awesome-icon
-              :icon="
-                selectedFiles.length > 0
-                  ? 'fa-solid fa-file-circle-check'
-                  : 'fa-solid fa-cloud-arrow-up'
-              "
-              class="text-xl"
-            />
+          <div class="w-12 h-12 rounded-full flex items-center justify-center transition-colors" :class="selectedFiles.length > 0
+              ? 'bg-success/10 text-success'
+              : 'bg-primary/10 text-primary group-hover:bg-primary/20'
+            ">
+            <font-awesome-icon :icon="selectedFiles.length > 0
+                ? 'fa-solid fa-file-circle-check'
+                : 'fa-solid fa-cloud-arrow-up'
+              " class="text-xl" />
           </div>
 
           <div class="space-y-1">
@@ -207,30 +186,20 @@ async function triggerUpload() {
       </div>
 
       <!-- 3. File List Preview (Dismissible) -->
-      <div
-        v-if="selectedFiles.length > 0"
-        class="mt-3 space-y-2 max-h-40 overflow-y-auto custom-scrollbar"
-      >
-        <div
-          v-for="(f, i) in selectedFiles"
-          :key="i"
-          class="flex items-center gap-3 p-2 bg-secondary/5 border border-secondary/10 rounded-lg text-xs group hover:bg-secondary/10 transition-colors"
-        >
-          <font-awesome-icon
-            :icon="f.name.endsWith('.csv') ? 'fa-solid fa-file-csv' : 'fa-solid fa-file-excel'"
-            class="text-text/40 text-lg ml-1"
-          />
+      <div v-if="selectedFiles.length > 0" class="mt-3 space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+        <div v-for="(f, i) in selectedFiles" :key="i"
+          class="flex items-center gap-3 p-2 bg-secondary/5 border border-secondary/10 rounded-lg text-xs group hover:bg-secondary/10 transition-colors">
+          <font-awesome-icon :icon="f.name.endsWith('.csv') ? 'fa-solid fa-file-csv' : 'fa-solid fa-file-excel'"
+            class="text-text/40 text-lg ml-1" />
           <div class="flex-1 min-w-0">
             <div class="font-semibold text-text/80 truncate">{{ f.name }}</div>
             <div class="text-[10px] text-text/40 font-mono">
               {{ (f.size / 1024).toFixed(0) }} KB
             </div>
           </div>
-          <button
-            @click.stop="removeFile(i)"
+          <button @click.stop="removeFile(i)"
             class="p-1.5 hover:bg-danger/10 text-text/30 hover:text-danger rounded transition-colors"
-            title="Hapus file"
-          >
+            title="Hapus file">
             <font-awesome-icon icon="fa-solid fa-xmark" />
           </button>
         </div>
@@ -242,41 +211,24 @@ async function triggerUpload() {
       <!-- [NEW] Dry Run Checkbox -->
       <div class="flex items-center gap-2 px-1" v-if="selectedFiles.length > 0">
         <div class="relative flex items-center">
-          <input
-            type="checkbox"
-            id="dryRunCheck"
-            v-model="isDryRun"
-            class="peer h-4 w-4 cursor-pointer appearance-none rounded border border-secondary/40 checked:bg-primary checked:border-primary transition-all"
-          />
-          <font-awesome-icon
-            icon="fa-solid fa-check"
-            class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] text-white opacity-0 peer-checked:opacity-100"
-          />
+          <input type="checkbox" id="dryRunCheck" v-model="isDryRun"
+            class="peer h-4 w-4 cursor-pointer appearance-none rounded border border-secondary/40 checked:bg-primary checked:border-primary transition-all" />
+          <font-awesome-icon icon="fa-solid fa-check"
+            class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] text-secondary opacity-0 peer-checked:opacity-100" />
         </div>
-        <label
-          for="dryRunCheck"
-          class="text-xs text-text/70 cursor-pointer select-none font-medium"
-        >
+        <label for="dryRunCheck" class="text-xs text-text/70 cursor-pointer select-none font-medium">
           Mode Simulasi
           <span class="text-text/40 font-normal">(Cek validasi tanpa simpan data)</span>
         </label>
       </div>
 
-      <button
-        @click="triggerUpload"
-        :disabled="isLoading || selectedFiles.length === 0"
-        :class="[
-          'w-full px-6 py-3.5 rounded-xl font-bold shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-3',
-          isDryRun
-            ? 'bg-secondary text-text hover:bg-secondary/80 shadow-secondary/20'
-            : 'bg-primary text-white hover:bg-primary/90 shadow-primary/20 hover:shadow-primary/40',
-        ]"
-      >
-        <font-awesome-icon
-          v-if="isLoading"
-          icon="fa-solid fa-circle-notch"
-          class="animate-spin text-lg"
-        />
+      <button @click="triggerUpload" :disabled="isLoading || selectedFiles.length === 0" :class="[
+        'w-full px-6 py-3.5 rounded-xl font-bold shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-3',
+        isDryRun
+          ? 'bg-secondary text-text hover:bg-secondary/80 shadow-secondary/20'
+          : 'bg-primary text-secondary hover:bg-primary/90 shadow-primary/20 hover:shadow-primary/40',
+      ]">
+        <font-awesome-icon v-if="isLoading" icon="fa-solid fa-circle-notch" class="animate-spin text-lg" />
         <span class="text-sm tracking-wide">{{
           isLoading
             ? loadingMessage

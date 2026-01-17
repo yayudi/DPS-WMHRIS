@@ -209,7 +209,7 @@ export const generateStockReportStreaming = async (filters, filePath) => {
               grandTotalCell.font = { bold: true, ...negativeRedText.font };
 
             colIdx++;
-              grandTotalCell.font = { bold: true, ...negativeRedText.font };
+            grandTotalCell.font = { bold: true, ...negativeRedText.font };
 
             colIdx++;
 
@@ -239,7 +239,7 @@ export const generateStockReportStreaming = async (filters, filePath) => {
     if (writer) {
       try {
         stream.end();
-      } catch (e) {}
+      } catch (e) { }
     }
     throw error;
   }
@@ -280,7 +280,7 @@ export const generateProductExportStreaming = async (filters, filePath) => {
     // --- QUERY DATA ---
     // (Optimization: Fetch with stream if extremely large, but for now huge limit is fine)
     // [PHASE 1] Force Regular Product Only (is_package=0)
-    const exportFilters = { ...filters, is_package: 0, packageOnly: false, limit: 1000000, offset: 0 };
+    const exportFilters = { ...filters, limit: 1000000, offset: 0 };
     const result = await productRepo.getProductsWithFilters(connection, exportFilters);
     const products = result.data;
 
@@ -341,8 +341,8 @@ export const generateProductExportStreaming = async (filters, filePath) => {
       console.log("[ExportService] Waiting for stream finish/close...");
       await new Promise((resolve, reject) => {
         if (stream.writableEnded || stream.destroyed) {
-           console.log("[ExportService] Stream checks: already ended/destroyed. Resolving.");
-           return resolve();
+          console.log("[ExportService] Stream checks: already ended/destroyed. Resolving.");
+          return resolve();
         }
 
         stream.on("finish", () => {
@@ -366,7 +366,7 @@ export const generateProductExportStreaming = async (filters, filePath) => {
       // Try to close writer/stream on error
       try {
         stream.end();
-      } catch (e) {}
+      } catch (e) { }
     }
     throw error;
   } finally {

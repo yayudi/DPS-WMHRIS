@@ -122,13 +122,8 @@ async function submitTransfer() {
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end pt-6 border-t border-secondary/20">
       <div>
         <label class="block text-sm font-medium text-text/90 mb-2">Pindahkan Dari</label>
-        <BaseSelect
-          v-model="fromLocation"
-          :options="stockDetails"
-          label="location_code"
-          track-by="location_id"
-          placeholder="Pilih asal"
-        >
+        <BaseSelect v-model="fromLocation" :options="stockDetails" label="location_code" track-by="location_id"
+          placeholder="Pilih asal">
           <template #option="{ option }">
             <div class="flex justify-between w-full">
               <span>{{ option.location_code }}</span>
@@ -139,53 +134,32 @@ async function submitTransfer() {
       </div>
       <div>
         <label class="block text-sm font-medium text-text/90 mb-2">Ke Lokasi</label>
-        <BaseSelect
-          v-model="toLocation"
-          :options="allLocations"
-          label="code"
-          track-by="id"
-          placeholder="Pilih tujuan"
-        />
+        <BaseSelect v-model="toLocation" :options="allLocations" label="code" track-by="id"
+          placeholder="Pilih tujuan" />
       </div>
       <div>
         <label class="block text-sm font-medium text-text/90 mb-2">Jumlah</label>
-        <input
-          v-model.number="quantity"
-          @blur="validateQuantity"
-          type="number"
-          min="1"
+        <input v-model.number="quantity" @blur="validateQuantity" type="number" min="1"
           :max="fromLocation ? fromLocation.quantity : undefined"
-          class="w-full p-2 border border-secondary/50 rounded-lg bg-background"
-          :disabled="!fromLocation"
-        />
+          class="w-full p-2 border border-secondary/50 rounded-lg bg-background" :disabled="!fromLocation" />
       </div>
     </div>
 
     <!-- Input Catatan -->
     <div>
       <label class="block text-sm font-medium text-text/90 mb-2">Catatan (Opsional)</label>
-      <input
-        v-model="notes"
-        type="text"
-        placeholder="e.g., Pindah stok untuk event"
-        class="w-full p-2 border border-secondary/50 rounded-lg bg-background"
-      />
+      <input v-model="notes" type="text" placeholder="e.g., Pindah stok untuk event"
+        class="w-full p-2 border border-secondary/50 rounded-lg bg-background" />
     </div>
 
     <!-- Tombol Aksi -->
     <div class="flex justify-end gap-4">
-      <button
-        @click="$emit('cancel')"
-        :disabled="isSubmitting"
-        class="px-6 py-3 bg-secondary/20 text-text/80 rounded-lg font-bold"
-      >
+      <button @click="$emit('cancel')" :disabled="isSubmitting"
+        class="px-6 py-3 bg-secondary/20 text-text/80 rounded-lg font-bold">
         Batal
       </button>
-      <button
-        @click="submitTransfer"
-        :disabled="isSubmitting || !fromLocation || !toLocation || quantity < 1"
-        class="px-6 py-3 bg-accent text-white rounded-lg font-bold disabled:opacity-50 flex items-center gap-2"
-      >
+      <button @click="submitTransfer" :disabled="isSubmitting || !fromLocation || !toLocation || quantity < 1"
+        class="px-6 py-3 bg-accent text-secondary rounded-lg font-bold disabled:opacity-50 flex items-center gap-2">
         <font-awesome-icon v-if="isSubmitting" icon="fa-solid fa-spinner" class="animate-spin" />
         <span>{{ isSubmitting ? 'Memproses...' : 'Submit Transfer' }}</span>
       </button>

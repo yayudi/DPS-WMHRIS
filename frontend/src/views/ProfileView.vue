@@ -71,62 +71,37 @@ async function handleUpdate() {
   <div class="p-6">
     <h2 class="text-2xl font-bold text-text mb-6">Pengaturan Akun</h2>
 
-    <div
-      class="max-w-2xl mx-auto bg-background p-8 rounded-xl shadow-md border border-secondary/20"
-    >
+    <div class="max-w-2xl mx-auto bg-background p-8 rounded-xl shadow-md border border-secondary/20">
       <form @submit.prevent="handleUpdate" class="space-y-6">
         <!-- Bagian Informasi Akun -->
         <div>
-          <label for="username" class="block text-sm font-medium text-text/80 mb-1"
-            >Username (untuk Login)</label
-          >
-          <input
-            id="username"
-            :value="username"
-            type="text"
-            disabled
-            class="w-full px-3 py-2 bg-secondary/20 border border-secondary/30 rounded-lg text-text/60 cursor-not-allowed"
-          />
+          <label for="username" class="block text-sm font-medium text-text/80 mb-1">Username (untuk Login)</label>
+          <input id="username" :value="username" type="text" disabled
+            class="w-full px-3 py-2 bg-secondary/20 border border-secondary/30 rounded-lg text-text/60 cursor-not-allowed" />
           <p class="text-xs text-text/60 mt-1">Username tidak dapat diubah.</p>
         </div>
 
         <div>
-          <label for="nickname" class="block text-sm font-medium text-text/80 mb-1"
-            >Nickname (Nama Tampilan)</label
-          >
-          <input
-            id="nickname"
-            v-model="nickname"
-            type="text"
-            class="w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/50"
-          />
+          <label for="nickname" class="block text-sm font-medium text-text/80 mb-1">Nickname (Nama Tampilan)</label>
+          <input id="nickname" v-model="nickname" type="text"
+            class="w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/50" />
         </div>
 
         <!-- Bagian Ubah Password -->
         <div class="border-t border-secondary/20 pt-6 space-y-4">
           <h3 class="font-semibold text-lg text-text">Ubah Password</h3>
           <div>
-            <label for="newPassword" class="block text-sm font-medium text-text/80 mb-1"
-              >Password Baru (opsional)</label
-            >
-            <input
-              id="newPassword"
-              v-model="newPassword"
-              type="password"
+            <label for="newPassword" class="block text-sm font-medium text-text/80 mb-1">Password Baru
+              (opsional)</label>
+            <input id="newPassword" v-model="newPassword" type="password"
               placeholder="Kosongkan jika tidak ingin diubah"
-              class="w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/50"
-            />
+              class="w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/50" />
           </div>
           <div>
-            <label for="confirmNewPassword" class="block text-sm font-medium text-text/80 mb-1"
-              >Konfirmasi Password Baru</label
-            >
-            <input
-              id="confirmNewPassword"
-              v-model="confirmNewPassword"
-              type="password"
-              class="w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/50"
-            />
+            <label for="confirmNewPassword" class="block text-sm font-medium text-text/80 mb-1">Konfirmasi Password
+              Baru</label>
+            <input id="confirmNewPassword" v-model="confirmNewPassword" type="password"
+              class="w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/50" />
           </div>
         </div>
 
@@ -137,25 +112,15 @@ async function handleUpdate() {
             Masukkan password Anda saat ini untuk menyimpan perubahan.
           </p>
           <div>
-            <label for="currentPassword" class="block text-sm font-medium text-text/80 mb-1"
-              >Password Saat Ini</label
-            >
-            <input
-              id="currentPassword"
-              v-model="currentPassword"
-              type="password"
-              required
-              class="w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/50"
-            />
+            <label for="currentPassword" class="block text-sm font-medium text-text/80 mb-1">Password Saat Ini</label>
+            <input id="currentPassword" v-model="currentPassword" type="password" required
+              class="w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/50" />
           </div>
         </div>
 
         <div class="pt-2">
-          <button
-            type="submit"
-            :disabled="loading"
-            class="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary/90 transition disabled:opacity-50"
-          >
+          <button type="submit" :disabled="loading"
+            class="w-full bg-primary text-secondary py-2 px-4 rounded-lg hover:bg-primary/90 transition disabled:opacity-50">
             {{ loading ? 'Menyimpan...' : 'Simpan Perubahan' }}
           </button>
         </div>

@@ -3,6 +3,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import db from "../config/db.js";
+import { createLog } from "../repositories/systemLogRepository.js";
 
 const router = express.Router();
 
@@ -79,6 +80,20 @@ router.put("/profile", async (req, res) => {
 
     // Log untuk memastikan versi ini yang berjalan
     console.log("[DEBUG] Mengirim kembali data user yang sudah diupdate:", updatedUser);
+
+    // LOGGING
+    await createLog(db, {
+      userId: userId,
+      action: "UPDATE",
+      targetType: "USER",
+      targetId: String(userId),
+      changes: {
+        note: "Self Profile Update",
+        updates: { nickname, passwordChanged: !!newPassword }
+      },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
 
     res.json({
       success: true,

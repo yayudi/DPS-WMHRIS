@@ -1,4 +1,6 @@
 import * as locationService from "../services/locationService.js";
+import db from "../config/db.js";
+import { createLog } from "../repositories/systemLogRepository.js";
 
 /**
  * Handle request to create a new location
@@ -20,6 +22,17 @@ export const createLocation = async (req, res) => {
 
     // 2. Call Service
     const locationId = await locationService.addLocation({ code, building, floor, name, purpose });
+
+    // 3. LOGGING
+    await createLog(db, {
+      userId: req.user.id,
+      action: "CREATE",
+      targetType: "LOCATION",
+      targetId: String(locationId),
+      changes: { code, building, floor, name, purpose },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
 
     // 3. Success Response
     return res.status(201).json({

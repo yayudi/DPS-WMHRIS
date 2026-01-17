@@ -3,7 +3,9 @@
 import { ref, computed } from 'vue'
 import { useSummary } from '@/composables/useSummary.js'
 import { formatJamMenit } from '@/api/helpers/time.js'
+// ... import removed
 import SummaryDetailModal from './SummaryDetailModal.vue'
+import TableSkeleton from '@/components/ui/TableSkeleton.vue'
 import { useAuthStore } from '@/stores/auth.js'
 
 const props = defineProps({
@@ -11,6 +13,7 @@ const props = defineProps({
   year: { type: Number, required: true },
   month: { type: Number, required: true },
   globalInfo: { type: Object, default: () => ({}) },
+  loading: { type: Boolean, default: false },
 })
 
 const auth = useAuthStore()
@@ -45,56 +48,62 @@ function closeModal() {
     </div>
 
     <div
-      class="border border-secondary/30 rounded-lg bg-background shadow-sm flex flex-col max-h-[70vh]"
-    >
-      <!-- Table Header -->
-      <!--  Gunakan :class dinamis, hapus grid-cols-7 -->
-      <div
-        class="grid gap-4 bg-secondary/10 p-3 font-bold text-xs text-text/80 uppercase hidden md:grid flex-shrink-0"
-        :class="gridClass"
-      >
-        <div class="col-span-1">Nama</div>
-        <div class="text-center">Jam Kerja</div>
-        <div class="text-center">Lembur</div>
-        <div class="text-center">Telat</div>
-        <div class="text-center">Early Out</div>
-        <div class="text-center">Absen</div>
-        <!--  Sembunyikan kolom ini jika bukan admin -->
-        <div v-if="auth.isAdmin" class="text-right">Uang Lembur</div>
-      </div>
+      class="bg-background rounded-xl shadow-md border border-secondary/20 overflow-x-auto overflow-y-auto relative custom-scrollbar h-[calc(100vh-300px)] table-container">
+      <table class="w-full text-sm text-left text-text border-collapse">
+        <thead class="sticky top-0 z-30 bg-background/95 backdrop-blur-md shadow-sm ring-1 ring-secondary/5">
+          <tr class="text-xs text-text/80 uppercase">
+            <th class="px-6 py-3 sticky left-0 z-30 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)] w-[250px]">Nama</th>
+            <th class="px-6 py-3 text-center border-b border-secondary/10">Jam Kerja</th>
+            <th class="px-6 py-3 text-center border-b border-secondary/10">Lembur</th>
+            <th class="px-6 py-3 text-center border-b border-secondary/10">Telat</th>
+            <th class="px-6 py-3 text-center border-b border-secondary/10">Early Out</th>
+            <th class="px-6 py-3 text-center border-b border-secondary/10">Absen</th>
+            <th v-if="auth.isAdmin" class="px-6 py-3 text-right border-b border-secondary/10 sticky right-0 z-30 bg-background/95 backdrop-blur-md shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]">Uang Lembur</th>
+          </tr>
+        </thead>
+        <TransitionGroup tag="tbody" name="list" class="divide-y divide-secondary/5 relative">
+          <template v-if="loading">
+             <TableSkeleton v-for="n in 5" :key="`skeleton-${n}`" />
+          </template>
 
-      <!-- Container untuk baris data yang bisa di-scroll -->
-      <div class="divide-y divide-secondary/20 overflow-y-auto">
-        <template v-for="s in summaries" :key="s.id">
-          <div @click="showDetails(s)" class="cursor-pointer hover:bg-primary/10 transition-colors">
-            <!--  Gunakan :class dinamis, hapus md:grid-cols-7 -->
-            <div class="grid grid-cols-2 md:grid gap-4 items-center text-sm p-3" :class="gridClass">
-              <div class="md:col-span-1 col-span-2 font-semibold text-text">{{ s.nama }}</div>
-              <div class="md:text-center">
-                <span class="md:hidden text-xs text-text/70">Jam Kerja: </span>{{ s.workHours }}
-              </div>
-              <div class="md:text-center">
-                <span class="md:hidden text-xs text-text/70">Lembur: </span>{{ s.lemburHours }}
-              </div>
-              <div class="md:text-center">
-                <span class="md:hidden text-xs text-text/70">Telat: </span>{{ s.telatHours }}
-              </div>
-              <div class="md:text-center">
-                <span class="md:hidden text-xs text-text/70">Early Out: </span>{{ s.earlyOutHours }}
-              </div>
-              <div class="md:text-center">
-                <span class="md:hidden text-xs text-text/70">Absen: </span>{{ s.absenceDays }} hari
-              </div>
-              <!--  Sembunyikan kolom ini jika bukan admin -->
-              <div v-if="auth.isAdmin" class="md:text-right font-semibold text-primary">
-                <span class="md:hidden text-xs text-text/70">Uang Lembur: </span>Rp
-                {{ s.uangLembur.toLocaleString('id-ID') }}
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
+          <tr v-else-if="!summaries.length" key="empty">
+              <td :colspan="auth.isAdmin ? 7 : 6" class="py-12 text-center text-text/50 italic">
+                  Tidak ada data ringkasan untuk periode ini.
+              </td>
+          </tr>
+
+          <tr v-else v-for="s in summaries" :key="s.id" @click="showDetails(s)"
+              class="border-b border-secondary/20 hover:bg-secondary/5 transition-colors cursor-pointer group relative">
+            <td class="px-6 py-4 font-bold text-text whitespace-nowrap sticky left-0 z-20 bg-background group-hover:bg-secondary/5 transition-colors shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+              {{ s.nama }}
+            </td>
+            <td class="px-6 py-4 text-center">
+              {{ s.workHours }}
+            </td>
+            <td class="px-6 py-4 text-center">
+              {{ s.lemburHours }}
+            </td>
+            <td class="px-6 py-4 text-center text-danger/80" :class="{ 'font-bold': s.telatMinutes > 0 }">
+              {{ s.telatHours }}
+            </td>
+            <td class="px-6 py-4 text-center text-warning/80">
+              {{ s.earlyOutHours }}
+            </td>
+             <td class="px-6 py-4 text-center">
+              <span v-if="s.absenceDays > 0" class="bg-danger/10 text-danger px-2 py-1 rounded-full text-xs font-bold">{{ s.absenceDays }} hari</span>
+              <span v-else class="text-text/40">-</span>
+            </td>
+            <td v-if="auth.isAdmin" class="px-6 py-4 text-right font-bold text-primary font-mono sticky right-0 z-20 bg-background group-hover:bg-secondary/5 transition-colors shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+              Rp {{ s.uangLembur.toLocaleString('id-ID') }}
+            </td>
+          </tr>
+        </TransitionGroup>
+      </table>
     </div>
+
+    <!-- Mobile Card View (Optional, but Table handles overflow) -->
+    <!-- Keeping it table-only for now as requested -->
+
 
     <!-- Modal (Tidak berubah) -->
     <SummaryDetailModal
@@ -105,4 +114,41 @@ function closeModal() {
       @close="closeModal"
     />
   </div>
+
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--color-secondary) / 0.3);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--color-secondary) / 0.5);
+}
+
+/* List Transitions */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.3s ease;
+}
+
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+.list-leave-active {
+  position: absolute;
+  width: 100%;
+}
+</style>

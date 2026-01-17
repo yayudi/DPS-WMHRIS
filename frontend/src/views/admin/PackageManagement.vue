@@ -234,7 +234,7 @@ const handleImport = async (formData) => {
   }
 }
 const handleProductSaved = () => {
-    fetchProducts()
+  fetchProducts()
 }
 
 
@@ -260,20 +260,16 @@ onMounted(() => {
           </div>
           <div class="flex flex-wrap gap-3">
             <!-- Tombol Batch Edit -->
-             <button
-              @click="showBatchEditModal = true"
+            <button @click="showBatchEditModal = true"
               class="px-5 py-2.5 bg-secondary hover:bg-secondary/80 text-text rounded-xl shadow-md font-medium flex items-center gap-2 transition-all border border-secondary/30"
-              title="Edit paket secara massal (Export & Import)"
-            >
+              title="Edit paket secara massal (Export & Import)">
               <font-awesome-icon icon="fa-solid fa-pen-to-square" />
               <span class="hidden sm:inline">Batch Edit</span>
             </button>
 
             <!-- Tombol Tambah Paket -->
-            <button
-              @click="openAddModal"
-              class="px-5 py-2.5 bg-primary hover:bg-primary/90 text-text rounded-xl shadow-lg font-bold flex items-center gap-2 transition-transform hover:-translate-y-0.5"
-            >
+            <button @click="openAddModal"
+              class="px-5 py-2.5 bg-primary hover:bg-primary/90 text-secondary rounded-xl shadow-lg font-bold flex items-center gap-2 transition-transform hover:-translate-y-0.5">
               <font-awesome-icon icon="fa-solid fa-plus" />
               <span>Buat Paket</span>
             </button>
@@ -282,117 +278,70 @@ onMounted(() => {
 
         <!-- FILTER BAR SIMPLIFIED -->
         <FilterContainer title="Filter & Pencarian" class="mb-4">
-            <!-- Content -->
-            <div class="flex flex-col sm:flex-row gap-4 items-center flex-grow">
-                <!-- Search -->
-                <div class="relative flex-1 w-full">
-                    <input
-                    v-model="searchQuery"
-                    type="text"
-                    placeholder="Cari nama paket atau SKU..."
-                    class="w-full pl-10 pr-4 py-2 bg-background border border-secondary/20 rounded-lg focus:outline-none focus:border-primary text-sm shadow-sm"
-                    />
-                    <font-awesome-icon
-                    icon="fa-solid fa-search"
-                    class="absolute left-3 top-2.5 text-text/40"
-                    />
-                </div>
-                <!-- Status Filter -->
-                <div class="flex items-center gap-2 w-full sm:w-auto">
-                    <label class="text-xs font-bold text-text/60 whitespace-nowrap">Status:</label>
-                    <select
-                        v-model="filterStatus"
-                        class="bg-background border border-secondary/20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary cursor-pointer w-full sm:w-auto"
-                    >
-                        <option value="active">Aktif</option>
-                        <option value="archived">Diarsipkan</option>
-                        <option value="all">Semua</option>
-                    </select>
-                </div>
+          <!-- Content -->
+          <div class="flex flex-col sm:flex-row gap-4 items-center flex-grow">
+            <!-- Search -->
+            <div class="relative flex-1 w-full">
+              <input v-model="searchQuery" type="text" placeholder="Cari nama paket atau SKU..."
+                class="w-full pl-10 pr-4 py-2 bg-background border border-secondary/20 rounded-lg focus:outline-none focus:border-primary text-sm shadow-sm" />
+              <font-awesome-icon icon="fa-solid fa-search" class="absolute left-3 top-2.5 text-text/40" />
             </div>
+            <!-- Status Filter -->
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+              <label class="text-xs font-bold text-text/60 whitespace-nowrap">Status:</label>
+              <select v-model="filterStatus"
+                class="bg-background border border-secondary/20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary cursor-pointer w-full sm:w-auto">
+                <option value="active">Aktif</option>
+                <option value="archived">Diarsipkan</option>
+                <option value="all">Semua</option>
+              </select>
+            </div>
+          </div>
         </FilterContainer>
       </div>
 
       <!-- TABLE COMPONENT -->
-      <PackageTable
-        :products="products"
-        :loading="loading"
-        :pagination="pagination"
-        :selectedIds="selectedIds"
-        :sortBy="sortBy"
-        :sortOrder="sortOrder"
-        @sort="handleSort"
-        @changePage="handleChangePage"
-        @update:limit="handleUpdateLimit"
-        @toggleSelection="toggleSelection"
-        @toggleSelectAll="toggleSelectAll"
-        @edit="openEditModal"
-        @restore="handleRestore"
-        @delete="handleDelete"
-      />
+      <PackageTable :products="products" :loading="loading" :pagination="pagination" :selectedIds="selectedIds"
+        :sortBy="sortBy" :sortOrder="sortOrder" @sort="handleSort" @changePage="handleChangePage"
+        @update:limit="handleUpdateLimit" @toggleSelection="toggleSelection" @toggleSelectAll="toggleSelectAll"
+        @edit="openEditModal" @restore="handleRestore" @delete="handleDelete" />
 
       <!-- FLOATING ACTION BAR -->
       <Transition name="slide-up">
-        <div
-          v-if="selectedIds.size > 0"
-          class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-background border border-secondary/20 shadow-2xl rounded-2xl px-6 py-3 flex items-center gap-6 z-40 text-sm"
-        >
-          <div
-            class="flex items-center gap-2 text-text font-bold border-r border-secondary/10 pr-6"
-          >
-            <span
-              class="bg-primary/10 text-primary w-6 h-6 flex items-center justify-center rounded-full text-xs"
-              >{{ selectionCount }}</span
-            >
+        <div v-if="selectedIds.size > 0"
+          class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-background border border-secondary/20 shadow-2xl rounded-2xl px-6 py-3 flex items-center gap-6 z-40 text-sm">
+          <div class="flex items-center gap-2 text-text font-bold border-r border-secondary/10 pr-6">
+            <span class="bg-primary/10 text-primary w-6 h-6 flex items-center justify-center rounded-full text-xs">{{
+              selectionCount }}</span>
             <span>Dipilih</span>
           </div>
           <div class="flex items-center gap-3">
-            <button
-              v-if="filterStatus === 'archived'"
-              @click="performBulkAction('restore')"
+            <button v-if="filterStatus === 'archived'" @click="performBulkAction('restore')"
               class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-success/10 text-success font-bold"
-              :disabled="isProcessingBulk"
-            >
+              :disabled="isProcessingBulk">
               <font-awesome-icon icon="fa-solid fa-rotate-left" :spin="isProcessingBulk" />
               Pulihkan
             </button>
-            <button
-              v-else
-              @click="performBulkAction('archive')"
+            <button v-else @click="performBulkAction('archive')"
               class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-danger/10 text-danger font-bold"
-              :disabled="isProcessingBulk"
-            >
+              :disabled="isProcessingBulk">
               <font-awesome-icon icon="fa-solid fa-box-archive" :spin="isProcessingBulk" />
               Arsipkan
             </button>
           </div>
-          <button
-            @click="selectedIds.clear()"
-            class="ml-2 text-text/40 hover:text-text text-xl leading-none"
-            title="Batalkan Pilihan"
-          >
+          <button @click="selectedIds.clear()" class="ml-2 text-text/40 hover:text-text text-xl leading-none"
+            title="Batalkan Pilihan">
             &times;
           </button>
         </div>
       </Transition>
 
       <!-- MODALS -->
-      <ProductFormModal
-        :show="showProductForm"
-        :mode="productFormMode"
-        :product-data="selectedProduct"
-        @close="showProductForm = false"
-        @refresh="handleProductSaved"
-      />
+      <ProductFormModal :show="showProductForm" :mode="productFormMode" :product-data="selectedProduct"
+        @close="showProductForm = false" @refresh="handleProductSaved" />
       <!-- Phase 2 Batch Edit Modal -->
-      <PackageBatchEditModal
-        :is-open="showBatchEditModal"
-        :is-exporting="isExporting"
-        :is-importing="false"
-        @close="showBatchEditModal = false"
-        @export="handleExport"
-        @import="handleImport"
-      />
+      <PackageBatchEditModal :is-open="showBatchEditModal" :is-exporting="isExporting" :is-importing="false"
+        @close="showBatchEditModal = false" @export="handleExport" @import="handleImport" />
     </div>
     <ConnectionStatus />
   </div>
@@ -403,6 +352,7 @@ onMounted(() => {
 .slide-up-leave-active {
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 .slide-up-enter-from,
 .slide-up-leave-to {
   opacity: 0;

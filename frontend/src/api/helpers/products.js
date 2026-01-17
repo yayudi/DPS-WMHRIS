@@ -111,7 +111,7 @@ export const fetchStockSampleForLocation = async (locationId) => {
  */
 export const uploadPriceUpdate = (formData) => {
   // Pastikan header Content-Type multipart/form-data
-  return api.post('/products/batch/price-update', formData, {
+  return api.post('/products/batch/product-update', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },

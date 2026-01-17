@@ -6,6 +6,7 @@ import Tabs from '@/components/ui/Tabs.vue'
 import FilterBar from '@/components/ui/FilterBar.vue'
 import SummaryView from '@/components/hr/SummaryView.vue'
 import DetailView from '@/components/hr/DetailView.vue'
+import AttendanceStats from '@/components/stats/AttendanceStats.vue'
 import Modal from '@/components/ui/Modal.vue'
 import UploadForm from '@/components/ui/UploadForm.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
@@ -19,7 +20,7 @@ const { show } = useToast()
 const isUploadModalOpen = ref(false)
 const isUploading = ref(false)
 const isHeaderExpanded = ref(true)
-const activeTab = ref('summary')
+const activeTab = ref('statistik')
 const summary = ref(null)
 const users = ref([])
 const availableIndexes = ref({})
@@ -33,6 +34,7 @@ const allUsersForFilter = ref([])
 const dataNotFoundForCurrentUser = ref(false)
 const isLoadingIndexes = ref(true)
 const isLoadingUsers = ref(false)
+const isDataLoading = ref(false)
 const canViewAll = computed(() => authStore.user?.permissions?.includes('view-other-attendance'))
 
 const displayedUsers = computed(() => {
@@ -50,6 +52,9 @@ watch(
     if (!year || !month || !user) return
 
     dataNotFoundForCurrentUser.value = false
+
+    dataNotFoundForCurrentUser.value = false
+    isDataLoading.value = true
 
     try {
       const data = await getAbsensiData(year, month)
@@ -71,6 +76,8 @@ watch(
       console.error('Fetch absensi error:', err)
       users.value = []
       summary.value = null
+    } finally {
+      isDataLoading.value = false
     }
   },
 )
@@ -241,49 +248,32 @@ async function handleUpload(formData) {
 <template>
   <div class="bg-secondary/20 min-h-screen">
     <header
-      class="bg-background/80 backdrop-blur-sm sticky top-[65px] z-30 border-b border-secondary/20 transition-all duration-300"
-    >
-      <transition
-        enter-active-class="transition-all duration-300 ease-out"
+      class="bg-background/80 backdrop-blur-sm sticky top-[65px] z-30 border-b border-secondary/20 transition-all duration-300">
+      <transition enter-active-class="transition-all duration-300 ease-out"
         enter-from-class="transform -translate-y-4 opacity-0 max-h-0"
         enter-to-class="transform translate-y-0 opacity-100 max-h-[500px]"
         leave-active-class="transition-all duration-300 ease-in"
         leave-from-class="transform translate-y-0 opacity-100 max-h-[500px]"
-        leave-to-class="transform -translate-y-4 opacity-0 max-h-0"
-      >
+        leave-to-class="transform -translate-y-4 opacity-0 max-h-0">
         <div v-show="isHeaderExpanded" class="overflow-hidden">
           <div class="py-3 px-4 md:px-6 flex flex-col md:flex-row items-stretch md:items-center gap-4">
-            <Tabs
-              :tabs="[
-                { label: 'Ringkasan', value: 'summary' },
-                { label: 'Detail Log', value: 'detail' },
-              ]"
-              v-model="activeTab"
-              class="w-full md:w-auto overflow-x-auto"
-            />
+            <Tabs :tabs="[
+              { label: 'Statistik', value: 'statistik' },
+              { label: 'Ringkasan', value: 'summary' },
+              { label: 'Detail Log', value: 'detail' },
+            ]" v-model="activeTab" class="w-full md:w-auto overflow-x-auto" />
 
             <div class="flex flex-col md:flex-row gap-4 flex-1 items-stretch md:items-center">
               <FilterBar :filters="filters" v-model="filterValues" @clear="clearFilters" class="w-full md:w-auto" />
 
               <div v-if="canViewAll" class="w-full md:flex-1 min-w-[200px]">
-                <BaseSelect
-                  v-model="filterValues.name"
-                  :options="allUsersForFilter"
-                  :multiple="true"
-                  :loading="isLoadingUsers"
-                  :disabled="isLoadingUsers"
-                  label="label"
-                  track-by="value"
-                  placeholder="Pilih satu atau beberapa nama..."
-                  class="w-full"
-                />
+                <BaseSelect v-model="filterValues.name" :options="allUsersForFilter" :multiple="true"
+                  :loading="isLoadingUsers" :disabled="isLoadingUsers" label="label" track-by="value"
+                  placeholder="Pilih satu atau beberapa nama..." class="w-full" />
               </div>
 
-              <button
-                v-if="canViewAll"
-                @click="isUploadModalOpen = true"
-                class="bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30 text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap w-full md:w-auto"
-              >
+              <button v-if="canViewAll" @click="isUploadModalOpen = true"
+                class="bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30 text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap w-full md:w-auto">
                 <font-awesome-icon icon="fa-solid fa-file-import" />
                 <span>Import Data</span>
               </button>
@@ -293,11 +283,9 @@ async function handleUpload(formData) {
       </transition>
 
       <!-- Toggle Handle -->
-      <div
-        @click="isHeaderExpanded = !isHeaderExpanded"
+      <div @click="isHeaderExpanded = !isHeaderExpanded"
         class="lg:hidden flex justify-center items-center py-1 cursor-pointer hover:bg-secondary/10 text-text/40 hover:text-primary transition-colors border-t border-secondary/10"
-        title="Toggle Header"
-      >
+        title="Toggle Header">
         <font-awesome-icon :icon="isHeaderExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'" />
       </div>
     </header>
@@ -308,44 +296,37 @@ async function handleUpload(formData) {
           <p v-if="dataNotFoundForCurrentUser" class="text-center text-text/60 py-10">
             Data absensi Anda untuk bulan ini tidak ditemukan.
           </p>
-          <SummaryView
-            v-else-if="displayedUsers.length > 0"
-            :users="displayedUsers"
-            :year="parseInt(filterValues.year)"
-            :month="parseInt(filterValues.month)"
-            :global-info="summary"
-          />
+          <SummaryView v-else-if="displayedUsers.length > 0 || isDataLoading" :users="displayedUsers"
+            :year="parseInt(filterValues.year)" :month="parseInt(filterValues.month)" :global-info="summary"
+            :loading="isDataLoading" />
           <p v-else class="text-center text-text/60 py-10">
             Pilih tahun dan bulan untuk menampilkan data, atau tidak ada data yang cocok dengan
             filter.
           </p>
         </div>
 
+        <div v-else-if="activeTab === 'statistik'">
+          <AttendanceStats :users="displayedUsers" :summary-info="summary || {}" :year="filterValues.year"
+            :month="filterValues.month" :loading="isDataLoading" />
+        </div>
+
         <div v-else>
           <p v-if="dataNotFoundForCurrentUser" class="text-center text-text/60 py-10">
             Data absensi Anda untuk bulan ini tidak ditemukan.
           </p>
-          <DetailView
-            v-else-if="displayedUsers.length > 0"
-            :user="
-              filterValues.name.length === 1
-                ? displayedUsers[0]
+          <DetailView v-else-if="displayedUsers.length > 0" :user="filterValues.name.length === 1
+            ? displayedUsers[0]
+            : !canViewAll
+              ? displayedUsers[0]
+              : null
+            " :users="filterValues.name.length > 1
+              ? displayedUsers
+              : canViewAll && filterValues.name.length === 0
+                ? users
                 : !canViewAll
-                  ? displayedUsers[0]
+                  ? displayedUsers
                   : null
-            "
-            :users="
-              filterValues.name.length > 1
-                ? displayedUsers
-                : canViewAll && filterValues.name.length === 0
-                  ? users
-                  : !canViewAll
-                    ? displayedUsers
-                    : null
-            "
-            :year="parseInt(filterValues.year)"
-            :month="parseInt(filterValues.month)"
-          />
+              " :year="parseInt(filterValues.year)" :month="parseInt(filterValues.month)" :loading="isDataLoading" />
           <p v-else class="text-center text-text/60 py-10">Belum ada log detail.</p>
         </div>
       </div>
@@ -354,19 +335,12 @@ async function handleUpload(formData) {
     <!-- MODAL UPLOAD -->
     <Modal :show="isUploadModalOpen" @close="isUploadModalOpen = false" title="Upload File Absensi">
       <!-- Menggunakan Component UploadForm Baru dengan Drag Drop & Dry Run -->
-      <UploadForm
-        @submit="handleUpload"
-        :loading="isUploading"
-        accept=".csv"
-        submit-label="Mulai Import"
-        :show-dry-run="true"
-      />
+      <UploadForm @submit="handleUpload" :loading="isUploading" accept=".csv" submit-label="Mulai Import"
+        :show-dry-run="true" />
 
       <template #footer>
-        <button
-          @click="isUploadModalOpen = false"
-          class="bg-background border border-secondary/30 text-text/80 hover:bg-secondary/20 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-        >
+        <button @click="isUploadModalOpen = false"
+          class="bg-background border border-secondary/30 text-text/80 hover:bg-secondary/20 text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
           Tutup
         </button>
       </template>

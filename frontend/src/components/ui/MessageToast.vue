@@ -9,16 +9,16 @@ const showMessage = (msg, type = "info", duration = 3000) => {
 
   // Menentukan kelas tema dan ikon berdasarkan tipe pesan
   let typeInfo = {};
-  switch(type) {
+  switch (type) {
     case "success":
       typeInfo = {
-        class: 'bg-primary text-white',
+        class: 'bg-primary text-secondary',
         icon: 'fa-solid fa-check-circle'
       };
       break;
     case "error":
       typeInfo = {
-        class: 'bg-accent text-white',
+        class: 'bg-accent text-secondary',
         icon: 'fa-solid fa-exclamation-triangle'
       };
       break;
@@ -45,14 +45,10 @@ defineExpose({ showMessage })
 <template>
   <div class="fixed top-5 right-5 space-y-3 z-[100]">
     <transition-group name="toast-fade" tag="div">
-      <div
-        v-for="toast in toasts"
-        :key="toast.id"
-        :class="[
-          'px-4 py-3 text-sm font-medium rounded-lg shadow-lg flex items-center gap-3',
-          toast.class
-        ]"
-      >
+      <div v-for="toast in toasts" :key="toast.id" :class="[
+        'px-4 py-3 text-sm font-medium rounded-lg shadow-lg flex items-center gap-3',
+        toast.class
+      ]">
         <font-awesome-icon :icon="toast.icon" />
         <span>{{ toast.message }}</span>
       </div>
@@ -65,6 +61,7 @@ defineExpose({ showMessage })
 .toast-fade-leave-active {
   transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
+
 .toast-fade-enter-from,
 .toast-fade-leave-to {
   opacity: 0;

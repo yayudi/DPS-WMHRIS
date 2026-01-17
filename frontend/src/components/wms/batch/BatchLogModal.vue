@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import Modal from '@/components/ui/Modal.vue'
+import DateRangeFilter from '@/components/ui/DateRangeFilter.vue'
 import { fetchBatchLogs } from '@/api/helpers/stock.js' // Impor fungsi API baru
 
 const props = defineProps({
@@ -53,38 +54,13 @@ function handleReset() {
       <!-- Bagian Filter -->
       <div class="flex items-end gap-4 p-4 bg-secondary/10 rounded-lg">
         <div class="flex-1">
-          <label for="startDateModal" class="block text-sm font-medium text-text/90 mb-1"
-            >Tanggal Mulai</label
-          >
-          <input
-            type="date"
-            id="startDateModal"
-            v-model="startDate"
-            class="w-full bg-background border-2 border-primary/30 text-text text-sm rounded-lg p-2"
-          />
+          <DateRangeFilter v-model:startDate="startDate" v-model:endDate="endDate" class="w-full" />
         </div>
-        <div class="flex-1">
-          <label for="endDateModal" class="block text-sm font-medium text-text/90 mb-1"
-            >Tanggal Selesai</label
-          >
-          <input
-            type="date"
-            id="endDateModal"
-            v-model="endDate"
-            class="w-full bg-background border-2 border-primary/30 text-text text-sm rounded-lg p-2"
-          />
-        </div>
-        <button
-          @click="handleApply"
-          :disabled="!startDate || !endDate || loading"
-          class="px-4 py-2 bg-primary text-white rounded-lg text-sm disabled:opacity-50"
-        >
+        <button @click="handleApply" :disabled="!startDate || !endDate || loading"
+          class="px-4 py-2 bg-primary text-secondary rounded-lg text-sm disabled:opacity-50">
           {{ loading ? 'Memuat...' : 'Tampilkan' }}
         </button>
-        <button
-          @click="handleReset"
-          class="px-4 py-2 bg-secondary/20 text-text/80 rounded-lg text-sm"
-        >
+        <button @click="handleReset" class="px-4 py-2 bg-secondary/20 text-text/80 rounded-lg text-sm">
           Reset
         </button>
       </div>

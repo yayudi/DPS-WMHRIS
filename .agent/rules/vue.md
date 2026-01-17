@@ -38,7 +38,7 @@ globs: **/*.vue
 **Context:** The application supports multiple themes (Light, Dark, Sepia, etc.). Fixed colors BREAK this feature.
 - **PROHIBITED:**
   - Hardcoded Hex/RGB values (e.g., `#ffffff`, `rgb(0,0,0)`).
-  - Standard Tailwind colors (e.g., `bg-white`, `text-gray-900`, `bg-blue-500`, `text-red-600`).
+  - Standard Tailwind colors (e.g., `bg-secondary`, `text-gray-900`, `bg-blue-500`, `text-red-600`).
 - **MANDATORY:**
   - Use Semantic Theme Classes defined in `tailwind.config.js`:
     - **Backgrounds:** `bg-background`, `bg-secondary` (for cards/modals).
@@ -47,5 +47,5 @@ globs: **/*.vue
     - **Status:** `text-success`, `bg-danger/10` (Opacity modifiers are allowed).
   - **Borders:** `border-secondary`, `border-primary/20`.
 - **Example:**
-  - `class="bg-white text-black border-gray-200"` (WRONG)
+  - `class="bg-secondary text-black border-gray-200"` (WRONG)
   - `class="bg-background text-text border-secondary"` (CORRECT)

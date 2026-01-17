@@ -70,39 +70,23 @@ async function handleSave() {
 
       <!-- Daftar Lokasi dengan Checkbox -->
       <div class="grid grid-cols-3 md:grid-cols-4 gap-4">
-        <div
-          v-for="location in allLocations"
-          :key="location.id"
-          class="flex items-center p-2 rounded-md hover:bg-secondary/10"
-        >
-          <input
-            type="checkbox"
-            :id="`loc-${location.id}`"
-            :value="location.id"
-            v-model="selectedLocationIds"
-            class="h-4 w-4 rounded border-secondary/30 text-primary focus:ring-primary"
-          />
-          <label
-            :for="`loc-${location.id}`"
-            class="ml-2 block text-sm text-text font-mono cursor-pointer"
-            >{{ location.code }}</label
-          >
+        <div v-for="location in allLocations" :key="location.id"
+          class="flex items-center p-2 rounded-md hover:bg-secondary/10">
+          <input type="checkbox" :id="`loc-${location.id}`" :value="location.id" v-model="selectedLocationIds"
+            class="h-4 w-4 rounded border-secondary/30 text-primary focus:ring-primary" />
+          <label :for="`loc-${location.id}`" class="ml-2 block text-sm text-text font-mono cursor-pointer">{{
+            location.code }}</label>
         </div>
       </div>
     </div>
 
     <template #footer>
-      <button
-        @click="emit('close')"
-        class="px-4 py-2 bg-secondary/20 text-text/80 rounded-lg hover:bg-secondary/30 transition"
-      >
+      <button @click="emit('close')"
+        class="px-4 py-2 bg-secondary/20 text-text/80 rounded-lg hover:bg-secondary/30 transition">
         Batal
       </button>
-      <button
-        @click="handleSave"
-        :disabled="isLoading"
-        class="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
-      >
+      <button @click="handleSave" :disabled="isLoading"
+        class="px-4 py-2 bg-primary text-secondary rounded-lg disabled:opacity-50 flex items-center gap-2">
         <font-awesome-icon v-if="isLoading" icon="fa-solid fa-spinner" class="animate-spin" />
         <span>{{ isLoading ? 'Menyimpan...' : 'Simpan Perubahan' }}</span>
       </button>

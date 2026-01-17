@@ -1,7 +1,6 @@
 // backend/services/priceImportService.js
 import { ParserEngine } from "./parsers/ParserEngine.js";
 import * as productRepo from "../repositories/productRepository.js";
-import db from "../config/db.js";
 
 export const processProductImport = async (
   connection,
@@ -59,7 +58,8 @@ export const processProductImport = async (
       }
 
       const csvItem = allData[i];
-      const { sku, row } = csvItem;
+      const row = csvItem.items && csvItem.items[0] ? csvItem.items[0].row : 0;
+      const { sku } = csvItem;
 
       try {
         // 1. Cek Eksistensi Produk di DB
@@ -84,12 +84,12 @@ export const processProductImport = async (
           // [PHASE 1] SAFETY GUARD: Reject Package Updates via Batch Edit
           // Batch Edit hanya untuk Regular Product. Package butuh UI khusus (nested components).
           if (dbProduct.is_package === 1) {
-             logicErrors.push({
-                row,
-                message: `SKU '${sku}' adalah Paket. Batch Edit ini hanya untuk Produk Biasa.`,
-             });
-             skippedCount++;
-             continue; // Skip update
+            logicErrors.push({
+              row,
+              message: `SKU '${sku}' adalah Paket. Batch Edit ini hanya untuk Produk Biasa.`,
+            });
+            skippedCount++;
+            continue; // Skip update
           }
 
           // Normalisasi untuk deteksi perubahan agar tidak spam log jika data sama

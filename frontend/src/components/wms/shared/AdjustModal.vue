@@ -61,23 +61,14 @@ function handleConfirm() {
 
       <div>
         <label class="block text-sm font-medium text-text/90 mb-1">Lokasi Stok</label>
-        <BaseSelect
-          v-model="locationId"
-          :options="locations"
-          placeholder="Pilih lokasi yang akan disesuaikan"
-          label="code"
-          track-by="id"
-        />
+        <BaseSelect v-model="locationId" :options="locations" placeholder="Pilih lokasi yang akan disesuaikan"
+          label="code" track-by="id" />
       </div>
 
       <div>
         <label class="block text-sm font-medium text-text/90 mb-1">Jumlah Penyesuaian</label>
-        <input
-          v-model.number="quantity"
-          type="number"
-          placeholder="Gunakan angka negatif untuk mengurangi (cth: -5)"
-          class="w-full px-3 py-2 bg-background border border-secondary/50 text-text rounded-lg"
-        />
+        <input v-model.number="quantity" type="number" placeholder="Gunakan angka negatif untuk mengurangi (cth: -5)"
+          class="w-full px-3 py-2 bg-background border border-secondary/50 text-text rounded-lg" />
         <p class="text-xs text-text/60 mt-1">
           Gunakan angka positif untuk menambah stok dan negatif untuk mengurangi.
         </p>
@@ -85,12 +76,8 @@ function handleConfirm() {
 
       <div>
         <label class="block text-sm font-medium text-text/90 mb-1">Alasan Penyesuaian</label>
-        <textarea
-          v-model="notes"
-          rows="3"
-          placeholder="Contoh: Stok opname, barang rusak, ditemukan selisih, dll."
-          class="w-full px-3 py-2 bg-background border border-secondary/50 text-text rounded-lg"
-        ></textarea>
+        <textarea v-model="notes" rows="3" placeholder="Contoh: Stok opname, barang rusak, ditemukan selisih, dll."
+          class="w-full px-3 py-2 bg-background border border-secondary/50 text-text rounded-lg"></textarea>
       </div>
 
       <p v-if="error" class="text-accent text-sm">{{ error }}</p>
@@ -100,7 +87,7 @@ function handleConfirm() {
       <button @click="emit('close')" class="px-4 py-2 bg-secondary/20 text-text/80 rounded-lg">
         Batal
       </button>
-      <button @click="handleConfirm" class="px-4 py-2 bg-primary text-white rounded-lg">
+      <button @click="handleConfirm" class="px-4 py-2 bg-primary text-secondary rounded-lg">
         Konfirmasi Penyesuaian
       </button>
     </template>

@@ -172,23 +172,13 @@ async function submitDetailedBatch() {
 <template>
   <div class="space-y-6">
     <!-- Form Penambahan Item Baru -->
-    <div
-      class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end p-4 border border-secondary/20 rounded-lg"
-    >
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end p-4 border border-secondary/20 rounded-lg">
       <!-- Cari Produk -->
       <div class="md:col-span-2">
         <label class="block text-sm font-medium text-text/90 mb-2">Cari Produk</label>
-        <BaseSelect
-          v-model="selectedProduct"
-          :options="searchResults"
-          :loading="isSearching"
-          :internal-search="false"
-          @search-change="onSearchChange"
-          @update:model-value="onProductSelect"
-          placeholder="Ketik SKU atau Nama..."
-          label="name"
-          track-by="id"
-        >
+        <BaseSelect v-model="selectedProduct" :options="searchResults" :loading="isSearching" :internal-search="false"
+          @search-change="onSearchChange" @update:model-value="onProductSelect" placeholder="Ketik SKU atau Nama..."
+          label="name" track-by="id">
           <template #option="{ option }">
             <div>
               {{ option.name }} <span class="text-xs text-text/60">({{ option.sku }})</span>
@@ -200,15 +190,9 @@ async function submitDetailedBatch() {
       <!-- Pindahkan Dari -->
       <div>
         <label class="block text-sm font-medium text-text/90 mb-2">Pindahkan Dari</label>
-        <BaseSelect
-          v-model="fromLocation"
-          :options="stockDetails"
-          :loading="isLoadingDetails"
-          :disabled="!selectedProduct || isLoadingDetails"
-          label="location_code"
-          track-by="location_id"
-          placeholder="Pilih asal"
-        >
+        <BaseSelect v-model="fromLocation" :options="stockDetails" :loading="isLoadingDetails"
+          :disabled="!selectedProduct || isLoadingDetails" label="location_code" track-by="location_id"
+          placeholder="Pilih asal">
           <template #option="{ option }">
             <div class="flex justify-between w-full">
               <span>{{ option.location_code }}</span>
@@ -222,35 +206,21 @@ async function submitDetailedBatch() {
       <!-- Ke Lokasi -->
       <div>
         <label class="block text-sm font-medium text-text/90 mb-2">Ke Lokasi</label>
-        <BaseSelect
-          v-model="toLocation"
-          :options="allLocations"
-          :disabled="isLoadingLocations"
-          label="code"
-          track-by="id"
-          placeholder="Pilih tujuan"
-        />
+        <BaseSelect v-model="toLocation" :options="allLocations" :disabled="isLoadingLocations" label="code"
+          track-by="id" placeholder="Pilih tujuan" />
       </div>
 
       <!-- Jumlah & Tombol Tambah -->
       <div class="flex items-end gap-2">
         <div class="flex-grow">
           <label class="block text-sm font-medium text-text/90 mb-2">Jumlah</label>
-          <input
-            v-model.number="quantity"
-            @blur="validateQuantity"
-            type="number"
-            min="1"
+          <input v-model.number="quantity" @blur="validateQuantity" type="number" min="1"
             :max="fromLocation ? fromLocation.quantity : undefined"
-            class="w-full p-2 border border-secondary/50 rounded-lg bg-background"
-            :disabled="!fromLocation"
-          />
+            class="w-full p-2 border border-secondary/50 rounded-lg bg-background" :disabled="!fromLocation" />
         </div>
-        <button
-          @click="addItemToBatch"
-          class="px-4 py-2 bg-primary text-white rounded-lg font-semibold h-[42px] disabled:opacity-50"
-          :disabled="!selectedProduct || !fromLocation || !toLocation || quantity < 1"
-        >
+        <button @click="addItemToBatch"
+          class="px-4 py-2 bg-primary text-secondary rounded-lg font-semibold h-[42px] disabled:opacity-50"
+          :disabled="!selectedProduct || !fromLocation || !toLocation || quantity < 1">
           <font-awesome-icon icon="fa-solid fa-plus" />
         </button>
       </div>
@@ -261,10 +231,8 @@ async function submitDetailedBatch() {
       <h3 class="text-lg font-semibold text-text mb-4">
         Daftar Transfer Rinci ({{ batchList.length }})
       </h3>
-      <div
-        v-if="batchList.length === 0"
-        class="text-center text-text/60 py-8 border-2 border-dashed border-secondary/20 rounded-lg"
-      >
+      <div v-if="batchList.length === 0"
+        class="text-center text-text/60 py-8 border-2 border-dashed border-secondary/20 rounded-lg">
         Belum ada item yang ditambahkan.
       </div>
       <div v-else class="max-h-96 overflow-y-auto">
@@ -302,33 +270,19 @@ async function submitDetailedBatch() {
       <!-- Input Catatan -->
       <div class="flex-grow">
         <label class="block text-sm font-medium text-text/90 mb-2">Catatan (Opsional)</label>
-        <input
-          v-model="notes"
-          type="text"
-          placeholder="e.g., Transfer batch multi-lokasi"
-          class="w-full p-2 border border-secondary/50 rounded-lg bg-background"
-        />
+        <input v-model="notes" type="text" placeholder="e.g., Transfer batch multi-lokasi"
+          class="w-full p-2 border border-secondary/50 rounded-lg bg-background" />
       </div>
 
       <!-- Tombol Aksi -->
       <div class="flex gap-4">
-        <button
-          @click="batchList = []"
-          :disabled="isSubmitting || batchList.length === 0"
-          class="px-6 py-3 bg-secondary/20 text-text/80 rounded-lg font-bold disabled:opacity-50"
-        >
+        <button @click="batchList = []" :disabled="isSubmitting || batchList.length === 0"
+          class="px-6 py-3 bg-secondary/20 text-text/80 rounded-lg font-bold disabled:opacity-50">
           Batal
         </button>
-        <button
-          @click="submitDetailedBatch"
-          :disabled="isSubmitting || batchList.length === 0"
-          class="px-6 py-3 bg-accent text-white rounded-lg font-bold disabled:opacity-50 flex items-center gap-2"
-        >
-          <font-awesome-icon
-            vid-if="isSubmitting"
-            icon="fa-solid fa-spinner"
-            class="animate-spin"
-          />
+        <button @click="submitDetailedBatch" :disabled="isSubmitting || batchList.length === 0"
+          class="px-6 py-3 bg-accent text-secondary rounded-lg font-bold disabled:opacity-50 flex items-center gap-2">
+          <font-awesome-icon vid-if="isSubmitting" icon="fa-solid fa-spinner" class="animate-spin" />
           <span>{{ isSubmitting ? 'Memproses...' : 'Submit Batch Transfer' }}</span>
         </button>
       </div>

@@ -1,6 +1,7 @@
 // backend\router\roleRouter.js
 import express from "express";
 import db from "../config/db.js";
+import { createLog } from "../repositories/systemLogRepository.js";
 
 const router = express.Router();
 
@@ -82,6 +83,17 @@ router.put("/:id/permissions", async (req, res) => {
       ]);
     }
 
+    // LOGGING
+    await createLog(connection, {
+      userId: req.user.id,
+      action: "UPDATE",
+      targetType: "ROLE",
+      targetId: String(id),
+      changes: { note: "Updated Role Permissions", permissionCount: permissionIds.length },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
     await connection.commit();
     res.json({ success: true, message: "Izin untuk peran berhasil diperbarui." });
   } catch (error) {
@@ -115,6 +127,17 @@ router.post("/", async (req, res) => {
     res
       .status(201)
       .json({ success: true, message: "Peran berhasil dibuat.", roleId: result.insertId });
+
+    // LOGGING
+    await createLog(db, {
+      userId: req.user.id,
+      action: "CREATE",
+      targetType: "ROLE",
+      targetId: String(result.insertId),
+      changes: { name, description },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({ success: false, message: "Nama peran sudah ada." });
@@ -144,6 +167,17 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ success: false, message: "Peran tidak ditemukan." });
     }
     res.json({ success: true, message: "Peran berhasil diperbarui." });
+
+    // LOGGING
+    await createLog(db, {
+      userId: req.user.id,
+      action: "UPDATE",
+      targetType: "ROLE",
+      targetId: String(id),
+      changes: { name, description },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({ success: false, message: "Nama peran sudah digunakan." });
@@ -165,6 +199,17 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ success: false, message: "Peran tidak ditemukan." });
     }
     res.json({ success: true, message: "Peran berhasil dihapus." });
+
+    // LOGGING
+    await createLog(db, {
+      userId: req.user.id,
+      action: "DELETE",
+      targetType: "ROLE",
+      targetId: String(id),
+      changes: { note: "Deleted Role" },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
   } catch (error) {
     if (error.code === "ER_ROW_IS_REFERENCED_2") {
       return res.status(400).json({

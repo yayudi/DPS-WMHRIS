@@ -61,12 +61,8 @@ async function handleSave() {
       </div>
       <div>
         <label class="block text-sm font-medium text-text/80 mb-1">Password Baru (Opsional)</label>
-        <input
-          v-model="editableUser.newPassword"
-          type="password"
-          placeholder="Isi hanya jika ingin mengubah password"
-          class="w-full input-field"
-        />
+        <input v-model="editableUser.newPassword" type="password" placeholder="Isi hanya jika ingin mengubah password"
+          class="w-full input-field" />
       </div>
       <div>
         <label class="block text-sm font-medium text-text/80 mb-1">Role</label>
@@ -76,11 +72,17 @@ async function handleSave() {
       </div>
     </div>
     <template #footer>
-      <button @click="emit('close')" class="btn-secondary">Batal</button>
-      <button @click="handleSave" :disabled="isLoading" class="btn-primary">
-        {{ isLoading ? 'Menyimpan...' : 'Simpan Perubahan' }}
+      <button @click="emit('close')" class="btn-secondary flex items-center gap-2">
+        <font-awesome-icon icon="fa-solid fa-times" />
+        Batal
+      </button>
+      <button @click="handleSave" :disabled="isLoading" class="btn-primary flex items-center gap-2">
+        <font-awesome-icon v-if="isLoading" icon="fa-solid fa-spinner" spin />
+        <font-awesome-icon v-else icon="fa-solid fa-save" />
+        <span>{{ isLoading ? 'Menyimpan...' : 'Simpan Perubahan' }}</span>
       </button>
     </template>
+
   </Modal>
 </template>
 
@@ -88,9 +90,11 @@ async function handleSave() {
 .input-field {
   @apply w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-primary focus:border-primary;
 }
+
 .btn-primary {
-  @apply bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary/90 disabled:opacity-50;
+  @apply bg-primary text-secondary px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary/90 disabled:opacity-50;
 }
+
 .btn-secondary {
   @apply bg-background border border-secondary/30 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-secondary/20;
 }
