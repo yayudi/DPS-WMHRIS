@@ -27,122 +27,122 @@
 
 /* Tema Gelap    */
 :root[data-theme='gelap'] {
-  --color-text: 230 15 88; /* Abu-abu kebiruan terang */
-  --color-background: 230 15 12; /* Biru sangat gelap */
-  --color-primary: 190 90 35; /* Cyan/biru elektrik */
-  --color-secondary: 230 15 25; /* Abu-abu gelap */
-  --color-accent: 320 90 45; /* Magenta/pink cerah */
-  --color-success: 130 80 45; /* Hijau neon */
-  --color-warning: 50 100 45; /* Kuning neon */
-  --color-danger: 350 100 45; /* Merah neon */
+  --color-text: 230 15% 88%; /* Abu-abu kebiruan terang */
+  --color-background: 230 15% 12%; /* Biru sangat gelap */
+  --color-primary: 190 90% 35%; /* Cyan/biru elektrik */
+  --color-secondary: 230 15% 25%; /* Abu-abu gelap */
+  --color-accent: 320 90% 45%; /* Magenta/pink cerah */
+  --color-success: 130 80% 45%; /* Hijau neon */
+  --color-warning: 50 100% 45%; /* Kuning neon */
+  --color-danger: 350 100% 45%; /* Merah neon */
 }
 
 /* Tema Sepia (Warm & Refined) */
 :root[data-theme='sepia'] {
-  --color-text: 35 40 20; /* Coklat tua pekat */
-  --color-background: 44 38 95; /* Krem (tan) */
-  --color-primary: 20 80 50; /* Terracotta/oranye bata */
-  --color-secondary: 44 30 90; /* Krem terang (beige) */
-  --color-accent: 0 70 50; /* Merah marun lembut */
-  --color-success: 100 40 40; /* Hijau zaitun */
-  --color-warning: 35 70 50; /* Coklat keemasan */
-  --color-danger: 190 50 50; /* Merah marun */
+  --color-text: 35 40% 20%; /* Coklat tua pekat */
+  --color-background: 44 38% 95%; /* Krem (tan) */
+  --color-primary: 20 80% 50%; /* Terracotta/oranye bata */
+  --color-secondary: 44 30% 90%; /* Krem terang (beige) */
+  --color-accent: 0 70% 50%; /* Merah marun lembut */
+  --color-success: 100 40% 40%; /* Hijau zaitun */
+  --color-warning: 35 70% 50%; /* Coklat keemasan */
+  --color-danger: 190 50% 50%; /* Merah marun */
 }
 
 /* Tema Gurun (Desert Oasis) */
 :root[data-theme='gurun'] {
-  --color-text: 25 50 15; /* Coklat tanah */
-  --color-background: 38 50 80; /* Abu-abu batu */
-  --color-primary: 180 70 40; /* Pirus/hijau oasis */
-  --color-secondary: 38 78 90; /* Pasir hangat */
-  --color-accent: 30 95 55; /* Oranye matahari terbenam */
-  --color-success: 180 75 45; /* Pirus */
-  --color-warning: 37 77 57; /* Emas */
-  --color-danger: 15 80 50; /* Merah tanah liat */
+  --color-text: 25 50% 15%; /* Coklat tanah */
+  --color-background: 38 50% 80%; /* Abu-abu batu */
+  --color-primary: 180 70% 40%; /* Pirus/hijau oasis */
+  --color-secondary: 38 78% 90%; /* Pasir hangat */
+  --color-accent: 30 95% 55%; /* Oranye matahari terbenam */
+  --color-success: 180 75% 45%; /* Pirus */
+  --color-warning: 37 77% 57%; /* Emas */
+  --color-danger: 15 80% 50%; /* Merah tanah liat */
 }
 
 /* Tema Darah (Vampire) */
 :root[data-theme='darah'] {
-  --color-text: 0 0 92; /* Putih gading (ivory) */
-  --color-background: 0 0 10; /* Hitam pekat */
-  --color-primary: 0 80 55; /* Merah darah pekat (crimson) */
-  --color-secondary: 0 0 20; /* Abu-abu arang (charcoal) */
-  --color-accent: 0 90 65; /* Merah terang untuk highlight */
-  --color-success: 120 50 40; /* Hijau gelap (kontras) */
-  --color-warning: 45 80 60; /* Emas/kuning tua */
-  --color-danger: 270 100 50; /* Merah terang (sama dengan accent) */
+  --color-text: 0 0% 92%; /* Putih gading (ivory) */
+  --color-background: 0 0% 10%; /* Hitam pekat */
+  --color-primary: 0 80% 55%; /* Merah darah pekat (crimson) */
+  --color-secondary: 0 0% 20%; /* Abu-abu arang (charcoal) */
+  --color-accent: 0 90% 65%; /* Merah terang untuk highlight */
+  --color-success: 120 50% 40%; /* Hijau gelap (kontras) */
+  --color-warning: 45 80% 60%; /* Emas/kuning tua */
+  --color-danger: 270 100% 50%; /* Merah terang (sama dengan accent) */
 }
 
 /* Tema Hutan (Forest) */
 :root[data-theme='hutan'] {
-  --color-text: 40 30 90; /* Krem terang */
-  --color-background: 120 25 15; /* Hijau hutan gelap */
-  --color-primary: 80 70 55; /* Hijau limau cerah */
-  --color-secondary: 30 30 25; /* Coklat gelap */
-  --color-accent: 45 90 60; /* Kuning safron */
-  --color-success: 80 70 30; /* Hijau limau (sama dengan primary) */
-  --color-warning: 45 90 60; /* Kuning safron (sama dengan accent) */
-  --color-danger: 0 90 65; /* Merah kecoklatan */
+  --color-text: 40 30% 90%; /* Krem terang */
+  --color-background: 120 25% 15%; /* Hijau hutan gelap */
+  --color-primary: 80 70% 55%; /* Hijau limau cerah */
+  --color-secondary: 30 30% 25%; /* Coklat gelap */
+  --color-accent: 45 90% 60%; /* Kuning safron */
+  --color-success: 80 70% 30%; /* Hijau limau (sama dengan primary) */
+  --color-warning: 45 90% 60%; /* Kuning safron (sama dengan accent) */
+  --color-danger: 0 90% 65%; /* Merah kecoklatan */
 }
 
 /* Tema Lautan (Ocean) */
 :root[data-theme='lautan'] {
-  --color-text: 190 100 95; /* Putih kebiruan */
-  --color-background: 210 50 10; /* Biru laut dalam */
-  --color-primary: 175 80 50; /* Pirus/Turquoise */
-  --color-secondary: 200 15 30; /* Abu-abu biru gelap */
-  --color-accent: 10 90 65; /* Oranye koral */
-  --color-success: 150 70 45; /* Hijau laut */
-  --color-warning: 40 90 60; /* Kuning cerah */
-  --color-danger: 0 80 60; /* Merah cerah */
+  --color-text: 190 100% 95%; /* Putih kebiruan */
+  --color-background: 210 50% 10%; /* Biru laut dalam */
+  --color-primary: 175 80% 50%; /* Pirus/Turquoise */
+  --color-secondary: 200 15% 30%; /* Abu-abu biru gelap */
+  --color-accent: 10 90% 65%; /* Oranye koral */
+  --color-success: 150 70% 45%; /* Hijau laut */
+  --color-warning: 40 90% 60%; /* Kuning cerah */
+  --color-danger: 0 80% 60%; /* Merah cerah */
 }
 
 /* Pantai (Summer Beach) */
 :root[data-theme='pantai'] {
-  --color-text: 25 50 15; /* Coklat gelap (kayu basah) */
-  --color-background: 45 100 96; /* Pasir sangat terang/putih */
-  --color-primary: 195 70 45; /* Biru pucat (busa laut) */
-  --color-secondary: 140 60 85; /* Hijau toska (sea glass) */
-  --color-accent: 310 80 60; /* Merah muda tropis (bunga/senja) */
-  --color-success: 130 60 45; /* Hijau palem */
-  --color-warning: 35 90 60; /* Oranye hangat */
-  --color-danger: 10 80 55; /* Merah koral */
+  --color-text: 25 50% 15%; /* Coklat gelap (kayu basah) */
+  --color-background: 45 100% 96%; /* Pasir sangat terang/putih */
+  --color-primary: 195 70% 45%; /* Biru pucat (busa laut) */
+  --color-secondary: 140 60% 85%; /* Hijau toska (sea glass) */
+  --color-accent: 310 80% 60%; /* Merah muda tropis (bunga/senja) */
+  --color-success: 130 60% 45%; /* Hijau palem */
+  --color-warning: 35 90% 60%; /* Oranye hangat */
+  --color-danger: 10 80% 55%; /* Merah koral */
 }
 
 /* Tema Matahari Terbenam (Sunset) */
 :root[data-theme='sunset'] {
-  --color-text: 50 100 92; /* Kuning pucat */
-  --color-background: 250 50 12; /* Indigo gelap */
-  --color-primary: 25 95 60; /* Oranye menyala */
-  --color-secondary: 260 40 25; /* Ungu gelap */
-  --color-accent: 330 90 60; /* Pink cerah */
-  --color-success: 160 80 50; /* Hijau mint (kontras) */
-  --color-warning: 45 100 60; /* Kuning keemasan */
-  --color-danger: 350 90 60; /* Merah/Pink menyala */
+  --color-text: 50 100% 92%; /* Kuning pucat */
+  --color-background: 250 50% 12%; /* Indigo gelap */
+  --color-primary: 25 95% 60%; /* Oranye menyala */
+  --color-secondary: 260 40% 25%; /* Ungu gelap */
+  --color-accent: 330 90% 60%; /* Pink cerah */
+  --color-success: 160 80% 50%; /* Hijau mint (kontras) */
+  --color-warning: 45 100% 60%; /* Kuning keemasan */
+  --color-danger: 350 90% 60%; /* Merah/Pink menyala */
 }
 
 /* Tema Permen (Candy) */
 :root[data-theme='permen'] {
-  --color-text: 270 20 25; /* Ungu gelap */
-  --color-background: 330 100 98; /* Pink sangat pucat */
-  --color-primary: 340 90 55; /* Pink permen */
-  --color-secondary: 150 50 90; /* Hijau mint pucat */
-  --color-accent: 200 90 65; /* Biru permen */
-  --color-success: 140 70 60; /* Hijau permen */
-  --color-warning: 25 95 65; /* Kuning permen */
-  --color-danger: 0 80 70; /* Merah permen */
+  --color-text: 270 20% 25%; /* Ungu gelap */
+  --color-background: 330 100% 98%; /* Pink sangat pucat */
+  --color-primary: 340 90% 55%; /* Pink permen */
+  --color-secondary: 150 50% 90%; /* Hijau mint pucat */
+  --color-accent: 200 90% 65%; /* Biru permen */
+  --color-success: 140 70% 60%; /* Hijau permen */
+  --color-warning: 25 95% 65%; /* Kuning permen */
+  --color-danger: 0 80% 70%; /* Merah permen */
 }
 
 /* Tema Retro - Neon tahun 80-an */
 :root[data-theme='retro'] {
-  --color-text: 0 0 95; /* Putih cerah */
-  --color-background: 240 10 5; /* Hampir hitam */
-  --color-primary: 310 100 55; /* Magenta neon */
-  --color-secondary: 240 10 20; /* Abu-abu gelap */
-  --color-accent: 70 100 50; /* Hijau limau neon */
-  --color-success: 190 80 60; /* Cyan neon */
-  --color-warning: 55 100 50; /* Kuning neon */
-  --color-danger: 0 100 55; /* Merah neon */
+  --color-text: 0 0% 95%; /* Putih cerah */
+  --color-background: 240 10% 5%; /* Hampir hitam */
+  --color-primary: 310 100% 55%; /* Magenta neon */
+  --color-secondary: 240 10% 20%; /* Abu-abu gelap */
+  --color-accent: 70 100% 50%; /* Hijau limau neon */
+  --color-success: 190 80% 60%; /* Cyan neon */
+  --color-warning: 55 100% 50%; /* Kuning neon */
+  --color-danger: 0 100% 55%; /* Merah neon */
 }
 
 /* @tailwind */

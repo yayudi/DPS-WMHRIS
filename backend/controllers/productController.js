@@ -323,6 +323,7 @@ export const exportProducts = catchAsync(async (req, res, next) => {
     exportType: "PRODUCT_MASTER",
     format: req.query.format || "xlsx",
     includeImages: req.query.includeImages === "true" || req.query.includeImages === true,
+    columns: req.query.columns ? JSON.parse(req.query.columns) : null,
   };
 
   const userId = req.user.id;

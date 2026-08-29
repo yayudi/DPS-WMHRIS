@@ -3,18 +3,13 @@
 import { ref, watch, onMounted } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
 import { useToast } from '@/composables/useToast.js'
-import { useMobile } from '@/composables/useMobile.js'
 import axios from '@/api/axios.js'
-import { uploadMediaToR2 } from '@/utils/mediaUploader.js'
 import debounce from 'lodash/debounce'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import ProductHistoryList from '@/components/products/ProductHistoryList.vue'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import { useMasterDataStore } from '@/stores/masterData.js'
-import { resolveProductImageUrl } from '@/composables/useImageUrl.js'
-
-const { isMobile } = useMobile()
 
 const packageTypeOptions = [
   { label: 'Produk Tunggal', value: false, icon: 'fa-solid fa-box' },
@@ -160,10 +155,8 @@ watch(
   val => checkDuplicate('name', val)
 )
 
-// Image State
-const selectedImage = ref(null)
-const imagePreview = ref(null)
-const isCompressing = ref(false)
+
+
 const copiedMediaIds = ref([])
 
 // Reset/Populate Form saat modal dibuka
@@ -215,16 +208,14 @@ watch(
             }
             // Mapping komponen jika ada
             components.value = data.data.components || []
+
             // Set existing image if any
             if (data.data.images && data.data.images.length > 0) {
-              imagePreview.value = resolveProductImageUrl(data.data.images[0])
               if (props.mode === 'duplicate') {
                 copiedMediaIds.value = data.data.images.map(img => img.media_id).filter(id => id != null)
               }
-            } else if (data.data.image_path) {
-              imagePreview.value = resolveProductImageUrl(data.data)
             }
-            
+
             // Penyesuaian untuk mode duplikat
             if (props.mode === 'duplicate') {
               form.value.name = form.value.name + ' (Copy)'
@@ -252,8 +243,6 @@ watch(
           is_package: false
         }
         components.value = []
-        selectedImage.value = null
-        imagePreview.value = null
 
         // Auto-Generate Next SKU
         fetchLoading.value = true
@@ -311,20 +300,7 @@ function removeComponent(index) {
   components.value.splice(index, 1)
 }
 
-async function handleImageUpload(event) {
-  const file = event.target.files[0]
-  if (!file) return
 
-  // Validasi tipe file
-  if (!file.type.match('image.*')) {
-    toast('Format file harus berupa gambar.', 'error')
-    return
-  }
-
-  // Preview langsung tanpa kompresi klien (server akan menangani jika diperlukan)
-  selectedImage.value = file
-  imagePreview.value = URL.createObjectURL(file)
-}
 
 async function handleSubmit() {
   // Validasi Paket
@@ -342,36 +318,15 @@ async function handleSubmit() {
       components: form.value.is_package ? components.value : []
     }
 
-    // 1. Upload Gambar ke R2 jika ada
+    // Submit Data Produk (JSON murni)
     let mediaIds = []
-    if (selectedImage.value) {
-      // Judul file menggunakan nama produk atau SKU
-      const imageTitle = form.value.name || form.value.sku || 'Gambar Produk'
-
-      const uploadRes = await uploadMediaToR2(
-        axios,
-        [selectedImage.value],
-        [imageTitle],
-        [], // tags kosong
-        [] // productIds kosong (akan dilink saat create/update produk)
-      )
-
-      if (uploadRes && uploadRes.success && uploadRes.data && uploadRes.data.length > 0) {
-        mediaIds = uploadRes.data.map(item => item.id)
-      } else {
-        toast('Gagal mengunggah gambar ke penyimpanan Cloud.', 'error')
-        loading.value = false
-        return
-      }
-    } else if (props.mode === 'duplicate' && copiedMediaIds.value.length > 0) {
-      // Gunakan ulang ID gambar lama jika tidak ada gambar baru yang diunggah
+    if (props.mode === 'duplicate' && copiedMediaIds.value.length > 0) {
       mediaIds = copiedMediaIds.value
     }
 
-    // 2. Submit Data Produk (JSON murni)
     const finalPayload = {
       ...payload,
-      mediaIds
+      ...(mediaIds.length > 0 && { mediaIds })
     }
 
     let response
@@ -484,34 +439,6 @@ watch(Alt_S, pressed => {
           </div>
         </div>
 
-        <!-- Image Upload -->
-        <div>
-          <label class="block text-xs font-bold text-text/60 mb-1">Foto Produk</label>
-          <div class="flex items-start gap-4">
-            <!-- Preview Box -->
-            <div
-              class="shrink-0 w-20 h-20 bg-secondary/10 rounded-lg border border-secondary/20 overflow-hidden flex items-center justify-center relative group"
-            >
-              <img v-if="imagePreview" :src="imagePreview" class="w-full h-full object-cover" />
-              <font-awesome-icon v-else icon="fa-solid fa-image" class="text-2xl text-text/20" />
-
-              <!-- Overlay Loading Compression -->
-              <div v-if="isCompressing" class="absolute inset-0 bg-black/50 flex items-center justify-center">
-                <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-secondary" />
-              </div>
-            </div>
-
-            <div class="flex-1">
-              <input
-                type="file"
-                @change="handleImageUpload"
-                accept="image/*"
-                class="block w-full text-sm text-text/60 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer"
-              />
-              <p class="text-[10px] text-text/40 mt-1">Format: JPG, PNG. (Max 5MB direkomendasikan).</p>
-            </div>
-          </div>
-        </div>
 
         <!-- Kategori Produk -->
         <div>
@@ -740,6 +667,8 @@ watch(Alt_S, pressed => {
       </div>
     </template>
   </BaseModal>
+
+
 </template>
 
 <style scoped>

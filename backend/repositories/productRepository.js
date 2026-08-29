@@ -406,7 +406,7 @@ export const getProductsWithFiltersStream = (connection, filters) => {
       : "";
 
   const productsQuery = `
-      SELECT p.id, p.sku, p.name, p.category_id, c.name as category_name, p.price, p.weight, p.is_package, p.is_active, p.deleted_at${includeImageSql}
+      SELECT p.id, p.sku, p.name, p.category_id, c.name as category_name, p.price, p.weight, p.length, p.width, p.height, p.is_package, p.is_active, p.deleted_at${includeImageSql}
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
       ${whereSql}

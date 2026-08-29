@@ -278,7 +278,7 @@ const handleBulkPrintLabel = () => {
 }
 
 // Batch Edit (Export & Import)
-const handleExport = async ({ format, includeImages }) => {
+const handleExport = async ({ format, includeImages, columns }) => {
   isExporting.value = true
   try {
     const params = {
@@ -291,7 +291,8 @@ const handleExport = async ({ format, includeImages }) => {
       categoryInclude: JSON.stringify(filterCategory.value.include),
       categoryExclude: JSON.stringify(filterCategory.value.exclude),
       format: format, // 'xlsx' or 'csv'
-      includeImages: includeImages
+      includeImages: includeImages,
+      columns: JSON.stringify(columns)
     }
 
     // Request Job Creation

@@ -326,8 +326,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
         >
           <!-- HEADER -->
           <div
-            class="bg-secondary/5 border-b border-secondary/10 flex justify-between items-center text-xs font-bold text-text/60"
-            :class="searchable ? 'flex-col gap-2 p-2' : ''"
+            class="bg-secondary/5 border-b border-secondary/10 flex flex-col gap-2 p-2 text-xs font-bold text-text/60"
           >
             <div v-if="searchable" class="w-full relative">
               <font-awesome-icon
@@ -374,12 +373,20 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
                 </button>
               </div>
             </div>
-            <button
-              @click="clearAll"
-              class="w-full py-2 bg-danger/5 text-danger hover:text-secondary hover:bg-danger rounded-lg transition-colors"
-            >
-              Reset
-            </button>
+            <div class="flex gap-2 w-full">
+              <button
+                @click="includeFiltered"
+                class="flex-1 py-1.5 bg-primary/5 text-primary hover:text-secondary hover:bg-primary rounded-lg transition-colors font-medium text-xs"
+              >
+                Pilih Semua
+              </button>
+              <button
+                @click="clearAll"
+                class="flex-1 py-1.5 bg-danger/5 text-danger hover:text-secondary hover:bg-danger rounded-lg transition-colors font-medium text-xs"
+              >
+                Reset
+              </button>
+            </div>
           </div>
 
           <!-- OPTIONS LIST -->
@@ -415,7 +422,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
                   class="w-6 h-6 flex items-center justify-center transition-all border outline-none hover:rounded-md"
                   :class="[
                     getItemState(getOptionValue(option)) === 'include'
-                      ? 'bg-primary text-white border-primary shadow-sm rounded-md'
+                      ? 'bg-primary text-secondary border-primary shadow-sm rounded-md'
                       : 'bg-primary/10 text-primary border-secondary/30 rounded-s-md hover:border-primary hover:text-primary',
                     excludeCount > 0 ? 'opacity-30 cursor-not-allowed hover:border-secondary/30 hover:text-text/30' : ''
                   ]"
@@ -435,7 +442,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
                   class="w-6 h-6 hover:rounded-md flex items-center justify-center transition-all border outline-none"
                   :class="[
                     getItemState(getOptionValue(option)) === 'exclude'
-                      ? 'bg-danger text-white border-danger shadow-sm rounded-md'
+                      ? 'bg-danger text-secondary border-danger shadow-sm rounded-md'
                       : 'bg-danger/10 text-danger border-secondary/30 rounded-e-md hover:border-danger hover:text-danger',
                     includeCount > 0 ? 'opacity-30 cursor-not-allowed hover:border-secondary/30 hover:text-text/30' : ''
                   ]"

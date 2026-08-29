@@ -37,8 +37,12 @@ coverage/
 build/
 .cache/
 scratch/
+scratch_*
 /frontend/bundle-stats.html
 migrations/
+gosec*
+api
+worker
 
 # ===================================================================
 # IDE & EDITORS
@@ -81,8 +85,19 @@ migrations/
 graphify-out
 
 # ===================================================================
-# BACKEND SPECIFIC
+# Refactor references
 # ===================================================================
+/backend-node/
+/backend-go-stable/
+
+# Go Binaries
+/backend/*.exe
+/backend/tmp_build*
+/backend/wmhris
+/backend/api
+/backend/worker
+/backend/bin/
+
 # PHP & Legacy
 /backend/**/*.php
 /backend/**/*.py
@@ -111,9 +126,8 @@ graphify-out
 /backend/seed/
 
 # Docker
-/backend/Dockerfile
-docker-compose.yml
-docker-compose.*.yml
+docker-compose.override.yml
+docker-compose.local.yml
 
 # ===================================================================
 # FRONTEND SPECIFIC
@@ -128,6 +142,10 @@ TODO.*
 *.tmp
 *.bak
 *.bk
+test_*.go
+*scrap*
+tmp_*.exe
+
 
 # ===================================================================
 # SECURITY & SECRETS
@@ -148,6 +166,7 @@ id_rsa
 # Firebase Admin SDK Credentials
 *firebase-adminsdk*.json
 serviceAccountKey.json
+firebase/*.json
 
 # ===================================================================
 # BACKUPS & ARCHIVES

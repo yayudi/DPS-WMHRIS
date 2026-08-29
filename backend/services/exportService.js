@@ -301,14 +301,18 @@ export const generateProductExportStreaming = async (filters, filePath) => {
       Logger.info("Starting CSV Pipeline...", "EXPORT_SERVICE");
 
       const transformRow = (p) => {
-        const row = {
-          sku: p.sku,
-          name: p.name,
-          kategori: p.category_name || "",
-          price: p.price,
-          weight: p.weight || 0,
-          is_active: p.is_active ? 1 : 0,
-        };
+        const row = {};
+        if (!filters.columns || filters.columns.includes('sku')) row.sku = p.sku;
+        if (!filters.columns || filters.columns.includes('name')) row.name = p.name;
+        if (!filters.columns || filters.columns.includes('category_id')) row.kategori = p.category_name || "";
+        if (!filters.columns || filters.columns.includes('price')) row.price = p.price;
+        if (!filters.columns || filters.columns.includes('is_package')) row.is_package = p.is_package ? 1 : 0;
+        if (!filters.columns || filters.columns.includes('weight')) row.weight = p.weight || 0;
+        if (!filters.columns || filters.columns.includes('length')) row.length = p.length || 0;
+        if (!filters.columns || filters.columns.includes('width')) row.width = p.width || 0;
+        if (!filters.columns || filters.columns.includes('height')) row.height = p.height || 0;
+        if (!filters.columns || filters.columns.includes('is_active')) row.is_active = p.is_active ? 1 : 0;
+
         if (includeImages) {
           row.image_url = p.main_paths
             ? p.main_paths
@@ -330,41 +334,48 @@ export const generateProductExportStreaming = async (filters, filePath) => {
     } else {
       // EXCEL WRITING
       const sheet = workbookWriter.addWorksheet("Master Produk");
-      const headers = ["sku", "name", "kategori", "price", "weight", "is_active"];
-      const columns = [
-        { key: "sku", width: 12 },
-        { key: "name", width: 75 },
-        { key: "kategori", width: 25 },
-        { key: "price", width: 15 },
-        { key: "weight", width: 12 },
-        { key: "is_active", width: 12 },
-      ];
-      sheet.columns = columns;
-      sheet.getRow(1).values = headers;
-      styleHeader(sheet, 1, headers.length, "FF4472C4", "FFFFFFFF");
+      
+      // Build dynamic columns for Excel
+      const columnsDef = [];
+      if (!filters.columns || filters.columns.includes('sku')) columnsDef.push({ header: "sku", key: "sku", width: 15 });
+      if (!filters.columns || filters.columns.includes('name')) columnsDef.push({ header: "name", key: "name", width: 75 });
+      if (!filters.columns || filters.columns.includes('category_id')) columnsDef.push({ header: "kategori", key: "kategori", width: 25 });
+      if (!filters.columns || filters.columns.includes('price')) columnsDef.push({ header: "price", key: "price", width: 15 });
+      if (!filters.columns || filters.columns.includes('is_package')) columnsDef.push({ header: "is_package", key: "is_package", width: 12 });
+      if (!filters.columns || filters.columns.includes('weight')) columnsDef.push({ header: "weight", key: "weight", width: 12 });
+      if (!filters.columns || filters.columns.includes('length')) columnsDef.push({ header: "length", key: "length", width: 12 });
+      if (!filters.columns || filters.columns.includes('width')) columnsDef.push({ header: "width", key: "width", width: 12 });
+      if (!filters.columns || filters.columns.includes('height')) columnsDef.push({ header: "height", key: "height", width: 12 });
+      if (!filters.columns || filters.columns.includes('is_active')) columnsDef.push({ header: "is_active", key: "is_active", width: 12 });
+
+      sheet.columns = columnsDef;
+      styleHeader(sheet, 1, columnsDef.length, "FF4472C4", "FFFFFFFF");
 
       let imageSheet = null;
       if (includeImages) {
         imageSheet = workbookWriter.addWorksheet("Gambar Produk");
         imageSheet.columns = [
-          { key: "sku", width: 15 },
-          { key: "image_url", width: 80 },
+          { header: "sku", key: "sku", width: 15 },
+          { header: "image_url", key: "image_url", width: 80 },
         ];
-        imageSheet.getRow(1).values = ["sku", "image_url"];
         styleHeader(imageSheet, 1, 2, "FF4472C4", "FFFFFFFF");
       }
 
       await new Promise((resolve, reject) => {
         queryStream.on("error", (err) => reject(err));
         queryStream.on("data", (p) => {
-          const rowData = {
-            sku: p.sku,
-            name: p.name,
-            kategori: p.category_name || "",
-            price: p.price,
-            weight: p.weight || 0,
-            is_active: p.is_active ? 1 : 0,
-          };
+          const rowData = {};
+          if (!filters.columns || filters.columns.includes('sku')) rowData.sku = p.sku;
+          if (!filters.columns || filters.columns.includes('name')) rowData.name = p.name;
+          if (!filters.columns || filters.columns.includes('category_id')) rowData.kategori = p.category_name || "";
+          if (!filters.columns || filters.columns.includes('price')) rowData.price = p.price;
+          if (!filters.columns || filters.columns.includes('is_package')) rowData.is_package = p.is_package ? 1 : 0;
+          if (!filters.columns || filters.columns.includes('weight')) rowData.weight = p.weight || 0;
+          if (!filters.columns || filters.columns.includes('length')) rowData.length = p.length || 0;
+          if (!filters.columns || filters.columns.includes('width')) rowData.width = p.width || 0;
+          if (!filters.columns || filters.columns.includes('height')) rowData.height = p.height || 0;
+          if (!filters.columns || filters.columns.includes('is_active')) rowData.is_active = p.is_active ? 1 : 0;
+          
           sheet.addRow(rowData).commit();
 
           if (includeImages && imageSheet && p.main_paths) {

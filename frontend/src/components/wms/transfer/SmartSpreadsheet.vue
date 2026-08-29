@@ -84,10 +84,8 @@ const mapDataToMatrix = () => {
 }
 
 async function initSpreadsheet() {
-  console.log('[Jspreadsheet] initSpreadsheet called')
   const el = document.getElementById('wms-spreadsheet')
   if (!el) {
-    console.log('[Jspreadsheet] DOM element #wms-spreadsheet not found!')
     return
   }
 
@@ -102,7 +100,6 @@ async function initSpreadsheet() {
   try {
     const cols = JSON.parse(JSON.stringify(getColumns()))
     const matrixData = JSON.parse(JSON.stringify(mapDataToMatrix()))
-    console.log('[Jspreadsheet] Creating instance with cols:', cols.length, 'data rows:', matrixData.length)
 
     jexcelInstance.value = jspreadsheet(el, {
       worksheets: [
@@ -124,13 +121,11 @@ async function initSpreadsheet() {
         if (input) {
           input.setAttribute('autocomplete', 'on')
           input.setAttribute('spellcheck', 'false')
-          // Some browsers need this weird trick to bypass autofill
           input.setAttribute('data-lpignore', 'true')
         }
       }
     })
-    console.log('[Jspreadsheet] Instance created successfully!')
-    
+
     // Auto-focus the first cell (A1)
     setTimeout(() => {
       const ws = getWorksheet()
@@ -276,13 +271,13 @@ function setRowWarning(ws, y, isWarning) {
   for (let i = 0; i < colsCount; i++) {
     const cellId = getCellId(i, y)
     if (isWarning) {
-      ws.setStyle(cellId, 'background-color', '#fee2e2') // Tailwind red-100
-      ws.setStyle(cellId, 'color', '#b91c1c') // Tailwind red-700
+      ws.setStyle(cellId, 'background-color', 'hsl(var(--color-danger) / 0.15)')
+      ws.setStyle(cellId, 'color', 'hsl(var(--color-danger))')
     } else {
       // Trick Jspreadsheet to overwrite the style (empty string is often ignored in CE v5)
       ws.setStyle(cellId, 'background-color', 'transparent')
       ws.setStyle(cellId, 'color', 'inherit')
-      
+
       // FOOLPROOF DOM CLEAR:
       try {
         if (spreadsheetEl.value) {
@@ -320,64 +315,64 @@ async function handleCellChange(instance, cell, x, y) {
     try {
       const ws = getWorksheet()
       if (!ws) return
-      
+
       const sku = ws.getValueFromCoords(skuX, y)
-    const name = ws.getValueFromCoords(nameX, y)
-    const fromLocCode = showFrom.value ? ws.getValueFromCoords(fromX, y) : null
-    const fromLocId = resolveLocationId(fromLocCode)
+      const name = ws.getValueFromCoords(nameX, y)
+      const fromLocCode = showFrom.value ? ws.getValueFromCoords(fromX, y) : null
+      const fromLocId = resolveLocationId(fromLocCode)
 
-    // Determine the query based on what was edited
-    let query = ''
-    if (isSku) query = sku
-    else if (isName) query = name
-    else query = sku || name
+      // Determine the query based on what was edited
+      let query = ''
+      if (isSku) query = sku
+      else if (isName) query = name
+      else query = sku || name
 
-    if (query) {
-      try {
-        const results = await searchProducts(query, fromLocId || null, 1, 5)
-        const productList = Array.isArray(results) ? results : results?.data || []
+      if (query) {
+        try {
+          const results = await searchProducts(query, fromLocId || null, 1, 5)
+          const productList = Array.isArray(results) ? results : results?.data || []
 
-        let matched = null
+          let matched = null
 
-        if (isSku) {
-          // SKU column: HARUS exact match SKU (case-insensitive)
-          matched = productList.find(p => p.sku.toLowerCase() === query.toLowerCase()) || null
-        } else if (isName) {
-          // Nama column: LIKE search, ambil hasil pertama
-          matched = productList.length > 0 ? productList[0] : null
-        } else {
-          // fromLoc changed: re-resolve pakai SKU yang sudah ada
-          matched = productList.find(p => p.sku.toLowerCase() === sku.toLowerCase()) || null
-        }
-
-        if (matched) {
-          ws.setValueFromCoords(skuX, y, matched.sku, true)
-          ws.setValueFromCoords(nameX, y, matched.name, true)
-          if (showStock.value && stockX !== -1) {
-            ws.setValueFromCoords(stockX, y, matched.current_stock || 0, true)
+          if (isSku) {
+            // SKU column: HARUS exact match SKU (case-insensitive)
+            matched = productList.find(p => p.sku.toLowerCase() === query.toLowerCase()) || null
+          } else if (isName) {
+            // Nama column: LIKE search, ambil hasil pertama
+            matched = productList.length > 0 ? productList[0] : null
+          } else {
+            // fromLoc changed: re-resolve pakai SKU yang sudah ada
+            matched = productList.find(p => p.sku.toLowerCase() === sku.toLowerCase()) || null
           }
-          setRowWarning(ws, y, false)
-        } else {
-          if (isSku) ws.setValueFromCoords(nameX, y, 'Tidak ditemukan', true)
-          if (isName) ws.setValueFromCoords(skuX, y, '', true)
-          if (showStock.value && stockX !== -1) {
-            ws.setValueFromCoords(stockX, y, 0, true)
+
+          if (matched) {
+            ws.setValueFromCoords(skuX, y, matched.sku, true)
+            ws.setValueFromCoords(nameX, y, matched.name, true)
+            if (showStock.value && stockX !== -1) {
+              ws.setValueFromCoords(stockX, y, matched.current_stock || 0, true)
+            }
+            setRowWarning(ws, y, false)
+          } else {
+            if (isSku) ws.setValueFromCoords(nameX, y, 'Tidak ditemukan', true)
+            if (isName) ws.setValueFromCoords(skuX, y, '', true)
+            if (showStock.value && stockX !== -1) {
+              ws.setValueFromCoords(stockX, y, 0, true)
+            }
+            setRowWarning(ws, y, true)
           }
-          setRowWarning(ws, y, true)
+        } catch (e) {
+          console.error(e)
         }
-      } catch (e) {
-        console.error(e)
+      } else {
+        // Clear Name and Stock if SKU/Name is emptied
+        if (isSku) ws.setValueFromCoords(nameX, y, '', true)
+        if (isName) ws.setValueFromCoords(skuX, y, '', true)
+        if (showStock.value && stockX !== -1) {
+          ws.setValueFromCoords(stockX, y, '', true)
+        }
+        // Remove warning since it's empty
+        setRowWarning(ws, y, false)
       }
-    } else {
-      // Clear Name and Stock if SKU/Name is emptied
-      if (isSku) ws.setValueFromCoords(nameX, y, '', true)
-      if (isName) ws.setValueFromCoords(skuX, y, '', true)
-      if (showStock.value && stockX !== -1) {
-        ws.setValueFromCoords(stockX, y, '', true)
-      }
-      // Remove warning since it's empty
-      setRowWarning(ws, y, false)
-    }
       syncData() // Re-sync after resolving
     } finally {
       resolvingRows.delete(y)
@@ -443,27 +438,93 @@ defineExpose({ resetRows, handleSubmit })
 </template>
 
 <style>
-/* Customizing Jspreadsheet to match WMS Theme */
-.jspreadsheet-container .jexcel {
-  width: 100% !important;
+/* Customizing Jspreadsheet to match WMS Theme dynamically */
+.jspreadsheet-container .jss_container,
+.jspreadsheet-container .jss_content {
+  background-color: transparent !important;
 }
-.jspreadsheet-container .jexcel > thead > tr > td {
-  background-color: rgb(var(--color-secondary) / 0.1) !important;
-  color: rgb(var(--color-text) / 0.9) !important;
+
+.jspreadsheet-container .jss_worksheet {
+  width: 100% !important;
+  background-color: hsl(var(--color-background)) !important;
+  color: hsl(var(--color-text)) !important;
+}
+
+/* Header and Row numbers */
+.jspreadsheet-container .jss_worksheet > thead > tr > td,
+.jspreadsheet-container .jss_worksheet > tbody > tr > td:first-child {
+  background-color: hsl(var(--color-secondary) / 0.15) !important;
+  color: hsl(var(--color-text)) !important;
   font-weight: bold;
-  border-color: rgb(var(--color-secondary) / 0.2) !important;
+  border-color: hsl(var(--color-secondary) / 0.8) !important;
+}
+.jspreadsheet-container .jss_worksheet > thead > tr > td {
   padding: 8px !important;
 }
-.jspreadsheet-container .jexcel > tbody > tr > td {
-  border-color: rgb(var(--color-secondary) / 0.2) !important;
-  color: rgb(var(--color-text)) !important;
+
+/* Normal cells */
+.jspreadsheet-container .jss_worksheet > tbody > tr > td {
+  border-color: hsl(var(--color-secondary) / 0.5) !important;
+  color: hsl(var(--color-text)) !important;
   padding: 6px !important;
+  background-color: hsl(var(--color-background)) !important;
 }
-.jspreadsheet-container .jexcel > tbody > tr > td.readonly {
-  background-color: rgb(var(--color-secondary) / 0.05) !important;
-  color: rgb(var(--color-text) / 0.5) !important;
+
+/* Alternating rows */
+.jspreadsheet-container .jss_worksheet > tbody > tr:nth-child(even) > td {
+  background-color: hsl(var(--color-secondary) / 0.05) !important;
 }
-.jspreadsheet-container .jexcel > tbody > tr:hover {
-  background-color: rgb(var(--color-primary) / 0.05) !important;
+
+/* Readonly cells */
+.jspreadsheet-container .jss_worksheet > tbody > tr > td.readonly {
+  background-color: hsl(var(--color-secondary) / 0.1) !important;
+  color: hsl(var(--color-text) / 0.5) !important;
+}
+
+/* Hover effect */
+.jspreadsheet-container .jss_worksheet > tbody > tr:hover > td {
+  background-color: hsl(var(--color-primary) / 0.05) !important;
+}
+
+/* Active / Selected cell border */
+.jspreadsheet-container .jss_worksheet .highlight-top {
+  border-top: 2px solid hsl(var(--color-primary)) !important;
+}
+.jspreadsheet-container .jss_worksheet .highlight-left {
+  border-left: 2px solid hsl(var(--color-primary)) !important;
+}
+.jspreadsheet-container .jss_worksheet .highlight-right {
+  border-right: 2px solid hsl(var(--color-primary)) !important;
+}
+.jspreadsheet-container .jss_worksheet .highlight-bottom {
+  border-bottom: 2px solid hsl(var(--color-primary)) !important;
+}
+.jspreadsheet-container .jss_worksheet .highlight {
+  background-color: hsl(var(--color-primary) / 0.1) !important;
+}
+.jspreadsheet-container .jss_corner {
+  background-color: hsl(var(--color-primary)) !important;
+  border-color: hsl(var(--color-background)) !important;
+}
+
+/* Jspreadsheet editor inputs & dropdowns */
+.jss_editor input,
+.jss_editor textarea,
+.edition input,
+.edition textarea {
+  color: hsl(var(--color-text)) !important;
+  background-color: hsl(var(--color-background)) !important;
+  border: 1px solid hsl(var(--color-secondary) / 0.3) !important;
+}
+.jdropdown-container {
+  background-color: hsl(var(--color-background)) !important;
+  color: hsl(var(--color-text)) !important;
+  border-color: hsl(var(--color-secondary) / 0.2) !important;
+}
+.jdropdown-item {
+  color: hsl(var(--color-text)) !important;
+}
+.jdropdown-item:hover {
+  background-color: hsl(var(--color-primary) / 0.2) !important;
 }
 </style>

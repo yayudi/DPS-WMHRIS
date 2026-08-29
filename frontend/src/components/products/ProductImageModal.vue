@@ -16,6 +16,7 @@ import { autoCropCenter } from '@/utils/imageCropper.js'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import { isGenericTitle, stripExtension } from '@/utils/mediaUtils'
 import { useFirebaseSync } from '@/composables/useFirebaseSync.js'
+import MediaPickerModal from '@/components/shared/MediaPickerModal.vue'
 const ImageCropperModal = defineAsyncComponent(() => import('@/views/media/ImageCropperModal.vue'))
 
 const props = defineProps({
@@ -34,6 +35,27 @@ const selectedImages = ref([])
 const existingImages = ref([])
 const isLightboxOpen = ref(false)
 const lightboxIndex = ref(0)
+const isMediaPickerOpen = ref(false)
+
+const handleMediaSelect = async (media) => {
+  loading.value = true
+  try {
+    const { data } = await axios.post(`/products/${props.productData.id}/link-media`, {
+      mediaIds: [media.id]
+    })
+    if (data.success) {
+      toast('Media berhasil ditautkan.', 'success')
+      await fetchImages()
+      emit('refresh')
+    }
+  } catch (error) {
+    console.error(error)
+    const msg = error.response?.data?.message || 'Gagal menautkan media.'
+    toast(msg, 'error')
+  } finally {
+    loading.value = false
+  }
+}
 
 /** Map existingImages to the shape MediaLightbox expects */
 const lightboxImages = computed(() =>
@@ -349,17 +371,17 @@ const getImageUrl = resolveUrl
               Auto 1:1 Semua
             </button>
           </div>
-          <div class="flex flex-col gap-4">
+          <div class="flex flex-col sm:flex-row gap-4">
             <label
-              class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer bg-primary/5 hover:bg-primary/10 transition-colors group"
+              class="flex-1 flex flex-col items-center justify-center h-32 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer bg-primary/5 hover:bg-primary/10 transition-colors group"
             >
               <div
-                class="flex flex-col items-center justify-center pt-5 pb-6 text-primary group-hover:scale-105 transition-transform"
+                class="flex flex-col items-center justify-center pt-5 pb-6 text-primary group-hover:scale-105 transition-transform text-center px-4"
               >
                 <font-awesome-icon icon="fa-solid fa-cloud-arrow-up" class="text-3xl mb-2" />
-                <p class="text-sm font-bold">Klik untuk pilih gambar</p>
-                <p class="text-xs opacity-70">
-                  Bisa pilih banyak sekaligus atau tekan <strong>CTRL+V</strong> untuk paste (Max 5MB)
+                <p class="text-sm font-bold">Upload Baru</p>
+                <p class="text-[10px] opacity-70">
+                  Klik/Paste (Max 5MB)
                 </p>
               </div>
               <!-- Input Multiple -->
@@ -372,6 +394,20 @@ const getImageUrl = resolveUrl
                 :disabled="loading"
               />
             </label>
+            <div
+              @click="isMediaPickerOpen = true"
+              class="flex-1 flex flex-col items-center justify-center h-32 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer bg-primary/5 hover:bg-primary/10 transition-colors group"
+            >
+              <div
+                class="flex flex-col items-center justify-center pt-5 pb-6 text-primary group-hover:scale-105 transition-transform text-center px-4"
+              >
+                <font-awesome-icon icon="fa-solid fa-images" class="text-3xl mb-2" />
+                <p class="text-sm font-bold">Dari Galeri</p>
+                <p class="text-[10px] opacity-70">
+                  Pilih media yang sudah ada
+                </p>
+              </div>
+            </div>
             <div v-if="selectedImages.length > 0" class="flex flex-col gap-3 animate-slide-up">
               <!-- File Item List with Title Edit -->
               <div class="flex flex-col gap-2">
@@ -474,6 +510,12 @@ const getImageUrl = resolveUrl
     :file="currentEditFile"
     @close="((isCropperOpen = false), (currentEditIndex = -1), (currentEditFile = null))"
     @save="handleCroppedSave"
+  />
+
+  <MediaPickerModal
+    :show="isMediaPickerOpen"
+    @close="isMediaPickerOpen = false"
+    @select="handleMediaSelect"
   />
 </template>
 

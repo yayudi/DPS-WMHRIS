@@ -5,6 +5,7 @@ import dayjs from 'dayjs'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseTabs from '@/components/ui/BaseTabs.vue'
 import ImportJobHistory from '@/components/shared/ImportJobHistory.vue'
+import TriStateSelect from '@/components/ui/TriStateSelect.vue'
 import { useDownloadStore } from '@/stores/downloadStore.js'
 
 const downloadStore = useDownloadStore()
@@ -30,6 +31,24 @@ const includeImages = ref(false)
 const fileInput = ref(null)
 const selectedFile = ref(null)
 const isDryRun = ref(false)
+
+// --- Export Columns Logic ---
+const availableColumns = [
+  { key: 'name', label: 'Nama Produk' },
+  { key: 'category_id', label: 'Kategori' },
+  { key: 'price', label: 'Harga (Rp)' },
+  { key: 'is_package', label: 'Tipe Paket' },
+  { key: 'weight', label: 'Berat (gram)' },
+  { key: 'length', label: 'Panjang (cm)' },
+  { key: 'width', label: 'Lebar (cm)' },
+  { key: 'height', label: 'Tinggi (cm)' },
+  { key: 'is_active', label: 'Status Aktif' }
+]
+
+const selectedColumnsState = ref({
+  include: availableColumns.map(c => c.key),
+  exclude: []
+})
 
 // --- Export Jobs Logic ---
 const exportJobs = computed(() => {
@@ -75,7 +94,12 @@ const formatDate = date => dayjs(date).format('DD MMM YYYY, HH:mm')
 
 // Actions
 const handleExport = () => {
-  emit('export', { format: exportFormat.value, includeImages: includeImages.value })
+  const finalColumns = ['sku', ...selectedColumnsState.value.include]
+  emit('export', {
+    format: exportFormat.value,
+    includeImages: includeImages.value,
+    columns: finalColumns
+  })
 }
 
 const handleFileSelect = event => {
@@ -108,8 +132,8 @@ const close = () => {
 </script>
 
 <template>
-  <BaseModal :show="isOpen" @close="close" title="Batch Edit Produk" maxWidth="max-w-3xl">
-    <div class="flex flex-col h-[700px] md:h-[550px]">
+  <BaseModal :show="isOpen" @close="close" title="Batch Edit Produk" maxWidth="max-w-4xl">
+    <div class="flex flex-col h-[750px] md:h-[650px]">
       <!-- TABS -->
       <div class="mb-6 shrink-0 mt-2">
         <BaseTabs :tabs="tabOptions" v-model="activeTab" class="w-full shadow-sm" />
@@ -158,7 +182,7 @@ const close = () => {
           </div>
 
           <div
-            class="mb-6 flex items-center justify-between p-4 bg-primary/5 rounded-xl border border-primary/20 shrink-0"
+            class="mb-4 flex items-center justify-between p-4 bg-primary/5 rounded-xl border border-primary/20 shrink-0"
           >
             <div>
               <div class="font-semibold text-text text-sm">Sertakan Tautan (Link) Gambar</div>
@@ -172,6 +196,24 @@ const close = () => {
                 class="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-secondary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-primary after:border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-checked:after:bg-secondary"
               ></div>
             </label>
+          </div>
+
+          <!-- COLUMN SELECTION -->
+          <div class="mb-6 shrink-0 bg-background border border-secondary/20 rounded-xl p-4">
+            <h6 class="font-bold text-sm text-text mb-2 flex items-center gap-2">
+              Kolom yang Diexport
+              <span class="text-[11px] font-normal text-text/50 bg-secondary/10 px-2 py-0.5 rounded"
+                >*SKU selalu disertakan secara default</span
+              >
+            </h6>
+            <TriStateSelect
+              v-model="selectedColumnsState"
+              :options="availableColumns"
+              label="label"
+              trackBy="key"
+              placeholder="Pilih kolom yang akan di-export..."
+              :searchable="false"
+            />
           </div>
 
           <!-- LIST EXPORT JOBS -->
