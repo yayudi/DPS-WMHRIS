@@ -1,10 +1,11 @@
 package middleware
 
 import (
-	"github.com/dps-wmhris/backend/internal/utils"
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/dps-wmhris/backend/internal/utils"
 
 	"github.com/dps-wmhris/backend/internal/config"
 	"github.com/gin-gonic/gin"

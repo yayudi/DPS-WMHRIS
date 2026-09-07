@@ -1,8 +1,9 @@
 package handler
 
 import (
-	"github.com/dps-wmhris/backend/internal/utils"
 	"fmt"
+
+	"github.com/dps-wmhris/backend/internal/utils"
 
 	"net/http"
 	"strconv"
