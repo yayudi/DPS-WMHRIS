@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"net/http"
 	"strconv"
 
@@ -20,125 +21,77 @@ func NewRoleHandler(roleService service.RoleService) *RoleHandler {
 func (h *RoleHandler) GetRoles(c *gin.Context) {
 	roles, err := h.roleService.GetRoles(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Gagal mengambil data peran",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil data peran", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    roles,
-	})
+	utils.SuccessDataResponse(c, http.StatusOK, roles)
 }
 
 func (h *RoleHandler) GetPermissions(c *gin.Context) {
 	permissions, err := h.roleService.GetPermissions(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Gagal mengambil data izin",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil data izin", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    permissions,
-	})
+	utils.SuccessDataResponse(c, http.StatusOK, permissions)
 }
 
 func (h *RoleHandler) GetRolePermissions(c *gin.Context) {
 	roleID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "ID Peran tidak valid",
-			"error_code": "INVALID_ID",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID Peran tidak valid", "INVALID_ID")
 		return
 	}
 
 	permissionIDs, err := h.roleService.GetRolePermissions(c.Request.Context(), roleID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Gagal mengambil izin peran",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil izin peran", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    permissionIDs,
-	})
+	utils.SuccessDataResponse(c, http.StatusOK, permissionIDs)
 }
 
 func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 	roleID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "ID Peran tidak valid",
-			"error_code": "INVALID_ID",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID Peran tidak valid", "INVALID_ID")
 		return
 	}
 
-	var req dto.AssignPermissionsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Format input tidak valid",
-			"error_code": "VALIDATION_ERROR",
-		})
+	req_ptr, ok := utils.BindAndValidate[dto.AssignPermissionsRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := c.GetInt("user_id")
 	err = h.roleService.UpdateRolePermissions(c.Request.Context(), roleID, req, userID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Gagal memperbarui izin. " + err.Error(),
-			"error_code": "UPDATE_FAILED",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Gagal memperbarui izin. " + err.Error(), "UPDATE_FAILED")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Izin berhasil diperbarui",
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Izin berhasil diperbarui", nil)
 }
 
 func (h *RoleHandler) CreateRole(c *gin.Context) {
-	var req dto.CreateRoleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Nama peran wajib diisi",
-			"error_code": "VALIDATION_ERROR",
-		})
+	req_ptr, ok := utils.BindAndValidate[dto.CreateRoleRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := c.GetInt("user_id")
 	newID, err := h.roleService.CreateRole(c.Request.Context(), req, userID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Gagal membuat peran",
-			"error_code": "CREATE_FAILED",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Gagal membuat peran", "CREATE_FAILED")
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
+	utils.RawResponse(c, http.StatusCreated, gin.H{
 		"success": true,
 		"message": "Peran berhasil dibuat",
 		"data": gin.H{
@@ -150,65 +103,39 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	roleID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "ID Peran tidak valid",
-			"error_code": "INVALID_ID",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID Peran tidak valid", "INVALID_ID")
 		return
 	}
 
-	var req dto.CreateRoleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Nama peran wajib diisi",
-			"error_code": "VALIDATION_ERROR",
-		})
+	req_ptr, ok := utils.BindAndValidate[dto.CreateRoleRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := c.GetInt("user_id")
 	err = h.roleService.UpdateRole(c.Request.Context(), roleID, req, userID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": err.Error(),
-			"error_code": "UPDATE_FAILED",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "UPDATE_FAILED")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Peran berhasil diperbarui",
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Peran berhasil diperbarui", nil)
 }
 
 func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	roleID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "ID Peran tidak valid",
-			"error_code": "INVALID_ID",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID Peran tidak valid", "INVALID_ID")
 		return
 	}
 
 	userID := c.GetInt("user_id")
 	err = h.roleService.DeleteRole(c.Request.Context(), roleID, userID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Gagal menghapus peran (mungkin sedang digunakan).",
-			"error_code": "DELETE_FAILED",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Gagal menghapus peran (mungkin sedang digunakan).", "DELETE_FAILED")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Peran berhasil dihapus",
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Peran berhasil dihapus", nil)
 }

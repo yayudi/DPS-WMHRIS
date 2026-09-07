@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -53,11 +54,7 @@ func (h *MediaHandler) ListMedia(c *gin.Context) {
 
 	assets, total, err := h.mediaService.GetMediaAssets(c.Request.Context(), limit, offset, filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    "Gagal mengambil media",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil media", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
@@ -66,7 +63,7 @@ func (h *MediaHandler) ListMedia(c *gin.Context) {
 		totalPages++
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"data":    assets,
 		"pagination": gin.H{
@@ -82,23 +79,16 @@ func (h *MediaHandler) GetMediaByID(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	asset, err := h.mediaService.GetMediaDetailsWithProducts(c.Request.Context(), id)
 	if err != nil || asset == nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success":    false,
-			"message":    "Aset tidak ditemukan",
-			"error_code": "NOT_FOUND",
-		})
+		utils.ErrorResponse(c, http.StatusNotFound, "Aset tidak ditemukan", "NOT_FOUND")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    asset,
-	})
+	utils.SuccessDataResponse(c, http.StatusOK, asset)
 }
 
 func (h *MediaHandler) GetMediaStatus(c *gin.Context) {
 	idsStr := c.Query("ids")
 	if idsStr == "" {
-		c.JSON(http.StatusOK, gin.H{"success": true, "data": []dto.MediaAssetResponse{}})
+		utils.RawResponse(c, http.StatusOK, gin.H{"success": true, "data": []dto.MediaAssetResponse{}})
 		return
 	}
 
@@ -111,26 +101,26 @@ func (h *MediaHandler) GetMediaStatus(c *gin.Context) {
 	}
 
 	if len(ids) == 0 {
-		c.JSON(http.StatusOK, gin.H{"success": true, "data": []dto.MediaAssetResponse{}})
+		utils.RawResponse(c, http.StatusOK, gin.H{"success": true, "data": []dto.MediaAssetResponse{}})
 		return
 	}
 
 	assets, err := h.mediaService.GetMediaAssetsByIDs(c.Request.Context(), ids)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": assets})
+	utils.SuccessDataResponse(c, http.StatusOK, assets)
 }
 
 func (h *MediaHandler) GetPresignedUrls(c *gin.Context) {
-	var req dto.PresignedUrlRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "List file tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.PresignedUrlRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 	if len(req.Files) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "List file tidak valid"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "List file tidak valid", "")
 		return
 	}
 
@@ -149,17 +139,17 @@ func (h *MediaHandler) GetPresignedUrls(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": urls})
+	utils.SuccessDataResponse(c, http.StatusOK, urls)
 }
 
 func (h *MediaHandler) ConfirmUpload(c *gin.Context) {
-	var req dto.ConfirmUploadRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Metadata aset tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.ConfirmUploadRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 	if len(req.Assets) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Metadata aset tidak valid"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Metadata aset tidak valid", "")
 		return
 	}
 
@@ -206,7 +196,7 @@ func (h *MediaHandler) ConfirmUpload(c *gin.Context) {
 
 	if err != nil {
 		if dupErr, ok := err.(service.DuplicateError); ok {
-			c.JSON(http.StatusConflict, gin.H{
+			utils.RawResponse(c, http.StatusConflict, gin.H{
 				"success":    false,
 				"message":    "File sudah pernah diunggah sebelumnya.",
 				"error_code": "DUPLICATE_MEDIA",
@@ -214,19 +204,11 @@ func (h *MediaHandler) ConfirmUpload(c *gin.Context) {
 			})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    err.Error(),
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Media berhasil disimpan",
-		"data":    uploadedAssets,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Media berhasil disimpan", uploadedAssets)
 }
 
 func (h *MediaHandler) DeleteMedia(c *gin.Context) {
@@ -244,58 +226,50 @@ func (h *MediaHandler) DeleteMedia(c *gin.Context) {
 
 	if err != nil {
 		if strings.Contains(err.Error(), "foreign key constraint fails") || strings.Contains(err.Error(), "a foreign key constraint fails") || strings.Contains(err.Error(), "ROW_IS_REFERENCED") {
-			c.JSON(http.StatusConflict, gin.H{
-				"success":    false,
-				"message":    "Tidak bisa dihapus karena sedang dipakai oleh produk",
-				"error_code": "CONFLICT",
-			})
+			utils.ErrorResponse(c, http.StatusConflict, "Tidak bisa dihapus karena sedang dipakai oleh produk", "CONFLICT")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    "Gagal menghapus media",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menghapus media", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Media berhasil dihapus"})
+	utils.SuccessResponse(c, http.StatusOK, "Media berhasil dihapus", nil)
 }
 
 func (h *MediaHandler) UpdateMediaTags(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
-	var req dto.UpdateMediaTagsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+	req_ptr, ok := utils.BindAndValidate[dto.UpdateMediaTagsRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	err := database.WithTransaction(h.db, c.Request.Context(), func(tx *sqlx.Tx) error {
 		return h.mediaService.UpdateMediaTags(c.Request.Context(), tx, id, req.Tags)
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal update tags"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal update tags", "")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Tags berhasil diperbarui"})
+	utils.SuccessResponse(c, http.StatusOK, "Tags berhasil diperbarui", nil)
 }
 
 func (h *MediaHandler) UpdateMediaTitle(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
-	var req dto.UpdateMediaTitleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+	req_ptr, ok := utils.BindAndValidate[dto.UpdateMediaTitleRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	err := database.WithTransaction(h.db, c.Request.Context(), func(tx *sqlx.Tx) error {
 		return h.mediaService.UpdateMediaTitle(c.Request.Context(), tx, id, req.Title)
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal update title"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal update title", "")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Judul berhasil diperbarui"})
+	utils.SuccessResponse(c, http.StatusOK, "Judul berhasil diperbarui", nil)
 }
 
 // DownloadBulkLinkTemplate generates and returns the Excel template for bulk linking media.
@@ -342,20 +316,20 @@ func (h *MediaHandler) DownloadBulkLinkTemplate(c *gin.Context) {
 	c.Header("Content-Disposition", "attachment; filename=Template_Tautkan_Media.xlsx")
 
 	if err := f.Write(c.Writer); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal generate template"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal generate template", "")
 	}
 }
 
 func (h *MediaHandler) BulkLinkExcel(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Tidak ada file yang diunggah.", "error_code": "VALIDATION_ERROR"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Tidak ada file yang diunggah.", "VALIDATION_ERROR")
 		return
 	}
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
@@ -367,7 +341,7 @@ func (h *MediaHandler) BulkLinkExcel(c *gin.Context) {
 	filePath := filepath.Join(uploadDir, filename)
 
 	if err := c.SaveUploadedFile(file, filePath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal menyimpan file", "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menyimpan file", "INTERNAL_ERROR")
 		return
 	}
 
@@ -383,13 +357,9 @@ func (h *MediaHandler) BulkLinkExcel(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "File Bulk Link masuk antrian.",
-		"jobId":   jobID,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "File Bulk Link masuk antrian.", jobID)
 }

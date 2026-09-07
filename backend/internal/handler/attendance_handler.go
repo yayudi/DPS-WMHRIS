@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,40 +28,40 @@ func NewAttendanceHandler(attendanceService service.AttendanceService, jobServic
 func (h *AttendanceHandler) GetIndexes(c *gin.Context) {
 	indexes, err := h.attendanceService.GetIndexes(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
-	c.JSON(http.StatusOK, indexes) // In Node.js, this returned raw indexes
+	utils.RawResponse(c, http.StatusOK, indexes) // In Node.js, this returned raw indexes
 }
 
 func (h *AttendanceHandler) GetHistory(c *gin.Context) {
-	var req dto.GetHistoryRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "error_code": "VALIDATION_ERROR"})
+	req_ptr, ok := utils.BindQueryAndValidate[dto.GetHistoryRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	data, err := h.attendanceService.GetHistory(c.Request.Context(), req.StartDate, req.EndDate, req.Search)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
+	utils.SuccessDataResponse(c, http.StatusOK, data)
 }
 
 func (h *AttendanceHandler) GetRangeData(c *gin.Context) {
-	var req dto.GetRangeDataRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "error_code": "VALIDATION_ERROR"})
+	req_ptr, ok := utils.BindQueryAndValidate[dto.GetRangeDataRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	data, err := h.attendanceService.GetRangeData(c.Request.Context(), req.StartDate, req.EndDate)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
-	c.JSON(http.StatusOK, data) // In Node.js, returned raw responseJson
+	utils.RawResponse(c, http.StatusOK, data) // In Node.js, returned raw responseJson
 }
 
 func (h *AttendanceHandler) GetMonthlyData(c *gin.Context) {
@@ -69,42 +70,42 @@ func (h *AttendanceHandler) GetMonthlyData(c *gin.Context) {
 	
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid year", "error_code": "VALIDATION_ERROR"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid year", "VALIDATION_ERROR")
 		return
 	}
 	month, err := strconv.Atoi(monthStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid month", "error_code": "VALIDATION_ERROR"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid month", "VALIDATION_ERROR")
 		return
 	}
 
 	data, err := h.attendanceService.GetMonthlyData(c.Request.Context(), year, month)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	utils.RawResponse(c, http.StatusOK, data)
 }
 
 func (h *AttendanceHandler) UpdateLog(c *gin.Context) {
-	var req dto.UpdateLogRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "error_code": "VALIDATION_ERROR"})
+	req_ptr, ok := utils.BindAndValidate[dto.UpdateLogRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	err := h.attendanceService.UpdateLog(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Data updated successfully"})
+	utils.SuccessResponse(c, http.StatusOK, "Data updated successfully", nil)
 }
 
 func (h *AttendanceHandler) UploadLogs(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "No file uploaded", "error_code": "VALIDATION_ERROR"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "No file uploaded", "VALIDATION_ERROR")
 		return
 	}
 
@@ -135,7 +136,7 @@ func (h *AttendanceHandler) UploadLogs(c *gin.Context) {
 	filepath := uploadDir + file.Filename
 	
 	if err := c.SaveUploadedFile(file, filepath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to save file", "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save file", "INTERNAL_ERROR")
 		return
 	}
 
@@ -149,7 +150,7 @@ func (h *AttendanceHandler) UploadLogs(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
 
@@ -158,7 +159,7 @@ func (h *AttendanceHandler) UploadLogs(c *gin.Context) {
 		msg = "Simulasi validasi berjalan di background..."
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"message": msg,
 		"jobId":   jobID,

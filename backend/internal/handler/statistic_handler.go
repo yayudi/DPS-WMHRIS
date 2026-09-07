@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"net/http"
 
 	"github.com/dps-wmhris/backend/internal/dto"
@@ -33,154 +34,146 @@ func getStatUserID(c *gin.Context) int {
 }
 
 func (h *StatisticHandler) GetStockMovements(c *gin.Context) {
-	var filters dto.StatisticFilterRequest
-	if err := c.ShouldBindQuery(&filters); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid query parameters"})
+	filters_ptr, ok := utils.BindQueryAndValidate[dto.StatisticFilterRequest](c)
+	if !ok {
 		return
 	}
+	filters := *filters_ptr
 
 	data, err := h.statisticService.GetStockMovementStatistics(c.Request.Context(), filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
+	utils.SuccessDataResponse(c, http.StatusOK, data)
 }
 
 func (h *StatisticHandler) RequestStockMovementsExport(c *gin.Context) {
 	_, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
-	var req dto.ExportStatisticRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid request body"})
+	req_ptr, ok := utils.BindAndValidate[dto.ExportStatisticRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	jobID, err := h.statisticService.RequestStockMovementsExport(c.Request.Context(), getStatUserID(c), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusAccepted, gin.H{
-		"success": true,
-		"message": "Permintaan ekspor statistik stok diterima. File sedang diproses.",
-		"jobId":   jobID,
-	})
+	utils.SuccessResponse(c, http.StatusAccepted, "Permintaan ekspor statistik stok diterima. File sedang diproses.", jobID)
 }
 
 func (h *StatisticHandler) GetStockTimeline(c *gin.Context) {
-	var filters dto.StatisticFilterRequest
-	if err := c.ShouldBindQuery(&filters); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid query parameters"})
+	filters_ptr, ok := utils.BindQueryAndValidate[dto.StatisticFilterRequest](c)
+	if !ok {
 		return
 	}
+	filters := *filters_ptr
 
 	data, err := h.statisticService.GetStockTimelineStatistics(c.Request.Context(), filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
+	utils.SuccessDataResponse(c, http.StatusOK, data)
 }
 
 func (h *StatisticHandler) RequestStockTimelineExport(c *gin.Context) {
 	_, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
-	var req dto.ExportTimelineRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid request body"})
+	req_ptr, ok := utils.BindAndValidate[dto.ExportTimelineRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	jobID, err := h.statisticService.RequestStockTimelineExport(c.Request.Context(), getStatUserID(c), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusAccepted, gin.H{
-		"success": true,
-		"message": "Permintaan ekspor statistik timeline stok diterima. File sedang diproses.",
-		"jobId":   jobID,
-	})
+	utils.SuccessResponse(c, http.StatusAccepted, "Permintaan ekspor statistik timeline stok diterima. File sedang diproses.", jobID)
 }
 
 func (h *StatisticHandler) GetInventoryValue(c *gin.Context) {
-	var filters dto.StatisticFilterRequest
-	if err := c.ShouldBindQuery(&filters); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid query parameters"})
+	filters_ptr, ok := utils.BindQueryAndValidate[dto.StatisticFilterRequest](c)
+	if !ok {
 		return
 	}
+	filters := *filters_ptr
 
 	data, err := h.statisticService.GetInventoryValueStatistics(c.Request.Context(), filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
+	utils.SuccessDataResponse(c, http.StatusOK, data)
 }
 
 func (h *StatisticHandler) GetShopPerformance(c *gin.Context) {
-	var filters dto.StatisticFilterRequest
-	if err := c.ShouldBindQuery(&filters); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid query parameters"})
+	filters_ptr, ok := utils.BindQueryAndValidate[dto.StatisticFilterRequest](c)
+	if !ok {
 		return
 	}
+	filters := *filters_ptr
 
 	data, err := h.statisticService.GetShopPerformanceStats(c.Request.Context(), filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
+	utils.SuccessDataResponse(c, http.StatusOK, data)
 }
 
 func (h *StatisticHandler) GetPackageAnalysis(c *gin.Context) {
-	var filters dto.StatisticFilterRequest
-	if err := c.ShouldBindQuery(&filters); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid query parameters"})
+	filters_ptr, ok := utils.BindQueryAndValidate[dto.StatisticFilterRequest](c)
+	if !ok {
 		return
 	}
+	filters := *filters_ptr
 
 	if filters.StartDate == "" || filters.EndDate == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "startDate dan endDate wajib diisi"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "startDate dan endDate wajib diisi", "")
 		return
 	}
 
 	data, err := h.statisticService.GetPackageComponentAnalysis(c.Request.Context(), filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
+	utils.SuccessDataResponse(c, http.StatusOK, data)
 }
 
 func (h *StatisticHandler) GetLocationAnalysis(c *gin.Context) {
-	var filters dto.StatisticFilterRequest
-	if err := c.ShouldBindQuery(&filters); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid query parameters"})
+	filters_ptr, ok := utils.BindQueryAndValidate[dto.StatisticFilterRequest](c)
+	if !ok {
 		return
 	}
+	filters := *filters_ptr
 
 	data, err := h.statisticService.GetLocationAnalysis(c.Request.Context(), filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
+	utils.SuccessDataResponse(c, http.StatusOK, data)
 }

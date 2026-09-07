@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"log"
 	"net/http"
 
@@ -18,27 +19,18 @@ func NewUserHandler(userService service.UserService) *UserHandler {
 }
 
 func (h *UserHandler) Login(c *gin.Context) {
-	var req dto.LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[LOGIN] Bind error: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success":    false,
-			"message":    "Format input tidak valid (username & password diwajibkan)",
-			"error_code": "VALIDATION_ERROR",
-		})
+	req_ptr, ok := utils.BindAndValidate[dto.LoginRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	log.Printf("[LOGIN] Attempting login for username: %s", req.Username)
 
 	res, err := h.userService.Login(c.Request.Context(), req)
 	if err != nil {
 		log.Printf("[LOGIN] Login failed for user %s: %v", req.Username, err)
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"success":    false,
-			"message":    err.Error(),
-			"error_code": "UNAUTHORIZED",
-		})
+		utils.ErrorResponse(c, http.StatusUnauthorized, err.Error(), "UNAUTHORIZED")
 		return
 	}
 
@@ -47,7 +39,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 	// Set JWT to HttpOnly Cookie
 	c.SetCookie("token", res.Token, 86400*7, "/", "", false, true) // 7 days, HttpOnly
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"message": "Login berhasil",
 		"token":   res.Token,
@@ -57,10 +49,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 
 func (h *UserHandler) Logout(c *gin.Context) {
 	c.SetCookie("token", "", -1, "/", "", false, true)
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Logged out",
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Logged out", nil)
 }
 
 func (h *UserHandler) GetProfile(c *gin.Context) {
@@ -70,51 +59,31 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	user, err := h.userService.GetProfile(c.Request.Context(), userID)
 	if err != nil {
 		log.Printf("[PROFILE] Failed to fetch profile for user_id %d: %v", userID, err)
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"message": err.Error(),
-			"error_code": "NOT_FOUND",
-		})
+		utils.ErrorResponse(c, http.StatusNotFound, err.Error(), "NOT_FOUND")
 		return
 	}
 
 	log.Printf("[PROFILE] Profile fetched successfully for user_id %d", userID)
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Data profil berhasil diambil.",
-		"user":    user,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Data profil berhasil diambil.", user)
 }
 
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	userID := c.GetInt("user_id")
 	
-	var req dto.UpdateProfileRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Format input tidak valid",
-			"error_code": "VALIDATION_ERROR",
-		})
+	req_ptr, ok := utils.BindAndValidate[dto.UpdateProfileRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	updatedUser, err := h.userService.UpdateProfile(c.Request.Context(), userID, req, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": err.Error(),
-			"error_code": "UPDATE_FAILED",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "UPDATE_FAILED")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Data akun berhasil diperbarui.",
-		"user":    updatedUser,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Data akun berhasil diperbarui.", updatedUser)
 }
 
 func (h *UserHandler) GetMyLocations(c *gin.Context) {
@@ -122,16 +91,9 @@ func (h *UserHandler) GetMyLocations(c *gin.Context) {
 	
 	locations, err := h.userService.GetMyLocations(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Gagal mengambil data lokasi",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil data lokasi", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    locations,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Data lokasi berhasil diambil.", locations)
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -27,47 +28,31 @@ func NewStockHandler(stockService service.StockService, jobService service.JobSe
 }
 
 func (h *StockHandler) MoveStock(c *gin.Context) {
-	var req dto.MoveStockRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success":    false,
-			"message":    "Format input tidak valid (pastikan ProductID, Quantity > 0, dan MovementType diisi)",
-			"error_code": "VALIDATION_ERROR",
-		})
+	req_ptr, ok := utils.BindAndValidate[dto.MoveStockRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := getUserID(c) // Menggunakan helper yang sama
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"success":    false,
-			"message":    "Tidak ada sesi pengguna",
-			"error_code": "UNAUTHORIZED",
-		})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "UNAUTHORIZED")
 		return
 	}
 
 	err := h.stockService.MoveStock(c.Request.Context(), userID, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    err.Error(),
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Mutasi stok berhasil dieksekusi secara atomik",
-		"data":    nil,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Mutasi stok berhasil dieksekusi secara atomik", nil)
 }
 
 func (h *StockHandler) ImportBatchInbound(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Tidak ada file yang diunggah.", "error_code": "VALIDATION_ERROR"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Tidak ada file yang diunggah.", "VALIDATION_ERROR")
 		return
 	}
 
@@ -83,7 +68,7 @@ func (h *StockHandler) ImportBatchInbound(c *gin.Context) {
 	filepath := uploadDir + file.Filename
 
 	if err := c.SaveUploadedFile(file, filepath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to save file", "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save file", "INTERNAL_ERROR")
 		return
 	}
 
@@ -97,36 +82,32 @@ func (h *StockHandler) ImportBatchInbound(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "File inbound masuk antrian.",
-		"jobId":   jobID,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "File inbound masuk antrian.", jobID)
 }
 
 func (h *StockHandler) GetAllStocks(c *gin.Context) {
 	stocks, err := h.stockService.GetAllStocks(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": stocks})
+	utils.SuccessDataResponse(c, http.StatusOK, stocks)
 }
 
 func (h *StockHandler) TransferStock(c *gin.Context) {
-	var req dto.TransferStockRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format input tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.TransferStockRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
@@ -141,23 +122,23 @@ func (h *StockHandler) TransferStock(c *gin.Context) {
 	}
 
 	if err := h.stockService.MoveStock(c.Request.Context(), userID, moveReq); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Transfer stok berhasil."})
+	utils.SuccessResponse(c, http.StatusOK, "Transfer stok berhasil.", nil)
 }
 
 func (h *StockHandler) AdjustStock(c *gin.Context) {
-	var req dto.AdjustStockRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format input tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.AdjustStockRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
@@ -183,7 +164,7 @@ func (h *StockHandler) AdjustStock(c *gin.Context) {
 	} else if qty < 0 {
 		fromLocationID = &req.LocationID
 	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Quantity tidak boleh 0"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Quantity tidak boleh 0", "")
 		return
 	}
 	
@@ -203,61 +184,61 @@ func (h *StockHandler) AdjustStock(c *gin.Context) {
 	}
 
 	if err := h.stockService.MoveStock(c.Request.Context(), userID, moveReq); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Penyesuaian stok berhasil."})
+	utils.SuccessResponse(c, http.StatusOK, "Penyesuaian stok berhasil.", nil)
 }
 
 func (h *StockHandler) BatchProcess(c *gin.Context) {
-	var req dto.BatchProcessRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format request tidak valid.", "error": err.Error()})
+	req_ptr, ok := utils.BindAndValidate[dto.BatchProcessRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := c.GetInt("user_id")
 	userRoleID := c.GetInt("role_id")
 
 	err := h.stockService.ProcessBatchMovements(c.Request.Context(), req, userID, userRoleID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 	
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("Batch %s berhasil.", req.Type)})
+	utils.RawResponse(c, http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("Batch %s berhasil.", req.Type)})
 }
 
 func (h *StockHandler) GetMovementTypes(c *gin.Context) {
 	types, err := h.stockService.GetMovementTypes(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal mengambil tipe pergerakan stok", "error": err.Error()})
+		utils.RawResponse(c, http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal mengambil tipe pergerakan stok", "error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": types})
+	utils.SuccessDataResponse(c, http.StatusOK, types)
 }
 
 func (h *StockHandler) GetBatchLogs(c *gin.Context) {
-	var filter dto.BatchLogFilter
-	if err := c.ShouldBindQuery(&filter); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Filter tidak valid", "error": err.Error()})
+	filter_ptr, ok := utils.BindQueryAndValidate[dto.BatchLogFilter](c)
+	if !ok {
 		return
 	}
+	filter := *filter_ptr
 
 	// Set default start/end dates if not provided
 	if filter.StartDate == "" || filter.EndDate == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Tanggal mulai dan selesai harus diisi"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Tanggal mulai dan selesai harus diisi", "")
 		return
 	}
 
 	logs, total, err := h.stockService.GetBatchLogs(c.Request.Context(), filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal mengambil log stok", "error": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil log stok: "+err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true, 
 		"data": logs,
 		"pagination": gin.H{
@@ -271,21 +252,21 @@ func (h *StockHandler) GetBatchLogs(c *gin.Context) {
 func (h *StockHandler) GetStockHistory(c *gin.Context) {
 	var filter dto.StockHistoryFilter
 	if err := c.ShouldBindUri(&filter); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID produk tidak valid", "error": err.Error()})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID produk tidak valid: "+err.Error(), "VALIDATION_ERROR")
 		return
 	}
 	if err := c.ShouldBindQuery(&filter); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Filter tidak valid", "error": err.Error()})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Filter tidak valid: "+err.Error(), "VALIDATION_ERROR")
 		return
 	}
 
 	result, err := h.stockService.GetStockHistory(c.Request.Context(), filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal mengambil riwayat stok", "error": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil riwayat stok: "+err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"data": result.Data,
 		"pagination": result.Pagination,
@@ -293,15 +274,15 @@ func (h *StockHandler) GetStockHistory(c *gin.Context) {
 }
 
 func (h *StockHandler) BatchTransfer(c *gin.Context) {
-	var req dto.BatchTransferRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format input tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.BatchTransferRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 	userID := getUserID(c)
 	roleID := c.GetInt("role_id")
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
@@ -314,41 +295,41 @@ func (h *StockHandler) BatchTransfer(c *gin.Context) {
 
 	err := h.stockService.ProcessBatchMovements(c.Request.Context(), processReq, userID, roleID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Batch transfer berhasil."})
+	utils.SuccessResponse(c, http.StatusOK, "Batch transfer berhasil.", nil)
 }
 
 func (h *StockHandler) ValidateReturn(c *gin.Context) {
-	var req dto.ValidateReturnRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format input tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.ValidateReturnRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
 	err := h.stockService.ValidateReturn(c.Request.Context(), req, userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("Item (ID: %d) berhasil divalidasi.", req.PickingListItemID)})
+	utils.RawResponse(c, http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("Item (ID: %d) berhasil divalidasi.", req.PickingListItemID)})
 }
 
 func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {
-	var req dto.BatchLogExportRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format input tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.BatchLogExportRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
@@ -375,21 +356,17 @@ func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateExportJob(c.Request.Context(), jobReq)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusAccepted, gin.H{
-		"success": true,
-		"message": "Permintaan ekspor batch log diterima. File sedang diproses.",
-		"jobId":   jobID,
-	})
+	utils.SuccessResponse(c, http.StatusAccepted, "Permintaan ekspor batch log diterima. File sedang diproses.", jobID)
 }
 
 func (h *StockHandler) GetInboundTemplate(c *gin.Context) {
 	f, err := h.stockService.GenerateInboundTemplate(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
@@ -401,7 +378,7 @@ func (h *StockHandler) GetInboundTemplate(c *gin.Context) {
 func (h *StockHandler) DownloadAdjustmentTemplate(c *gin.Context) {
 	f, err := h.stockService.GenerateAdjustmentTemplate(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
@@ -413,12 +390,12 @@ func (h *StockHandler) DownloadAdjustmentTemplate(c *gin.Context) {
 func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
 	file, err := c.FormFile("adjustmentFile")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Tidak ada file yang diunggah."})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Tidak ada file yang diunggah.", "")
 		return
 	}
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
@@ -439,7 +416,7 @@ func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
 	os.MkdirAll(uploadDir, os.ModePerm)
 	filepath := uploadDir + file.Filename
 	if err := c.SaveUploadedFile(file, filepath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal menyimpan file"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menyimpan file", "")
 		return
 	}
 
@@ -453,11 +430,11 @@ func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"message": msg,
 		"jobId":   jobID,

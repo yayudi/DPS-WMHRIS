@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -44,41 +45,25 @@ func getUserID(c *gin.Context) int {
 }
 
 func (h *ProductHandler) Create(c *gin.Context) {
-	var req dto.CreateProductRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success":    false,
-			"message":    "Format input tidak valid",
-			"error_code": "VALIDATION_ERROR",
-		})
+	req_ptr, ok := utils.BindAndValidate[dto.CreateProductRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"success":    false,
-			"message":    "Tidak ada sesi pengguna yang valid",
-			"error_code": "UNAUTHORIZED",
-		})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "UNAUTHORIZED")
 		return
 	}
 
 	product, err := h.productService.CreateProduct(c.Request.Context(), userID, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    err.Error(),
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"success": true,
-		"message": "Produk berhasil ditambahkan",
-		"data":    product,
-	})
+	utils.SuccessResponse(c, http.StatusCreated, "Produk berhasil ditambahkan", product)
 }
 
 func (h *ProductHandler) SearchProducts(c *gin.Context) {
@@ -91,35 +76,35 @@ func (h *ProductHandler) SearchProducts(c *gin.Context) {
 
 	results, err := h.productService.SearchProducts(c.Request.Context(), q, locationId, inStockOnly, page, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_SERVER_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
 	}
-	c.JSON(http.StatusOK, results)
+	utils.RawResponse(c, http.StatusOK, results)
 }
 
 func (h *ProductHandler) GetAdminList(c *gin.Context) {
 	results, err := h.productService.GetAllActiveProducts(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_SERVER_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": results})
+	utils.SuccessDataResponse(c, http.StatusOK, results)
 }
 
 func (h *ProductHandler) GetProducts(c *gin.Context) {
-	var req dto.ProductFilterRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid query parameters"})
+	req_ptr, ok := utils.BindQueryAndValidate[dto.ProductFilterRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	results, total, err := h.productService.GetProductsWithFilters(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_SERVER_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"data":  results,
 		"total": total,
 	})
@@ -128,100 +113,92 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 func (h *ProductHandler) GetProductById(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid ID"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
 		return
 	}
 
 	product, err := h.productService.GetProductDetailWithStock(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Product not found"})
+		utils.ErrorResponse(c, http.StatusNotFound, "Product not found", "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": product})
+	utils.SuccessDataResponse(c, http.StatusOK, product)
 }
 
 func (h *ProductHandler) GetProductStockDetails(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid ID"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
 		return
 	}
 
 	results, err := h.productService.GetProductStockDetails(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": results})
+	utils.SuccessDataResponse(c, http.StatusOK, results)
 }
 
 func (h *ProductHandler) GetProductHistory(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid ID"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
 		return
 	}
 
 	results, err := h.productService.GetProductHistory(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": results})
+	utils.SuccessDataResponse(c, http.StatusOK, results)
 }
 
 func (h *ProductHandler) Update(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid ID"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
 		return
 	}
 
-	var req dto.UpdateProductRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format input tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.UpdateProductRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna yang valid"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
 		return
 	}
 
 	if err := h.productService.UpdateProduct(c.Request.Context(), userID, id, req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Produk berhasil diperbarui."})
+	utils.SuccessResponse(c, http.StatusOK, "Produk berhasil diperbarui.", nil)
 }
 
 func (h *ProductHandler) GetAll(c *gin.Context) {
 	products, err := h.productService.GetAllProducts(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    err.Error(),
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Berhasil mengambil data produk",
-		"data":    products,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Berhasil mengambil data produk", products)
 }
 
 func (h *ProductHandler) ImportBatchProductUpdate(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "File tidak ditemukan.", "error_code": "VALIDATION_ERROR"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "File tidak ditemukan.", "VALIDATION_ERROR")
 		return
 	}
 
@@ -239,7 +216,7 @@ func (h *ProductHandler) ImportBatchProductUpdate(c *gin.Context) {
 	filepath := uploadDir + file.Filename
 
 	if err := c.SaveUploadedFile(file, filepath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to save file", "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save file", "INTERNAL_ERROR")
 		return
 	}
 
@@ -253,60 +230,40 @@ func (h *ProductHandler) ImportBatchProductUpdate(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"success": true,
-		"message": "File berhasil diunggah. Proses update berjalan di latar belakang.",
-		"jobId":   jobID,
-	})
+	utils.SuccessResponse(c, http.StatusCreated, "File berhasil diunggah. Proses update berjalan di latar belakang.", jobID)
 }
 
 func (h *ProductHandler) Delete(c *gin.Context) {
 	idParam := c.Param("id")
 	productID, err := strconv.Atoi(idParam)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success":    false,
-			"message":    "ID Produk tidak valid",
-			"error_code": "VALIDATION_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID Produk tidak valid", "VALIDATION_ERROR")
 		return
 	}
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"success":    false,
-			"message":    "Tidak ada sesi pengguna yang valid",
-			"error_code": "UNAUTHORIZED",
-		})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "UNAUTHORIZED")
 		return
 	}
 
 	if err := h.productService.DeleteProduct(c.Request.Context(), userID, productID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    err.Error(),
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Produk berhasil dihapus",
-		"data":    nil,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Produk berhasil dihapus", nil)
 }
 
 // ExportProducts creates an export job for products. Matches GET /api/products/export.
 func (h *ProductHandler) ExportProducts(c *gin.Context) {
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna yang valid"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
 		return
 	}
 
@@ -346,22 +303,18 @@ func (h *ProductHandler) ExportProducts(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateExportJob(c.Request.Context(), jobReq)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Permintaan ekspor diterima. Silakan cek menu 'Laporan Saya' untuk mengunduh.",
-		"jobId":   jobID,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Permintaan ekspor diterima. Silakan cek menu 'Laporan Saya' untuk mengunduh.", jobID)
 }
 
 // GetProductStockTimeline returns the paginated stock timeline. Matches GET /api/products/:id/stock-timeline.
 func (h *ProductHandler) GetProductStockTimeline(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid ID"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
 		return
 	}
 
@@ -376,77 +329,77 @@ func (h *ProductHandler) GetProductStockTimeline(c *gin.Context) {
 
 	result, err := h.productService.GetHistoricalStockTimeline(c.Request.Context(), id, page, limit, buildings)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+	utils.SuccessDataResponse(c, http.StatusOK, result)
 }
 
 // LinkMedia links media to a product. Matches POST /api/products/:id/link-media.
 func (h *ProductHandler) LinkMedia(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid ID"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
 		return
 	}
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna yang valid"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
 		return
 	}
 
-	var req dto.LinkMediaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format input tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.LinkMediaRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	if err := h.productService.LinkMediaToProduct(c.Request.Context(), id, req.MediaIDs, userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Media berhasil disematkan."})
+	utils.SuccessResponse(c, http.StatusOK, "Media berhasil disematkan.", nil)
 }
 
 // SetPrimaryImage sets a specific image as primary. Matches PUT /api/products/:id/images/:imageId/primary.
 func (h *ProductHandler) SetPrimaryImage(c *gin.Context) {
 	productID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid product ID"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid product ID", "")
 		return
 	}
 
 	imageID, err := strconv.Atoi(c.Param("imageId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid image ID"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid image ID", "")
 		return
 	}
 
 	userID := getUserID(c)
 	if err := h.productService.SetPrimaryImage(c.Request.Context(), productID, imageID, userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Gambar utama berhasil diatur."})
+	utils.SuccessResponse(c, http.StatusOK, "Gambar utama berhasil diatur.", nil)
 }
 
 // DeleteProductImage removes a specific product image. Matches DELETE /api/products/:id/images/:imageId.
 func (h *ProductHandler) DeleteProductImage(c *gin.Context) {
 	imageID, err := strconv.Atoi(c.Param("imageId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid image ID"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid image ID", "")
 		return
 	}
 
 	userID := getUserID(c)
 	if err := h.productService.DeleteProductImage(c.Request.Context(), imageID, userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Gambar berhasil dihapus."})
+	utils.SuccessResponse(c, http.StatusOK, "Gambar berhasil dihapus.", nil)
 }

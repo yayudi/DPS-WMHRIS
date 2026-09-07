@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -31,7 +32,7 @@ func (h *PackageHandler) ExportPackages(c *gin.Context) {
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
@@ -54,11 +55,11 @@ func (h *PackageHandler) ExportPackages(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateExportJob(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"message": "Export job created successfully",
 		"data": map[string]interface{}{
@@ -70,19 +71,19 @@ func (h *PackageHandler) ExportPackages(c *gin.Context) {
 func (h *PackageHandler) ImportPackagesBatch(c *gin.Context) {
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "File tidak ditemukan"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "File tidak ditemukan", "")
 		return
 	}
 
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 	if ext != ".xlsx" && ext != ".xls" && ext != ".csv" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format file tidak didukung"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Format file tidak didukung", "")
 		return
 	}
 
@@ -92,7 +93,7 @@ func (h *PackageHandler) ImportPackagesBatch(c *gin.Context) {
 	savePath := filepath.Join(uploadDir, filename)
 
 	if err := c.SaveUploadedFile(file, savePath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal menyimpan file"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menyimpan file", "")
 		return
 	}
 
@@ -107,11 +108,11 @@ func (h *PackageHandler) ImportPackagesBatch(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"message": "Import job created successfully",
 		"data": map[string]interface{}{

@@ -1,8 +1,9 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"fmt"
-	"log"
+
 	"net/http"
 	"strconv"
 
@@ -20,182 +21,156 @@ func NewStockRequestHandler(stockRequestService service.StockRequestService) *St
 }
 
 func (h *StockRequestHandler) Create(c *gin.Context) {
-	var req dto.CreateStockRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("CreateStockRequest binding error: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success":    false,
-			"message":    "Format input tidak valid",
-			"error_code": "VALIDATION_ERROR",
-			"error_detail": err.Error(),
-		})
+	req_ptr, ok := utils.BindAndValidate[dto.CreateStockRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"success":    false,
-			"message":    "Tidak ada sesi pengguna",
-			"error_code": "UNAUTHORIZED",
-		})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "UNAUTHORIZED")
 		return
 	}
 
 	request, err := h.stockRequestService.CreateStockRequest(c.Request.Context(), userID, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    err.Error(),
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"success": true,
-		"message": "Dokumen permintaan stok berhasil dibuat",
-		"data":    request,
-	})
+	utils.SuccessResponse(c, http.StatusCreated, "Dokumen permintaan stok berhasil dibuat", request)
 }
 
 func (h *StockRequestHandler) GetAll(c *gin.Context) {
 	requests, err := h.stockRequestService.GetAllStockRequests(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    err.Error(),
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Berhasil mengambil data permintaan stok",
-		"data":    requests,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Berhasil mengambil data permintaan stok", requests)
 }
 
 func (h *StockRequestHandler) Approve(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID tidak valid"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID tidak valid", "")
 		return
 	}
 
 	userID := getUserID(c)
 	roleID := c.GetInt("role_id")
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
 	err = h.stockRequestService.ApproveStockRequest(c.Request.Context(), id, userID, roleID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Permintaan stok berhasil disetujui."})
+	utils.SuccessResponse(c, http.StatusOK, "Permintaan stok berhasil disetujui.", nil)
 }
 
 func (h *StockRequestHandler) Reject(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID tidak valid"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID tidak valid", "")
 		return
 	}
 
 	userID := getUserID(c)
 	roleID := c.GetInt("role_id")
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
 	err = h.stockRequestService.RejectStockRequest(c.Request.Context(), id, userID, roleID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Permintaan stok telah ditolak."})
+	utils.SuccessResponse(c, http.StatusOK, "Permintaan stok telah ditolak.", nil)
 }
 
 func (h *StockRequestHandler) Dispatch(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID tidak valid"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID tidak valid", "")
 		return
 	}
 
 	userID := getUserID(c)
 	roleID := c.GetInt("role_id")
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
 	err = h.stockRequestService.DispatchStockRequest(c.Request.Context(), id, userID, roleID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Barang berhasil dikirim dan stok asal telah dipotong."})
+	utils.SuccessResponse(c, http.StatusOK, "Barang berhasil dikirim dan stok asal telah dipotong.", nil)
 }
 
 func (h *StockRequestHandler) Complete(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID tidak valid"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID tidak valid", "")
 		return
 	}
 
-	var req dto.CompleteStockRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format input tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.CompleteStockRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := getUserID(c)
 	roleID := c.GetInt("role_id")
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
 	err = h.stockRequestService.CompleteStockRequest(c.Request.Context(), id, req, userID, roleID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Permintaan stok selesai dan stok telah ditransfer."})
+	utils.SuccessResponse(c, http.StatusOK, "Permintaan stok selesai dan stok telah ditransfer.", nil)
 }
 
 func (h *StockRequestHandler) BulkAction(c *gin.Context) {
-	var req dto.BulkActionStockRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format input tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.BulkActionStockRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := getUserID(c)
 	roleID := c.GetInt("role_id")
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
 	res, err := h.stockRequestService.BulkActionStockRequest(c.Request.Context(), req, userID, roleID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"message": fmt.Sprintf("Memproses %d permintaan.", len(req.RequestIds)),
 		"data":    res,

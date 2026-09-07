@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"net/http"
 	"strconv"
 
@@ -18,11 +19,11 @@ func NewInvestigationHandler(investigationService service.InvestigationService) 
 }
 
 func (h *InvestigationHandler) GetDuplicateTransactions(c *gin.Context) {
-	var req dto.GetDuplicateTransactionsRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Parameter tidak valid"})
+	req_ptr, ok := utils.BindQueryAndValidate[dto.GetDuplicateTransactionsRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	// Gin's DefaultQuery handles simple cases, but if we used struct binding with default tags, it might work too.
 	if req.Page == 0 {
@@ -34,12 +35,12 @@ func (h *InvestigationHandler) GetDuplicateTransactions(c *gin.Context) {
 
 	result, err := h.investigationService.GetDuplicateTransactions(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
 	resMap := result.(map[string]interface{})
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"data":    resMap["data"],
 		"meta":    resMap["meta"],
@@ -50,21 +51,21 @@ func (h *InvestigationHandler) RevertTransaction(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID tidak valid"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID tidak valid", "")
 		return
 	}
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
 	err = h.investigationService.RevertTransaction(c.Request.Context(), id, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Transaksi berhasil di-revert dan stok dikembalikan."})
+	utils.SuccessResponse(c, http.StatusOK, "Transaksi berhasil di-revert dan stok dikembalikan.", nil)
 }

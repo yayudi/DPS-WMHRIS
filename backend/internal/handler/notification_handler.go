@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"net/http"
 	"strconv"
 
@@ -31,19 +32,11 @@ func (h *NotificationHandler) GetRecentPending(c *gin.Context) {
 
 	data, err := h.notificationService.FetchRecentPending(c.Request.Context(), userID, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    "Gagal mengambil notifikasi terbaru",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil notifikasi terbaru", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Recent pending notifications fetched",
-		"data":    data,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Recent pending notifications fetched", data)
 }
 
 // GetAll handles GET /notifications
@@ -53,19 +46,11 @@ func (h *NotificationHandler) GetAll(c *gin.Context) {
 
 	data, err := h.notificationService.FetchAll(c.Request.Context(), userID, filterType)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    "Gagal mengambil notifikasi",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil notifikasi", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Notifications fetched",
-		"data":    data,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Notifications fetched", data)
 }
 
 // MarkAsDone handles PUT /notifications/:id/done
@@ -76,38 +61,23 @@ func (h *NotificationHandler) MarkAsDone(c *gin.Context) {
 	if notificationIDStr == "all" {
 		err := h.notificationService.MarkAllNotificationsAsDone(c.Request.Context(), userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"success":    false,
-				"message":    "Gagal menandai semua notifikasi sebagai selesai",
-				"error_code": "INTERNAL_SERVER_ERROR",
-			})
+			utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menandai semua notifikasi sebagai selesai", "INTERNAL_SERVER_ERROR")
 			return
 		}
 	} else {
 		notificationID, err := strconv.Atoi(notificationIDStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"success":    false,
-				"message":    "ID notifikasi tidak valid",
-				"error_code": "VALIDATION_ERROR",
-			})
+			utils.ErrorResponse(c, http.StatusBadRequest, "ID notifikasi tidak valid", "VALIDATION_ERROR")
 			return
 		}
 		err = h.notificationService.MarkNotificationAsDone(c.Request.Context(), notificationID, userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"success":    false,
-				"message":    "Gagal menandai notifikasi sebagai selesai",
-				"error_code": "INTERNAL_SERVER_ERROR",
-			})
+			utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menandai notifikasi sebagai selesai", "INTERNAL_SERVER_ERROR")
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Marked as done",
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Marked as done", nil)
 }
 
 // GetPreferences handles GET /notifications/preferences
@@ -116,48 +86,29 @@ func (h *NotificationHandler) GetPreferences(c *gin.Context) {
 
 	data, err := h.notificationService.FetchPreferences(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    "Gagal mengambil preferensi notifikasi",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil preferensi notifikasi", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Preferences fetched",
-		"data":    data,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Preferences fetched", data)
 }
 
 // UpdatePreferences handles PUT /notifications/preferences
 func (h *NotificationHandler) UpdatePreferences(c *gin.Context) {
 	userID := c.GetInt("userID")
-	var req dto.UpdatePreferencesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success":    false,
-			"message":    err.Error(),
-			"error_code": "VALIDATION_ERROR",
-		})
+	req_ptr, ok := utils.BindAndValidate[dto.UpdatePreferencesRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	err := h.notificationService.UpdatePreferences(c.Request.Context(), userID, req.Preferences)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    "Gagal memperbarui preferensi notifikasi",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui preferensi notifikasi", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Preferences updated successfully",
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Preferences updated successfully", nil)
 }
 
 // ClaimNotification handles PUT /notifications/:id/claim
@@ -165,33 +116,19 @@ func (h *NotificationHandler) ClaimNotification(c *gin.Context) {
 	userID := c.GetInt("userID")
 	notificationID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success":    false,
-			"message":    "ID notifikasi tidak valid",
-			"error_code": "VALIDATION_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID notifikasi tidak valid", "VALIDATION_ERROR")
 		return
 	}
 
 	success, err := h.notificationService.ClaimNotification(c.Request.Context(), notificationID, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    "Gagal mengambil tugas",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil tugas", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
 	if success {
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": "Tugas berhasil diambil",
-		})
+		utils.SuccessResponse(c, http.StatusOK, "Tugas berhasil diambil", nil)
 	} else {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Tugas sudah diambil oleh orang lain atau sudah selesai",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Tugas sudah diambil oleh orang lain atau sudah selesai", "")
 	}
 }

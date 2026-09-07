@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"net/http"
 	"strconv"
 
@@ -22,25 +23,25 @@ func (h *JobHandler) GetImportJobs(c *gin.Context) {
 
 	jobs, err := h.jobService.GetImportJobs(c.Request.Context(), limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": jobs})
+	utils.SuccessDataResponse(c, http.StatusOK, jobs)
 }
 
 func (h *JobHandler) CancelImportJob(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid ID", "error_code": "VALIDATION_ERROR"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "VALIDATION_ERROR")
 		return
 	}
 
 	err = h.jobService.CancelImportJob(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "error_code": "BAD_REQUEST"})
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "BAD_REQUEST")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Import job cancelled"})
+	utils.SuccessResponse(c, http.StatusOK, "Import job cancelled", nil)
 }
 
 func (h *JobHandler) GetExportJobs(c *gin.Context) {
@@ -49,23 +50,23 @@ func (h *JobHandler) GetExportJobs(c *gin.Context) {
 
 	jobs, err := h.jobService.GetExportJobs(c.Request.Context(), limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": jobs})
+	utils.SuccessDataResponse(c, http.StatusOK, jobs)
 }
 
 func (h *JobHandler) CancelExportJob(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid ID", "error_code": "VALIDATION_ERROR"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "VALIDATION_ERROR")
 		return
 	}
 
 	err = h.jobService.CancelExportJob(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "error_code": "BAD_REQUEST"})
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "BAD_REQUEST")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Export job cancelled"})
+	utils.SuccessResponse(c, http.StatusOK, "Export job cancelled", nil)
 }

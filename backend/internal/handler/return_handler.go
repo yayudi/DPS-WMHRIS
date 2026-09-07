@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"log"
 	"net/http"
 	"strconv"
@@ -33,13 +34,13 @@ func (h *ReturnHandler) GetPendingReturns(c *gin.Context) {
 
 	rows, total, err := h.returnService.GetPendingReturns(c.Request.Context(), params)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
 	totalPages := (total + limit - 1) / limit
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"data":    rows,
 		"pagination": map[string]interface{}{
@@ -67,18 +68,18 @@ func (h *ReturnHandler) GetReturnHistory(c *gin.Context) {
 	marketplaceRows, marketplaceTotal, err := h.returnService.GetMarketplaceReturnHistory(c.Request.Context(), params)
 	if err != nil {
 		log.Printf("[ReturnHistory] MarketplaceReturnHistory error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
 	manualRows, manualTotal, err := h.returnService.GetManualReturnHistory(c.Request.Context(), params)
 	if err != nil {
 		log.Printf("[ReturnHistory] ManualReturnHistory error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"data": map[string]interface{}{
 			"marketplace_returns": marketplaceRows,
@@ -94,46 +95,46 @@ func (h *ReturnHandler) GetReturnHistory(c *gin.Context) {
 }
 
 func (h *ReturnHandler) ApproveReturn(c *gin.Context) {
-	var req dto.ApproveReturnRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format input tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.ApproveReturnRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
 	err := h.returnService.ApproveReturn(c.Request.Context(), userID, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Retur berhasil diproses."})
+	utils.SuccessResponse(c, http.StatusOK, "Retur berhasil diproses.", nil)
 }
 
 func (h *ReturnHandler) CreateManualReturn(c *gin.Context) {
-	var req dto.CreateManualReturnRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format input tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.CreateManualReturnRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
 	err := h.returnService.CreateManualReturn(c.Request.Context(), userID, req)
 	if err != nil {
 		log.Printf("[CreateManualReturn] error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Retur manual berhasil dicatat."})
+	utils.SuccessResponse(c, http.StatusOK, "Retur manual berhasil dicatat.", nil)
 }

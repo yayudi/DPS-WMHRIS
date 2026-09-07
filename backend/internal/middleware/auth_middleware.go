@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"log"
 	"net/http"
 	"strings"
@@ -26,11 +27,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		if tokenString == "" {
 			log.Printf("[AUTH] Missing or invalid token header/cookie")
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"success":    false,
-				"message":    "unauthorized: missing or invalid token",
-				"error_code": "UNAUTHORIZED",
-			})
+			utils.ErrorResponse(c, http.StatusUnauthorized, "unauthorized: missing or invalid token", "UNAUTHORIZED")
 			c.Abort()
 			return
 		}
@@ -44,11 +41,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		if err != nil || !token.Valid {
 			log.Printf("[AUTH] Token validation failed: %v", err)
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"success":    false,
-				"message":    "unauthorized: token expired or invalid",
-				"error_code": "UNAUTHORIZED",
-			})
+			utils.ErrorResponse(c, http.StatusUnauthorized, "unauthorized: token expired or invalid", "UNAUTHORIZED")
 			c.Abort()
 			return
 		}

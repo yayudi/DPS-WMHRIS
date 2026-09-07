@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,15 +22,11 @@ func NewAdminUserHandler(adminUserService service.AdminUserService) *AdminUserHa
 func (h *AdminUserHandler) GetUsers(c *gin.Context) {
 	users, err := h.adminUserService.GetAllUsers(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Gagal mengambil data user",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil data user", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"users":   users,
 	})
@@ -39,111 +36,68 @@ func (h *AdminUserHandler) GetUsers(c *gin.Context) {
 func (h *AdminUserHandler) GetRoles(c *gin.Context) {
 	roles, err := h.adminUserService.GetRoles(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Gagal mengambil data role",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil data role", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"roles":   roles, // Note: frontend might expect "roles" instead of "data" based on Node.js controller
 	})
 }
 
 func (h *AdminUserHandler) CreateUser(c *gin.Context) {
-	var req dto.AdminCreateUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Format input tidak valid",
-			"error_code": "VALIDATION_ERROR",
-		})
+	req_ptr, ok := utils.BindAndValidate[dto.AdminCreateUserRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	adminID := c.GetInt("user_id")
 	newUser, err := h.adminUserService.CreateUser(c.Request.Context(), req, adminID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
 		if strings.Contains(err.Error(), "1062") || strings.Contains(err.Error(), "Duplicate") {
-			c.JSON(http.StatusConflict, gin.H{
-				"success": false,
-				"message": "Username sudah digunakan.",
-				"error_code": "CONFLICT",
-			})
+			utils.ErrorResponse(c, http.StatusConflict, "Username sudah digunakan.", "CONFLICT")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Gagal membuat pengguna",
-			"error_code": "CREATE_FAILED",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal membuat pengguna", "CREATE_FAILED")
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"success": true,
-		"message": "Pengguna berhasil dibuat.",
-		"data":    newUser,
-	})
+	utils.SuccessResponse(c, http.StatusCreated, "Pengguna berhasil dibuat.", newUser)
 }
 
 func (h *AdminUserHandler) UpdateUser(c *gin.Context) {
 	targetID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "ID Pengguna tidak valid",
-			"error_code": "INVALID_ID",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID Pengguna tidak valid", "INVALID_ID")
 		return
 	}
 
-	var req dto.AdminUpdateUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Format input tidak valid",
-			"error_code": "VALIDATION_ERROR",
-		})
+	req_ptr, ok := utils.BindAndValidate[dto.AdminUpdateUserRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	adminID := c.GetInt("user_id")
 	err = h.adminUserService.UpdateUser(c.Request.Context(), targetID, req, adminID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
 		if strings.Contains(err.Error(), "1062") || strings.Contains(err.Error(), "Duplicate") {
-			c.JSON(http.StatusConflict, gin.H{
-				"success": false,
-				"message": "Username sudah digunakan.",
-				"error_code": "CONFLICT",
-			})
+			utils.ErrorResponse(c, http.StatusConflict, "Username sudah digunakan.", "CONFLICT")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Gagal memperbarui data pengguna: " + err.Error(),
-			"error_code": "UPDATE_FAILED",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui data pengguna: " + err.Error(), "UPDATE_FAILED")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Data pengguna berhasil diperbarui.",
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Data pengguna berhasil diperbarui.", nil)
 }
 
 func (h *AdminUserHandler) DeleteUser(c *gin.Context) {
 	targetID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "ID Pengguna tidak valid",
-			"error_code": "INVALID_ID",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID Pengguna tidak valid", "INVALID_ID")
 		return
 	}
 
@@ -162,81 +116,48 @@ func (h *AdminUserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "User berhasil dihapus.",
-	})
+	utils.SuccessResponse(c, http.StatusOK, "User berhasil dihapus.", nil)
 }
 
 func (h *AdminUserHandler) GetUserLocations(c *gin.Context) {
 	targetID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "ID Pengguna tidak valid",
-			"error_code": "INVALID_ID",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID Pengguna tidak valid", "INVALID_ID")
 		return
 	}
 
 	locationIDs, err := h.adminUserService.GetUserLocations(c.Request.Context(), targetID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Gagal mengambil lokasi user",
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil lokasi user", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    locationIDs,
-	})
+	utils.SuccessDataResponse(c, http.StatusOK, locationIDs)
 }
 
 func (h *AdminUserHandler) UpdateUserLocations(c *gin.Context) {
 	targetID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "ID Pengguna tidak valid",
-			"error_code": "INVALID_ID",
-		})
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID Pengguna tidak valid", "INVALID_ID")
 		return
 	}
 
-	var req dto.AdminUpdateUserLocationsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Format input tidak valid",
-			"error_code": "VALIDATION_ERROR",
-		})
+	req_ptr, ok := utils.BindAndValidate[dto.AdminUpdateUserLocationsRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	adminID := c.GetInt("user_id")
 	err = h.adminUserService.UpdateUserLocations(c.Request.Context(), targetID, req, adminID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
 		if strings.Contains(err.Error(), "1452") || strings.Contains(err.Error(), "foreign key") {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"success": false,
-				"message": "Satu atau lebih ID lokasi tidak valid.",
-				"error_code": "INVALID_REFERENCE",
-			})
+			utils.ErrorResponse(c, http.StatusBadRequest, "Satu atau lebih ID lokasi tidak valid.", "INVALID_REFERENCE")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Gagal memperbarui izin lokasi pengguna",
-			"error_code": "UPDATE_FAILED",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui izin lokasi pengguna", "UPDATE_FAILED")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Izin lokasi pengguna berhasil diperbarui.",
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Izin lokasi pengguna berhasil diperbarui.", nil)
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -24,27 +25,27 @@ func NewScheduleHandler(scheduleService service.ScheduleService, jobService serv
 }
 
 func (h *ScheduleHandler) GetSchedules(c *gin.Context) {
-	var req dto.GetSchedulesRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "error_code": "VALIDATION_ERROR"})
+	req_ptr, ok := utils.BindQueryAndValidate[dto.GetSchedulesRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	schedules, err := h.scheduleService.GetSchedules(c.Request.Context(), req.UserID, req.StartDate, req.EndDate)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": schedules})
+	utils.SuccessDataResponse(c, http.StatusOK, schedules)
 }
 
 func (h *ScheduleHandler) CreateSchedule(c *gin.Context) {
-	var req dto.CreateScheduleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "error_code": "VALIDATION_ERROR"})
+	req_ptr, ok := utils.BindAndValidate[dto.CreateScheduleRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	// createdBy could be obtained from JWT token if available in context, for now we pass nil or parse it.
 	// We'll extract UserID from context if middleware sets it. Assuming it's set as float64 by some JWT middlewares.
@@ -58,33 +59,33 @@ func (h *ScheduleHandler) CreateSchedule(c *gin.Context) {
 
 	err := h.scheduleService.CreateSchedule(c.Request.Context(), req, createdBy)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Schedule saved"})
+	utils.SuccessResponse(c, http.StatusOK, "Schedule saved", nil)
 }
 
 func (h *ScheduleHandler) DeleteSchedule(c *gin.Context) {
-	var req dto.DeleteScheduleRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "error_code": "VALIDATION_ERROR"})
+	req_ptr, ok := utils.BindQueryAndValidate[dto.DeleteScheduleRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	err := h.scheduleService.DeleteSchedule(c.Request.Context(), req.UserID, req.Date)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Schedule deleted"})
+	utils.SuccessResponse(c, http.StatusOK, "Schedule deleted", nil)
 }
 
 func (h *ScheduleHandler) DownloadTemplate(c *gin.Context) {
 	f, err := h.scheduleService.GenerateTemplate(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal generate template", "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal generate template", "INTERNAL_ERROR")
 		return
 	}
 
@@ -99,7 +100,7 @@ func (h *ScheduleHandler) DownloadTemplate(c *gin.Context) {
 func (h *ScheduleHandler) UploadImportSchedule(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "File Excel wajib diupload.", "error_code": "VALIDATION_ERROR"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "File Excel wajib diupload.", "VALIDATION_ERROR")
 		return
 	}
 
@@ -111,7 +112,7 @@ func (h *ScheduleHandler) UploadImportSchedule(c *gin.Context) {
 	filepath := uploadDir + file.Filename
 	
 	if err := c.SaveUploadedFile(file, filepath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to save file", "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save file", "INTERNAL_ERROR")
 		return
 	}
 
@@ -124,11 +125,11 @@ func (h *ScheduleHandler) UploadImportSchedule(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error(), "error_code": "INTERNAL_ERROR"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"message": "Import Jadwal sedang diproses di background.",
 		"data": gin.H{

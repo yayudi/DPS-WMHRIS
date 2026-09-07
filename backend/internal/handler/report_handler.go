@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -25,7 +26,7 @@ func NewReportHandler(reportService service.ReportService, jobService service.Jo
 func (h *ReportHandler) RequestStockReport(c *gin.Context) {
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
@@ -47,11 +48,11 @@ func (h *ReportHandler) RequestStockReport(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateExportJob(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusAccepted, gin.H{
+	utils.RawResponse(c, http.StatusAccepted, gin.H{
 		"message": "Permintaan ekspor diterima. Laporan sedang dibuat.",
 		"jobId":   jobID,
 	})
@@ -60,7 +61,7 @@ func (h *ReportHandler) RequestStockReport(c *gin.Context) {
 func (h *ReportHandler) GetUserExportJobs(c *gin.Context) {
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
@@ -72,19 +73,19 @@ func (h *ReportHandler) GetUserExportJobs(c *gin.Context) {
 
 	jobs, err := h.reportService.GetUserExportJobs(c.Request.Context(), userID, baseURL)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": jobs})
+	utils.SuccessDataResponse(c, http.StatusOK, jobs)
 }
 
 func (h *ReportHandler) FetchReportFilters(c *gin.Context) {
 	filters, err := h.reportService.GetReportFilters(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": filters})
+	utils.SuccessDataResponse(c, http.StatusOK, filters)
 }

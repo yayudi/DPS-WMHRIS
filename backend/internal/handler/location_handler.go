@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/dps-wmhris/backend/internal/utils"
 	"net/http"
 
 	"strconv"
@@ -19,117 +20,97 @@ func NewLocationHandler(locationService service.LocationService) *LocationHandle
 }
 
 func (h *LocationHandler) Create(c *gin.Context) {
-	var req dto.CreateLocationRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success":    false,
-			"message":    "Format input tidak valid",
-			"error_code": "VALIDATION_ERROR",
-		})
+	req_ptr, ok := utils.BindAndValidate[dto.CreateLocationRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna yang valid"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
 		return
 	}
 
 	location, err := h.locationService.CreateLocation(c.Request.Context(), userID, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    err.Error(),
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"success": true,
-		"message": "Lokasi berhasil dibuat",
-		"data":    location,
-	})
+	utils.SuccessResponse(c, http.StatusCreated, "Lokasi berhasil dibuat", location)
 }
 
 func (h *LocationHandler) GetAll(c *gin.Context) {
 	locations, err := h.locationService.GetAllLocations(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success":    false,
-			"message":    err.Error(),
-			"error_code": "INTERNAL_SERVER_ERROR",
-		})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Berhasil mengambil data lokasi",
-		"data":    locations,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "Berhasil mengambil data lokasi", locations)
 }
 
 func (h *LocationHandler) Update(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid ID"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
 		return
 	}
 
-	var req dto.UpdateLocationRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Format input tidak valid"})
+	req_ptr, ok := utils.BindAndValidate[dto.UpdateLocationRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna yang valid"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
 		return
 	}
 
 	if err := h.locationService.UpdateLocation(c.Request.Context(), userID, id, req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Lokasi berhasil diperbarui."})
+	utils.SuccessResponse(c, http.StatusOK, "Lokasi berhasil diperbarui.", nil)
 }
 
 func (h *LocationHandler) Delete(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid ID"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
 		return
 	}
 
 	userID := getUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Tidak ada sesi pengguna yang valid"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
 		return
 	}
 
 	if err := h.locationService.DeleteLocation(c.Request.Context(), userID, id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Lokasi berhasil dihapus."})
+	utils.SuccessResponse(c, http.StatusOK, "Lokasi berhasil dihapus.", nil)
 }
 
 func (h *LocationHandler) GetStockSample(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid ID"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
 		return
 	}
 
 	results, err := h.locationService.GetStockSample(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": results})
+	utils.SuccessDataResponse(c, http.StatusOK, results)
 }
