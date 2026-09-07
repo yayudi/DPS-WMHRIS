@@ -195,12 +195,13 @@ func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int
 		filter.EndDate = "2030-01-01"
 	}
 
-	logs, _, err := s.stockRepo.GetBatchLogs(ctx, filter)
+	result, err := s.stockRepo.GetBatchLogs(ctx, filter)
 	if err != nil {
 		errMsg := err.Error()
 		s.jobRepo.UpdateExportJobStatus(ctx, jobID, "FAILED", nil, &errMsg)
 		return err
 	}
+	logs := result.Data
 
 	f := excelize.NewFile()
 	sheetName := "Batch Log"

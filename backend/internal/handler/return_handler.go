@@ -57,22 +57,14 @@ func (h *ReturnHandler) GetReturnHistory(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	search := c.Query("search")
 
-	offset := (page - 1) * limit
-
-	params := map[string]interface{}{
-		"limit":  limit,
-		"offset": offset,
-		"search": search,
-	}
-
-	marketplaceRows, marketplaceTotal, err := h.returnService.GetMarketplaceReturnHistory(c.Request.Context(), params)
+	marketplaceResult, err := h.returnService.GetMarketplaceReturnHistory(c.Request.Context(), page, limit, search)
 	if err != nil {
 		log.Printf("[ReturnHistory] MarketplaceReturnHistory error: %v", err)
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	manualRows, manualTotal, err := h.returnService.GetManualReturnHistory(c.Request.Context(), params)
+	manualResult, err := h.returnService.GetManualReturnHistory(c.Request.Context(), page, limit, search)
 	if err != nil {
 		log.Printf("[ReturnHistory] ManualReturnHistory error: %v", err)
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
@@ -82,12 +74,12 @@ func (h *ReturnHandler) GetReturnHistory(c *gin.Context) {
 	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"data": map[string]interface{}{
-			"marketplace_returns": marketplaceRows,
-			"manual_returns":      manualRows,
+			"marketplace_returns": marketplaceResult.Data,
+			"manual_returns":      manualResult.Data,
 		},
 		"pagination": map[string]interface{}{
-			"marketplace_total": marketplaceTotal,
-			"manual_total":      manualTotal,
+			"marketplace_total": marketplaceResult.Total,
+			"manual_total":      manualResult.Total,
 			"page":              page,
 			"limit":             limit,
 		},

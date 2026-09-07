@@ -9,13 +9,14 @@ import (
 	"github.com/dps-wmhris/backend/internal/dto"
 	"github.com/dps-wmhris/backend/internal/model"
 	"github.com/dps-wmhris/backend/internal/repository"
+	"github.com/dps-wmhris/backend/internal/utils"
 	"github.com/jmoiron/sqlx"
 )
 
 type ReturnService interface {
 	GetPendingReturns(ctx context.Context, params map[string]interface{}) ([]map[string]interface{}, int, error)
-	GetMarketplaceReturnHistory(ctx context.Context, params map[string]interface{}) ([]model.MarketplaceReturnItem, int, error)
-	GetManualReturnHistory(ctx context.Context, params map[string]interface{}) ([]model.ManualReturnItem, int, error)
+	GetMarketplaceReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[model.MarketplaceReturnItem], error)
+	GetManualReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[model.ManualReturnItem], error)
 	ApproveReturn(ctx context.Context, userID int, req dto.ApproveReturnRequest) error
 	CreateManualReturn(ctx context.Context, userID int, req dto.CreateManualReturnRequest) error
 }
@@ -40,12 +41,12 @@ func (s *returnServiceImpl) GetPendingReturns(ctx context.Context, params map[st
 	return s.returnRepo.GetPendingReturns(ctx, params)
 }
 
-func (s *returnServiceImpl) GetMarketplaceReturnHistory(ctx context.Context, params map[string]interface{}) ([]model.MarketplaceReturnItem, int, error) {
-	return s.returnRepo.GetMarketplaceReturnHistory(ctx, params)
+func (s *returnServiceImpl) GetMarketplaceReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[model.MarketplaceReturnItem], error) {
+	return s.returnRepo.GetMarketplaceReturnHistory(ctx, page, limit, search)
 }
 
-func (s *returnServiceImpl) GetManualReturnHistory(ctx context.Context, params map[string]interface{}) ([]model.ManualReturnItem, int, error) {
-	return s.returnRepo.GetManualReturnHistory(ctx, params)
+func (s *returnServiceImpl) GetManualReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[model.ManualReturnItem], error) {
+	return s.returnRepo.GetManualReturnHistory(ctx, page, limit, search)
 }
 
 func (s *returnServiceImpl) ApproveReturn(ctx context.Context, userID int, req dto.ApproveReturnRequest) error {

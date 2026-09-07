@@ -10,13 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dps-wmhris/backend/internal/utils"
-
 	"github.com/dps-wmhris/backend/internal/config"
 	"github.com/dps-wmhris/backend/internal/database"
 	"github.com/dps-wmhris/backend/internal/dto"
 	"github.com/dps-wmhris/backend/internal/repository"
 	"github.com/dps-wmhris/backend/internal/service"
+	"github.com/dps-wmhris/backend/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"github.com/xuri/excelize/v2"
@@ -36,7 +35,6 @@ func NewMediaHandler(db *sqlx.DB, mediaService service.MediaService, storageServ
 func (h *MediaHandler) ListMedia(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	offset := (page - 1) * limit
 
 	var filter repository.MediaFilter
 	if s := c.Query("search"); s != "" {
@@ -53,27 +51,13 @@ func (h *MediaHandler) ListMedia(c *gin.Context) {
 		}
 	}
 
-	assets, total, err := h.mediaService.GetMediaAssets(c.Request.Context(), limit, offset, filter)
+	result, err := h.mediaService.GetMediaAssets(c.Request.Context(), page, limit, filter)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil media", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	totalPages := total / limit
-	if total%limit != 0 {
-		totalPages++
-	}
-
-	utils.RawResponse(c, http.StatusOK, gin.H{
-		"success": true,
-		"data":    assets,
-		"pagination": gin.H{
-			"page":       page,
-			"limit":      limit,
-			"total":      total,
-			"totalPages": totalPages,
-		},
-	})
+	utils.PaginatedResponse(c, http.StatusOK, result.Data, result.Page, result.Limit, result.Total, result.TotalPages)
 }
 
 func (h *MediaHandler) GetMediaByID(c *gin.Context) {

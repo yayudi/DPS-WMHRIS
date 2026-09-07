@@ -13,6 +13,7 @@ import (
 	"github.com/dps-wmhris/backend/internal/dto"
 	"github.com/dps-wmhris/backend/internal/model"
 	"github.com/dps-wmhris/backend/internal/repository"
+	"github.com/dps-wmhris/backend/internal/utils"
 	"github.com/jmoiron/sqlx"
 	"github.com/xuri/excelize/v2"
 )
@@ -22,8 +23,8 @@ type StockService interface {
 	GetAllStocks(ctx context.Context) ([]map[string]interface{}, error)
 	ProcessBatchMovements(ctx context.Context, req dto.BatchProcessRequest, userID int, userRoleID int) error
 	GetMovementTypes(ctx context.Context) ([]string, error)
-	GetBatchLogs(ctx context.Context, filter dto.BatchLogFilter) ([]dto.BatchLogResponse, int, error)
-	GetStockHistory(ctx context.Context, filter dto.StockHistoryFilter) (*dto.StockHistoryData, error)
+	GetBatchLogs(ctx context.Context, filter dto.BatchLogFilter) (utils.PaginatedResult[dto.BatchLogResponse], error)
+	GetStockHistory(ctx context.Context, filter dto.StockHistoryFilter) (utils.PaginatedResult[dto.StockHistoryResponse], error)
 	GenerateInboundTemplate(ctx context.Context) (*excelize.File, error)
 	GenerateAdjustmentTemplate(ctx context.Context) (*excelize.File, error)
 	ValidateReturn(ctx context.Context, req dto.ValidateReturnRequest, userID int) error
@@ -473,11 +474,11 @@ func (s *stockServiceImpl) GetMovementTypes(ctx context.Context) ([]string, erro
 	return s.stockRepo.GetMovementTypes(ctx)
 }
 
-func (s *stockServiceImpl) GetBatchLogs(ctx context.Context, filter dto.BatchLogFilter) ([]dto.BatchLogResponse, int, error) {
+func (s *stockServiceImpl) GetBatchLogs(ctx context.Context, filter dto.BatchLogFilter) (utils.PaginatedResult[dto.BatchLogResponse], error) {
 	return s.stockRepo.GetBatchLogs(ctx, filter)
 }
 
-func (s *stockServiceImpl) GetStockHistory(ctx context.Context, filter dto.StockHistoryFilter) (*dto.StockHistoryData, error) {
+func (s *stockServiceImpl) GetStockHistory(ctx context.Context, filter dto.StockHistoryFilter) (utils.PaginatedResult[dto.StockHistoryResponse], error) {
 	return s.stockRepo.GetStockHistory(ctx, filter)
 }
 

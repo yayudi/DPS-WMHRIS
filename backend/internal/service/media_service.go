@@ -15,13 +15,14 @@ import (
 
 	"github.com/dps-wmhris/backend/internal/dto"
 	"github.com/dps-wmhris/backend/internal/repository"
+	"github.com/dps-wmhris/backend/internal/utils"
 	"github.com/jmoiron/sqlx"
 	"github.com/xuri/excelize/v2"
 )
 
 type MediaService interface {
 	SaveMediaMetadata(ctx context.Context, tx sqlx.ExtContext, asset dto.ConfirmUploadAsset, userID int) (int, error)
-	GetMediaAssets(ctx context.Context, limit, offset int, filter repository.MediaFilter) ([]dto.MediaAssetResponse, int, error)
+	GetMediaAssets(ctx context.Context, page, limit int, filter repository.MediaFilter) (utils.PaginatedResult[dto.MediaAssetResponse], error)
 	GetMediaDetailsWithProducts(ctx context.Context, mediaID int) (*dto.MediaAssetResponse, error)
 	GetMediaAssetsByIDs(ctx context.Context, mediaIDs []int) ([]dto.MediaAssetResponse, error)
 	DeleteMediaAsset(ctx context.Context, tx sqlx.ExtContext, mediaID int) (mainPath string, thumbPath string, err error)
@@ -80,16 +81,8 @@ func (s *mediaServiceImpl) SaveMediaMetadata(ctx context.Context, tx sqlx.ExtCon
 	return s.mediaRepo.CreateMediaAsset(ctx, tx, payload)
 }
 
-func (s *mediaServiceImpl) GetMediaAssets(ctx context.Context, limit, offset int, filter repository.MediaFilter) ([]dto.MediaAssetResponse, int, error) {
-	assets, err := s.mediaRepo.GetMediaAssets(ctx, limit, offset, filter)
-	if err != nil {
-		return nil, 0, err
-	}
-	total, err := s.mediaRepo.GetTotalMediaAssets(ctx, filter)
-	if err != nil {
-		return nil, 0, err
-	}
-	return assets, total, nil
+func (s *mediaServiceImpl) GetMediaAssets(ctx context.Context, page, limit int, filter repository.MediaFilter) (utils.PaginatedResult[dto.MediaAssetResponse], error) {
+	return s.mediaRepo.GetMediaAssets(ctx, page, limit, filter)
 }
 
 func (s *mediaServiceImpl) GetMediaDetailsWithProducts(ctx context.Context, mediaID int) (*dto.MediaAssetResponse, error) {

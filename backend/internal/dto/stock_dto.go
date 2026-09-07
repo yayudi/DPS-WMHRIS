@@ -82,15 +82,6 @@ type StockHistoryFilter struct {
 	User         string `form:"user"`
 }
 
-type StockHistoryData struct {
-	Data       []StockHistoryResponse `json:"data"`
-	Pagination struct {
-		Total int `json:"total"`
-		Page  int `json:"page"`
-		Limit int `json:"limit"`
-	} `json:"pagination"`
-}
-
 type BatchMovementRequest struct {
 	SKU            string  `json:"sku" binding:"required"`
 	Quantity       int     `json:"quantity" binding:"required"`

@@ -233,21 +233,13 @@ func (h *StockHandler) GetBatchLogs(c *gin.Context) {
 		return
 	}
 
-	logs, total, err := h.stockService.GetBatchLogs(c.Request.Context(), filter)
+	result, err := h.stockService.GetBatchLogs(c.Request.Context(), filter)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil log stok: "+err.Error(), "")
 		return
 	}
 
-	utils.RawResponse(c, http.StatusOK, gin.H{
-		"success": true, 
-		"data": logs,
-		"pagination": gin.H{
-			"page": filter.Page,
-			"limit": filter.Limit,
-			"total": total,
-		},
-	})
+	utils.PaginatedResponse(c, http.StatusOK, result.Data, result.Page, result.Limit, result.Total, result.TotalPages)
 }
 
 func (h *StockHandler) GetStockHistory(c *gin.Context) {
@@ -267,11 +259,7 @@ func (h *StockHandler) GetStockHistory(c *gin.Context) {
 		return
 	}
 
-	utils.RawResponse(c, http.StatusOK, gin.H{
-		"success": true,
-		"data": result.Data,
-		"pagination": result.Pagination,
-	})
+	utils.PaginatedResponse(c, http.StatusOK, result.Data, result.Page, result.Limit, result.Total, result.TotalPages)
 }
 
 func (h *StockHandler) BatchTransfer(c *gin.Context) {

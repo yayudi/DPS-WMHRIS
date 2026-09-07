@@ -6,13 +6,14 @@ import (
 	"strings"
 
 	"github.com/dps-wmhris/backend/internal/model"
+	"github.com/dps-wmhris/backend/internal/utils"
 	"github.com/jmoiron/sqlx"
 )
 
 type ReturnRepository interface {
 	GetPendingReturns(ctx context.Context, params map[string]interface{}) ([]map[string]interface{}, int, error)
-	GetMarketplaceReturnHistory(ctx context.Context, params map[string]interface{}) ([]model.MarketplaceReturnItem, int, error)
-	GetManualReturnHistory(ctx context.Context, params map[string]interface{}) ([]model.ManualReturnItem, int, error)
+	GetMarketplaceReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[model.MarketplaceReturnItem], error)
+	GetManualReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[model.ManualReturnItem], error)
 	GetPickingItemById(ctx context.Context, db sqlx.ExtContext, id int) (*model.PickingListItem, error)
 	CompleteReturnItem(ctx context.Context, db sqlx.ExtContext, itemID int, condition string, notes string, locationID int) error
 	DecreaseItemQty(ctx context.Context, db sqlx.ExtContext, itemID int, qtyToDeduct int) error
@@ -97,11 +98,7 @@ func (r *returnRepositoryImpl) GetPendingReturns(ctx context.Context, params map
 	return results, total, nil
 }
 
-func (r *returnRepositoryImpl) GetMarketplaceReturnHistory(ctx context.Context, params map[string]interface{}) ([]model.MarketplaceReturnItem, int, error) {
-	limit := params["limit"].(int)
-	offset := params["offset"].(int)
-	search := params["search"].(string)
-
+func (r *returnRepositoryImpl) GetMarketplaceReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[model.MarketplaceReturnItem], error) {
 	whereClauses := []string{"pli.status = 'COMPLETED_RETURN'"}
 	queryParams := []interface{}{}
 
@@ -114,7 +111,7 @@ func (r *returnRepositoryImpl) GetMarketplaceReturnHistory(ctx context.Context, 
 	whereClauseStr := strings.Join(whereClauses, " AND ")
 	
 	query := fmt.Sprintf(`
-		SELECT SQL_CALC_FOUND_ROWS
+		SELECT
 			'MARKETPLACE' as type,
 			pli.id,
 			pl.original_invoice_id as reference,
@@ -132,31 +129,12 @@ func (r *returnRepositoryImpl) GetMarketplaceReturnHistory(ctx context.Context, 
 		LEFT JOIN locations l ON pli.confirmed_location_id = l.id
 		WHERE %s
 		ORDER BY pl.updated_at DESC
-		LIMIT ? OFFSET ?
 	`, whereClauseStr)
 
-	queryParams = append(queryParams, limit, offset)
-
-	var results []model.MarketplaceReturnItem
-	err := r.db.SelectContext(ctx, &results, query, queryParams...)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	var total int
-	err = r.db.QueryRowContext(ctx, "SELECT FOUND_ROWS()").Scan(&total)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return results, total, nil
+	return utils.FetchPaginated[model.MarketplaceReturnItem](ctx, r.db, query, page, limit, queryParams...)
 }
 
-func (r *returnRepositoryImpl) GetManualReturnHistory(ctx context.Context, params map[string]interface{}) ([]model.ManualReturnItem, int, error) {
-	limit := params["limit"].(int)
-	offset := params["offset"].(int)
-	search := params["search"].(string)
-
+func (r *returnRepositoryImpl) GetManualReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[model.ManualReturnItem], error) {
 	whereClauses := []string{"1=1"}
 	queryParams := []interface{}{}
 
@@ -169,7 +147,7 @@ func (r *returnRepositoryImpl) GetManualReturnHistory(ctx context.Context, param
 	whereClauseStr := strings.Join(whereClauses, " AND ")
 	
 	query := fmt.Sprintf(`
-		SELECT SQL_CALC_FOUND_ROWS
+		SELECT
 			'MANUAL' as type,
 			mr.id,
 			mr.reference,
@@ -184,24 +162,9 @@ func (r *returnRepositoryImpl) GetManualReturnHistory(ctx context.Context, param
 		JOIN products p ON mr.product_id = p.id
 		WHERE %s
 		ORDER BY mr.created_at DESC
-		LIMIT ? OFFSET ?
 	`, whereClauseStr)
 
-	queryParams = append(queryParams, limit, offset)
-
-	var results []model.ManualReturnItem
-	err := r.db.SelectContext(ctx, &results, query, queryParams...)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	var total int
-	err = r.db.QueryRowContext(ctx, "SELECT FOUND_ROWS()").Scan(&total)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return results, total, nil
+	return utils.FetchPaginated[model.ManualReturnItem](ctx, r.db, query, page, limit, queryParams...)
 }
 
 func (r *returnRepositoryImpl) GetPickingItemById(ctx context.Context, db sqlx.ExtContext, id int) (*model.PickingListItem, error) {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dps-wmhris/backend/internal/dto"
+	"github.com/dps-wmhris/backend/internal/utils"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -16,8 +17,7 @@ type MediaFilter struct {
 }
 
 type MediaRepository interface {
-	GetMediaAssets(ctx context.Context, limit, offset int, filter MediaFilter) ([]dto.MediaAssetResponse, error)
-	GetTotalMediaAssets(ctx context.Context, filter MediaFilter) (int, error)
+	GetMediaAssets(ctx context.Context, page, limit int, filter MediaFilter) (utils.PaginatedResult[dto.MediaAssetResponse], error)
 	GetMediaDetailsWithProducts(ctx context.Context, mediaID int) (*dto.MediaAssetResponse, error)
 	CreateMediaAsset(ctx context.Context, db sqlx.ExtContext, payload map[string]interface{}) (int, error)
 	GetMediaAssetByHash(ctx context.Context, hash string) (*int, error)
@@ -96,7 +96,7 @@ func buildFilterClause(filter MediaFilter) (string, []interface{}) {
 	return clause, params
 }
 
-func (r *mediaRepositoryImpl) GetMediaAssets(ctx context.Context, limit, offset int, filter MediaFilter) ([]dto.MediaAssetResponse, error) {
+func (r *mediaRepositoryImpl) GetMediaAssets(ctx context.Context, page, limit int, filter MediaFilter) (utils.PaginatedResult[dto.MediaAssetResponse], error) {
 	clause, params := buildFilterClause(filter)
 
 	query := `
@@ -106,28 +106,9 @@ func (r *mediaRepositoryImpl) GetMediaAssets(ctx context.Context, limit, offset 
 		FROM media_assets m
 		` + clause + `
 		ORDER BY m.created_at DESC
-		LIMIT ? OFFSET ?
 	`
-	params = append(params, limit, offset)
 
-	var rows []dto.MediaAssetResponse
-	err := r.db.SelectContext(ctx, &rows, query, params...)
-	if err != nil {
-		return nil, err
-	}
-	if rows == nil {
-		rows = []dto.MediaAssetResponse{}
-	}
-	return rows, nil
-}
-
-func (r *mediaRepositoryImpl) GetTotalMediaAssets(ctx context.Context, filter MediaFilter) (int, error) {
-	clause, params := buildFilterClause(filter)
-	query := `SELECT COUNT(id) as total FROM media_assets m ` + clause
-
-	var total int
-	err := r.db.GetContext(ctx, &total, query, params...)
-	return total, err
+	return utils.FetchPaginated[dto.MediaAssetResponse](ctx, r.db, query, page, limit, params...)
 }
 
 func (r *mediaRepositoryImpl) GetMediaDetailsWithProducts(ctx context.Context, mediaID int) (*dto.MediaAssetResponse, error) {

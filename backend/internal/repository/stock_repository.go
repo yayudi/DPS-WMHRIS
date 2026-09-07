@@ -7,6 +7,7 @@ import (
 
 	"github.com/dps-wmhris/backend/internal/dto"
 	"github.com/dps-wmhris/backend/internal/model"
+	"github.com/dps-wmhris/backend/internal/utils"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -16,8 +17,8 @@ type StockRepository interface {
 	RecordMovement(ctx context.Context, db sqlx.ExtContext, movement *model.StockMovement) error
 	GetAllStocks(ctx context.Context) ([]map[string]interface{}, error)
 	GetMovementTypes(ctx context.Context) ([]string, error)
-	GetBatchLogs(ctx context.Context, filter dto.BatchLogFilter) ([]dto.BatchLogResponse, int, error)
-	GetStockHistory(ctx context.Context, filter dto.StockHistoryFilter) (*dto.StockHistoryData, error)
+	GetBatchLogs(ctx context.Context, filter dto.BatchLogFilter) (utils.PaginatedResult[dto.BatchLogResponse], error)
+	GetStockHistory(ctx context.Context, filter dto.StockHistoryFilter) (utils.PaginatedResult[dto.StockHistoryResponse], error)
 }
 
 type stockRepositoryImpl struct {
@@ -127,26 +128,29 @@ func (r *stockRepositoryImpl) GetMovementTypes(ctx context.Context) ([]string, e
 	return types, err
 }
 
-func (r *stockRepositoryImpl) GetBatchLogs(ctx context.Context, filter dto.BatchLogFilter) ([]dto.BatchLogResponse, int, error) {
+func (r *stockRepositoryImpl) GetBatchLogs(ctx context.Context, filter dto.BatchLogFilter) (utils.PaginatedResult[dto.BatchLogResponse], error) {
 	baseQuery := `
 		FROM stock_movements sm
 		JOIN products p ON sm.product_id = p.id
 		JOIN users u ON sm.user_id = u.id
 		LEFT JOIN locations from_loc ON sm.from_location_id = from_loc.id
 		LEFT JOIN locations to_loc ON sm.to_location_id = to_loc.id
-		WHERE sm.created_at BETWEEN ? AND ?
+		WHERE 1=1
 	`
-	endDateStr := filter.EndDate + " 23:59:59"
-	args := []interface{}{filter.StartDate, endDateStr}
-	
-	if filter.ProductName != "" {
-		baseQuery += " AND p.name LIKE ?"
-		args = append(args, "%"+filter.ProductName+"%")
+	var args []interface{}
+
+	if filter.StartDate != "" && filter.EndDate != "" {
+		baseQuery += " AND DATE(sm.created_at) BETWEEN ? AND ?"
+		args = append(args, filter.StartDate, filter.EndDate)
 	}
-	
-	// Helper to handle TriStateFilter {"include":[], "exclude":[]}
+
+	if filter.ProductName != "" {
+		baseQuery += " AND (p.name LIKE ? OR p.sku LIKE ?)"
+		args = append(args, "%"+filter.ProductName+"%", "%"+filter.ProductName+"%")
+	}
+
 	applyTriState := func(column string, val string) {
-		if val == "" {
+		if val == "" || val == "all" {
 			return
 		}
 		var ts struct {
@@ -177,17 +181,6 @@ func (r *stockRepositoryImpl) GetBatchLogs(ctx context.Context, filter dto.Batch
 		baseQuery += " AND sm.notes LIKE ?"
 		args = append(args, "%"+filter.Notes+"%")
 	}
-
-	countQuery := "SELECT COUNT(sm.id) " + baseQuery
-	countQuery, countArgs, err := sqlx.In(countQuery, args...)
-	if err != nil {
-		return nil, 0, err
-	}
-	countQuery = r.db.Rebind(countQuery)
-	var total int
-	if err := r.db.GetContext(ctx, &total, countQuery, countArgs...); err != nil {
-		return nil, 0, err
-	}
 	
 	selectQuery := `
 		SELECT sm.id,
@@ -200,27 +193,18 @@ func (r *stockRepositoryImpl) GetBatchLogs(ctx context.Context, filter dto.Batch
 			u.username as user,
 			COALESCE(from_loc.code, '') as from_location,
 			COALESCE(to_loc.code, '') as to_location
-	` + baseQuery + " ORDER BY sm.created_at DESC LIMIT ? OFFSET ?"
-
-	offset := (filter.Page - 1) * filter.Limit
-	args = append(args, filter.Limit, offset)
+	` + baseQuery + " ORDER BY sm.created_at DESC"
 	
-	selectQuery, args, err = sqlx.In(selectQuery, args...)
+	selectQuery, args, err := sqlx.In(selectQuery, args...)
 	if err != nil {
-		return nil, 0, err
+		return utils.PaginatedResult[dto.BatchLogResponse]{}, err
 	}
 	selectQuery = r.db.Rebind(selectQuery)
 	
-	var logs []dto.BatchLogResponse
-	err = r.db.SelectContext(ctx, &logs, selectQuery, args...)
-	
-	return logs, total, err
+	return utils.FetchPaginated[dto.BatchLogResponse](ctx, r.db, selectQuery, filter.Page, filter.Limit, args...)
 }
 
-func (r *stockRepositoryImpl) GetStockHistory(ctx context.Context, filter dto.StockHistoryFilter) (*dto.StockHistoryData, error) {
-	countQuery := "SELECT COUNT(*) FROM stock_movements sm JOIN users u ON sm.user_id = u.id WHERE sm.product_id = ?"
-	countArgs := []interface{}{filter.ProductID}
-
+func (r *stockRepositoryImpl) GetStockHistory(ctx context.Context, filter dto.StockHistoryFilter) (utils.PaginatedResult[dto.StockHistoryResponse], error) {
 	query := `
 		SELECT sm.id,
 			sm.quantity,
@@ -239,70 +223,32 @@ func (r *stockRepositoryImpl) GetStockHistory(ctx context.Context, filter dto.St
 	args := []interface{}{filter.ProductID}
 
 	if filter.MovementType != "" && filter.MovementType != "all" {
-		countQuery += " AND sm.movement_type = ?"
-		countArgs = append(countArgs, filter.MovementType)
-		
 		query += " AND sm.movement_type = ?"
 		args = append(args, filter.MovementType)
 	}
 
 	if filter.StartDate != "" && filter.EndDate != "" {
-		countQuery += " AND DATE(sm.created_at) BETWEEN ? AND ?"
-		countArgs = append(countArgs, filter.StartDate, filter.EndDate)
 		query += " AND DATE(sm.created_at) BETWEEN ? AND ?"
 		args = append(args, filter.StartDate, filter.EndDate)
 	} else if filter.StartDate != "" {
-		countQuery += " AND DATE(sm.created_at) >= ?"
-		countArgs = append(countArgs, filter.StartDate)
 		query += " AND DATE(sm.created_at) >= ?"
 		args = append(args, filter.StartDate)
 	} else if filter.EndDate != "" {
-		countQuery += " AND DATE(sm.created_at) <= ?"
-		countArgs = append(countArgs, filter.EndDate)
 		query += " AND DATE(sm.created_at) <= ?"
 		args = append(args, filter.EndDate)
 	}
 
 	if filter.LocationID != "" && filter.LocationID != "all" {
-		countQuery += " AND (sm.from_location_id = ? OR sm.to_location_id = ?)"
-		countArgs = append(countArgs, filter.LocationID, filter.LocationID)
 		query += " AND (sm.from_location_id = ? OR sm.to_location_id = ?)"
 		args = append(args, filter.LocationID, filter.LocationID)
 	}
 
 	if filter.User != "" {
-		countQuery += " AND u.username LIKE ?"
-		countArgs = append(countArgs, "%"+filter.User+"%")
 		query += " AND u.username LIKE ?"
 		args = append(args, "%"+filter.User+"%")
 	}
 
-	var total int
-	err := r.db.GetContext(ctx, &total, countQuery, countArgs...)
-	if err != nil {
-		return nil, err
-	}
+	query += " ORDER BY sm.created_at DESC"
 
-	query += " ORDER BY sm.created_at DESC LIMIT ? OFFSET ?"
-	offset := (filter.Page - 1) * filter.Limit
-	args = append(args, filter.Limit, offset)
-
-	var history []dto.StockHistoryResponse
-	err = r.db.SelectContext(ctx, &history, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	
-	if history == nil {
-		history = []dto.StockHistoryResponse{}
-	}
-
-	result := &dto.StockHistoryData{
-		Data: history,
-	}
-	result.Pagination.Total = total
-	result.Pagination.Page = filter.Page
-	result.Pagination.Limit = filter.Limit
-
-	return result, nil
+	return utils.FetchPaginated[dto.StockHistoryResponse](ctx, r.db, query, filter.Page, filter.Limit, args...)
 }

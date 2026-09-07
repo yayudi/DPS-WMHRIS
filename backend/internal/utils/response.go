@@ -61,10 +61,15 @@ func RawResponse(c *gin.Context, statusCode int, data any) {
 	c.JSON(statusCode, data)
 }
 
-// PaginatedResponse mengirimkan respons dengan struktur paginasi dasar.
-func PaginatedResponse(c *gin.Context, data any, total int64) {
-	c.JSON(http.StatusOK, gin.H{
-		"data":  data,
-		"total": total,
+func PaginatedResponse(c *gin.Context, statusCode int, data any, page int, limit int, total int, totalPages int) {
+	c.JSON(statusCode, gin.H{
+		"success": true,
+		"data":    data,
+		"pagination": gin.H{
+			"page":       page,
+			"limit":      limit,
+			"total":      total,
+			"total_pages": totalPages,
+		},
 	})
 }
