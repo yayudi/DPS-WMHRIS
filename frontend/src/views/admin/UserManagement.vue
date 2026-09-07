@@ -157,7 +157,7 @@ const { handleCellBlur, handleDropdownChange } = useInstantInlineEdit(
   async (id, payload) => {
     await updateUser(id, payload)
   },
-  (user) => ({
+  user => ({
     username: user.username,
     nickname: user.nickname,
     role_id: user.role_id,
@@ -166,7 +166,7 @@ const { handleCellBlur, handleDropdownChange } = useInstantInlineEdit(
   () => fetchData() // Callback onSuccess untuk menyegarkan tabel (mendapatkan role_name/shift_name baru)
 )
 
-const handleContextAction = (action) => {
+const handleContextAction = action => {
   if (action === 'delete') {
     handleDeleteUser(contextMenu.value.row.id)
   } else if (action === 'edit') {
@@ -348,16 +348,21 @@ onMounted(fetchData)
                 contenteditable="true"
                 @blur="handleCellBlur($event, user, 'nickname')"
                 @keydown.enter.prevent="$event.target.blur()"
-              >{{ user.nickname || '' }}</span>
+                >{{ user.nickname || '' }}</span
+              >
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'">
               <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Role</span>
               <select
                 class="bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded text-xs font-semibold outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 cursor-pointer"
                 :value="user.role_id || ''"
-                @change="handleDropdownChange(user, 'role_id', $event.target.value === '' ? null : Number($event.target.value))"
+                @change="
+                  handleDropdownChange(user, 'role_id', $event.target.value === '' ? null : Number($event.target.value))
+                "
               >
-                <option v-for="role in allRoles" :key="role.id" :value="role.id" class="bg-background text-text">{{ role.name }}</option>
+                <option v-for="role in allRoles" :key="role.id" :value="role.id" class="bg-background text-text">
+                  {{ role.name }}
+                </option>
               </select>
             </td>
             <td
@@ -370,7 +375,13 @@ onMounted(fetchData)
                 <select
                   class="bg-transparent outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded text-xs cursor-pointer truncate max-w-[150px]"
                   :value="user.shift_id || ''"
-                  @change="handleDropdownChange(user, 'shift_id', $event.target.value === '' ? null : Number($event.target.value))"
+                  @change="
+                    handleDropdownChange(
+                      user,
+                      'shift_id',
+                      $event.target.value === '' ? null : Number($event.target.value)
+                    )
+                  "
                 >
                   <option value="" class="bg-background text-text">Default (Regular Office)</option>
                   <option v-for="shift in allShifts" :key="shift.id" :value="shift.id" class="bg-background text-text">
@@ -387,7 +398,9 @@ onMounted(fetchData)
                   : 'px-6 py-4 sticky right-0 z-20 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]'
               "
             >
-              <div class="flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+              <div
+                class="flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+              >
                 <button
                   @click.stop="openContextMenu($event, user)"
                   class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-primary/10 text-text/40 hover:text-primary transition-colors"
@@ -437,9 +450,9 @@ onMounted(fetchData)
 
   <Teleport to="body">
     <BaseModal :show="isCreateModalOpen" @close="isCreateModalOpen = false" title="Tambah Pengguna Baru">
-      <form @submit.prevent="handleCreateUser" class="p-6 space-y-4">
+      <form @submit.prevent="handleCreateUser" class="p-6 space-y-4 text-text/80">
         <div>
-          <label for="username" class="block text-sm font-medium text-text/80 mb-1">Username</label>
+          <label for="username" class="block text-sm font-medium mb-1">Username</label>
           <input
             v-model="newUser.username"
             id="username"
@@ -493,7 +506,7 @@ onMounted(fetchData)
         <button
           type="button"
           @click="isCreateModalOpen = false"
-          class="bg-background border border-secondary/30 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-secondary/20 flex items-center gap-2"
+          class="bg-danger text-secondary border border-secondary/30 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-danger/90 flex items-center gap-2"
         >
           <font-awesome-icon icon="fa-solid fa-times" />
           <span>Batal</span>

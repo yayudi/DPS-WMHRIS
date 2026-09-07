@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Go Build / Binaries
+bin/
+*.exe
+*.test
+*.prof
+tmp_build*/
+
+# Node modules & Legacy (jika ada sisa)
+node_modules/
+package-lock.json
+
+# Environment variables & Secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Local Data / DB
+*.sqlite
+*.db
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE & Editor
+.vscode/
+.idea/
+.agent/
+.agents/
+
+# Logs & Storage
+*.log
+storage/

@@ -1,9 +1,24 @@
 # Jangan salin dependensi
-node_modules
+node_modules/
 
 # Jangan salin file environment
 .env
 .env.*
 
 # Jangan salin build output (ini dibikin di dalam container)
-dist
+dist/
+dist-ssr/
+
+# IDE & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs & Misc
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+.agent/
+.agents/
