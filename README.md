@@ -3,9 +3,8 @@
 > **Warehouse Management System (WMS) & Human Resources Information System (HRIS)**
 
 ![Vue.js](https://img.shields.io/badge/Vue.js-35495E?style=for-the-badge&logo=vuedotjs&logoColor=4FC08D)
-![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)
+![Go](https://img.shields.io/badge/go-%2300ADD8.svg?style=for-the-badge&logo=go&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-005C84?style=for-the-badge&logo=mysql&logoColor=white)
-![Jest](https://img.shields.io/badge/Jest-C21325?style=for-the-badge&logo=jest&logoColor=white)
 
 Sistem terintegrasi untuk manajemen gudang (WMS) dan sumber daya manusia (HRIS). Repositori ini bersifat **publik** dan dapat digunakan atau dikembangkan ulang (fork/clone) secara bebas.
 
@@ -17,12 +16,13 @@ Sistem terintegrasi untuk manajemen gudang (WMS) dan sumber daya manusia (HRIS).
 
 ## 🛠 Teknologi yang Digunakan
 * **Frontend:** Vue.js 3 (Composition API, `<script setup>`), Tailwind CSS
-* **Backend:** Node.js (Express), MySQL (`mysql2/promise`)
-* **Testing:** Jest (Native ESM Architecture)
+* **Backend:** Golang (Gin framework), MySQL (`database/sql` + `sqlx`)
+* **Testing:** Go `testing` package
 
 ## 📋 Prasyarat
 Sebelum menjalankan aplikasi, pastikan Anda telah menginstal:
-* Node.js (v18 atau lebih baru)
+* Go (v1.21 atau lebih baru)
+* Node.js (v18 atau lebih baru, untuk frontend)
 * MySQL (v8.0 disarankan)
 * Git
 
@@ -37,7 +37,7 @@ cd DPS-WMHRIS
 **2. Setup Backend**
 ```bash
 cd backend
-npm install
+go mod download
 # Buat file .env berdasarkan .env.example
 cp .env.example .env
 # Sesuaikan kredensial database di dalam file .env
@@ -57,7 +57,7 @@ Buka 2 terminal terpisah:
 ```bash
 # Terminal 1 (Backend)
 cd backend
-npm run dev
+go run cmd/api/main.go
 
 # Terminal 2 (Frontend)
 cd frontend

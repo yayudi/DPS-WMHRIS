@@ -87,13 +87,12 @@ graphify-out
 
 # Go Binaries
 /backend/*.exe
-/backend/tmp_build
-/backend/tmp_build.exe
+/backend/tmp_build*
 /backend/wmhris
 /backend/api
 /backend/worker
-/backend/bin/api.exe
-/backend/bin/worker.exe
+/backend/bin/api*
+/backend/bin/worker*
 
 # PHP & Legacy
 /backend/**/*.php
