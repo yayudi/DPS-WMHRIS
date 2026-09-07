@@ -8,20 +8,18 @@ import (
 )
 
 type CategoryRepository interface {
+	BaseRepository[model.Category]
 	FindAllActive(ctx context.Context) ([]model.Category, error)
-	FindByID(ctx context.Context, id int) (*model.Category, error)
 	Create(ctx context.Context, category *model.Category) error
 	Update(ctx context.Context, id int, name string) error
 	Delete(ctx context.Context, id int) error
 }
 
 type categoryRepositoryImpl struct {
+	BaseRepository[model.Category]
 	db *sqlx.DB
 }
 
-func NewCategoryRepository(db *sqlx.DB) CategoryRepository {
-	return &categoryRepositoryImpl{db: db}
-}
 
 func (r *categoryRepositoryImpl) FindAllActive(ctx context.Context) ([]model.Category, error) {
 	var categories []model.Category
@@ -30,15 +28,6 @@ func (r *categoryRepositoryImpl) FindAllActive(ctx context.Context) ([]model.Cat
 	return categories, err
 }
 
-func (r *categoryRepositoryImpl) FindByID(ctx context.Context, id int) (*model.Category, error) {
-	var category model.Category
-	query := "SELECT id, name, is_active, created_at, updated_at FROM categories WHERE id = ?"
-	err := r.db.GetContext(ctx, &category, query, id)
-	if err != nil {
-		return nil, err
-	}
-	return &category, nil
-}
 
 func (r *categoryRepositoryImpl) Create(ctx context.Context, category *model.Category) error {
 	query := "INSERT INTO categories (name, is_active) VALUES (?, ?)"
@@ -63,4 +52,12 @@ func (r *categoryRepositoryImpl) Delete(ctx context.Context, id int) error {
 	query := "UPDATE categories SET is_active = 0 WHERE id = ?"
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err
+}
+
+func NewCategoryRepository(db *sqlx.DB) CategoryRepository {
+	base := NewBaseRepository[model.Category](db, "categories")
+	return &categoryRepositoryImpl{
+		BaseRepository: base,
+		db:             db,
+	}
 }

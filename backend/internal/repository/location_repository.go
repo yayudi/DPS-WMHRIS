@@ -10,11 +10,9 @@ import (
 )
 
 type LocationRepository interface {
-	FindAll(ctx context.Context) ([]model.Location, error)
-	FindByID(ctx context.Context, id int) (*model.Location, error)
+	BaseRepository[model.Location]
 	Create(ctx context.Context, location *model.Location) error
 	Update(ctx context.Context, tx *sqlx.Tx, location *model.Location) error
-	SoftDelete(ctx context.Context, tx *sqlx.Tx, id int) error
 	GetStockSample(ctx context.Context, locationID int) ([]dto.StockSampleResponse, error)
 	// Stock Management Helpers
 	GetStockAtLocation(ctx context.Context, tx *sqlx.Tx, productID int, locationID int, lockForUpdate bool) (int, error)
@@ -24,38 +22,8 @@ type LocationRepository interface {
 }
 
 type locationRepositoryImpl struct {
+	BaseRepository[model.Location]
 	db *sqlx.DB
-}
-
-func NewLocationRepository(db *sqlx.DB) LocationRepository {
-	return &locationRepositoryImpl{db: db}
-}
-
-func (r *locationRepositoryImpl) FindAll(ctx context.Context) ([]model.Location, error) {
-	var locations []model.Location
-	query := `
-		SELECT 
-			id, code, building, floor, COALESCE(name, '') as name, created_at, COALESCE(purpose, '') as purpose, is_active, deleted_at 
-		FROM locations 
-		WHERE deleted_at IS NULL`
-		
-	err := r.db.SelectContext(ctx, &locations, query)
-	return locations, err
-}
-
-func (r *locationRepositoryImpl) FindByID(ctx context.Context, id int) (*model.Location, error) {
-	var location model.Location
-	query := `
-		SELECT 
-			id, code, building, floor, COALESCE(name, '') as name, created_at, COALESCE(purpose, '') as purpose, is_active, deleted_at 
-		FROM locations 
-		WHERE id = ? AND deleted_at IS NULL`
-		
-	err := r.db.GetContext(ctx, &location, query, id)
-	if err != nil {
-		return nil, err
-	}
-	return &location, nil
 }
 
 // GetStockAtLocation checks the stock for a specific product and location.
@@ -148,17 +116,6 @@ func (r *locationRepositoryImpl) Update(ctx context.Context, tx *sqlx.Tx, locati
 	return err
 }
 
-func (r *locationRepositoryImpl) SoftDelete(ctx context.Context, tx *sqlx.Tx, id int) error {
-	query := "UPDATE locations SET deleted_at = NOW(), is_active = 0 WHERE id = ?"
-	var err error
-	if tx != nil {
-		_, err = tx.ExecContext(ctx, query, id)
-	} else {
-		_, err = r.db.ExecContext(ctx, query, id)
-	}
-	return err
-}
-
 func (r *locationRepositoryImpl) GetStockSample(ctx context.Context, locationID int) ([]dto.StockSampleResponse, error) {
 	query := `
 		SELECT sl.product_id, p.sku, p.name, sl.quantity
@@ -192,4 +149,12 @@ func (r *locationRepositoryImpl) Create(ctx context.Context, location *model.Loc
 		location.ID = int(id)
 	}
 	return err
+}
+
+func NewLocationRepository(db *sqlx.DB) LocationRepository {
+	base := NewBaseRepository[model.Location](db, "locations")
+	return &locationRepositoryImpl{
+		BaseRepository: base,
+		db:             db,
+	}
 }

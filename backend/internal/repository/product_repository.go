@@ -13,12 +13,9 @@ import (
 )
 
 type ProductRepository interface {
-	FindAll(ctx context.Context) ([]model.Product, error)
-	FindByID(ctx context.Context, id int) (*model.Product, error)
+	BaseRepository[model.Product]
 	Create(ctx context.Context, db sqlx.ExtContext, product *model.Product) error
 	Update(ctx context.Context, db sqlx.ExtContext, product *model.Product) error
-	SoftDelete(ctx context.Context, db sqlx.ExtContext, id int) error
-	Restore(ctx context.Context, db sqlx.ExtContext, id int) error
 	GetBySKUs(ctx context.Context, skus []string) ([]model.Product, error)
 
 	// New methods
@@ -56,40 +53,16 @@ type RawStockMovement struct {
 }
 
 type productRepositoryImpl struct {
+	BaseRepository[model.Product]
 	db *sqlx.DB
 }
 
 func NewProductRepository(db *sqlx.DB) ProductRepository {
-	return &productRepositoryImpl{db: db}
-}
-
-func (r *productRepositoryImpl) FindAll(ctx context.Context) ([]model.Product, error) {
-	var products []model.Product
-	query := `
-		SELECT 
-			id, sku, name, category_id, price, is_active, deleted_at, 
-			created_at, updated_at, is_package, weight, length, width, height 
-		FROM products 
-		WHERE deleted_at IS NULL`
-
-	err := r.db.SelectContext(ctx, &products, query)
-	return products, err
-}
-
-func (r *productRepositoryImpl) FindByID(ctx context.Context, id int) (*model.Product, error) {
-	var product model.Product
-	query := `
-		SELECT 
-			id, sku, name, category_id, price, is_active, deleted_at, 
-			created_at, updated_at, is_package, weight, length, width, height 
-		FROM products 
-		WHERE id = ? AND deleted_at IS NULL`
-
-	err := r.db.GetContext(ctx, &product, query, id)
-	if err != nil {
-		return nil, err
+	base := NewBaseRepository[model.Product](db, "products")
+	return &productRepositoryImpl{
+		BaseRepository: base,
+		db:             db,
 	}
-	return &product, nil
 }
 
 func (r *productRepositoryImpl) Create(ctx context.Context, db sqlx.ExtContext, product *model.Product) error {
@@ -132,18 +105,6 @@ func (r *productRepositoryImpl) Update(ctx context.Context, db sqlx.ExtContext, 
 	return err
 }
 
-func (r *productRepositoryImpl) SoftDelete(ctx context.Context, db sqlx.ExtContext, id int) error {
-	query := "UPDATE products SET deleted_at = NOW(), is_active = 0 WHERE id = ?"
-	_, err := db.ExecContext(ctx, query, id)
-	return err
-}
-
-func (r *productRepositoryImpl) Restore(ctx context.Context, db sqlx.ExtContext, id int) error {
-	query := "UPDATE products SET deleted_at = NULL, is_active = 1 WHERE id = ?"
-	_, err := db.ExecContext(ctx, query, id)
-	return err
-}
-
 func (r *productRepositoryImpl) GetBySKUs(ctx context.Context, skus []string) ([]model.Product, error) {
 	if len(skus) == 0 {
 		return []model.Product{}, nil
@@ -161,7 +122,6 @@ func (r *productRepositoryImpl) GetBySKUs(ctx context.Context, skus []string) ([
 // ============================================================================
 // READ OPERATIONS (Complex Queries)
 // ============================================================================
-
 func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, products []dto.ProductDetailResponse) error {
 	if len(products) == 0 {
 		return nil

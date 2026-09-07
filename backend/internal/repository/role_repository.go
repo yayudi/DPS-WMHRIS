@@ -10,8 +10,7 @@ import (
 
 // RoleRepository defines the interface for role data operations
 type RoleRepository interface {
-	FindByID(ctx context.Context, id int) (*model.Role, error)
-	FindAll(ctx context.Context) ([]model.Role, error)
+	BaseRepository[model.Role]
 	GetRoles(ctx context.Context) ([]dto.RoleResponse, error)
 	GetPermissions(ctx context.Context) ([]dto.PermissionResponse, error)
 	GetRolePermissions(ctx context.Context, roleID int) ([]int, error)
@@ -23,31 +22,11 @@ type RoleRepository interface {
 }
 
 type roleRepositoryImpl struct {
+	BaseRepository[model.Role]
 	db *sqlx.DB
 }
 
 // NewRoleRepository injects the database dependency
-func NewRoleRepository(db *sqlx.DB) RoleRepository {
-	return &roleRepositoryImpl{db: db}
-}
-
-func (r *roleRepositoryImpl) FindByID(ctx context.Context, id int) (*model.Role, error) {
-	var role model.Role
-	query := "SELECT id, name, description FROM roles WHERE id = ?"
-	err := r.db.GetContext(ctx, &role, query, id)
-	if err != nil {
-		return nil, err
-	}
-	return &role, nil
-}
-
-func (r *roleRepositoryImpl) FindAll(ctx context.Context) ([]model.Role, error) {
-	var roles []model.Role
-	query := "SELECT id, name, description FROM roles"
-	err := r.db.SelectContext(ctx, &roles, query)
-	return roles, err
-}
-
 func (r *roleRepositoryImpl) GetRoles(ctx context.Context) ([]dto.RoleResponse, error) {
 	query := "SELECT id, name, description FROM roles ORDER BY name"
 	var roles []dto.RoleResponse
@@ -143,4 +122,12 @@ func (r *roleRepositoryImpl) DeleteRole(ctx context.Context, id int) (bool, erro
 	}
 	affected, err := res.RowsAffected()
 	return affected > 0, err
+}
+
+func NewRoleRepository(db *sqlx.DB) RoleRepository {
+	base := NewBaseRepository[model.Role](db, "roles")
+	return &roleRepositoryImpl{
+		BaseRepository: base,
+		db:             db,
+	}
 }

@@ -11,8 +11,8 @@ import (
 
 // UserRepository defines the interface for user data operations
 type UserRepository interface {
+	BaseRepository[model.User]
 	GetAll(ctx context.Context) ([]model.User, error)
-	FindByID(ctx context.Context, id int) (*model.User, error)
 	FindByUsername(ctx context.Context, username string) (*model.User, error)
 	GetRoleAndPermissions(ctx context.Context, roleID int) (string, []string, error)
 	UpdateProfile(ctx context.Context, db sqlx.ExtContext, userID int, nickname *string, hashedPassword *string) error
@@ -21,12 +21,17 @@ type UserRepository interface {
 }
 
 type userRepositoryImpl struct {
+	BaseRepository[model.User]
 	db *sqlx.DB
 }
 
 // NewUserRepository injects the database dependency
 func NewUserRepository(db *sqlx.DB) UserRepository {
-	return &userRepositoryImpl{db: db}
+	base := NewBaseRepository[model.User](db, "users")
+	return &userRepositoryImpl{
+		BaseRepository: base,
+		db:             db,
+	}
 }
 
 func (r *userRepositoryImpl) GetAll(ctx context.Context) ([]model.User, error) {
@@ -41,22 +46,6 @@ func (r *userRepositoryImpl) GetAll(ctx context.Context) ([]model.User, error) {
 	
 	err := r.db.SelectContext(ctx, &users, query)
 	return users, err
-}
-
-func (r *userRepositoryImpl) FindByID(ctx context.Context, id int) (*model.User, error) {
-	var user model.User
-	query := `
-		SELECT 
-			id, username, nickname, is_active, password_hash, role_id, 
-			shift_id, created_at, updated_at, exclude_from_attendance 
-		FROM users 
-		WHERE id = ?`
-	
-	err := r.db.GetContext(ctx, &user, query, id)
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
 }
 
 func (r *userRepositoryImpl) FindByUsername(ctx context.Context, username string) (*model.User, error) {

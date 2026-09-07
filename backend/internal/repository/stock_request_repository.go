@@ -8,8 +8,7 @@ import (
 )
 
 type StockRequestRepository interface {
-	FindAll(ctx context.Context) ([]model.StockRequest, error)
-	FindByID(ctx context.Context, id int) (*model.StockRequest, error)
+	BaseRepository[model.StockRequest]
 	CreateTx(ctx context.Context, ext sqlx.ExtContext, request *model.StockRequest) error
 	CreateItemTx(ctx context.Context, ext sqlx.ExtContext, item *model.StockRequestItem) error
 	UpdateStatusTx(ctx context.Context, ext sqlx.ExtContext, id int, status string) error
@@ -18,98 +17,8 @@ type StockRequestRepository interface {
 }
 
 type stockRequestRepositoryImpl struct {
+	BaseRepository[model.StockRequest]
 	db *sqlx.DB
-}
-
-func NewStockRequestRepository(db *sqlx.DB) StockRequestRepository {
-	return &stockRequestRepositoryImpl{db: db}
-}
-
-func (r *stockRequestRepositoryImpl) FindAll(ctx context.Context) ([]model.StockRequest, error) {
-	var requests []model.StockRequest
-	query := `
-		SELECT 
-			sr.id, sr.request_number, sr.type, sr.requester_id, sr.from_location_id, 
-			sr.to_location_id, sr.status, sr.notes, sr.created_at, sr.updated_at,
-			u.username as requester_name,
-			COALESCE(l1.name, '') as from_location_name, COALESCE(l1.code, '') as from_location_code,
-			COALESCE(l2.name, '') as to_location_name, COALESCE(l2.code, '') as to_location_code
-		FROM stock_requests sr
-		LEFT JOIN users u ON sr.requester_id = u.id
-		LEFT JOIN locations l1 ON sr.from_location_id = l1.id
-		LEFT JOIN locations l2 ON sr.to_location_id = l2.id
-		ORDER BY sr.created_at DESC`
-	
-	err := r.db.SelectContext(ctx, &requests, query)
-	if err != nil {
-		return nil, err
-	}
-
-	// For FindAll, we might not want to fetch items for every single request due to N+1,
-	// but the node implementation fetches all items where stock_request_id IN (...)
-	if len(requests) > 0 {
-		var reqIDs []int
-		for _, req := range requests {
-			reqIDs = append(reqIDs, req.ID)
-		}
-
-		queryItems, args, err := sqlx.In(`
-			SELECT sri.*, p.name as product_name, p.sku
-			FROM stock_request_items sri
-			JOIN products p ON sri.product_id = p.id
-			WHERE sri.stock_request_id IN (?)`, reqIDs)
-		
-		if err == nil {
-			queryItems = r.db.Rebind(queryItems)
-			var items []model.StockRequestItem
-			if err := r.db.SelectContext(ctx, &items, queryItems, args...); err == nil {
-				// Group by request ID
-				itemsMap := make(map[int][]model.StockRequestItem)
-				for _, item := range items {
-					itemsMap[item.StockRequestID] = append(itemsMap[item.StockRequestID], item)
-				}
-				for i, req := range requests {
-					if reqItems, ok := itemsMap[req.ID]; ok {
-						requests[i].Items = reqItems
-					} else {
-						requests[i].Items = []model.StockRequestItem{}
-					}
-				}
-			}
-		}
-	}
-
-	return requests, nil
-}
-
-func (r *stockRequestRepositoryImpl) FindByID(ctx context.Context, id int) (*model.StockRequest, error) {
-	var request model.StockRequest
-	query := `
-		SELECT 
-			sr.id, sr.request_number, sr.type, sr.requester_id, sr.from_location_id, 
-			sr.to_location_id, sr.status, sr.notes, sr.created_at, sr.updated_at,
-			u.username as requester_name,
-			COALESCE(l1.name, '') as from_location_name, COALESCE(l1.code, '') as from_location_code,
-			COALESCE(l2.name, '') as to_location_name, COALESCE(l2.code, '') as to_location_code
-		FROM stock_requests sr
-		LEFT JOIN users u ON sr.requester_id = u.id
-		LEFT JOIN locations l1 ON sr.from_location_id = l1.id
-		LEFT JOIN locations l2 ON sr.to_location_id = l2.id
-		WHERE sr.id = ?`
-		
-	err := r.db.GetContext(ctx, &request, query, id)
-	if err != nil {
-		return nil, err
-	}
-	
-	items, err := r.FindItemsByRequestID(ctx, request.ID)
-	if err == nil && items != nil {
-		request.Items = items
-	} else {
-		request.Items = []model.StockRequestItem{}
-	}
-
-	return &request, nil
 }
 
 func (r *stockRequestRepositoryImpl) CreateTx(ctx context.Context, ext sqlx.ExtContext, request *model.StockRequest) error {
@@ -188,4 +97,12 @@ func (r *stockRequestRepositoryImpl) FindItemsByRequestID(ctx context.Context, r
 	
 	err := r.db.SelectContext(ctx, &items, query, reqID)
 	return items, err
+}
+
+func NewStockRequestRepository(db *sqlx.DB) StockRequestRepository {
+	base := NewBaseRepository[model.StockRequest](db, "stock_requests")
+	return &stockRequestRepositoryImpl{
+		BaseRepository: base,
+		db:             db,
+	}
 }
