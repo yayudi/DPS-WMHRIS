@@ -5,11 +5,11 @@ type GetDuplicateTransactionsRequest struct {
 	EndDate             string   `form:"endDate"`
 	IncludeNotes        string   `form:"includeNotes"`
 	ExcludeNotes        string   `form:"excludeNotes"`
-	MovementType        *string  `form:"movementType"` // Can be a string or JSON string (handled in handler)
+	MovementType        *string  `form:"movementType"`
 	ProductName         string   `form:"productName"`
 	Username            string   `form:"username"`
 	Location            string   `form:"location"`
-	ExactQuantity       string   `form:"exactQuantity"` // "true" or "false"
+	ExactQuantity       string   `form:"exactQuantity"`
 	RevertStatus        string   `form:"revertStatus"`
 	PlSource            *string  `form:"plSource"`
 	PlStatus            *string  `form:"plStatus"`

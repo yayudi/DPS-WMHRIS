@@ -214,7 +214,6 @@ func main() {
 				stock.GET("", stockHandler.GetAllStocks)
 				stock.POST("/transfer", stockHandler.TransferStock)
 				stock.POST("/adjust", stockHandler.AdjustStock)
-				stock.POST("/move", stockHandler.MoveStock) // Legacy / fallback if needed
 				stock.POST("/batch-process", stockHandler.BatchProcess) // Match frontend endpoint exactly
 				stock.GET("/movement-types", stockHandler.GetMovementTypes)
 				stock.GET("/batch-log", stockHandler.GetBatchLogs)
@@ -309,7 +308,6 @@ func main() {
 				picking.POST("/void/:id", pickingHandler.VoidPickingList)
 				picking.POST("/:id/retry-backorders", pickingHandler.RetryBackorders)
 				picking.POST("/retry-backorders-batch", pickingHandler.RetryBackordersBatch)
-				picking.POST("/upload-sales-report", pickingHandler.UploadSalesReport)
 			}
 
 			// RBAC

@@ -28,27 +28,6 @@ func NewStockHandler(stockService service.StockService, jobService service.JobSe
 	}
 }
 
-func (h *StockHandler) MoveStock(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[dto.MoveStockRequest](c)
-	if !ok {
-		return
-	}
-	req := *req_ptr
-
-	userID := getUserID(c) // Menggunakan helper yang sama
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "UNAUTHORIZED")
-		return
-	}
-
-	err := h.stockService.MoveStock(c.Request.Context(), userID, req)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
-		return
-	}
-
-	utils.SuccessResponse(c, http.StatusOK, "Mutasi stok berhasil dieksekusi secara atomik", nil)
-}
 
 func (h *StockHandler) ImportBatchInbound(c *gin.Context) {
 	file, err := c.FormFile("file")

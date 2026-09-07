@@ -7,13 +7,16 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/dps-wmhris/backend/internal/config"
 	"github.com/dps-wmhris/backend/internal/database"
+	"github.com/dps-wmhris/backend/internal/model"
 	"github.com/dps-wmhris/backend/internal/repository"
 	"github.com/dps-wmhris/backend/internal/service"
+	"github.com/jmoiron/sqlx"
 )
 
 func main() {
@@ -83,33 +86,53 @@ func main() {
 			log.Println("Worker stopped.")
 			return
 		case <-ticker.C:
-			processPendingImportJobs(ctx, jobService, attendanceService, pickingService, stockService, scheduleService, productService, firebaseService, mediaService)
-			processPendingExportJobs(ctx, jobService, exportService, firebaseService)
+			if recovered, err := jobRepo.RecoverStuckImportJobs(ctx); err == nil && recovered > 0 {
+				log.Printf("Recovered %d stuck import jobs", recovered)
+			}
+			if recovered, err := jobRepo.RecoverStuckExportJobs(ctx); err == nil && recovered > 0 {
+				log.Printf("Recovered %d stuck export jobs", recovered)
+			}
+			processPendingImportJobs(ctx, db, jobRepo, jobService, attendanceService, pickingService, stockService, scheduleService, productService, firebaseService, mediaService)
+			processPendingExportJobs(ctx, db, jobRepo, jobService, exportService, firebaseService)
 		}
 	}
 }
 
-func processPendingImportJobs(ctx context.Context, jobService service.JobService, attendanceService service.AttendanceService, pickingService service.PickingService, stockService service.StockService, scheduleService service.ScheduleService, productService service.ProductService, firebaseService service.FirebaseSignalService, mediaService service.MediaService) {
-	// Simple polling mechanism
-	// In production, you'd want proper locking or `SELECT ... FOR UPDATE SKIP LOCKED`
-	// Since there's only one worker instance intended, a simple fetch is fine for now
-	jobs, err := jobService.GetImportJobs(ctx, 10, 0)
-	if err != nil {
-		log.Printf("Error fetching import jobs: %v", err)
-		return
-	}
+const maxConcurrentJobs = 3
 
-	for _, job := range jobs {
-		if job.Status == "PENDING" {
+func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo repository.JobRepository, jobService service.JobService, attendanceService service.AttendanceService, pickingService service.PickingService, stockService service.StockService, scheduleService service.ScheduleService, productService service.ProductService, firebaseService service.FirebaseSignalService, mediaService service.MediaService) {
+	sem := make(chan struct{}, maxConcurrentJobs)
+	var wg sync.WaitGroup
+
+	for {
+		sem <- struct{}{} // Wait for an available slot
+
+		tx, err := db.BeginTxx(ctx, nil)
+		if err != nil {
+			log.Printf("Error starting tx: %v", err)
+			<-sem
+			break
+		}
+
+		job, err := jobRepo.ClaimNextImportJob(ctx, tx)
+		if err != nil {
+			tx.Rollback()
+			<-sem
+			break // No more jobs or error
+		}
+		tx.Commit()
+
+		wg.Add(1)
+		go func(job model.ImportJob) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			// 10 minutes timeout per job
+			ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+			defer cancel()
+
 			log.Printf("Found PENDING import job: %d (%s)", job.ID, job.JobType)
 			
-			// Mark as PROCESSING
-			err := jobService.UpdateImportJobStatus(ctx, job.ID, "PROCESSING")
-			if err != nil {
-				log.Printf("Failed to update job %d to PROCESSING: %v", job.ID, err)
-				continue
-			}
-
 			// Execute Job
 			var processErr error
 			var logSummary string
@@ -235,19 +258,43 @@ func processPendingImportJobs(ctx context.Context, jobService service.JobService
 					_ = firebaseService.EmitSharedTaskSignal(ctx, "HRIS_ATTENDANCE", "REFRESH_ATTENDANCE")
 				}
 			}
-		}
+		}(*job)
 	}
+
+	wg.Wait()
 }
 
-func processPendingExportJobs(ctx context.Context, jobService service.JobService, exportService service.ExportService, firebaseService service.FirebaseSignalService) {
-	jobs, err := jobService.GetExportJobs(ctx, 10, 0)
-	if err != nil {
-		log.Printf("Error fetching export jobs: %v", err)
-		return
-	}
+func processPendingExportJobs(ctx context.Context, db *sqlx.DB, jobRepo repository.JobRepository, jobService service.JobService, exportService service.ExportService, firebaseService service.FirebaseSignalService) {
+	sem := make(chan struct{}, maxConcurrentJobs)
+	var wg sync.WaitGroup
 
-	for _, job := range jobs {
-		if job.Status == "PENDING" {
+	for {
+		sem <- struct{}{}
+
+		tx, err := db.BeginTxx(ctx, nil)
+		if err != nil {
+			log.Printf("Error starting tx: %v", err)
+			<-sem
+			break
+		}
+
+		job, err := jobRepo.ClaimNextExportJob(ctx, tx)
+		if err != nil {
+			tx.Rollback()
+			<-sem
+			break
+		}
+		tx.Commit()
+
+		wg.Add(1)
+		go func(job model.ExportJob) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			// 10 minutes timeout per job
+			ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+			defer cancel()
+
 			log.Printf("Found PENDING export job: %d (%s)", job.ID, job.JobType)
 			
 			var processErr error
@@ -284,6 +331,8 @@ func processPendingExportJobs(ctx context.Context, jobService service.JobService
 				// Job status is updated by the service (ProcessExportStockReport etc)
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "EXPORT_COMPLETED")
 			}
-		}
+		}(*job)
 	}
+
+	wg.Wait()
 }

@@ -5,7 +5,6 @@ import "time"
 // ==========================================
 // REQUEST DTOs
 // ==========================================
-
 // CompletePickingItem represents an individual item being picked
 type CompletePickingItem struct {
 	ID            int `json:"id" validate:"required"`
@@ -24,7 +23,6 @@ type RetryBackordersBatchRequest struct {
 // ==========================================
 // RESPONSE DTOs
 // ==========================================
-
 type PendingPickingItemResponse struct {
 	ID                 int        `json:"id" db:"id"`
 	PickingListID      int        `json:"picking_list_id" db:"picking_list_id"`

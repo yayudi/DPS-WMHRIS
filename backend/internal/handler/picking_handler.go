@@ -235,8 +235,3 @@ func (h *PickingHandler) RetryBackordersBatch(c *gin.Context) {
 	}
 	utils.RawResponse(c, http.StatusOK, gin.H{"success": true, "message": msg})
 }
-
-// UploadSalesReport is a legacy fallback
-func (h *PickingHandler) UploadSalesReport(c *gin.Context) {
-	utils.ErrorResponse(c, http.StatusGone, "API Deprecated. Use /upload-and-validate", "DEPRECATED")
-}

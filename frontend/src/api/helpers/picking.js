@@ -2,27 +2,11 @@
 import api from '@/api/axios.js'
 
 /**
- * [LEGACY] Mengunggah laporan penjualan (Excel/CSV)
- * Digunakan untuk fallback atau fitur upload lama.
- */
-export const uploadSalesReport = async (file, source, notes) => {
-  const formData = new FormData()
-  formData.append('salesReportFile', file)
-  formData.append('source', source)
-  if (notes) formData.append('notes', notes)
-
-  const response = await api.post('/picking/upload-sales-report', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-  return response.data
-}
-
-/**
  * Validasi & Upload Batch (CSV/JSON)
  * Digunakan oleh PickingUploadForm.vue untuk alur "Tagihan (CSV)"
  * Payload diharapkan: { items: [...], source: 'Tagihan (CSV)', filename: '...' }
  */
-export const uploadBatchPickingListJson = async (payload) => {
+export const uploadBatchPickingListJson = async payload => {
   // Kita menggunakan endpoint yang sama dengan validasi PDF karena logikanya sama (Batch Upload)
   const response = await api.post('/picking/batch-upload', payload)
   return response.data
@@ -33,7 +17,7 @@ export const uploadBatchPickingListJson = async (payload) => {
  * Digunakan oleh PickingUploadForm.vue untuk alur "Tokopedia/Shopee (PDF)"
  * Payload diharapkan: { items: [...], source: 'Tokopedia', filename: '...' }
  */
-export const validateParsedPickingList = async (payload) => {
+export const validateParsedPickingList = async payload => {
   const response = await api.post('/picking/batch-upload', payload)
   return response.data
 }
@@ -42,7 +26,7 @@ export const validateParsedPickingList = async (payload) => {
  * Mengambil Detail Item per Picking List
  * Digunakan oleh PickingListDetailsModal.vue
  */
-export const fetchPickingDetails = async (pickingListId) => {
+export const fetchPickingDetails = async pickingListId => {
   try {
     const response = await api.get(`/picking/${pickingListId}`)
     return response.data
@@ -80,7 +64,7 @@ export const getHistoryPickingItems = async () => {
  * @param {Array<number>} payload - Array ID dari picking_list_items yang dicentang
  * @returns {Promise<Object>} Response sukses
  */
-export const completePickingItems = async (payload) => {
+export const completePickingItems = async payload => {
   try {
     const response = await api.post('/picking/complete-items', payload)
     return response.data
@@ -111,7 +95,7 @@ export const getReturnedItems = async () => {
  * @param {number} pickingListId - ID dari picking list yang akan dibatalkan
  * @returns {Promise<Object>} Response sukses
  */
-export const voidPickingList = async (pickingListId) => {
+export const voidPickingList = async pickingListId => {
   try {
     const response = await api.post(`/picking/void/${pickingListId}`)
     return response.data
@@ -123,9 +107,9 @@ export const voidPickingList = async (pickingListId) => {
 
 /**
  * Mencari ulang stok untuk item yang BACKORDER dalam sebuah Picking List (Targeted Refresh)
- * @param {number} pickingListId 
+ * @param {number} pickingListId
  */
-export const retryBackorders = async (pickingListId) => {
+export const retryBackorders = async pickingListId => {
   try {
     const response = await api.post(`/picking/${pickingListId}/retry-backorders`)
     return response.data
@@ -137,9 +121,9 @@ export const retryBackorders = async (pickingListId) => {
 
 /**
  * Mencari ulang stok untuk item yang BACKORDER dalam beberapa Picking List sekaligus (Targeted Refresh Batch)
- * @param {Array<number>} pickingListIds 
+ * @param {Array<number>} pickingListIds
  */
-export const retryBackordersBatch = async (pickingListIds) => {
+export const retryBackordersBatch = async pickingListIds => {
   try {
     const response = await api.post(`/picking/retry-backorders-batch`, { pickingListIds })
     return response.data
