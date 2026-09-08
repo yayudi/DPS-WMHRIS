@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/dps-wmhris/backend/internal/database"
 	"github.com/dps-wmhris/backend/internal/dto"
@@ -24,6 +25,7 @@ type ProductService interface {
 	GetProductDetailWithStock(ctx context.Context, id int) (*dto.ProductDetailResponse, error)
 	GetProductStockDetails(ctx context.Context, id int) ([]dto.ProductStockDetailResponse, error)
 	GetProductHistory(ctx context.Context, id int) ([]dto.ProductHistoryResponse, error)
+	GetProductLastPriceUpdate(ctx context.Context, id int) (*time.Time, error)
 	LinkMediaToProduct(ctx context.Context, productID int, mediaIDs []int, userID int) error
 	DeleteProductImage(ctx context.Context, imageID int, userID int) error
 	SetPrimaryImage(ctx context.Context, productID int, imageID int, userID int) error
@@ -165,6 +167,10 @@ func (s *productServiceImpl) GetProductStockDetails(ctx context.Context, id int)
 
 func (s *productServiceImpl) GetProductHistory(ctx context.Context, id int) ([]dto.ProductHistoryResponse, error) {
 	return s.productRepo.GetProductHistory(ctx, id)
+}
+
+func (s *productServiceImpl) GetProductLastPriceUpdate(ctx context.Context, id int) (*time.Time, error) {
+	return s.productRepo.GetProductLastPriceUpdate(ctx, id)
 }
 
 // LinkMediaToProduct links multiple media IDs to a product.

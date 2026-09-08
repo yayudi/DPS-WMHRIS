@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"time"
 	"fmt"
 	"strings"
 
@@ -26,6 +28,7 @@ type ProductRepository interface {
 	GetProductDetailWithStock(ctx context.Context, id int) (*dto.ProductDetailResponse, error)
 	GetProductStockDetails(ctx context.Context, id int) ([]dto.ProductStockDetailResponse, error)
 	GetProductHistory(ctx context.Context, id int) ([]dto.ProductHistoryResponse, error)
+	GetProductLastPriceUpdate(ctx context.Context, id int) (*time.Time, error)
 
 	// Images
 	LinkMediaToProduct(ctx context.Context, db sqlx.ExtContext, productID int, mediaID int, isPrimary int) error
@@ -519,6 +522,25 @@ func (r *productRepositoryImpl) GetProductHistory(ctx context.Context, id int) (
 	var results []dto.ProductHistoryResponse
 	err := r.db.SelectContext(ctx, &results, query, id)
 	return results, err
+}
+
+func (r *productRepositoryImpl) GetProductLastPriceUpdate(ctx context.Context, id int) (*time.Time, error) {
+	query := `
+		SELECT created_at 
+		FROM product_audit_logs 
+		WHERE product_id = ? AND field = 'price' AND action = 'UPDATE'
+		ORDER BY created_at DESC 
+		LIMIT 1
+	`
+	var updatedAt time.Time
+	err := r.db.GetContext(ctx, &updatedAt, query, id)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &updatedAt, nil
 }
 
 func (r *productRepositoryImpl) GetProductMapWithComponents(ctx context.Context, skus []string) (map[string]dto.ProductDetailResponse, error) {

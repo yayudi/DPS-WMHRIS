@@ -287,6 +287,7 @@ func main() {
 				products.GET("/:id", productHandler.GetProductById)
 				products.GET("/:id/stock-details", productHandler.GetProductStockDetails)
 				products.GET("/:id/history", productHandler.GetProductHistory)
+				products.GET("/:id/last-price-update", productHandler.GetProductLastPriceUpdate)
 				products.GET("/:id/stock-timeline", productHandler.GetProductStockTimeline)
 				products.POST("", productHandler.Create)
 				products.PUT("/:id", productHandler.Update)

@@ -3,7 +3,8 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth.js'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
-import { fetchProductById } from '@/api/helpers/products.js'
+import { fetchProductById, fetchProductLastPriceUpdate } from '@/api/helpers/products.js'
+import { formatDate } from '@/api/helpers/time.js'
 import { formatNumber, formatCurrency } from '@/utils/formatters.js'
 import FloatingTooltip from '@/components/ui/FloatingTooltip.vue'
 import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/vue'
@@ -48,6 +49,8 @@ const PPN_RATE = 0.11
 const activeProduct = ref(null)
 const localComponents = ref([])
 const isLoadingComponents = ref(false)
+const priceUpdatesCache = ref({})
+const isFetchingPriceUpdate = ref(false)
 
 // References
 const locationTargetRef = ref(null)
@@ -188,10 +191,26 @@ async function togglePackageTooltip(event, product) {
   }
 }
 
-function showPriceTooltip(event, product) {
+async function showPriceTooltip(event, product) {
   activeProduct.value = product
   priceTargetRef.value = event.currentTarget
   isPriceTooltipVisible.value = true
+
+  if (priceUpdatesCache.value[product.id] === undefined) {
+    isFetchingPriceUpdate.value = true
+    try {
+      const dateStr = await fetchProductLastPriceUpdate(product.id)
+      if (dateStr) {
+        priceUpdatesCache.value[product.id] = formatDate(dateStr, true, false)
+      } else {
+        priceUpdatesCache.value[product.id] = 'Belum ada data'
+      }
+    } catch {
+      priceUpdatesCache.value[product.id] = 'Gagal memuat'
+    } finally {
+      isFetchingPriceUpdate.value = false
+    }
+  }
 }
 
 function hidePriceTooltip() {
@@ -616,6 +635,15 @@ onUnmounted(() => {
       <div class="flex justify-between gap-4 font-bold text-primary mt-1 pt-1 border-t border-secondary/20">
         <span>Final (11%):</span>
         <span class="font-mono">{{ formatCurrency(activeProduct.price * (1 + PPN_RATE)) }}</span>
+      </div>
+      
+      <div class="mt-2 pt-2 border-t border-secondary/20 text-[10px] text-text/50 flex flex-col items-center">
+        <span v-if="isFetchingPriceUpdate && !priceUpdatesCache[activeProduct.id]" class="flex items-center gap-1">
+          <font-awesome-icon icon="fa-solid fa-spinner" spin /> Memuat...
+        </span>
+        <span v-else class="text-center">
+          Update: <span class="font-bold">{{ priceUpdatesCache[activeProduct.id] }}</span>
+        </span>
       </div>
     </FloatingTooltip>
 

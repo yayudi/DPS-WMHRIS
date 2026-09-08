@@ -127,3 +127,21 @@ export const uploadPriceUpdate = (formData) => {
     },
   })
 }
+
+/**
+ * Mengambil waktu terakhir harga produk diubah.
+ * @param {number|string} productId ID produk
+ * @returns {Promise<string|null>}
+ */
+export const fetchProductLastPriceUpdate = async (productId) => {
+  try {
+    const response = await api.get(`/products/${productId}/last-price-update`)
+    if (response.data && response.data.success && response.data.data) {
+      return response.data.data.last_price_update
+    }
+    return null
+  } catch (error) {
+    console.error(`Error fetching last price update for ID ${productId}:`, error)
+    return null
+  }
+}

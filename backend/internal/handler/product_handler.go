@@ -160,6 +160,24 @@ func (h *ProductHandler) GetProductHistory(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, results)
 }
 
+func (h *ProductHandler) GetProductLastPriceUpdate(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
+		return
+	}
+
+	lastUpdate, err := h.productService.GetProductLastPriceUpdate(c.Request.Context(), id)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		return
+	}
+
+	utils.SuccessDataResponse(c, http.StatusOK, map[string]interface{}{
+		"last_price_update": lastUpdate,
+	})
+}
+
 func (h *ProductHandler) Update(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
