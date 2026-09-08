@@ -102,7 +102,7 @@ onMounted(() => {
 // Duplicate Check State
 const duplicateStatus = ref({
   sku: { checking: false, exists: false },
-  name: { checking: false, exists: false }
+  name: { checking: false, exists: false, similar: [] }
 })
 const debouncedDuplicateCheck = {
   sku: debounce(async value => {
@@ -122,7 +122,20 @@ async function _executeDuplicateCheck(field, value) {
       if (props.mode === 'edit' && p.id === props.productData.id) return false
       return p[field].toString().toLowerCase() === value.toString().toLowerCase()
     })
-    duplicateStatus.value[field] = { checking: false, exists: isDuplicate }
+    
+    let similarItems = []
+    if (field === 'name' && !isDuplicate) {
+        similarItems = data.data.filter(p => {
+            if (props.mode === 'edit' && p.id === props.productData.id) return false
+            return p[field].toString().toLowerCase() !== value.toString().toLowerCase()
+        }).slice(0, 5) // Tampilkan max 5 produk mirip
+    }
+
+    if (field === 'name') {
+        duplicateStatus.value[field] = { checking: false, exists: isDuplicate, similar: similarItems }
+    } else {
+        duplicateStatus.value[field] = { checking: false, exists: isDuplicate }
+    }
   } catch (error) {
     console.error(error)
     duplicateStatus.value[field].checking = false
@@ -135,13 +148,18 @@ function checkDuplicate(field, value) {
   // SKU di mode edit disabled, jadi tidak perlu cek
   if (field === 'sku' && props.mode === 'edit') return
   if (!value) {
-    duplicateStatus.value[field] = { checking: false, exists: false }
+    if (field === 'name') {
+        duplicateStatus.value[field] = { checking: false, exists: false, similar: [] }
+    } else {
+        duplicateStatus.value[field] = { checking: false, exists: false }
+    }
     return
   }
 
   // Set checking state
   duplicateStatus.value[field].checking = true
   duplicateStatus.value[field].exists = false // Reset dulu
+  if (field === 'name') duplicateStatus.value[field].similar = []
   debouncedDuplicateCheck[field](value)
 }
 
@@ -436,6 +454,15 @@ watch(Alt_S, pressed => {
           </div>
           <div v-else-if="duplicateStatus.name.exists" class="text-xs text-danger mt-1 font-bold">
             <font-awesome-icon icon="fa-solid fa-exclamation-circle" class="mr-1" /> Nama produk ini sudah ada!
+          </div>
+          <div v-else-if="duplicateStatus.name.similar && duplicateStatus.name.similar.length > 0" class="text-xs text-warning mt-2 bg-warning/10 border border-warning/20 p-2 rounded-lg">
+            <div class="font-bold mb-1 text-warning/90"><font-awesome-icon icon="fa-solid fa-lightbulb" class="mr-1" /> Mirip dengan produk berikut:</div>
+            <ul class="list-disc list-inside space-y-0.5">
+              <li v-for="sim in duplicateStatus.name.similar" :key="sim.id" class="text-text/70">
+                <span class="font-mono text-text/50 mr-1">{{ sim.sku }}</span> {{ sim.name }}
+              </li>
+            </ul>
+            <div class="mt-1 text-text/50 italic text-[10px]">Pastikan Anda tidak membuat produk ganda.</div>
           </div>
         </div>
 
