@@ -305,15 +305,15 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 	if filters.Search != "" {
 		keywords := strings.Fields(filters.Search)
 		if len(keywords) > 0 {
-			var orConditions sq.Or
+			var andConditions sq.And
 			for _, k := range keywords {
 				if filters.SearchBy == "sku" {
-					orConditions = append(orConditions, sq.Like{"p.sku": "%" + k + "%"})
+					andConditions = append(andConditions, sq.Like{"p.sku": "%" + k + "%"})
 				} else {
-					orConditions = append(orConditions, sq.Like{"p.name": "%" + k + "%"})
+					andConditions = append(andConditions, sq.Like{"p.name": "%" + k + "%"})
 				}
 			}
-			builder = builder.Where(orConditions)
+			builder = builder.Where(andConditions)
 		}
 	}
 
@@ -376,6 +376,16 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 	if strings.ToUpper(filters.SortOrder) == "DESC" {
 		sortOrder = "DESC"
 	}
+
+	if filters.Search != "" {
+		searchField := "p.name"
+		if filters.SearchBy == "sku" {
+			searchField = "p.sku"
+		}
+		// Exact Match (1) -> Prefix Match (2) -> Like Match (3)
+		builder = builder.OrderByClause(fmt.Sprintf("CASE WHEN %s = ? THEN 1 WHEN %s LIKE ? THEN 2 ELSE 3 END ASC", searchField, searchField), filters.Search, filters.Search+"%")
+	}
+	
 	builder = builder.OrderBy(sortCol + " " + sortOrder)
 
 	// Pagination

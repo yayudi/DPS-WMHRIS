@@ -175,9 +175,9 @@ onClickOutside(
     <!-- Actions & Filters (Inline Right) -->
     <template #actions>
       <div class="flex flex-wrap items-end justify-start lg:justify-end gap-2 w-full lg:w-auto">
-        <!-- Filter Warehouse (Hanya tampil jika view gudang) -->
-        <div v-if="activeView === 'gudang'" class="flex gap-2 w-full lg:w-auto shrink-0">
-          <div class="flex flex-col gap-1 w-1/2 lg:w-[110px]">
+        <!-- Filter Warehouse (Hanya tampil jika view gudang atau pajangan) -->
+        <div v-if="['gudang', 'pajangan'].includes(activeView)" class="flex gap-2 w-full lg:w-auto shrink-0">
+          <div v-if="activeView === 'gudang'" class="flex flex-col gap-1 w-1/2 lg:w-[110px]">
             <label class="block text-xs font-semibold text-text/60 text-center mb-1">Gedung</label>
             <TriStateSelect
               :model-value="selectedBuilding"
@@ -190,7 +190,7 @@ onClickOutside(
             />
           </div>
 
-          <div class="flex flex-col gap-1 w-1/2 lg:w-[110px]">
+          <div class="flex flex-col gap-1 lg:w-[110px]" :class="activeView === 'gudang' ? 'w-1/2' : 'w-full'">
             <label class="block text-xs font-semibold text-text/60 text-center mb-1">Lantai</label>
             <TriStateSelect
               :model-value="selectedFloor"

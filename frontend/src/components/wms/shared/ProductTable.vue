@@ -11,6 +11,7 @@ import { resolveProductImageUrl } from '@/composables/useImageUrl'
 import ProductThumbnail from '@/components/common/ProductThumbnail.vue'
 import { useMobile } from '@/composables/useMobile'
 import { useClipboard } from '@/composables/useClipboard'
+import { watch } from 'vue'
 
 const props = defineProps({
   products: { type: Array, required: true },
@@ -43,6 +44,14 @@ const auth = useAuthStore()
 const { isMobile } = useMobile()
 const { copyToClipboard } = useClipboard()
 const PPN_RATE = 0.11
+
+watch(
+  () => props.products,
+  newVal => {
+    console.log('[Table Render] Products:', newVal)
+  },
+  { immediate: true }
+)
 
 // --- SINGLETON STATE ---
 const activeProduct = ref(null)
@@ -279,13 +288,8 @@ onUnmounted(() => {
               Berat <font-awesome-icon :icon="sortIcon('weight')" />
             </div>
           </th>
-          <th
-            v-if="visibleColumns.has('dimension')"
-            class="px-6 py-3 text-right md:border-r md:border-secondary/50"
-          >
-            <div class="flex items-center justify-end gap-2">
-              Dimensi (L x W x H)
-            </div>
+          <th v-if="visibleColumns.has('dimension')" class="px-6 py-3 text-right md:border-r md:border-secondary/50">
+            <div class="flex items-center justify-end gap-2">Dimensi (L x W x H)</div>
           </th>
           <th
             v-if="auth.canViewPrices && visibleColumns.has('price')"

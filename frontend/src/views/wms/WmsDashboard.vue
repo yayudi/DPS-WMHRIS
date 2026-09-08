@@ -2,7 +2,7 @@
 <script setup>
 import { swalConfirm } from '@/composables/useSweetAlert'
 import axios from '@/api/axios.js'
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { useToast } from '@/composables/useToast.js'
 import { useWms } from '@/composables/useWMS.js'
 import { useAuthStore } from '@/stores/auth.js'
@@ -62,7 +62,6 @@ const {
 const auth = useAuthStore()
 const { toast } = useToast()
 const { copyToClipboard } = useClipboard()
-
 const isHistoryModalOpen = ref(false)
 const isTransferModalOpen = ref(false)
 const isUploadModalOpen = ref(false)
@@ -80,6 +79,8 @@ const selectedStickerProduct = ref(null)
 const mobileLayout = ref(isMobile.value ? 'card' : 'compact')
 const categoryOptions = ref([])
 const masterData = useMasterDataStore()
+const isImageModalOpen = ref(false)
+const selectedImageProduct = ref(null)
 
 async function loadCategories() {
   try {
@@ -94,15 +95,9 @@ watch(isMobile, mobile => {
   mobileLayout.value = mobile ? 'card' : 'compact'
 })
 
-// Panggil saat load
-import { onMounted } from 'vue'
 onMounted(() => {
   loadCategories()
 })
-
-// Image Modal State
-const isImageModalOpen = ref(false)
-const selectedImageProduct = ref(null)
 
 const warehouseViews = [
   { label: 'Semua', value: 'all' },
@@ -313,10 +308,12 @@ watch(Escape, pressed => {
       @toggle-refetch="toggleAutoRefetch"
       v-model:search-by="searchBy"
       v-model:searchValue="searchTerm"
-      v-model:active-view="activeView"
+      :active-view="activeView"
+      @update:active-view="val => { activeView = val; selectedBuilding = { include: [], exclude: [] }; selectedFloor = { include: [], exclude: [] } }"
       v-model:stock-status-filter="stockStatusFilter"
       v-model:product-type-filter="productTypeFilter"
-      v-model:selected-building="selectedBuilding"
+      :selected-building="selectedBuilding"
+      @update:selected-building="val => { selectedBuilding = val; selectedFloor = { include: [], exclude: [] } }"
       v-model:selected-floor="selectedFloor"
       v-model:selected-category="selectedCategory"
       v-model:mobileLayout="mobileLayout"
