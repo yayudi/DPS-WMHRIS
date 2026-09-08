@@ -15,9 +15,10 @@ type UpdateLogRequest struct {
 	Username string  `json:"username" validate:"required"`
 	Date     string  `json:"date" validate:"required,datetime=2006-01-02"`
 	TimeIn   *string `json:"timeIn"`
-	TimeOut  *string `json:"timeOut"`
-	Status   string  `json:"status"`
-	Notes    *string `json:"notes"`
+	TimeOut           *string `json:"timeOut"`
+	Status            string  `json:"status"`
+	LatePardonMinutes *int    `json:"latePardonMinutes"`
+	Notes             *string `json:"notes"`
 }
 
 type AttendanceRangeResponse struct {

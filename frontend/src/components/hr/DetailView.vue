@@ -63,6 +63,7 @@ function formatRow(log, nama) {
     breakOut: log.breaks?.[0] ? formatJamMenit(log.breaks[0].start) : '-',
     breakIn: log.breaks?.[0] ? formatJamMenit(log.breaks.at(-1).end) : '-',
     jamKeluarStr: formatJamMenit(log.jamKeluar),
+    late_pardon_minutes: log.late_pardon_minutes,
     ket
   }
 }
@@ -138,6 +139,9 @@ watch(
             </th>
             <th class="px-6 py-3 border-b border-secondary/10 text-center uppercase text-xs font-bold text-text">
               Jam Keluar
+            </th>
+            <th class="px-6 py-3 border-b border-secondary/10 text-center uppercase text-xs font-bold text-text">
+              Pardon
             </th>
             <th class="px-6 py-3 border-b border-secondary/10 text-left uppercase text-xs font-bold text-text">
               Keterangan
@@ -216,6 +220,16 @@ watch(
             >
               <span class="md:hidden text-text text-xs uppercase font-semibold">Keluar</span>
               <span>{{ row.jamKeluarStr }}</span>
+            </td>
+
+            <td
+              class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center font-mono text-xs md:text-sm"
+            >
+              <span class="md:hidden text-text text-xs uppercase font-semibold">Pardon</span>
+              <span v-if="row.late_pardon_minutes > 0" class="text-xs font-bold text-success bg-success/10 px-2 py-1 rounded">
+                {{ row.late_pardon_minutes }}m
+              </span>
+              <span v-else class="text-text/30">-</span>
             </td>
 
             <td

@@ -16,6 +16,7 @@ const form = ref({
   status: 'HADIR',
   timeIn: '',
   timeOut: '',
+  latePardonMinutes: 0,
   notes: '',
 })
 
@@ -44,6 +45,7 @@ watch(
         status: currentStatus,
         timeIn: newVal.jamMasuk ? minutesToTimeStr(newVal.jamMasuk) : '',
         timeOut: newVal.jamKeluar ? minutesToTimeStr(newVal.jamKeluar) : '',
+        latePardonMinutes: newVal.late_pardon_minutes || 0,
         notes: newVal.notes || '', // No need to replace regex anymore
       }
     }
@@ -88,6 +90,7 @@ async function handleSave() {
       status: form.value.status,
       timeIn: form.value.timeIn,
       timeOut: form.value.timeOut,
+      latePardonMinutes: form.value.latePardonMinutes,
       notes: form.value.notes,
     }
 
@@ -150,10 +153,10 @@ watch(Alt_S, (pressed) => {
         />
       </div>
 
-      <!-- Times (Only if Hadir or maybe Partial) -->
-      <div class="grid grid-cols-2 gap-4">
+      <!-- Times and Pardon -->
+      <div class="grid grid-cols-3 gap-4">
         <div>
-          <label class="block text-xs font-bold uppercase text-text/50 mb-1">Jam Masuk</label>
+          <label class="block text-xs font-bold uppercase text-text/50 mb-1">Masuk</label>
           <input
             type="time"
             v-model="form.timeIn"
@@ -161,10 +164,19 @@ watch(Alt_S, (pressed) => {
           />
         </div>
         <div>
-          <label class="block text-xs font-bold uppercase text-text/50 mb-1">Jam Keluar</label>
+          <label class="block text-xs font-bold uppercase text-text/50 mb-1">Keluar</label>
           <input
             type="time"
             v-model="form.timeOut"
+            class="w-full bg-background border border-secondary/20 rounded-lg px-3 py-2 text-text focus:outline-none focus:border-primary"
+          />
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-text/50 mb-1 leading-tight">Pengampunan (Mnt)</label>
+          <input
+            type="number"
+            v-model.number="form.latePardonMinutes"
+            min="0"
             class="w-full bg-background border border-secondary/20 rounded-lg px-3 py-2 text-text focus:outline-none focus:border-primary"
           />
         </div>

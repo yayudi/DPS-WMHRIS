@@ -13,6 +13,7 @@ type AttendanceRepository interface {
 	GetRangeLogs(ctx context.Context, startDate string, endDate string) ([]map[string]interface{}, error)
 	GetMonthlyLogs(ctx context.Context, year int, month int) ([]map[string]interface{}, error)
 	GetHolidays(ctx context.Context, year int) (map[string]bool, error)
+	GetLogByUsernameAndDate(ctx context.Context, username, date string) (*model.AttendanceLog, error)
 	UpsertLog(ctx context.Context, log *model.AttendanceLog) error
 }
 
@@ -51,7 +52,7 @@ func (r *attendanceRepositoryImpl) GetHistory(ctx context.Context, startDate str
 	query := `
 		SELECT
 			al.id, al.username, u.nickname, al.date, al.check_in, al.check_out,
-			al.lateness_minutes, al.overtime_minutes, al.notes, al.status
+			al.lateness_minutes, al.overtime_minutes, al.late_pardon_minutes, al.notes, al.status
 		FROM attendance_logs al
 		LEFT JOIN users u ON al.username = u.username
 		WHERE al.date BETWEEN ? AND ?
@@ -96,7 +97,7 @@ func (r *attendanceRepositoryImpl) GetRangeLogs(ctx context.Context, startDate s
 	query := `
 		SELECT
 			al.id, al.username, u.id as user_id, al.date, al.check_in, al.check_out,
-			al.lateness_minutes, al.overtime_minutes, al.notes, al.status,
+			al.lateness_minutes, al.overtime_minutes, al.late_pardon_minutes, al.notes, al.status,
 			arl.log_time, arl.log_type
 		FROM attendance_logs al
 		JOIN users u ON al.username = u.username
@@ -188,27 +189,61 @@ func (r *attendanceRepositoryImpl) GetHolidays(ctx context.Context, year int) (m
 	return holidayMap, nil
 }
 
+func (r *attendanceRepositoryImpl) GetLogByUsernameAndDate(ctx context.Context, username, date string) (*model.AttendanceLog, error) {
+	query := `SELECT id, username, date, check_in, check_out, lateness_minutes, overtime_minutes, late_pardon_minutes, status, notes 
+	          FROM attendance_logs WHERE username = ? AND date = ?`
+	var log model.AttendanceLog
+	err := r.db.GetContext(ctx, &log, query, username, date)
+	if err != nil {
+		return nil, err
+	}
+	return &log, nil
+}
+
 func (r *attendanceRepositoryImpl) UpsertLog(ctx context.Context, log *model.AttendanceLog) error {
-	queryCheck := `SELECT id FROM attendance_logs WHERE username = ? AND date = ?`
-	var existingID int
-	err := r.db.GetContext(ctx, &existingID, queryCheck, log.Username, log.Date)
+	queryCheck := `SELECT id, late_pardon_minutes FROM attendance_logs WHERE username = ? AND date = ?`
+	var existing struct {
+		ID                int `db:"id"`
+		LatePardonMinutes int `db:"late_pardon_minutes"`
+	}
+	err := r.db.GetContext(ctx, &existing, queryCheck, log.Username, log.Date)
 	
-	if err == nil && existingID != 0 {
+	if err == nil && existing.ID != 0 {
 		// Update
 		query := `
 			UPDATE attendance_logs
-			SET check_in = ?, check_out = ?, lateness_minutes = ?, overtime_minutes = ?, status = ?, notes = ?
+			SET check_in = ?, check_out = ?, lateness_minutes = ?, overtime_minutes = ?, late_pardon_minutes = ?, status = ?, notes = ?
 			WHERE id = ?
 		`
-		_, err = r.db.ExecContext(ctx, query, log.CheckIn, log.CheckOut, log.LatenessMinutes, log.OvertimeMinutes, log.Status, log.Notes, existingID)
+		// If log.LatePardonMinutes is provided (e.g. not 0 or we want to allow 0 explicitly via a mechanism)
+		// Wait, model.AttendanceLog has LatePardonMinutes as int. This is tricky.
+		// If the caller sets LatePardonMinutes to what it was, it's fine.
+		// So we will just use log.LatePardonMinutes directly. 
+		// BUT wait, in attendance_service.go, UploadLog doesn't fetch it, so it will set to 0 and wipe out manual pardons.
+		// Let's make UpsertLog preserve it if we pass a special value, but Go's int defaults to 0.
+		// A better way: The service should pass the existing late_pardon_minutes or -1 to preserve.
+		// Or we just update UpsertLog to ONLY use the struct's value if it's set by UpdateLog, but UploadLogs doesn't have it.
+		// Let's modify UpsertLog to take a flag or use -1 as ignore.
+		
+		finalPardon := log.LatePardonMinutes
+		if finalPardon == -1 {
+			finalPardon = existing.LatePardonMinutes
+		}
+
+		_, err = r.db.ExecContext(ctx, query, log.CheckIn, log.CheckOut, log.LatenessMinutes, log.OvertimeMinutes, finalPardon, log.Status, log.Notes, existing.ID)
 		return err
+	}
+
+	finalPardonInsert := log.LatePardonMinutes
+	if finalPardonInsert == -1 {
+		finalPardonInsert = 0
 	}
 
 	// Insert
 	queryInsert := `
-		INSERT INTO attendance_logs (username, date, check_in, check_out, lateness_minutes, overtime_minutes, status, notes)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO attendance_logs (username, date, check_in, check_out, lateness_minutes, overtime_minutes, late_pardon_minutes, status, notes)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err = r.db.ExecContext(ctx, queryInsert, log.Username, log.Date, log.CheckIn, log.CheckOut, log.LatenessMinutes, log.OvertimeMinutes, log.Status, log.Notes)
+	_, err = r.db.ExecContext(ctx, queryInsert, log.Username, log.Date, log.CheckIn, log.CheckOut, log.LatenessMinutes, log.OvertimeMinutes, finalPardonInsert, log.Status, log.Notes)
 	return err
 }

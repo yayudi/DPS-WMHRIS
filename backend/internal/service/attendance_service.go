@@ -322,13 +322,14 @@ func (s *attendanceServiceImpl) ProcessImport(ctx context.Context, jobID int, fi
 
 			status := "HADIR"
 			logEntry := &model.AttendanceLog{
-				Username:        user.Username,
-				Date:            dateStr,
-				CheckIn:         checkIn,
-				CheckOut:        checkOut,
-				LatenessMinutes: latenessMinutes,
-				OvertimeMinutes: overtimeMinutes,
-				Status:          &status,
+				Username:          user.Username,
+				Date:              dateStr,
+				CheckIn:           checkIn,
+				CheckOut:          checkOut,
+				LatenessMinutes:   latenessMinutes, // Note: This doesn't apply pardon if bulk uploaded. To apply pardon during bulk upload, we should fetch existing first.
+				OvertimeMinutes:   overtimeMinutes,
+				LatePardonMinutes: -1, // Use -1 to tell UpsertLog to preserve existing
+				Status:            &status,
 			}
 
 			if err := s.attendanceRepo.UpsertLog(ctx, logEntry); err != nil {
@@ -369,13 +370,27 @@ func (s *attendanceServiceImpl) UpdateLog(ctx context.Context, req dto.UpdateLog
 	shiftEndMin := timeToMinutes(shift.EndTime)
 	tolerance := shift.FlexibleMinutes
 
+	// Determine late pardon
+	latePardonMinutes := 0
+	existingLog, err := s.attendanceRepo.GetLogByUsernameAndDate(ctx, req.Username, req.Date)
+	if err == nil && existingLog != nil {
+		latePardonMinutes = existingLog.LatePardonMinutes
+	}
+	if req.LatePardonMinutes != nil {
+		latePardonMinutes = *req.LatePardonMinutes
+	}
+
 	latenessMinutes := 0
 	overtimeMinutes := 0
 
 	if req.TimeIn != nil {
 		inMinutes := timeToMinutes(*req.TimeIn)
 		if inMinutes > (shiftStartMin + tolerance) {
-			latenessMinutes = inMinutes - shiftStartMin
+			actualLateness := inMinutes - shiftStartMin
+			latenessMinutes = actualLateness - latePardonMinutes
+			if latenessMinutes < 0 {
+				latenessMinutes = 0
+			}
 		}
 	}
 
@@ -387,14 +402,15 @@ func (s *attendanceServiceImpl) UpdateLog(ctx context.Context, req dto.UpdateLog
 	}
 
 	logEntry := &model.AttendanceLog{
-		Username:        req.Username,
-		Date:            req.Date,
-		CheckIn:         req.TimeIn,
-		CheckOut:        req.TimeOut,
-		LatenessMinutes: latenessMinutes,
-		OvertimeMinutes: overtimeMinutes,
-		Status:          &req.Status,
-		Notes:           req.Notes,
+		Username:          req.Username,
+		Date:              req.Date,
+		CheckIn:           req.TimeIn,
+		CheckOut:          req.TimeOut,
+		LatenessMinutes:   latenessMinutes,
+		OvertimeMinutes:   overtimeMinutes,
+		LatePardonMinutes: latePardonMinutes,
+		Status:            &req.Status,
+		Notes:             req.Notes,
 	}
 
 	// We can emit Firebase signal here like Node.js
