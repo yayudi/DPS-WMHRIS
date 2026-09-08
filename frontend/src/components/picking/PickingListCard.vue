@@ -35,7 +35,11 @@ const {
 
 // --- ACTIONS ---
 async function onToggleInvoice(event) {
-  emit('toggle-invoice', { inv: props.inv, checked: event.target.checked })
+  let checked = !isInvoiceSelected.value
+  if (event && event.target && event.target.type === 'checkbox') {
+    checked = event.target.checked
+  }
+  emit('toggle-invoice', { inv: props.inv, checked })
 }
 async function onVoidInvoice() {
   const msg = `Void pesanan ${props.inv.original_invoice_id}?\nSemua status item (termasuk yang berhasil di-pick) akan dikembalikan ke stok.`
@@ -81,9 +85,8 @@ const sourceBgClass = computed(() => {
   >
     <!-- HEADER CARD (STANDARD SIZE) -->
     <div
-      class="px-3 py-3 flex items-start justify-between border-b bg-secondary/35 relative"
-      :class="[mode === 'history' ? 'cursor-pointer' : '']"
-      @click="mode === 'history' ? (isOpen = !isOpen) : null"
+      class="px-3 py-3 flex items-start justify-between border-b bg-secondary/35 relative cursor-pointer"
+      @click="mode === 'history' ? (isOpen = !isOpen) : onToggleInvoice()"
     >
       <div class="absolute left-0 top-0 bottom-0 w-1" :class="sourceBgClass"></div>
 
@@ -99,7 +102,8 @@ const sourceBgClass = computed(() => {
           <input
             type="checkbox"
             :checked="isInvoiceSelected"
-            @change="onToggleInvoice"
+            @click.stop
+            @change="onToggleInvoice($event)"
             class="w-5 h-5 rounded border-secondary/40 text-primary cursor-pointer accent-primary transition-all hover:scale-110"
           />
         </div>

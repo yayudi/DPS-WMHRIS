@@ -26,7 +26,11 @@ const { totalSKU, isInvoiceSelected, canCancel, isItemInvalid, getMpStatusBadge 
 
 // --- ACTIONS ---
 async function onToggleInvoice(event) {
-  emit('toggle-invoice', { inv: props.inv, checked: event.target.checked })
+  let checked = !isInvoiceSelected.value
+  if (event && event.target && event.target.type === 'checkbox') {
+    checked = event.target.checked
+  }
+  emit('toggle-invoice', { inv: props.inv, checked })
 }
 
 async function onVoidInvoice() {
@@ -61,9 +65,8 @@ const sourceBgClass = computed(() => {
   >
     <!-- HEADER CARD COMPACT -->
     <div
-      class="px-2 py-2 flex items-start justify-between border-b bg-secondary/35 relative"
-      :class="[mode === 'history' ? 'cursor-pointer' : '']"
-      @click="mode === 'history' ? (isOpen = !isOpen) : null"
+      class="px-2 py-2 flex items-start justify-between border-b bg-secondary/35 relative cursor-pointer"
+      @click="mode === 'history' ? (isOpen = !isOpen) : onToggleInvoice()"
     >
       <div class="absolute left-0 top-0 bottom-0 w-1" :class="sourceBgClass"></div>
 
@@ -73,7 +76,8 @@ const sourceBgClass = computed(() => {
           <input
             type="checkbox"
             :checked="isInvoiceSelected"
-            @change="onToggleInvoice"
+            @click.stop
+            @change="onToggleInvoice($event)"
             class="w-4 h-4 rounded border-secondary/40 text-primary cursor-pointer accent-primary transition-all hover:scale-110"
           />
         </div>
