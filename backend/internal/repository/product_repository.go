@@ -414,10 +414,17 @@ func (r *productRepositoryImpl) SearchProducts(ctx context.Context, keyword stri
 		Where("(p.is_active = 1 AND p.deleted_at IS NULL)")
 
 	if keyword != "" {
-		builder = builder.Where(sq.Or{
-			sq.Like{"p.sku": "%" + keyword + "%"},
-			sq.Like{"p.name": "%" + keyword + "%"},
-		})
+		keywords := strings.Fields(keyword)
+		if len(keywords) > 0 {
+			var andConditions sq.And
+			for _, k := range keywords {
+				andConditions = append(andConditions, sq.Or{
+					sq.Like{"p.sku": "%" + k + "%"},
+					sq.Like{"p.name": "%" + k + "%"},
+				})
+			}
+			builder = builder.Where(andConditions)
+		}
 	}
 
 	if locationID != "" && locationID != "0" {

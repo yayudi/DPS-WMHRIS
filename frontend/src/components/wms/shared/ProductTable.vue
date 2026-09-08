@@ -11,7 +11,6 @@ import { resolveProductImageUrl } from '@/composables/useImageUrl'
 import ProductThumbnail from '@/components/common/ProductThumbnail.vue'
 import { useMobile } from '@/composables/useMobile'
 import { useClipboard } from '@/composables/useClipboard'
-import { watch } from 'vue'
 
 const props = defineProps({
   products: { type: Array, required: true },
@@ -44,14 +43,6 @@ const auth = useAuthStore()
 const { isMobile } = useMobile()
 const { copyToClipboard } = useClipboard()
 const PPN_RATE = 0.11
-
-watch(
-  () => props.products,
-  newVal => {
-    console.log('[Table Render] Products:', newVal)
-  },
-  { immediate: true }
-)
 
 // --- SINGLETON STATE ---
 const activeProduct = ref(null)
