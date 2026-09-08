@@ -8,7 +8,7 @@ type MediaAssetResponse struct {
 	MainPath       string           `json:"main_path" db:"main_path"`
 	ThumbnailPath  *string          `json:"thumbnail_path" db:"thumbnail_path"`
 	Status         string           `json:"status" db:"status"`
-	UploaderID     int              `json:"uploader_id" db:"uploader_id"`
+	UploaderID     *int             `json:"uploader_id" db:"uploader_id"`
 	Tags           *json.RawMessage `json:"tags" db:"tags"`
 	Hash           string           `json:"hash" db:"hash"`
 	DuplicateOf    *int             `json:"duplicate_of" db:"duplicate_of"`

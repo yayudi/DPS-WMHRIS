@@ -99,6 +99,19 @@ func buildFilterClause(filter MediaFilter) (string, []interface{}) {
 func (r *mediaRepositoryImpl) GetMediaAssets(ctx context.Context, page, limit int, filter MediaFilter) (utils.PaginatedResult[dto.MediaAssetResponse], error) {
 	clause, params := buildFilterClause(filter)
 
+	if page < 1 { page = 1 }
+	if limit < 1 { limit = 20 }
+
+	var total int
+	err := r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM media_assets m "+clause, params...)
+	if err != nil {
+		return utils.PaginatedResult[dto.MediaAssetResponse]{}, err
+	}
+
+	if total == 0 {
+		return utils.PaginatedResult[dto.MediaAssetResponse]{Data: []dto.MediaAssetResponse{}, Page: page, Limit: limit, Total: 0}, nil
+	}
+
 	query := `
 		SELECT m.*,
 			(SELECT COUNT(p.id) FROM product_images p WHERE p.media_id = m.id) AS usage_count,
@@ -106,9 +119,27 @@ func (r *mediaRepositoryImpl) GetMediaAssets(ctx context.Context, page, limit in
 		FROM media_assets m
 		` + clause + `
 		ORDER BY m.created_at DESC
+		LIMIT ? OFFSET ?
 	`
+	
+	offset := (page - 1) * limit
+	fetchParams := append(params, limit, offset)
+	
+	var data []dto.MediaAssetResponse
+	if err := r.db.SelectContext(ctx, &data, query, fetchParams...); err != nil {
+		return utils.PaginatedResult[dto.MediaAssetResponse]{}, err
+	}
 
-	return utils.FetchPaginated[dto.MediaAssetResponse](ctx, r.db, query, page, limit, params...)
+	totalPages := total / limit
+	if total%limit != 0 { totalPages++ }
+
+	return utils.PaginatedResult[dto.MediaAssetResponse]{
+		Data:       data,
+		Total:      total,
+		Page:       page,
+		Limit:      limit,
+		TotalPages: totalPages,
+	}, nil
 }
 
 func (r *mediaRepositoryImpl) GetMediaDetailsWithProducts(ctx context.Context, mediaID int) (*dto.MediaAssetResponse, error) {
