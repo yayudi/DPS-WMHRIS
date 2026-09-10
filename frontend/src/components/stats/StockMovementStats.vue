@@ -15,6 +15,7 @@ import StatsChartCard from './shared/StatsChartCard.vue'
 import FilterBar from '@/components/ui/FilterBar.vue'
 import StockTimelineModal from '@/components/stats/StockTimelineModal.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
+import ExportDropdown from '@/components/ui/ExportDropdown.vue'
 import { formatNumber, generateDynamicExportName } from '@/utils/formatters.js'
 import { usePagination } from '@/composables/usePagination.js'
 
@@ -624,16 +625,14 @@ const chartScatterOptions = computed(() => ({
       "
     >
       <template #actions>
-        <button
+        <ExportDropdown
           v-if="canExport"
-          @click="handleExport"
-          :disabled="isExporting"
-          class="h-[42px] px-4 flex items-center justify-center gap-2 border border-primary/30 rounded-lg text-sm font-semibold text-primary hover:bg-primary/10 transition-all bg-primary/5 active:scale-[0.98] flex-1 lg:flex-none"
-        >
-          <font-awesome-icon v-if="isExporting" icon="fa-solid fa-circle-notch" spin />
-          <font-awesome-icon v-else icon="fa-solid fa-file-export" />
-          <span class="hidden lg:inline">Export</span>
-        </button>
+          @select="handleExport"
+          :loading="isExporting"
+          :options="[{ key: 'xlsx', label: 'Excel (.xlsx)', icon: 'fa-file-excel', iconClass: 'text-success' }]"
+          class="flex-1 lg:flex-none"
+          buttonClass="w-full h-[42px] inline-flex items-center justify-center rounded-md bg-success/5 px-4 py-2 text-sm font-semibold text-success shadow-sm ring-1 ring-inset ring-success/30 hover:bg-success/10 transition-color"
+        />
       </template>
     </FilterBar>
 

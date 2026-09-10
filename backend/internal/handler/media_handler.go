@@ -269,33 +269,13 @@ func (h *MediaHandler) DownloadBulkLinkTemplate(c *gin.Context) {
 	sheetName := "Template Tautkan Media"
 	f.SetSheetName("Sheet1", sheetName)
 
-	// Set headers
-	f.SetCellValue(sheetName, "A1", "SKU")
-	f.SetCellValue(sheetName, "B1", "Image_URL")
-
-	// Set column widths
-	f.SetColWidth(sheetName, "A", "A", 20)
-	f.SetColWidth(sheetName, "B", "B", 50)
-
-	// Set header style
-	headerStyle, err := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{Bold: true},
-		Fill: excelize.Fill{
-			Type:    "pattern",
-			Pattern: 1,
-			Color:   []string{"#DDDDDD"},
-		},
-	})
-	if err == nil {
-		f.SetRowStyle(sheetName, 1, 1, headerStyle)
-	}
+	styles := utils.InitExcelStyles(f)
+	utils.SetHeaders(f, sheetName, []string{"SKU", "Image_URL"}, styles.Header)
+	utils.SetColWidths(f, sheetName, map[string]float64{"A": 20, "B": 50})
 
 	// Add sample data
-	f.SetCellValue(sheetName, "A2", "PP000R081")
-	f.SetCellValue(sheetName, "B2", "https://api.dpvindonesia.com/uploads/main/main-1783397524366-325551216.webp")
-
-	f.SetCellValue(sheetName, "A3", "PP000453P")
-	f.SetCellValue(sheetName, "B3", "https://api.dpvindonesia.com/uploads/main/main-dpv_indonesia_logo-white_lettermark_sm.png")
+	f.SetSheetRow(sheetName, "A2", &[]interface{}{"PP000R081", "https://api.dpvindonesia.com/uploads/main/main-1783397524366-325551216.webp"})
+	f.SetSheetRow(sheetName, "A3", &[]interface{}{"PP000453P", "https://api.dpvindonesia.com/uploads/main/main-dpv_indonesia_logo-white_lettermark_sm.png"})
 
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Header("Content-Disposition", "attachment; filename=Template_Tautkan_Media.xlsx")

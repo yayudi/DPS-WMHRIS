@@ -21,6 +21,7 @@ type StatisticRepository interface {
 	GetPeriodComparison(ctx context.Context, filters dto.StatisticFilterRequest) ([]dto.PeriodComparison, error) // Returns rows that we aggregate
 	GetPackageComponentAnalysis(ctx context.Context, filters dto.StatisticFilterRequest) ([]dto.PackageComponentDBRow, error)
 	GetLocationLoads(ctx context.Context, filters dto.StatisticFilterRequest) ([]dto.LocationLoad, error)
+	GetLocationCapacityDetails(ctx context.Context, locationId int, filters dto.StatisticFilterRequest) ([]dto.LocationCapacityDetailResponse, error)
 	GetDuplicateLocations(ctx context.Context, filters dto.StatisticFilterRequest) ([]dto.DuplicateProductLocation, error)
 }
 
@@ -757,6 +758,19 @@ func (r *statisticRepositoryImpl) GetLocationLoads(ctx context.Context, filters 
 		whereClauses = append(whereClauses, pClauses...)
 	}
 
+	if filters.CategoryId != "" {
+		cClauses := buildStatisticTriStateWhere("p.category_id", filters.CategoryId, &queryParams)
+		if len(cClauses) > 0 {
+			whereClauses = append(whereClauses, cClauses...)
+		}
+	}
+
+	if filters.SearchQuery != "" {
+		searchLike := "%" + filters.SearchQuery + "%"
+		whereClauses = append(whereClauses, "(p.name LIKE ? OR p.sku LIKE ?)")
+		queryParams = append(queryParams, searchLike, searchLike)
+	}
+
 	filterSql := ""
 	if len(whereClauses) > 0 {
 		filterSql = "WHERE " + strings.Join(whereClauses, " AND ")
@@ -830,5 +844,53 @@ func (r *statisticRepositoryImpl) GetDuplicateLocations(ctx context.Context, fil
 
 	var rows []dto.DuplicateProductLocation
 	err := r.db.SelectContext(ctx, &rows, query, queryParams...)
+	return rows, err
+}
+
+func (r *statisticRepositoryImpl) GetLocationCapacityDetails(ctx context.Context, locationId int, filters dto.StatisticFilterRequest) ([]dto.LocationCapacityDetailResponse, error) {
+	queryParams := []interface{}{locationId}
+	whereClauses := []string{"sl.location_id = ?"}
+
+	if filters.CategoryId != "" {
+		cClauses := buildStatisticTriStateWhere("p.category_id", filters.CategoryId, &queryParams)
+		if len(cClauses) > 0 {
+			whereClauses = append(whereClauses, cClauses...)
+		}
+	}
+
+	if filters.SearchQuery != "" {
+		searchLike := "%" + filters.SearchQuery + "%"
+		whereClauses = append(whereClauses, "(p.name LIKE ? OR p.sku LIKE ?)")
+		queryParams = append(queryParams, searchLike, searchLike)
+	}
+
+	filterSql := ""
+	if len(whereClauses) > 0 {
+		filterSql = "WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			p.id as product_id,
+			p.sku,
+			p.name,
+			p.category_id,
+			COALESCE(c.name, '-') as category_name,
+			COALESCE(SUM(sl.quantity), 0) as quantity,
+			COALESCE(SUM(sl.quantity * COALESCE(p.weight, 0)), 0) / 1000 as total_weight,
+			COALESCE(SUM(sl.quantity * (COALESCE(p.length, 0) * COALESCE(p.width, 0) * COALESCE(p.height, 0))) / 1000000, 0) as total_cbm
+		FROM products p
+		JOIN stock_locations sl ON p.id = sl.product_id
+		LEFT JOIN categories c ON p.category_id = c.id
+		%s
+		GROUP BY p.id
+		ORDER BY p.sku ASC
+	`, filterSql)
+
+	var rows []dto.LocationCapacityDetailResponse
+	err := r.db.SelectContext(ctx, &rows, query, queryParams...)
+	if rows == nil {
+		rows = []dto.LocationCapacityDetailResponse{}
+	}
 	return rows, err
 }

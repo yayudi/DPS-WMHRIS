@@ -17,7 +17,8 @@ import (
 type StorageService interface {
 	GeneratePresignedUploadUrl(ctx context.Context, originalName, mimeType, folder string) (url, key, publicUrl string, err error)
 	DeleteFromR2(ctx context.Context, key string) (bool, error)
-	UploadFile(ctx context.Context, fileContent []byte, originalName, mimeType, folder string) (publicUrl string, err error)
+	UploadFile(ctx context.Context, fileContent []byte, originalName, mimeType, folder string) (r2Key string, err error)
+	GeneratePresignedDownloadUrl(ctx context.Context, r2Key string) (string, error)
 }
 
 type storageServiceImpl struct{}
@@ -64,7 +65,8 @@ func (s *storageServiceImpl) GeneratePresignedUploadUrl(ctx context.Context, ori
 		return "", "", "", err
 	}
 
-	publicUrl := fmt.Sprintf("%s/%s", os.Getenv("R2_PUBLIC_URL"), uniqueFileName)
+	baseURL := strings.TrimRight(os.Getenv("R2_PUBLIC_URL"), "/")
+	publicUrl := fmt.Sprintf("%s/%s", baseURL, uniqueFileName)
 
 	return req.URL, uniqueFileName, publicUrl, nil
 }
@@ -101,7 +103,7 @@ func (s *storageServiceImpl) UploadFile(ctx context.Context, fileContent []byte,
 	}
 
 	timestamp := time.Now().UnixMilli()
-	
+
 	// Gunakan timestamp + originalName agar rapi namun tetap unik
 	uniqueFileName := fmt.Sprintf("%s/%d-%s", folder, timestamp, originalName)
 
@@ -120,6 +122,43 @@ func (s *storageServiceImpl) UploadFile(ctx context.Context, fileContent []byte,
 		return "", err
 	}
 
-	publicUrl := fmt.Sprintf("%s/%s", os.Getenv("R2_PUBLIC_URL"), uniqueFileName)
-	return publicUrl, nil
+	// Return R2 key saja, bukan full URL. Download akan via presigned URL.
+	return uniqueFileName, nil
+}
+
+// GeneratePresignedDownloadUrl membuat presigned GET URL untuk mendownload file dari R2.
+// URL akan expire setelah 5 menit. Menggunakan R2_ENDPOINT langsung, tidak bergantung pada custom domain.
+func (s *storageServiceImpl) GeneratePresignedDownloadUrl(ctx context.Context, r2Key string) (string, error) {
+	if config.R2PresignClient == nil {
+		return "", fmt.Errorf("S3 Presign Client belum diinisialisasi")
+	}
+
+	// Handle legacy: strip full R2 URL prefix jika ada
+	if strings.HasPrefix(r2Key, "https://") || strings.HasPrefix(r2Key, "http://") {
+		// Cari posisi setelah domain + "/"
+		// e.g. "https://pub-xxx.r2.dev/exports/file.xlsx" → "exports/file.xlsx"
+		parts := strings.SplitN(r2Key, "//", 2)
+		if len(parts) == 2 {
+			slashIdx := strings.Index(parts[1], "/")
+			if slashIdx != -1 {
+				r2Key = parts[1][slashIdx+1:]
+			}
+		}
+	}
+
+	bucketName := os.Getenv("R2_BUCKET_NAME")
+
+	req, err := config.R2PresignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(r2Key),
+	}, func(po *s3.PresignOptions) {
+		po.Expires = 5 * time.Minute
+	})
+
+	if err != nil {
+		log.Printf("[STORAGE_SERVICE] Gagal membuat presigned download URL untuk key %s: %v", r2Key, err)
+		return "", err
+	}
+
+	return req.URL, nil
 }

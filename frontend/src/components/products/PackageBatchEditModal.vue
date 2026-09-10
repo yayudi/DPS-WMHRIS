@@ -5,6 +5,9 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseTabs from '@/components/ui/BaseTabs.vue'
 import ImportJobHistory from '@/components/shared/ImportJobHistory.vue'
 import { useDownloadStore } from '@/stores/downloadStore.js'
+import { useDownload } from '@/composables/useDownload.js'
+
+const { openDownloadUrl } = useDownload()
 
 const downloadStore = useDownloadStore()
 
@@ -194,7 +197,7 @@ const close = () => {
                       {{ formatStatus(job.status) }}
                     </span>
                     <span class="text-xs text-text/50 font-medium flex items-center gap-1">
-                      <font-awesome-icon icon="fa-regular fa-clock" />
+                      <font-awesome-icon icon="fa-solid fa-clock" />
                       {{ formatDate(job.created_at) }}
                     </span>
                   </div>
@@ -212,8 +215,8 @@ const close = () => {
 
                 <a
                   v-if="job.status === 'COMPLETED' && job.download_url"
-                  :href="job.download_url"
-                  target="_blank"
+                  href="#"
+                  @click.prevent="openDownloadUrl(job.download_url)"
                   class="shrink-0 px-4 py-2 bg-primary/10 text-primary hover:bg-primary hover:text-secondary rounded-xl text-sm font-bold transition-all flex items-center gap-2 border border-transparent hover:shadow-md hover:-translate-y-0.5"
                 >
                   <font-awesome-icon icon="fa-solid fa-download" /> Unduh

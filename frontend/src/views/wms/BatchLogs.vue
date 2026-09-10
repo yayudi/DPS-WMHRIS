@@ -13,6 +13,7 @@ import { useMobile } from '@/composables/useMobile.js'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { usePagination } from '@/composables/usePagination.js'
 import { generateDynamicExportName } from '@/utils/formatters.js'
+import ExportDropdown from '@/components/ui/ExportDropdown.vue'
 
 const masterData = useMasterDataStore()
 const downloadStore = useDownloadStore()
@@ -139,7 +140,7 @@ async function handleExport() {
     toast('Silakan pilih tanggal mulai dan selesai.', 'warning')
     return
   }
-  
+
   try {
     exportLoading.value = true
     const parts = [
@@ -291,16 +292,13 @@ async function handleExport() {
 
           <!-- Actions -->
           <div class="flex gap-1 mt-4 lg:mt-0">
-            <button
-              @click="handleExport"
-              :disabled="exportLoading"
-              title="Export"
-              class="h-[42px] px-4 flex items-center justify-center gap-2 border border-primary/30 rounded-lg text-sm font-semibold text-primary hover:bg-primary/10 transition-all bg-primary/5 active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 flex-1 xl:flex-none"
-            >
-              <font-awesome-icon v-if="exportLoading" icon="fa-solid fa-circle-notch" spin />
-              <font-awesome-icon v-else icon="fa-solid fa-file-export" />
-              <span class="hidden xl:inline">Export</span>
-            </button>
+            <ExportDropdown
+              @select="handleExport"
+              :loading="exportLoading"
+              :options="[{ key: 'xlsx', label: 'Excel (.xlsx)', icon: 'fa-file-excel', iconClass: 'text-success' }]"
+              class="flex-1 xl:flex-none"
+              buttonClass="w-full h-[42px] inline-flex items-center justify-center rounded-md bg-success/5 px-4 py-2 text-sm font-semibold text-success shadow-sm ring-1 ring-inset ring-success/30 hover:bg-success/10 transition-color"
+            />
             <button
               @click="handleReset"
               class="h-[42px] px-4 flex items-center justify-center gap-2 border border-danger/30 rounded-lg text-sm font-semibold text-danger hover:bg-danger/10 transition-all bg-danger/5 active:scale-[0.98] flex-1 xl:flex-none"

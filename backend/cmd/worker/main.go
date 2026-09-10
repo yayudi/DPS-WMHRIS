@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -37,7 +38,9 @@ func main() {
 	storageService := service.NewStorageService()
 	stockRepo := repository.NewStockRepository(db)
 	reportRepo := repository.NewReportRepository(db)
-	exportService := service.NewExportService(jobRepo, statisticService, storageService, stockRepo, reportRepo)
+	productRepo := repository.NewProductRepository(db)
+	categoryRepo := repository.NewCategoryRepository(db)
+	exportService := service.NewExportService(jobRepo, statisticService, storageService, stockRepo, reportRepo, productRepo, categoryRepo)
 
 	attendanceRepo := repository.NewAttendanceRepository(db)
 	userRepo := repository.NewUserRepository(db)
@@ -48,13 +51,11 @@ func main() {
 
 	pickingRepo := repository.NewPickingRepository(db)
 	locationRepo := repository.NewLocationRepository(db)
-	productRepo := repository.NewProductRepository(db)
 	pickingService := service.NewPickingService(db, pickingRepo, locationRepo, stockRepo, jobService, productRepo)
 	stockService := service.NewStockService(db, stockRepo, productRepo, locationRepo, userRepo, pickingRepo)
 	firebaseService := service.NewFirebaseSignalService()
 	scheduleService := service.NewScheduleService(scheduleRepo, shiftRepo, userRepo)
 
-	categoryRepo := repository.NewCategoryRepository(db)
 	productAuditRepo := repository.NewProductAuditRepository()
 	productService := service.NewProductService(db, productRepo, productAuditRepo, categoryRepo)
 
@@ -303,7 +304,8 @@ func processPendingExportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 				filtersJSON = *job.Filters
 			}
 
-			switch job.JobType {
+			cleanJobType := strings.TrimSpace(job.JobType)
+			switch cleanJobType {
 			case "STATISTICS_STOCK_MOVEMENT":
 				log.Printf("Processing %s", job.JobType)
 				processErr = exportService.ProcessExportStockMovement(ctx, job.ID, filtersJSON)
@@ -316,8 +318,17 @@ func processPendingExportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 			case "BATCH_LOG_EXPORT":
 				log.Printf("Processing %s", job.JobType)
 				processErr = exportService.ProcessExportBatchLog(ctx, job.ID, filtersJSON)
+			case "STATISTICS_LOCATION_CAPACITY":
+				log.Printf("Processing %s", job.JobType)
+				processErr = exportService.ProcessExportLocationCapacity(ctx, job.ID, filtersJSON)
+			case "PRODUCT_MASTER":
+				log.Printf("Processing %s", job.JobType)
+				processErr = exportService.ProcessExportProduct(ctx, job.ID, filtersJSON)
+			case "EXPORT_PACKAGES":
+				log.Printf("Processing %s", job.JobType)
+				processErr = exportService.ProcessExportPackage(ctx, job.ID, filtersJSON)
 			default:
-				log.Printf("Unknown export job type: %s", job.JobType)
+				log.Printf("Unknown export job type: %s (hex: %x)", job.JobType, job.JobType)
 				processErr = fmt.Errorf("unknown export job type: %s", job.JobType)
 			}
 			

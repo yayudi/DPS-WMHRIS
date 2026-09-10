@@ -47,6 +47,16 @@ type ExportTimelineRequest struct {
 	Building    interface{} `json:"building"`
 }
 
+type ExportLocationCapacityRequest struct {
+	SearchQuery  string      `json:"searchQuery"`
+	CategoryId   interface{} `json:"categoryId"`
+	Purpose      interface{} `json:"purpose"`
+	Building     interface{} `json:"building"`
+	Floor        interface{} `json:"floor"`
+	ExportName   string      `json:"exportName"`
+	ExportFormat string      `json:"exportFormat"` // "summary" or "detailed"
+}
+
 // Response Structures
 type StockMovementSummaryResponse struct {
 	ProductID       int      `json:"product_id" db:"product_id"`
@@ -195,6 +205,17 @@ type DuplicateProductLocation struct {
 type LocationAnalysisResponse struct {
 	LocationLoads     []LocationLoad             `json:"locationLoads"`
 	DuplicateProducts []DuplicateProductLocation `json:"duplicateProducts"`
+}
+
+type LocationCapacityDetailResponse struct {
+	ProductID    int     `json:"product_id" db:"product_id"`
+	SKU          string  `json:"sku" db:"sku"`
+	Name         string  `json:"name" db:"name"`
+	CategoryID   int     `json:"category_id" db:"category_id"`
+	CategoryName string  `json:"category_name" db:"category_name"`
+	Quantity     int     `json:"quantity" db:"quantity"`
+	TotalWeight  float64 `json:"total_weight" db:"total_weight"`
+	TotalCBM     float64 `json:"total_cbm" db:"total_cbm"`
 }
 
 // Package Component Query DTO from DB

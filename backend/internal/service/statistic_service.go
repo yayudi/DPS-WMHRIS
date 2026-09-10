@@ -22,6 +22,8 @@ type StatisticService interface {
 	GetShopPerformanceStats(ctx context.Context, filters dto.StatisticFilterRequest) (*dto.ShopPerformanceResponse, error)
 	GetPackageComponentAnalysis(ctx context.Context, filters dto.StatisticFilterRequest) ([]dto.PackageComponentAnalysisResponse, error)
 	GetLocationAnalysis(ctx context.Context, filters dto.StatisticFilterRequest) (*dto.LocationAnalysisResponse, error)
+	GetLocationCapacityDetails(ctx context.Context, locationId int, filters dto.StatisticFilterRequest) ([]dto.LocationCapacityDetailResponse, error)
+	RequestLocationCapacityExport(ctx context.Context, userID int, req dto.ExportLocationCapacityRequest) (int, error)
 }
 
 type statisticServiceImpl struct {
@@ -160,11 +162,12 @@ func (s *statisticServiceImpl) GetStockMovementStatistics(ctx context.Context, f
 	if filters.Movement != "" && filters.Movement != "all" {
 		var filtered []dto.StockMovementSummaryResponse
 		for _, item := range formattedSummary {
-			if filters.Movement == "active" {
+			switch filters.Movement {
+			case "active":
 				if item.TotalSold > 0 || item.TotalInbound > 0 {
 					filtered = append(filtered, item)
 				}
-			} else if filters.Movement == "dead" {
+			case "dead":
 				if item.TotalSold == 0 && item.TotalInbound == 0 {
 					filtered = append(filtered, item)
 				}
@@ -533,6 +536,29 @@ func (s *statisticServiceImpl) GetPackageComponentAnalysis(ctx context.Context, 
 	return data, nil
 }
 
+func (s *statisticServiceImpl) RequestLocationCapacityExport(ctx context.Context, userID int, req dto.ExportLocationCapacityRequest) (int, error) {
+	filtersJSON, _ := json.Marshal(map[string]interface{}{
+		"searchQuery":  req.SearchQuery,
+		"categoryId":   req.CategoryId,
+		"purpose":      req.Purpose,
+		"building":     req.Building,
+		"floor":        req.Floor,
+		"exportType":   "STATISTICS_LOCATION_CAPACITY",
+		"exportName":   req.ExportName,
+		"exportFormat": req.ExportFormat,
+	})
+	fString := string(filtersJSON)
+
+	job := &model.ExportJob{
+		UserID:  userID,
+		JobType: "STATISTICS_LOCATION_CAPACITY",
+		Filters: &fString,
+	}
+
+	return s.jobRepo.CreateExportJob(ctx, job)
+}
+
+
 func (s *statisticServiceImpl) GetLocationAnalysis(ctx context.Context, filters dto.StatisticFilterRequest) (*dto.LocationAnalysisResponse, error) {
 	var loads []dto.LocationLoad
 	var dups []dto.DuplicateProductLocation
@@ -570,6 +596,10 @@ func (s *statisticServiceImpl) GetLocationAnalysis(ctx context.Context, filters 
 		LocationLoads:     loads,
 		DuplicateProducts: dups,
 	}, nil
+}
+
+func (s *statisticServiceImpl) GetLocationCapacityDetails(ctx context.Context, locationId int, filters dto.StatisticFilterRequest) ([]dto.LocationCapacityDetailResponse, error) {
+	return s.repo.GetLocationCapacityDetails(ctx, locationId, filters)
 }
 
 func toSliceOfStrings(val interface{}) []string {

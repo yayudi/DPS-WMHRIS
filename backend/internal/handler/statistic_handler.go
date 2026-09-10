@@ -7,6 +7,7 @@ import (
 	"github.com/dps-wmhris/backend/internal/service"
 	"github.com/dps-wmhris/backend/internal/utils"
 	"github.com/gin-gonic/gin"
+	"strconv"
 )
 
 type StatisticHandler struct {
@@ -176,4 +177,48 @@ func (h *StatisticHandler) GetLocationAnalysis(c *gin.Context) {
 	}
 
 	utils.SuccessDataResponse(c, http.StatusOK, data)
+}
+
+func (h *StatisticHandler) GetLocationCapacityDetails(c *gin.Context) {
+	locationIdStr := c.Param("id")
+	locationId, err := strconv.Atoi(locationIdStr)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid location ID", "")
+		return
+	}
+
+	filters_ptr, ok := utils.BindQueryAndValidate[dto.StatisticFilterRequest](c)
+	if !ok {
+		return
+	}
+	filters := *filters_ptr
+
+	data, err := h.statisticService.GetLocationCapacityDetails(c.Request.Context(), locationId, filters)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		return
+	}
+
+	utils.SuccessDataResponse(c, http.StatusOK, data)
+}
+
+func (h *StatisticHandler) ExportLocationCapacity(c *gin.Context) {
+	userId, _ := c.Get("user_id")
+
+	var req dto.ExportLocationCapacityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Format request tidak valid", "")
+		return
+	}
+
+	jobID, err := h.statisticService.RequestLocationCapacityExport(c.Request.Context(), userId.(int), req)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal membuat job export", err.Error())
+		return
+	}
+
+	utils.SuccessDataResponse(c, http.StatusOK, gin.H{
+		"job_id":  jobID,
+		"message": "Export job berhasil dibuat",
+	})
 }

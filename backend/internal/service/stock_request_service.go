@@ -46,14 +46,15 @@ func NewStockRequestService(
 }
 
 func (s *stockRequestServiceImpl) CreateStockRequest(ctx context.Context, userID int, req dto.CreateStockRequest) (*model.StockRequest, error) {
-	if req.Type == "TRANSFER" {
+	switch req.Type {
+	case "TRANSFER":
 		if req.FromLocationID == nil || req.ToLocationID == nil {
 			return nil, errors.New("Lokasi asal dan tujuan harus diisi untuk transfer.")
 		}
 		if *req.FromLocationID == *req.ToLocationID {
 			return nil, errors.New("Lokasi asal dan tujuan tidak boleh sama.")
 		}
-	} else if req.Type == "STOCK_OPNAME" {
+	case "STOCK_OPNAME":
 		if req.ToLocationID == nil {
 			return nil, errors.New("Lokasi opname harus diisi.")
 		}
@@ -285,9 +286,10 @@ func (s *stockRequestServiceImpl) BulkActionStockRequest(ctx context.Context, re
 
 	for _, id := range req.RequestIds {
 		var err error
-		if req.Action == "APPROVE" {
+		switch req.Action {
+		case "APPROVE":
 			err = s.ApproveStockRequest(ctx, id, userID, roleID)
-		} else if req.Action == "REJECT" {
+		case "REJECT":
 			err = s.RejectStockRequest(ctx, id, userID, roleID)
 		}
 

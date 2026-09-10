@@ -12,7 +12,10 @@ import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import BaseFilterPanel from '@/components/ui/BaseFilterPanel.vue'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import { useDownloadStore } from '@/stores/downloadStore.js'
+import { useDownload } from '@/composables/useDownload.js'
 import { useFirebaseSync } from '@/composables/useFirebaseSync.js'
+
+const { openDownloadUrl } = useDownload()
 
 // Lazy load heavy chart components based on active tab
 const StockMovementStats = defineAsyncComponent(() => import('@/components/stats/StockMovementStats.vue'))
@@ -621,8 +624,8 @@ function formatJobType(type) {
                             >
                               <a
                                 v-if="job.status === 'COMPLETED'"
-                                :href="job.download_url"
-                                download
+                                href="#"
+                                @click.prevent="openDownloadUrl(job.download_url)"
                                 class="inline-flex items-center align-center justify-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-bold w-full hover:bg-primary hover:text-secondary transition-all shadow-sm"
                               >
                                 <font-awesome-icon icon="fa-solid fa-download" />

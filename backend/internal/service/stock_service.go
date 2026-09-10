@@ -502,19 +502,9 @@ func (s *stockServiceImpl) GenerateAdjustmentTemplate(ctx context.Context) (*exc
 		f.SetCellValue(validSheet, cell, loc.Code)
 	}
 
-	// Main sheet headers
-	headers := []string{"SKU", "LT (Lokasi)", "ACTUAL", "NOTES"}
-	for i, h := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(mainSheet, cell, h)
-	}
-	f.SetColWidth(mainSheet, "A", "A", 25)
-	f.SetColWidth(mainSheet, "B", "B", 20)
-	f.SetColWidth(mainSheet, "C", "C", 10)
-	f.SetColWidth(mainSheet, "D", "D", 35)
-
-	boldStyle, _ := f.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true}})
-	f.SetRowStyle(mainSheet, 1, 1, boldStyle)
+	styles := utils.InitExcelStyles(f)
+	utils.SetHeaders(f, mainSheet, []string{"SKU", "LT (Lokasi)", "ACTUAL", "NOTES"}, styles.Header)
+	utils.SetColWidths(f, mainSheet, map[string]float64{"A": 25, "B": 20, "C": 10, "D": 35})
 
 	// Add data validation for Location column (B)
 	if len(locations) > 0 {
@@ -549,19 +539,9 @@ func (s *stockServiceImpl) GenerateInboundTemplate(ctx context.Context) (*exceli
 		f.SetCellValue(validSheet, cell, loc.Code)
 	}
 
-	// Main sheet headers
-	headers := []string{"SKU", "LT (Lokasi)", "QTY", "NOTES"}
-	for i, h := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(mainSheet, cell, h)
-	}
-	f.SetColWidth(mainSheet, "A", "A", 25)
-	f.SetColWidth(mainSheet, "B", "B", 20)
-	f.SetColWidth(mainSheet, "C", "C", 10)
-	f.SetColWidth(mainSheet, "D", "D", 35)
-
-	boldStyle, _ := f.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true}})
-	f.SetRowStyle(mainSheet, 1, 1, boldStyle)
+	styles := utils.InitExcelStyles(f)
+	utils.SetHeaders(f, mainSheet, []string{"SKU", "LT (Lokasi)", "QTY", "NOTES"}, styles.Header)
+	utils.SetColWidths(f, mainSheet, map[string]float64{"A": 25, "B": 20, "C": 10, "D": 35})
 
 	// Add data validation for Location column (B)
 	if len(locations) > 0 {

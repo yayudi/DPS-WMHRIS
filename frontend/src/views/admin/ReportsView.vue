@@ -1,7 +1,6 @@
 <!-- frontend/src/views/admin/ReportsView.vue -->
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useToast } from '@/composables/useToast.js'
 import { useDownload } from '@/composables/useDownload.js'
 import { useDownloadStore } from '@/stores/downloadStore.js'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
@@ -11,21 +10,10 @@ import { useMobile } from '@/composables/useMobile.js'
 import { formatFileName } from '@/utils/formatters.js'
 
 const { isMobile } = useMobile()
-const { toast } = useToast()
-const { downloadFile } = useDownload()
+const { openDownloadUrl } = useDownload()
 const downloadStore = useDownloadStore()
 const jobs = computed(() => downloadStore.jobs)
 const loading = ref(false)
-
-const handleDownload = async (url, fileName) => {
-  try {
-    toast('Memulai unduhan...', 'info')
-    await downloadFile(url, fileName || 'download.xlsx')
-    toast('Unduhan berhasil.', 'success')
-  } catch (err) {
-    console.error('Download error:', err)
-  }
-}
 
 // Format status untuk badge
 const getStatusClass = status => {
@@ -205,7 +193,7 @@ onMounted(() => {
             >
               <button
                 v-if="job.status === 'COMPLETED' && job.download_url"
-                @click="handleDownload(job.download_url, job.file_path)"
+                @click="openDownloadUrl(job.download_url)"
                 class="px-3 py-1.5 bg-primary text-secondary rounded-lg text-sm font-bold shadow-md hover:scale-105 active:scale-95 transition-all inline-flex items-center gap-2"
               >
                 <font-awesome-icon icon="fa-solid fa-download" />

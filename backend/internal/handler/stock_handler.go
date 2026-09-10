@@ -127,12 +127,13 @@ func (h *StockHandler) AdjustStock(c *gin.Context) {
 	qty := req.Quantity
 	var fromLocationID, toLocationID *int
 
-	if req.Type == "ADJUST_MINUS" || req.Type == "OUT" {
+	switch req.Type {
+	case "ADJUST_MINUS", "OUT":
 		movementType = "ADJUST_MINUS"
 		if qty > 0 {
 			qty = -qty
 		}
-	} else if req.Type == "ADJUST_PLUS" || req.Type == "IN" {
+	case "ADJUST_PLUS", "IN":
 		movementType = "ADJUST_PLUS"
 		if qty < 0 {
 			qty = -qty

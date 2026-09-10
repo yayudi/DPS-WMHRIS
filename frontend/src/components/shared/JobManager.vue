@@ -6,9 +6,11 @@ import { useUploadStore } from '@/stores/uploadStore.js'
 import { useFirebaseSync } from '@/composables/useFirebaseSync.js'
 import { formatFileName } from '@/utils/formatters.js'
 import dayjs from 'dayjs'
+import { useDownload } from '@/composables/useDownload.js'
 
 const downloadStore = useDownloadStore()
 const uploadStore = useUploadStore()
+const { openDownloadUrl } = useDownload()
 
 const activeTab = ref('download') // 'download' | 'upload'
 
@@ -219,8 +221,8 @@ const getErrorUrl = job => {
 
                 <a
                   v-if="job.status === 'COMPLETED' && job.download_url"
-                  :href="job.download_url"
-                  target="_blank"
+                  href="#"
+                  @click.prevent="openDownloadUrl(job.download_url)"
                   class="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-secondary rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
                 >
                   <font-awesome-icon icon="fa-solid fa-download" /> Unduh

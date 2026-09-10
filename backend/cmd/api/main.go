@@ -113,7 +113,7 @@ func main() {
 
 	reportRepo := repository.NewReportRepository(db)
 	reportService := service.NewReportService(reportRepo)
-	reportHandler := handler.NewReportHandler(reportService, jobService)
+	reportHandler := handler.NewReportHandler(reportService, jobService, storageService, jobRepo)
 
 	statisticRepo := repository.NewStatisticRepository(db)
 	statisticService := service.NewStatisticService(statisticRepo, jobRepo)
@@ -277,6 +277,12 @@ func main() {
 				reports.GET("/filters", reportHandler.FetchReportFilters)
 			}
 
+			// Exports
+			exports := protected.Group("/exports")
+			{
+				exports.GET("/download/:id", reportHandler.DownloadExportJob)
+			}
+
 			// Products
 			products := protected.Group("/products")
 			{
@@ -434,6 +440,8 @@ func main() {
 				statistics.GET("/shop-performance", statisticHandler.GetShopPerformance)
 				statistics.GET("/package-analysis", statisticHandler.GetPackageAnalysis)
 				statistics.GET("/location-analysis", statisticHandler.GetLocationAnalysis)
+				statistics.GET("/location-analysis/:id/details", statisticHandler.GetLocationCapacityDetails)
+				statistics.POST("/location-analysis/export", statisticHandler.ExportLocationCapacity)
 			}
 		}
 	}

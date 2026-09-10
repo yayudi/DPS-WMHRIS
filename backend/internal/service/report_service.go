@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/dps-wmhris/backend/internal/dto"
 	"github.com/dps-wmhris/backend/internal/repository"
@@ -12,7 +11,7 @@ import (
 
 type ReportService interface {
 	GetReportFilters(ctx context.Context) (dto.ReportFilterResponse, error)
-	GetUserExportJobs(ctx context.Context, userID int, baseURL string) ([]dto.UserExportJobResponse, error)
+	GetUserExportJobs(ctx context.Context, userID int) ([]dto.UserExportJobResponse, error)
 }
 
 type reportServiceImpl struct {
@@ -65,7 +64,7 @@ func (s *reportServiceImpl) GetReportFilters(ctx context.Context) (dto.ReportFil
 	}, nil
 }
 
-func (s *reportServiceImpl) GetUserExportJobs(ctx context.Context, userID int, baseURL string) ([]dto.UserExportJobResponse, error) {
+func (s *reportServiceImpl) GetUserExportJobs(ctx context.Context, userID int) ([]dto.UserExportJobResponse, error) {
 	jobs, err := s.reportRepo.GetUserExportJobs(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -83,14 +82,10 @@ func (s *reportServiceImpl) GetUserExportJobs(ctx context.Context, userID int, b
 			}
 		}
 
+		// download_url mengarah ke endpoint presigned download API
 		var downloadURL *string
-		if job.FilePath != nil && *job.FilePath != "" {
-			var url string
-			if strings.HasPrefix(*job.FilePath, "http://") || strings.HasPrefix(*job.FilePath, "https://") {
-				url = *job.FilePath
-			} else {
-				url = fmt.Sprintf("%s/uploads/exports/stocks/%s", baseURL, *job.FilePath)
-			}
+		if job.Status == "COMPLETED" && job.FilePath != nil && *job.FilePath != "" {
+			url := fmt.Sprintf("/api/exports/download/%d", job.ID)
 			downloadURL = &url
 		}
 

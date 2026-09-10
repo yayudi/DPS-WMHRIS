@@ -10,6 +10,7 @@ import (
 	"github.com/dps-wmhris/backend/internal/dto"
 	"github.com/dps-wmhris/backend/internal/parser"
 	"github.com/dps-wmhris/backend/internal/repository"
+	"github.com/dps-wmhris/backend/internal/utils"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -83,12 +84,6 @@ func (s *scheduleServiceImpl) GenerateTemplate(ctx context.Context) (*excelize.F
 	f.NewSheet(dataSheet)
 	f.SetSheetVisible(dataSheet, false) // Hide data sheet
 
-	// Fetch data for dropdowns
-	// This assumes userRepo has GetAllActive method or similar. We will just use what we have or add it.
-	// We'll skip users for now if not available, wait, we need to add GetAll to UserRepository.
-	// For now, let's just make it simple without dynamic dropdowns if userRepo doesn't have it,
-	// but I can add it to userRepo later. 
-	
 	users, _ := s.userRepo.GetAll(ctx) // Assuming GetAll exists
 	shifts, _ := s.shiftRepo.GetAll(ctx)
 
@@ -102,27 +97,15 @@ func (s *scheduleServiceImpl) GenerateTemplate(ctx context.Context) (*excelize.F
 		f.SetCellValue(dataSheet, cell, sh.Name)
 	}
 
-	// Main sheet headers
-	headers := []string{"Username", "Date (YYYY-MM-DD)", "Shift Name"}
-	for i, header := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(mainSheet, cell, header)
-	}
-	f.SetColWidth(mainSheet, "A", "A", 25)
-	f.SetColWidth(mainSheet, "B", "B", 20)
-	f.SetColWidth(mainSheet, "C", "C", 25)
-
 	// Style header
-	style, _ := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{Bold: true},
-		Fill: excelize.Fill{Type: "pattern", Color: []string{"#CCCCCC"}, Pattern: 1},
-	})
-	f.SetCellStyle(mainSheet, "A1", "C1", style)
+	styles := utils.InitExcelStyles(f)
+
+	// Main sheet headers
+	utils.SetHeaders(f, mainSheet, []string{"Username", "Date (YYYY-MM-DD)", "Shift Name"}, styles.Header)
+	utils.SetColWidths(f, mainSheet, map[string]float64{"A": 25, "B": 20, "C": 25})
 
 	// Example Row
-	f.SetCellValue(mainSheet, "A2", "user_demo")
-	f.SetCellValue(mainSheet, "B2", "2026-01-31")
-	f.SetCellValue(mainSheet, "C2", "Regular Pagi")
+	f.SetSheetRow(mainSheet, "A2", &[]interface{}{"user_demo", "2026-01-31", "Regular Pagi"})
 	italicStyle, _ := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{Italic: true, Color: "#888888"},
 	})
@@ -132,13 +115,7 @@ func (s *scheduleServiceImpl) GenerateTemplate(ctx context.Context) (*excelize.F
 	dvUsername := excelize.NewDataValidation(true)
 	dvUsername.Sqref = "A2:A1000"
 	dvUsername.SetDropList([]string{})
-	dvUsername.SetSqrefDropList("DataList!$A$1:$A$1000") // Excelize doesn't fully support external sheet reference in SetDropList directly via SetDropList but we can try formula
-	// Wait, Excelize DataValidation SetSqrefDropList is available in recent versions, let's just use formula
-	// If it fails, it's fine. The node.js used `formulae: [userRef]`
-	
-	// Since data validation with references to other sheets can be tricky in some Excel versions, 
-	// we will simplify template generation for now to avoid compilation issues.
-	
+	dvUsername.SetSqrefDropList("DataList!$A$1:$A$1000")	
 	return f, nil
 }
 
