@@ -89,11 +89,11 @@ const allFormattedRows = computed(() => {
 })
 
 // Setup universal pagination
-const { 
-  paginatedData: visibleRows, 
-  meta: pagination, 
-  changePage, 
-  changePageSize 
+const {
+  paginatedData: visibleRows,
+  meta: pagination,
+  changePage,
+  changePageSize
 } = usePagination({
   totalItems: allFormattedRows,
   storageKey: 'detailPageSize',
@@ -201,14 +201,12 @@ watch(
             </td>
 
             <td
-              v-if="mobileLayout !== 'compact'"
               class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center font-mono text-xs md:text-sm text-text"
             >
               <span class="md:hidden text-text text-xs uppercase font-semibold">Mulai Ist</span>
               <span>{{ row.breakOut }}</span>
             </td>
             <td
-              v-if="mobileLayout !== 'compact'"
               class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center font-mono text-xs md:text-sm text-text"
             >
               <span class="md:hidden text-text text-xs uppercase font-semibold">Selesai Ist</span>
@@ -226,8 +224,17 @@ watch(
               class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center font-mono text-xs md:text-sm"
             >
               <span class="md:hidden text-text text-xs uppercase font-semibold">Pardon</span>
-              <span v-if="row.late_pardon_minutes > 0" class="text-xs font-bold text-success bg-success/10 px-2 py-1 rounded">
-                {{ row.late_pardon_minutes }}m
+              <span
+                v-if="row.late_pardon_minutes >= 480"
+                class="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded whitespace-nowrap"
+              >
+                Diampuni Penuh
+              </span>
+              <span
+                v-else-if="row.late_pardon_minutes > 0"
+                class="text-xs font-bold text-success bg-success/10 px-2 py-1 rounded whitespace-nowrap"
+              >
+                Diampuni {{ row.late_pardon_minutes }}m
               </span>
               <span v-else class="text-text/30">-</span>
             </td>

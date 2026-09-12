@@ -2,14 +2,13 @@
 <script setup>
 import { swalConfirm } from '@/composables/useSweetAlert'
 import WmsActionHeader from '@/components/wms/shared/WmsActionHeader.vue'
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useFirebaseSync } from '@/composables/useFirebaseSync'
 import { useMagicKeys } from '@vueuse/core'
 import { useToast } from '@/composables/useToast.js'
 import { createLocation, updateLocation, deleteLocation } from '@/api/helpers/locations.js'
 import { useMasterDataStore } from '@/stores/masterData'
 import BaseModal from '@/components/ui/BaseModal.vue'
-import BaseSelect from '@/components/ui/BaseSelect.vue'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import { useMobile } from '@/composables/useMobile.js'
@@ -17,6 +16,7 @@ import { usePagination } from '@/composables/usePagination.js'
 import BaseContextMenu from '@/components/ui/BaseContextMenu.vue'
 import { useContextMenu } from '@/composables/useContextMenu.js'
 import { useInstantInlineEdit } from '@/composables/useInstantInlineEdit.js'
+import { getLocationBuildingColorClass, getLocationPurposeColorClass } from '@/utils/formatters.js'
 
 const { isMobile } = useMobile()
 
@@ -24,9 +24,50 @@ const masterData = useMasterDataStore()
 
 const { toast } = useToast()
 
-const purposeOptions = ref(['WAREHOUSE', 'DISPLAY', 'BRANCH', 'RECEIVING', 'WORKSHOP', 'TRANSIT'])
-
 const allLocations = ref([])
+
+const purposeOptions = computed(() => {
+  const defaults = ['WAREHOUSE', 'DISPLAY', 'BRANCH', 'RECEIVING', 'WORKSHOP', 'TRANSIT']
+  const fromData = allLocations.value.map(l => l.purpose).filter(Boolean)
+  return [...new Set([...defaults, ...fromData])]
+})
+const searchQuery = ref('')
+const selectedPurpose = ref('all')
+const selectedBuilding = ref('all')
+
+const buildingOptions = computed(() => {
+  const buildings = allLocations.value.map(l => l.building).filter(Boolean)
+  return [...new Set(buildings)].sort()
+})
+
+const filteredLocations = computed(() => {
+  const result = allLocations.value.filter(loc => {
+    // 1. Search filter
+    if (searchQuery.value) {
+      const q = searchQuery.value.toLowerCase()
+      const matchCode = loc.code.toLowerCase().includes(q)
+      const matchBuilding = loc.building.toLowerCase().includes(q)
+      const matchName = (loc.name || '').toLowerCase().includes(q)
+      if (!matchCode && !matchBuilding && !matchName) return false
+    }
+
+    // 2. Purpose filter
+    if (selectedPurpose.value !== 'all' && loc.purpose !== selectedPurpose.value) {
+      return false
+    }
+
+    // 3. Building filter
+    if (selectedBuilding.value !== 'all' && loc.building !== selectedBuilding.value) {
+      return false
+    }
+
+    return true
+  })
+
+  // Urutkan berdasarkan ID menurun agar lokasi yang baru dibuat tampil di atas
+  return result.sort((a, b) => (b.id || 0) - (a.id || 0))
+})
+
 const loading = ref(true)
 const isModalOpen = ref(false)
 const isEditing = ref(false)
@@ -37,7 +78,7 @@ const {
   changePage,
   changePageSize
 } = usePagination({
-  totalItems: allLocations,
+  totalItems: filteredLocations,
   storageKey: 'locationPageSize',
   initialLimit: 10
 })
@@ -48,7 +89,8 @@ const selectedLocation = ref({
   building: '',
   floor: null,
   name: '',
-  purpose: 'WAREHOUSE'
+  purpose: 'WAREHOUSE',
+  is_active: true
 })
 
 async function loadLocations(silent = false) {
@@ -76,7 +118,8 @@ function openCreateModal() {
     building: '',
     floor: null,
     name: '',
-    purpose: 'WAREHOUSE' // Tambahkan purpose
+    purpose: 'WAREHOUSE',
+    is_active: true
   }
   isModalOpen.value = true
 }
@@ -105,12 +148,12 @@ async function handleSave() {
 }
 
 // --- INLINE EDIT HANDLERS ---
-  const { contextMenu, openContextMenu } = useContextMenu()
+const { contextMenu, openContextMenu } = useContextMenu()
 const { handleCellBlur, handleDropdownChange } = useInstantInlineEdit(
   async (id, payload) => {
     await updateLocation(id, payload)
   },
-  (item) => ({ ...item, floor: item.floor ? Number(item.floor) : null }) // send full location object with floor as number
+  item => ({ ...item, floor: item.floor ? Number(item.floor) : null }) // send full location object with floor as number
 )
 
 function handleContextAction(action) {
@@ -166,9 +209,52 @@ watch(Alt_S, pressed => {
     </template>
   </WmsActionHeader>
 
-  <div>
+  <div class="flex flex-col gap-4">
+    <!-- Filter Bar -->
     <div
-      class="bg-background shadow-md rounded-xl border border-secondary/20 overflow-x-auto overflow-y-auto relative custom-scrollbar h-[calc(100vh-150px)] table-container"
+      class="flex flex-col md:flex-row gap-4 items-center justify-between bg-background p-4 rounded-xl shadow-sm border border-secondary/20"
+    >
+      <div class="w-full md:w-96 relative group">
+        <font-awesome-icon
+          icon="fa-solid fa-search"
+          class="absolute left-3 top-1/2 -translate-y-1/2 text-text/40 group-focus-within:text-primary transition-colors"
+        />
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Cari kode, gedung, atau nama lokasi..."
+          class="w-full pl-10 pr-4 py-2.5 bg-secondary/5 border border-secondary/20 focus:border-primary focus:bg-background rounded-lg text-sm transition-all focus:ring-4 focus:ring-primary/10 outline-none placeholder:text-text/40"
+        />
+        <button
+          v-if="searchQuery"
+          @click="searchQuery = ''"
+          class="absolute right-3 top-1/2 -translate-y-1/2 text-text/30 hover:text-danger transition-colors p-1"
+        >
+          <font-awesome-icon icon="fa-solid fa-xmark" />
+        </button>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+        <select
+          v-model="selectedBuilding"
+          class="bg-secondary/5 border border-secondary/20 text-text/80 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full px-3 py-2.5 outline-none transition-colors"
+        >
+          <option value="all">Semua Gedung</option>
+          <option v-for="b in buildingOptions" :key="b" :value="b">{{ b }}</option>
+        </select>
+
+        <select
+          v-model="selectedPurpose"
+          class="bg-secondary/5 border border-secondary/20 text-text/80 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full px-3 py-2.5 outline-none transition-colors"
+        >
+          <option value="all">Semua Purpose</option>
+          <option v-for="p in purposeOptions" :key="p" :value="p">{{ p }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div
+      class="bg-background shadow-md rounded-xl border border-secondary/20 overflow-x-auto overflow-y-auto relative custom-scrollbar h-[calc(100vh-220px)] table-container"
     >
       <table class="w-full text-sm text-left text-text border-collapse" :class="isMobile ? 'block' : 'min-w-[600px]'">
         <thead
@@ -185,7 +271,6 @@ watch(Alt_S, pressed => {
             <th class="px-6 py-3 border-b border-secondary/10">Lantai</th>
             <th class="px-6 py-3 border-b border-secondary/10">Nama/Deskripsi</th>
             <th class="px-6 py-3 border-b border-secondary/10">Purpose</th>
-
           </tr>
         </thead>
         <TransitionGroup
@@ -205,7 +290,13 @@ watch(Alt_S, pressed => {
           </template>
 
           <tr v-else-if="allLocations.length === 0" key="empty">
-            <td colspan="5" class="py-12 text-center text-text/50 italic">Tidak ada data lokasi.</td>
+            <td colspan="5" class="py-12 text-center text-text/50 italic">Tidak ada data lokasi yang tersedia.</td>
+          </tr>
+
+          <tr v-else-if="filteredLocations.length === 0" key="not-found">
+            <td colspan="5" class="py-12 text-center text-text/50 italic">
+              Tidak ada lokasi yang cocok dengan filter.
+            </td>
           </tr>
 
           <tr
@@ -234,16 +325,19 @@ watch(Alt_S, pressed => {
                 class="outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[30px]"
                 @blur="handleCellBlur($event, loc, 'code')"
                 @keydown.enter.prevent="$event.target.blur()"
-              >{{ loc.code }}</span>
+                >{{ loc.code }}</span
+              >
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'">
               <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Gedung</span>
               <span
                 contenteditable="true"
-                class="outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[30px]"
+                class="outline-none focus:ring-2 focus:ring-primary inline-flex items-center px-2 py-1 -mx-2 rounded min-w-[30px] font-medium ring-1 ring-inset"
+                :class="getLocationBuildingColorClass(loc.building)"
                 @blur="handleCellBlur($event, loc, 'building')"
                 @keydown.enter.prevent="$event.target.blur()"
-              >{{ loc.building }}</span>
+                >{{ loc.building }}</span
+              >
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'">
               <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Lantai</span>
@@ -252,7 +346,8 @@ watch(Alt_S, pressed => {
                 class="outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[30px]"
                 @blur="handleCellBlur($event, loc, 'floor')"
                 @keydown.enter.prevent="$event.target.blur()"
-              >{{ loc.floor ?? '' }}</span>
+                >{{ loc.floor ?? '' }}</span
+              >
             </td>
             <td
               class="text-text/80"
@@ -264,29 +359,36 @@ watch(Alt_S, pressed => {
                 class="outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[30px]"
                 @blur="handleCellBlur($event, loc, 'name')"
                 @keydown.enter.prevent="$event.target.blur()"
-              >{{ loc.name }}</span>
+                >{{ loc.name }}</span
+              >
             </td>
             <td
               class="font-mono text-xs"
               :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
             >
               <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans font-semibold">Purpose</span>
-              <select
-                class="bg-transparent outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded cursor-pointer"
-                :value="loc.purpose"
-                @change="handleDropdownChange(loc, 'purpose', $event.target.value)"
+              <span
+                class="inline-flex items-center px-2 py-1 -mx-2 rounded font-medium ring-1 ring-inset"
+                :class="getLocationPurposeColorClass(loc.purpose)"
               >
-                <option v-for="opt in purposeOptions" :key="opt" :value="opt" class="bg-background text-text">{{ opt }}</option>
-              </select>
+                <select
+                  class="bg-transparent outline-none cursor-pointer appearance-none pr-4"
+                  :value="loc.purpose"
+                  @change="handleDropdownChange(loc, 'purpose', $event.target.value)"
+                >
+                  <option v-for="opt in purposeOptions" :key="opt" :value="opt" class="bg-background text-text">
+                    {{ opt }}
+                  </option>
+                </select>
+              </span>
             </td>
-
           </tr>
         </TransitionGroup>
       </table>
     </div>
 
     <!-- Pagination -->
-    <div v-if="!loading && allLocations.length > 0" class="mt-4 rounded-xl overflow-hidden">
+    <div v-if="!loading && filteredLocations.length > 0" class="rounded-xl overflow-hidden">
       <BasePagination
         :pagination="pagination"
         :show-limit-picker="true"
@@ -334,19 +436,31 @@ watch(Alt_S, pressed => {
             v-model="selectedLocation.building"
             type="text"
             required
+            list="building-datalist"
             class="w-full input-field"
-            placeholder="e.g., A19"
+            placeholder="Pilih atau ketik gedung baru..."
+            autocomplete="off"
           />
+          <datalist id="building-datalist">
+            <option v-for="b in buildingOptions" :key="b" :value="b" />
+          </datalist>
+          <p class="text-[11px] text-text/40 mt-1">Pilih dari daftar, atau ketik nama gedung baru</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-text/80 mb-1">Purpose</label>
-          <BaseSelect
+          <input
             v-model="selectedLocation.purpose"
-            :options="purposeOptions"
-            emit-value
-            :searchable="false"
-            placeholder="Pilih Purpose"
+            type="text"
+            required
+            list="purpose-datalist"
+            class="w-full input-field"
+            placeholder="Pilih atau ketik purpose baru..."
+            autocomplete="off"
           />
+          <datalist id="purpose-datalist">
+            <option v-for="p in purposeOptions" :key="p" :value="p" />
+          </datalist>
+          <p class="text-[11px] text-text/40 mt-1">Pilih dari daftar, atau ketik purpose baru</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-text/80 mb-1">Lantai (Opsional)</label>

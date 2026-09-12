@@ -99,6 +99,7 @@ export function normalizeLogs(allUsers, logRows, holidayMap, arg4, arg5) {
           isEmpty: false,
           lateness: row.lateness_minutes || 0,
           overtime: row.overtime_minutes || 0,
+          late_pardon_minutes: row.late_pardon_minutes || 0,
           notes: row.notes,
           rawLogs: [],
         })
@@ -174,6 +175,7 @@ export function normalizeLogs(allUsers, logRows, holidayMap, arg4, arg5) {
           isEmpty: false,
           lateness: logData.lateness,
           overtime: logData.overtime,
+          late_pardon_minutes: logData.late_pardon_minutes,
           notes: logData.notes || '',
           dbStatus: dbStatus
         })
@@ -190,6 +192,7 @@ export function normalizeLogs(allUsers, logRows, holidayMap, arg4, arg5) {
           isEmpty: true,
           lateness: 0,
           overtime: 0,
+          late_pardon_minutes: 0,
         })
       }
     })

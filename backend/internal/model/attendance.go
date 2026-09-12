@@ -8,10 +8,10 @@ type AttendanceLog struct {
 	Date            string     `json:"date" db:"date"`
 	CheckIn         *string    `json:"check_in" db:"check_in"`
 	CheckOut        *string    `json:"check_out" db:"check_out"`
-	LatenessMinutes   int        `json:"lateness_minutes" db:"lateness_minutes"`
-	OvertimeMinutes   int        `json:"overtime_minutes" db:"overtime_minutes"`
-	LatePardonMinutes int        `json:"late_pardon_minutes" db:"late_pardon_minutes"`
-	Status            *string    `json:"status" db:"status"`
+	LatenessMinutes   int      `json:"lateness_minutes" db:"lateness_minutes"`
+	OvertimeMinutes   int      `json:"overtime_minutes" db:"overtime_minutes"`
+	LatePardonMinutes int      `json:"late_pardon_minutes" db:"late_pardon_minutes"`
+	Status            *string  `json:"status" db:"status"`
 	Notes           *string    `json:"notes" db:"notes"`
 }
 

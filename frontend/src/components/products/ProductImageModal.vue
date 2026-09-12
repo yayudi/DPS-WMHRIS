@@ -60,8 +60,8 @@ const handleMediaSelect = async (media) => {
 /** Map existingImages to the shape MediaLightbox expects */
 const lightboxImages = computed(() =>
   existingImages.value.map(img => ({
-    main_path: img.image_path,
-    thumbnail_path: img.thumbnail_path || img.image_path,
+    main_path: img.image_path || img.main_path,
+    thumbnail_path: img.thumbnail_path || img.image_path || img.main_path,
     title: img.title || 'Gambar Produk'
   }))
 )
@@ -318,7 +318,7 @@ const getImageUrl = resolveUrl
             <MediaCard
               v-for="(img, index) in existingImages"
               :key="img.id"
-              :image-url="getImageUrl(img.thumbnail_path || img.image_path)"
+              :image-url="getImageUrl(img.thumbnail_path || img.image_path || img.main_path)"
               :image-id="img.id"
               :display-name="img.title || 'Gambar Produk'"
               @click="((isLightboxOpen = true), (lightboxIndex = index))"
@@ -333,7 +333,7 @@ const getImageUrl = resolveUrl
               </template>
 
               <template #actions>
-                <MediaActionBar :image-url="getImageUrl(img.image_path)" :filename="img.title">
+                <MediaActionBar :image-url="getImageUrl(img.image_path || img.main_path)" :filename="img.title">
                   <button
                     v-if="!img.is_primary && canUpload"
                     @click.stop="setPrimary(img.id)"

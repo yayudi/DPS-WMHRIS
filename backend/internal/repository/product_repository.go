@@ -162,6 +162,37 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 			}
 		}
 	}
+	
+	// Fetch product images
+	query, args, err = sqlx.In(`
+		SELECT pi.id, pi.product_id, pi.media_id, pi.is_primary, pi.sort_order, m.main_path, m.thumbnail_path, m.title
+		FROM product_images pi
+		JOIN media_assets m ON pi.media_id = m.id
+		WHERE pi.product_id IN (?)
+		ORDER BY pi.sort_order ASC, pi.id ASC
+	`, productIDs)
+	if err == nil {
+		query = r.db.Rebind(query)
+		rows, err = r.db.QueryContext(ctx, query, args...)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var img dto.ProductImage
+				if err := rows.Scan(&img.ID, &img.ProductID, &img.MediaID, &img.IsPrimary, &img.SortOrder, &img.MainPath, &img.ThumbnailPath, &img.Title); err == nil {
+					if p, ok := productMap[img.ProductID]; ok {
+						if p.Images == nil {
+							p.Images = []dto.ProductImage{}
+						}
+						p.Images = append(p.Images, img)
+						if img.IsPrimary {
+							p.ThumbnailPath = img.ThumbnailPath
+							p.ImagePath = img.MainPath
+						}
+					}
+				}
+			}
+		}
+	}
 
 	// Fetch components
 	query, args, err = sqlx.In(`
@@ -198,6 +229,9 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 		}
 		if p.Components == nil {
 			p.Components = []dto.ProductComponent{}
+		}
+		if p.Images == nil {
+			p.Images = []dto.ProductImage{}
 		}
 	}
 	return nil

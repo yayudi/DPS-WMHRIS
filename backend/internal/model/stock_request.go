@@ -16,12 +16,12 @@ type StockRequest struct {
 	
 	Items          []StockRequestItem `json:"items" db:"-"` // Explicitly ignored by sqlx
 	
-	// Joined fields
-	RequesterName    string `json:"requester_name" db:"requester_name"`
-	FromLocationName string `json:"from_location_name" db:"from_location_name"`
-	FromLocationCode string `json:"from_location_code" db:"from_location_code"`
-	ToLocationName   string `json:"to_location_name" db:"to_location_name"`
-	ToLocationCode   string `json:"to_location_code" db:"to_location_code"`
+	// Joined fields (populated by custom queries, not by BaseRepository)
+	RequesterName    string `json:"requester_name" db:"-"`
+	FromLocationName string `json:"from_location_name" db:"-"`
+	FromLocationCode string `json:"from_location_code" db:"-"`
+	ToLocationName   string `json:"to_location_name" db:"-"`
+	ToLocationCode   string `json:"to_location_code" db:"-"`
 }
 
 type StockRequestItem struct {

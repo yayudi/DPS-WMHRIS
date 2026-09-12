@@ -25,7 +25,7 @@ export function useWms() {
   const activeView = ref('all')
   const displayedProducts = ref([])
   const totalProducts = ref(0)
-  
+
   const {
     currentPage,
     currentLimit: pageSize,
@@ -59,15 +59,11 @@ export function useWms() {
   const endDate = ref('')
 
   // Firebase Real-time Event Listener for Stock Updates
-  useFirebaseSync(
-    ['WMS_DASHBOARD'],
-    'REFRESH_STOCK',
-    () => {
-      if (isAutoRefetching.value && currentPage.value === 1) {
-        fetchProducts('silent')
-      }
+  useFirebaseSync(['WMS_DASHBOARD'], 'REFRESH_STOCK', () => {
+    if (isAutoRefetching.value && currentPage.value === 1) {
+      fetchProducts('silent')
     }
-  )
+  })
 
   // Column Visibility State via Generic Composable
   const { visibleColumns, toggleColumn } = useColumnVisibility('wms-visible-columns', [
@@ -119,6 +115,16 @@ export function useWms() {
     error.value = null
 
     try {
+      // OPTIMIZATION: If user selects ALL categories, don't send the filter to avoid URL Too Long errors.
+      let finalCategoryInclude = []
+      let finalCategoryExclude = []
+      if (selectedCategory.value.include.length !== masterData.categories.length) {
+        finalCategoryInclude = selectedCategory.value.include.map(String)
+      }
+      if (selectedCategory.value.exclude.length !== masterData.categories.length) {
+        finalCategoryExclude = selectedCategory.value.exclude.map(String)
+      }
+
       const params = {
         page: currentPage.value,
         limit: pageSize.value,
@@ -132,8 +138,8 @@ export function useWms() {
         buildingExclude: JSON.stringify(selectedBuilding.value.exclude),
         floorInclude: JSON.stringify(selectedFloor.value.include),
         floorExclude: JSON.stringify(selectedFloor.value.exclude),
-        categoryInclude: JSON.stringify(selectedCategory.value.include),
-        categoryExclude: JSON.stringify(selectedCategory.value.exclude),
+        categoryInclude: JSON.stringify(finalCategoryInclude),
+        categoryExclude: JSON.stringify(finalCategoryExclude),
 
         sortBy: sortBy.value,
         sortOrder: sortOrder.value,
@@ -156,26 +162,6 @@ export function useWms() {
 
       let transformed = newProducts.map(p => transformProduct(p, selectedBuilding.value, selectedFloor.value))
 
-      const isMasterView =
-        activeView.value === 'all' &&
-        selectedBuilding.value.include.length === 0 &&
-        selectedBuilding.value.exclude.length === 0 &&
-        selectedFloor.value.include.length === 0 &&
-        selectedFloor.value.exclude.length === 0 &&
-        selectedCategory.value.include.length === 0 &&
-        selectedCategory.value.exclude.length === 0
-
-      if (!isMasterView) {
-        transformed = transformed.filter(p => {
-          let stockToCheck = 0
-          if (activeView.value === 'all') stockToCheck = p.totalStock
-          else if (activeView.value === 'gudang') stockToCheck = p.stockGudang
-          else if (activeView.value === 'pajangan') stockToCheck = p.stockPajangan
-          else if (activeView.value === 'ltc') stockToCheck = p.stockLTC
-          return stockToCheck !== 0
-        })
-      }
-
       if (!auth.canViewPrices) {
         transformed.forEach(product => delete product.price)
       }
@@ -186,9 +172,6 @@ export function useWms() {
       } else if (mode === 'loadMore') {
         displayedProducts.value.push(...transformed)
       } else if (mode === 'silent') {
-        console.groupCollapsed(`Silent @ ${new Date().toLocaleTimeString()}`)
-        console.log(`Incoming Items: ${transformed.length}`)
-
         const incomingMap = new Map(transformed.map(p => [p.id, p]))
         let patchCount = 0
         let realChangesCount = 0
@@ -235,15 +218,6 @@ export function useWms() {
             patchCount++
           }
         })
-
-        console.log(`Matched Items: ${patchCount}`)
-
-        if (realChangesCount > 0) {
-          console.log(`%c[RESULT] Data Updated! ${realChangesCount} items changed.`, 'color: green; font-weight: bold')
-        } else {
-          console.log(`%c[RESULT] No data changes detected. UI will not update.`, 'color: gray')
-        }
-        console.groupEnd()
       }
 
       totalProducts.value = total

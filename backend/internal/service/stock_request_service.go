@@ -112,7 +112,21 @@ func (s *stockRequestServiceImpl) CreateStockRequest(ctx context.Context, userID
 }
 
 func (s *stockRequestServiceImpl) GetAllStockRequests(ctx context.Context) ([]model.StockRequest, error) {
-	return s.stockRequestRepo.FindAll(ctx)
+	requests, err := s.stockRequestRepo.FindAllWithJoins(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range requests {
+		items, err := s.stockRequestRepo.FindItemsByRequestID(ctx, requests[i].ID)
+		if err == nil {
+			requests[i].Items = items
+		} else {
+			requests[i].Items = []model.StockRequestItem{}
+		}
+	}
+
+	return requests, nil
 }
 
 func (s *stockRequestServiceImpl) ApproveStockRequest(ctx context.Context, id int, userID int, roleID int) error {

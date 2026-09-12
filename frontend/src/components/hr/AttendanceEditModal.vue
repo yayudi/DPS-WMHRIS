@@ -17,6 +17,7 @@ const form = ref({
   timeIn: '',
   timeOut: '',
   latePardonMinutes: 0,
+  isFullPardon: false,
   notes: '',
 })
 
@@ -46,6 +47,7 @@ watch(
         timeIn: newVal.jamMasuk ? minutesToTimeStr(newVal.jamMasuk) : '',
         timeOut: newVal.jamKeluar ? minutesToTimeStr(newVal.jamKeluar) : '',
         latePardonMinutes: newVal.late_pardon_minutes || 0,
+        isFullPardon: (newVal.late_pardon_minutes || 0) >= 480,
         notes: newVal.notes || '', // No need to replace regex anymore
       }
     }
@@ -90,7 +92,7 @@ async function handleSave() {
       status: form.value.status,
       timeIn: form.value.timeIn,
       timeOut: form.value.timeOut,
-      latePardonMinutes: form.value.latePardonMinutes,
+      latePardonMinutes: form.value.isFullPardon ? 480 : form.value.latePardonMinutes,
       notes: form.value.notes,
     }
 
@@ -171,14 +173,22 @@ watch(Alt_S, (pressed) => {
             class="w-full bg-background border border-secondary/20 rounded-lg px-3 py-2 text-text focus:outline-none focus:border-primary"
           />
         </div>
-        <div>
-          <label class="block text-[10px] font-bold uppercase text-text/50 mb-1 leading-tight">Pengampunan (Mnt)</label>
-          <input
-            type="number"
-            v-model.number="form.latePardonMinutes"
-            min="0"
-            class="w-full bg-background border border-secondary/20 rounded-lg px-3 py-2 text-text focus:outline-none focus:border-primary"
-          />
+        <div class="flex flex-col">
+          <label class="block text-[10px] font-bold uppercase text-text/50 mb-1 leading-tight">Pengampunan Keterlambatan</label>
+          <div class="flex items-center gap-2 mt-1 mb-2">
+            <input type="checkbox" id="fullPardon" v-model="form.isFullPardon" class="accent-primary w-4 h-4" />
+            <label for="fullPardon" class="text-xs font-medium cursor-pointer text-text">Diampuni Penuh</label>
+          </div>
+          <div v-if="!form.isFullPardon">
+            <label class="block text-[9px] font-bold uppercase text-text/40 mb-1 leading-tight">Parsial (Menit)</label>
+            <input
+              type="number"
+              v-model.number="form.latePardonMinutes"
+              min="0"
+              class="w-full bg-background border border-secondary/20 rounded-lg px-3 py-2 text-text focus:outline-none focus:border-primary text-sm"
+              placeholder="Contoh: 15"
+            />
+          </div>
         </div>
       </div>
 

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"strings"
 
 	"github.com/dps-wmhris/backend/internal/dto"
@@ -243,6 +244,7 @@ func (r *mediaRepositoryImpl) GetMediaAssetsByIDs(ctx context.Context, mediaIDs 
 	if err != nil {
 		return nil, err
 	}
+	log.Println("DEBUG queryMediaAssetsByIDs:", query, "with params:", args)
 	query = r.db.Rebind(query)
 	var rows []dto.MediaAssetResponse
 	err = r.db.SelectContext(ctx, &rows, query, args...)

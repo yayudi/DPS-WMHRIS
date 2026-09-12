@@ -373,43 +373,32 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
             <!-- Quick Actions for Search Results -->
             <div
               v-if="searchable && searchQuery && filteredOptions.length > 0"
-              class="w-full flex items-center justify-between px-1 py-1.5 text-[10px] text-text/60 border-t border-secondary/10 mt-1"
+              class="w-full flex items-center justify-between px-1 py-1.5 text-[11px] font-semibold text-text/50 mt-1"
             >
               <span>Hasil: {{ filteredOptions.length }}</span>
-              <div class="flex gap-2">
+              <div class="flex items-center gap-2">
                 <button
-                  type="button"
-                  @click.stop="includeFiltered"
-                  class="text-primary hover:underline font-bold transition-colors"
+                  @click="includeFiltered"
+                  class="text-primary ring-1 ring-primary rounded-lg px-2 bg-background hover:bg-primary hover:text-background transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   :disabled="excludeCount > 0"
-                  :class="{ 'opacity-50 cursor-not-allowed': excludeCount > 0 }"
                   :title="excludeCount > 0 ? 'Tidak bisa include saat ada exclude aktif' : 'Include Semua'"
                 >
                   + Include Semua
                 </button>
-                <span class="text-secondary/40">|</span>
                 <button
-                  type="button"
-                  @click.stop="excludeFiltered"
-                  class="text-danger hover:underline font-bold transition-colors"
+                  @click="excludeFiltered"
+                  class="text-danger ring-1 ring-danger rounded-lg px-2 bg-background hover:bg-danger hover:text-background transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   :disabled="includeCount > 0"
-                  :class="{ 'opacity-50 cursor-not-allowed': includeCount > 0 }"
                   :title="includeCount > 0 ? 'Tidak bisa exclude saat ada include aktif' : 'Exclude Semua'"
                 >
                   - Exclude Semua
                 </button>
               </div>
             </div>
-            <div class="flex gap-2 w-full">
-              <button
-                @click="includeFiltered"
-                class="flex-1 py-1.5 bg-primary/5 text-primary hover:text-secondary hover:bg-primary rounded-lg transition-colors font-medium text-xs"
-              >
-                Pilih Semua
-              </button>
+            <div class="flex w-full mt-1">
               <button
                 @click="clearAll"
-                class="flex-1 py-1.5 bg-danger/5 text-danger hover:text-secondary hover:bg-danger rounded-lg transition-colors font-medium text-xs"
+                class="flex-1 py-1.5 bg-danger/5 hover:bg-danger/10 text-danger rounded-lg transition-colors font-semibold text-[11px] flex items-center justify-center"
               >
                 Reset
               </button>

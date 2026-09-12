@@ -21,7 +21,7 @@ export const backendUrl = import.meta.env.VITE_API_MEDIA_URL || baseUrl.replace(
  */
 export const resolveUrl = path => {
   if (!path) return null
-  
+
   // 1. Bersihkan path dari awalan '/' atau 'uploads/' agar seragam
   let cleanPath = path.replace(/^\/+/, '')
   if (cleanPath.startsWith('uploads/')) {
@@ -62,6 +62,13 @@ export const resolveUrl = path => {
  */
 export const resolveProductImageUrl = product => {
   const targetPath = product?.thumbnail_path || product?.image_path
+  console.groupCollapsed('image url')
+  console.log('product', product.id)
+  console.log('product.name', product.name)
+  console.log('product?.thumbnail_path', product?.thumbnail_path)
+  console.log('targetPath', targetPath)
+  console.log('url', resolveUrl(targetPath))
+  console.groupEnd()
   return resolveUrl(targetPath)
 }
 

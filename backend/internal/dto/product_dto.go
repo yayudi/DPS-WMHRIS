@@ -60,8 +60,22 @@ type ProductDetailResponse struct {
 	Weight         float64                `json:"weight" db:"weight"`
 	TotalStock     int                    `json:"total_stock" db:"total_stock"`
 	CurrentStock   *int                   `json:"current_stock,omitempty" db:"current_stock"`
+	ThumbnailPath  *string                `json:"thumbnail_path" db:"thumbnail_path"`
+	ImagePath      *string                `json:"image_path" db:"image_path"`
 	StockLocations []ProductStockLocation `json:"stock_locations" db:"-"`
 	Components     []ProductComponent     `json:"components" db:"-"`
+	Images         []ProductImage         `json:"images" db:"-"`
+}
+
+type ProductImage struct {
+	ID            int     `json:"id" db:"id"`
+	ProductID     int     `json:"product_id" db:"product_id"`
+	MediaID       *int    `json:"media_id" db:"media_id"`
+	IsPrimary     bool    `json:"is_primary" db:"is_primary"`
+	SortOrder     int     `json:"sort_order" db:"sort_order"`
+	MainPath      *string `json:"main_path" db:"main_path"`
+	ThumbnailPath *string `json:"thumbnail_path" db:"thumbnail_path"`
+	Title         *string `json:"title" db:"title"`
 }
 
 type ProductStockLocation struct {

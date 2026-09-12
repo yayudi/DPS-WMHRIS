@@ -3,7 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useToast } from '@/composables/useToast.js'
 import api from '@/api/axios.js'
 import TriStateSelect from '@/components/ui/TriStateSelect.vue'
-import { formatNumber } from '@/utils/formatters.js'
+import { formatNumber, getLocationPurposeColorClass, getLocationBuildingColorClass } from '@/utils/formatters.js'
 import { useMasterDataStore } from '@/stores/masterData'
 import ProductSearchSelector from '@/components/wms/transfer/ProductSearchSelector.vue'
 import ExportDropdown from '@/components/ui/ExportDropdown.vue'
@@ -632,11 +632,17 @@ onMounted(async () => {
                   </td>
                   <td class="whitespace-nowrap py-4 px-3 text-sm font-medium text-text">{{ loc.code }}</td>
                   <td class="whitespace-nowrap px-3 py-4 text-sm text-text/60">
-                    {{ loc.building }} <span v-if="loc.floor">- Lt {{ loc.floor }}</span>
+                    <span
+                      class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset"
+                      :class="getLocationBuildingColorClass(loc.building)"
+                    >
+                      {{ loc.building }} <span v-if="loc.floor" class="ml-1 opacity-75"> - Lt {{ loc.floor }}</span>
+                    </span>
                   </td>
                   <td class="whitespace-nowrap px-3 py-4 text-sm text-text/60">
                     <span
-                      class="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20"
+                      class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset"
+                      :class="getLocationPurposeColorClass(loc.purpose)"
                       >{{ loc.purpose || 'N/A' }}</span
                     >
                   </td>

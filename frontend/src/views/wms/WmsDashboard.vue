@@ -111,19 +111,15 @@ const searchTabs = [
   { label: 'SKU', value: 'sku' }
 ]
 
-const buildingFilterOptions = [
-  { label: 'A19', value: 'A19' },
-  { label: 'A20', value: 'A20' },
-  { label: 'B16', value: 'B16' },
-  { label: 'OASIS', value: 'OASIS' }
-]
+const buildingFilterOptions = computed(() => {
+  const buildings = allLocations.value.map(l => l.building).filter(Boolean)
+  return [...new Set(buildings)].sort().map(b => ({ label: b, value: b }))
+})
 
-const floorFilterOptions = [
-  { label: '1', value: '1' },
-  { label: '2', value: '2' },
-  { label: '3', value: '3' },
-  { label: '4', value: '4' }
-]
+const floorFilterOptions = computed(() => {
+  const floors = allLocations.value.map(l => l.floor).filter(f => f !== null && f !== undefined)
+  return [...new Set(floors)].sort((a,b) => a - b).map(f => ({ label: String(f), value: String(f) }))
+})
 
 function openTransferModal(product) {
   selectedProduct.value = product

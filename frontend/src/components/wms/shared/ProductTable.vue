@@ -366,6 +366,7 @@ onUnmounted(() => {
           >
             <div @click.stop>
               <ProductThumbnail :image-url="getImageUrl(product)" @click="$emit('view-image', product)" />
+              {{ console.log('imageUrl:', getImageUrl(product)) }}
             </div>
           </td>
 
@@ -636,7 +637,7 @@ onUnmounted(() => {
         <span>Final (11%):</span>
         <span class="font-mono">{{ formatCurrency(activeProduct.price * (1 + PPN_RATE)) }}</span>
       </div>
-      
+
       <div class="mt-2 pt-2 border-t border-secondary/20 text-[10px] text-text/50 flex flex-col items-center">
         <span v-if="isFetchingPriceUpdate && !priceUpdatesCache[activeProduct.id]" class="flex items-center gap-1">
           <font-awesome-icon icon="fa-solid fa-spinner" spin /> Memuat...

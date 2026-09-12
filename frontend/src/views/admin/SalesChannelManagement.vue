@@ -124,7 +124,13 @@ const saveChannel = async () => {
 }
 
 const confirmDelete = async item => {
-  if (!await swalConfirm('Konfirmasi Hapus', `Apakah Anda yakin ingin menghapus saluran ${item.name}? Data ini akan dinonaktifkan (soft delete) untuk menjaga integritas data riwayat penjualan.`)) return
+  if (
+    !(await swalConfirm(
+      'Konfirmasi Hapus',
+      `Apakah Anda yakin ingin menghapus saluran ${item.name}? Data ini akan dinonaktifkan (soft delete) untuk menjaga integritas data riwayat penjualan.`
+    ))
+  )
+    return
 
   try {
     await api.delete(`/sales-channels/${item.id}`)
@@ -141,7 +147,7 @@ const { handleCellBlur, handleDropdownChange } = useInstantInlineEdit(
   async (id, payload) => {
     await api.put(`/sales-channels/${id}`, payload)
   },
-  (item) => ({
+  item => ({
     platform: item.platform,
     name: item.name,
     description: item.description,
@@ -149,7 +155,7 @@ const { handleCellBlur, handleDropdownChange } = useInstantInlineEdit(
   })
 )
 
-const validateChannelName = (val) => {
+const validateChannelName = val => {
   if (!val) {
     toast('Nama Toko / Sales harus diisi.', 'warning')
     return false
@@ -157,7 +163,7 @@ const validateChannelName = (val) => {
   return true
 }
 
-const handleContextAction = (action) => {
+const handleContextAction = action => {
   if (action === 'delete') {
     confirmDelete(contextMenu.value.row)
   } else if (action === 'edit') {
@@ -214,7 +220,9 @@ const handleContextAction = (action) => {
                 <td class="px-6 py-4"><BaseSkeleton shape="rect" className="w-16 h-6 rounded-lg" /></td>
                 <td class="px-6 py-4"><BaseSkeleton shape="text" className="w-1/2 h-4" /></td>
                 <td class="px-6 py-4"><BaseSkeleton shape="text" className="w-3/4 h-4" /></td>
-                <td class="px-6 py-4 text-center"><BaseSkeleton shape="rect" className="w-12 h-5 mx-auto rounded-lg" /></td>
+                <td class="px-6 py-4 text-center">
+                  <BaseSkeleton shape="rect" className="w-12 h-5 mx-auto rounded-lg" />
+                </td>
               </tr>
             </template>
 
@@ -237,46 +245,62 @@ const handleContextAction = (action) => {
               "
               @contextmenu.prevent.stop="openContextMenu($event, item)"
             >
-              <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'">
+              <td
+                :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
+              >
                 <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Platform</span>
                 <select
-                  class="bg-transparent outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded text-xs font-bold cursor-pointer"
+                  class="outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded text-xs text-background font-bold cursor-pointer"
                   :class="
                     item.platform === 'Shopee'
-                      ? 'text-[#ee4d2d]'
+                      ? 'bg-warning'
                       : item.platform === 'Tokopedia'
-                        ? 'text-[#00AA5B]'
-                        : 'text-text/70'
+                        ? 'bg-success'
+                        : 'bg-primary'
                   "
                   :value="item.platform"
                   @change="handleDropdownChange(item, 'platform', $event.target.value)"
                 >
-                  <option v-for="opt in platformOptions" :key="opt" :value="opt" class="bg-background text-text">{{ opt }}</option>
+                  <option v-for="opt in platformOptions" :key="opt" :value="opt" class="bg-background text-text">
+                    {{ opt }}
+                  </option>
                 </select>
               </td>
-              <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'">
+              <td
+                :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
+              >
                 <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Nama Toko</span>
                 <span
                   class="font-medium text-text outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[50px]"
                   contenteditable="true"
                   @blur="handleCellBlur($event, item, 'name', validateChannelName)"
                   @keydown.enter.prevent="$event.target.blur()"
-                >{{ item.name }}</span>
+                  >{{ item.name }}</span
+                >
               </td>
-              <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'">
+              <td
+                :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
+              >
                 <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Keterangan</span>
                 <span
                   class="text-text/60 truncate max-w-xs outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[50px]"
                   contenteditable="true"
                   @blur="handleCellBlur($event, item, 'description')"
                   @keydown.enter.prevent="$event.target.blur()"
-                >{{ item.description || '' }}</span>
+                  >{{ item.description || '' }}</span
+                >
               </td>
-              <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4 text-center'">
+              <td
+                :class="
+                  isMobile
+                    ? 'flex justify-between items-center py-2 border-b border-secondary/10'
+                    : 'px-6 py-4 text-center'
+                "
+              >
                 <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Status</span>
                 <select
-                  class="bg-transparent outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded text-xs font-bold cursor-pointer"
-                  :class="item.is_active === 1 || item.is_active === true ? 'text-success' : 'text-danger'"
+                  class="text-background outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded text-xs font-bold cursor-pointer"
+                  :class="item.is_active === 1 || item.is_active === true ? 'bg-success' : 'bg-danger'"
                   :value="item.is_active === 1 || item.is_active === true"
                   @change="handleDropdownChange(item, 'is_active', $event.target.value === 'true')"
                 >
@@ -288,7 +312,7 @@ const handleContextAction = (action) => {
           </TransitionGroup>
         </table>
       </div>
-      
+
       <!-- Pagination -->
       <div v-if="!isLoading && channels.length > 0" class="mt-4 rounded-xl overflow-hidden">
         <BasePagination

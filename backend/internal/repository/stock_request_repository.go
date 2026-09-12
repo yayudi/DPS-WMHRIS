@@ -14,6 +14,7 @@ type StockRequestRepository interface {
 	UpdateStatusTx(ctx context.Context, ext sqlx.ExtContext, id int, status string) error
 	UpdateItemReceivedQtyTx(ctx context.Context, ext sqlx.ExtContext, itemID int, qty int) error
 	FindItemsByRequestID(ctx context.Context, reqID int) ([]model.StockRequestItem, error)
+	FindAllWithJoins(ctx context.Context) ([]model.StockRequest, error)
 }
 
 type stockRequestRepositoryImpl struct {
@@ -97,6 +98,49 @@ func (r *stockRequestRepositoryImpl) FindItemsByRequestID(ctx context.Context, r
 	
 	err := r.db.SelectContext(ctx, &items, query, reqID)
 	return items, err
+}
+
+// FindAllWithJoins retrieves all stock requests with requester name and location details via JOINs.
+func (r *stockRequestRepositoryImpl) FindAllWithJoins(ctx context.Context) ([]model.StockRequest, error) {
+	query := `
+		SELECT sr.id, sr.request_number, sr.type, sr.requester_id,
+			sr.from_location_id, sr.to_location_id, sr.status,
+			COALESCE(sr.notes, '') as notes, sr.created_at, sr.updated_at,
+			COALESCE(u.nickname, u.username, '') as requester_name,
+			COALESCE(fl.name, '') as from_location_name,
+			COALESCE(fl.code, '') as from_location_code,
+			COALESCE(tl.name, '') as to_location_name,
+			COALESCE(tl.code, '') as to_location_code
+		FROM stock_requests sr
+		LEFT JOIN users u ON sr.requester_id = u.id
+		LEFT JOIN locations fl ON sr.from_location_id = fl.id
+		LEFT JOIN locations tl ON sr.to_location_id = tl.id
+		ORDER BY sr.created_at DESC`
+
+	rows, err := r.db.QueryxContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []model.StockRequest
+	for rows.Next() {
+		var sr model.StockRequest
+		if err := rows.Scan(
+			&sr.ID, &sr.RequestNumber, &sr.Type, &sr.RequesterID,
+			&sr.FromLocationID, &sr.ToLocationID, &sr.Status,
+			&sr.Notes, &sr.CreatedAt, &sr.UpdatedAt,
+			&sr.RequesterName, &sr.FromLocationName, &sr.FromLocationCode,
+			&sr.ToLocationName, &sr.ToLocationCode,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, sr)
+	}
+	if results == nil {
+		results = []model.StockRequest{}
+	}
+	return results, nil
 }
 
 func NewStockRequestRepository(db *sqlx.DB) StockRequestRepository {

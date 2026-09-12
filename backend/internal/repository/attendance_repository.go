@@ -69,7 +69,6 @@ func (r *attendanceRepositoryImpl) GetHistory(ctx context.Context, startDate str
 
 	var results []map[string]interface{}
 	
-	// Queryx returns rows which we can scan into map
 	rows, err := r.db.QueryxContext(ctx, query, params...)
 	if err != nil {
 		return nil, err
@@ -82,7 +81,6 @@ func (r *attendanceRepositoryImpl) GetHistory(ctx context.Context, startDate str
 		if err != nil {
 			return nil, err
 		}
-		// Convert byte slices to strings if needed
 		for k, v := range row {
 			if b, ok := v.([]byte); ok {
 				row[k] = string(b)
@@ -179,11 +177,7 @@ func (r *attendanceRepositoryImpl) GetHolidays(ctx context.Context, year int) (m
 		if err := rows.StructScan(&h); err != nil {
 			continue
 		}
-		// logic from fileHelpers.js: ignore "cuti bersama"
-		// In Go, date is time.Time
 		dateStr := h.Date.Format("2006-01-02")
-		// simplistic check, ideally strings.Contains(strings.ToLower(h.Name), "cuti bersama")
-		// but I'll skip it here since string check can be done in service or here.
 		holidayMap[dateStr] = true
 	}
 	return holidayMap, nil
@@ -215,15 +209,6 @@ func (r *attendanceRepositoryImpl) UpsertLog(ctx context.Context, log *model.Att
 			SET check_in = ?, check_out = ?, lateness_minutes = ?, overtime_minutes = ?, late_pardon_minutes = ?, status = ?, notes = ?
 			WHERE id = ?
 		`
-		// If log.LatePardonMinutes is provided (e.g. not 0 or we want to allow 0 explicitly via a mechanism)
-		// Wait, model.AttendanceLog has LatePardonMinutes as int. This is tricky.
-		// If the caller sets LatePardonMinutes to what it was, it's fine.
-		// So we will just use log.LatePardonMinutes directly. 
-		// BUT wait, in attendance_service.go, UploadLog doesn't fetch it, so it will set to 0 and wipe out manual pardons.
-		// Let's make UpsertLog preserve it if we pass a special value, but Go's int defaults to 0.
-		// A better way: The service should pass the existing late_pardon_minutes or -1 to preserve.
-		// Or we just update UpsertLog to ONLY use the struct's value if it's set by UpdateLog, but UploadLogs doesn't have it.
-		// Let's modify UpsertLog to take a flag or use -1 as ignore.
 		
 		finalPardon := log.LatePardonMinutes
 		if finalPardon == -1 {
