@@ -62,13 +62,6 @@ export const resolveUrl = path => {
  */
 export const resolveProductImageUrl = product => {
   const targetPath = product?.thumbnail_path || product?.image_path
-  console.groupCollapsed('image url')
-  console.log('product', product.id)
-  console.log('product.name', product.name)
-  console.log('product?.thumbnail_path', product?.thumbnail_path)
-  console.log('targetPath', targetPath)
-  console.log('url', resolveUrl(targetPath))
-  console.groupEnd()
   return resolveUrl(targetPath)
 }
 

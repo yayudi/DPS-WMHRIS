@@ -26,9 +26,8 @@ const updatingId = ref(null)
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return users.value
   const q = searchQuery.value.toLowerCase()
-  return users.value.filter(u =>
-    u.username.toLowerCase().includes(q) ||
-    (u.nickname && u.nickname.toLowerCase().includes(q))
+  return users.value.filter(
+    u => u.username.toLowerCase().includes(q) || (u.nickname && u.nickname.toLowerCase().includes(q))
   )
 })
 
@@ -43,18 +42,21 @@ async function loadUsers() {
   }
 }
 
-watch(() => props.isOpen, (newVal) => {
-  if (newVal) {
-    searchQuery.value = ''
-    loadUsers()
+watch(
+  () => props.isOpen,
+  newVal => {
+    if (newVal) {
+      searchQuery.value = ''
+      loadUsers()
+    }
   }
-})
+)
 
 async function toggleExclusion(user) {
   if (updatingId.value) return
 
   updatingId.value = user.id
-  const newValue = user.exclude_from_attendance ? 0 : 1
+  const newValue = !user.exclude_from_attendance
 
   try {
     const payload = {
@@ -85,15 +87,21 @@ async function toggleExclusion(user) {
     <div class="space-y-4">
       <div class="text-sm text-text/80 mb-4 bg-primary/10 p-3 rounded-lg border border-primary/20">
         <font-awesome-icon icon="fa-solid fa-circle-info" class="text-primary mr-2" />
-        Pengguna yang dicentang tidak akan muncul dalam daftar absensi dan statistik.
-        Gunakan ini untuk Direksi atau Karyawan Remote.
+        Pengguna yang dicentang tidak akan muncul dalam daftar absensi dan statistik. Gunakan ini untuk Direksi atau
+        Karyawan Remote.
       </div>
 
       <div class="relative">
-        <font-awesome-icon icon="fa-solid fa-search"
-          class="absolute left-3 top-1/2 transform -translate-y-1/2 text-text/40" />
-        <input v-model="searchQuery" type="text" placeholder="Cari nama atau username..."
-          class="w-full pl-9 pr-4 py-2 bg-background border border-secondary/30 rounded-lg text-sm focus:outline-none focus:border-primary transition-colors text-text" />
+        <font-awesome-icon
+          icon="fa-solid fa-search"
+          class="absolute left-3 top-1/2 transform -translate-y-1/2 text-text/40"
+        />
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Cari nama atau username..."
+          class="w-full pl-9 pr-4 py-2 bg-background border border-secondary/30 rounded-lg text-sm focus:outline-none focus:border-primary transition-colors text-text"
+        />
       </div>
 
       <div class="border border-secondary/20 rounded-xl overflow-hidden bg-background">
@@ -115,18 +123,27 @@ async function toggleExclusion(user) {
               </tr>
             </thead>
             <tbody class="divide-y divide-secondary/10">
-              <tr v-for="user in filteredUsers" :key="user.id" class="hover:bg-secondary/5 transition-colors"
-                :class="{ 'opacity-50': updatingId === user.id }">
+              <tr
+                v-for="user in filteredUsers"
+                :key="user.id"
+                class="hover:bg-secondary/5 transition-colors"
+                :class="{ 'opacity-50': updatingId === user.id }"
+              >
                 <td class="px-4 py-3">
                   <div class="font-medium text-text">{{ user.nickname || user.username }}</div>
                   <div class="text-xs text-text/50 font-mono">{{ user.username }} • {{ user.role_name }}</div>
                 </td>
                 <td class="px-4 py-3 text-center">
-                  <button @click="toggleExclusion(user)" :disabled="updatingId !== null"
+                  <button
+                    @click="toggleExclusion(user)"
+                    :disabled="updatingId !== null"
                     class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
-                    :class="user.exclude_from_attendance ? 'bg-danger' : 'bg-secondary/30'">
-                    <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
-                      :class="user.exclude_from_attendance ? 'translate-x-6' : 'translate-x-1'" />
+                    :class="user.exclude_from_attendance ? 'bg-danger' : 'bg-secondary'"
+                  >
+                    <span
+                      class="inline-block h-4 w-4 transform rounded-full bg-background transition-transform"
+                      :class="user.exclude_from_attendance ? 'translate-x-6' : 'translate-x-1'"
+                    />
                   </button>
                 </td>
               </tr>
@@ -137,8 +154,10 @@ async function toggleExclusion(user) {
     </div>
 
     <template #footer>
-      <button @click="$emit('close')"
-        class="bg-background border border-secondary/30 text-text/80 hover:bg-secondary/20 text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+      <button
+        @click="$emit('close')"
+        class="bg-background border border-secondary/30 text-text/80 hover:bg-secondary/20 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+      >
         Tutup
       </button>
     </template>

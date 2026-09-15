@@ -39,16 +39,16 @@ export function useAppHotkeys(emitLogout) {
     if (pressed) router.push('/wms')
   })
   watch(Alt_2, pressed => {
-    if (pressed && auth.user?.permissions?.includes('product.image.view')) router.push('/media')
+    if (pressed && auth.hasPermission('product.image.view')) router.push('/media')
   })
   watch(Alt_3, pressed => {
     if (pressed) router.push('/absensi')
   })
   watch(Alt_4, pressed => {
-    if (pressed && auth.user?.permissions?.includes('view-reports')) router.push('/stats')
+    if (pressed && auth.hasPermission('report.view')) router.push('/stats')
   })
   watch(Alt_5, pressed => {
-    if (pressed && auth.user?.permissions?.includes('manage-users')) router.push('/admin/users')
+    if (pressed && auth.hasPermission('user.manage')) router.push('/admin/users')
   })
 
   // Toggle Cheat Sheet

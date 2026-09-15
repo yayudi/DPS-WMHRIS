@@ -21,6 +21,7 @@ import ProductTable from '@/components/products/ProductTable.vue'
 import ProductImageModal from '@/components/products/ProductImageModal.vue'
 import StickerGeneratorModal from '@/components/utilities/StickerGeneratorModal.vue'
 import HistoryModal from '@/components/wms/shared/HistoryModal.vue'
+import FilterToggle from '@/components/ui/FilterToggle.vue'
 
 const { toast } = useToast()
 const masterStore = useMasterDataStore()
@@ -38,6 +39,7 @@ const tableKey = ref(0)
 
 const categoryOptions = ref([])
 const filterCategory = ref({ include: [], exclude: [] })
+const showFilters = ref(false)
 
 const statusOptions = [
   { id: 'active', label: 'Produk Aktif' },
@@ -66,12 +68,10 @@ const isProcessingBulk = ref(false)
 // Pagination State
 const totalProducts = ref(0)
 const currentLimit = ref(50)
+const isExporting = ref(false)
 
 const selectionCount = computed(() => selectedIds.value.size)
 const downloadStore = useDownloadStore()
-
-// Export State
-const isExporting = ref(false)
 
 // Bulk Edit / Inline Edit State (from composable)
 const {
@@ -94,9 +94,11 @@ const searchParams = computed(() => ({
   sortOrder: sortOrder.value,
   is_package: filterType.value === 'all' ? undefined : filterType.value === 'package',
   status: filterStatus.value,
-  categoryInclude: JSON.stringify(filterCategory.value.include),
-  categoryExclude: JSON.stringify(filterCategory.value.exclude)
+  categoryInclude: JSON.stringify(filterCategory.value.include.map(String)),
+  categoryExclude: JSON.stringify(filterCategory.value.exclude.map(String))
 }))
+
+watch(filterCategory, { deep: true })
 
 const {
   data: productsData,
@@ -284,7 +286,7 @@ const handleBulkPrintLabel = () => {
   showStickerModal.value = true
 }
 
-const handleSingleSticker = (product) => {
+const handleSingleSticker = product => {
   printBatchList.value = [{ sku: product.sku, name: product.name, price: product.price, quantity: 1 }]
   showStickerModal.value = true
 }
@@ -402,52 +404,45 @@ watch(Slash, pressed => {
       <WmsActionHeader title="Manajemen Produk" icon="fa-solid fa-tags">
         <template #actions>
           <div class="flex flex-wrap gap-3">
+            <FilterToggle v-model="showFilters" />
             <button
               v-if="hasDirtyProducts"
               @click="handleCancelInlineEdit"
               :disabled="isSavingInline"
-              class="px-5 py-2.5 bg-danger hover:bg-danger/90 text-secondary rounded-xl shadow-md font-medium flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+              class="px-4 py-2 bg-danger hover:bg-danger/90 text-secondary rounded-xl font-medium flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
             >
               <font-awesome-icon icon="fa-solid fa-times" />
               <span class="hidden sm:inline">Batal</span>
             </button>
-
-            <!-- Tombol Simpan Perubahan (Muncul jika ada dirty) -->
             <button
               v-if="dirtyProducts.size > 0"
               @click="executeBulkSaveInline"
-              class="bg-accent/90 text-secondary px-4 py-2 rounded-lg font-medium shadow transition hover:bg-accent hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+              class="bg-accent/90 text-secondary px-4 py-2 rounded-lg font-medium transition hover:bg-accent hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
               :disabled="isSavingInline"
             >
               <font-awesome-icon v-if="isSavingInline" icon="fa-solid fa-spinner" spin class="mr-2" />
               <font-awesome-icon v-else icon="fa-solid fa-save" class="mr-2" />
               Simpan Semua ({{ dirtyProducts.size }})
             </button>
-
-            <!-- Tombol Batch Edit -->
             <button
               @click="showBatchEditModal = true"
-              class="px-5 py-2.5 bg-success/10 hover:bg-success/20 text-success rounded-xl shadow-md font-medium flex items-center gap-2 transition-all border border-success/30 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+              class="px-5 py-2 bg-background/30 hover:bg-secondary/80 text-text rounded-xl font-medium flex items-center gap-2 transition-all border-2 border-secondary hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
               title="Edit produk secara massal (Export & Import)"
             >
               <font-awesome-icon icon="fa-solid fa-pen-to-square" />
               <span class="hidden sm:inline">Batch Edit</span>
             </button>
-
-            <!-- Tombol Cetak Label -->
             <button
               @click="handleBulkPrintLabel"
-              class="px-5 py-2.5 bg-accent/10 hover:bg-accent/20 text-accent rounded-xl shadow-sm font-medium flex items-center gap-2 transition-all border border-accent/50 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+              class="px-5 py-2 bg-accent/10 hover:bg-accent/20 text-accent rounded-xl font-medium flex items-center gap-2 transition-all border border-accent/50 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
               title="Cetak Label untuk produk terpilih atau semua produk di halaman ini"
             >
               <font-awesome-icon icon="fa-solid fa-print" />
               <span class="hidden sm:inline">Cetak Label</span>
             </button>
-
-            <!-- Tombol Tambah Produk -->
             <button
               @click="openAddModal"
-              class="px-5 py-2.5 bg-primary hover:bg-primary/90 text-secondary rounded-xl shadow-lg font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+              class="px-5 py-2 bg-primary hover:bg-primary/90 text-background rounded-xl font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
             >
               <font-awesome-icon icon="fa-solid fa-plus" />
               <span>Tambah</span>
@@ -457,108 +452,110 @@ watch(Slash, pressed => {
       </WmsActionHeader>
 
       <!-- FILTER BAR COMPONENT -->
-      <BaseFilterPanel>
-        <template #filters>
-          <div class="flex flex-col lg:flex-row flex-wrap gap-4 items-center w-full">
-            <!-- Filter Tipe Produk -->
-            <div
-              class="flex bg-secondary/20 rounded-xl p-1 border border-secondary/10 shrink-0 overflow-x-auto w-full lg:w-auto"
-            >
-              <button
-                @click="filterType = 'all'"
-                class="px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2"
-                :class="
-                  filterType === 'all'
-                    ? 'bg-background text-text shadow-sm'
-                    : 'text-text/50 hover:text-text hover:bg-secondary/5'
-                "
+      <div v-show="showFilters" class="animate-fade-in-down mb-6">
+        <BaseFilterPanel>
+          <template #filters>
+            <div class="flex flex-col lg:flex-row flex-wrap gap-4 items-center w-full">
+              <!-- Filter Tipe Produk -->
+              <div
+                class="flex bg-secondary/20 rounded-xl p-1 border border-secondary/10 shrink-0 overflow-x-auto w-full lg:w-auto"
               >
-                <font-awesome-icon icon="fa-solid fa-layer-group" />
-                <span>Semua Tipe</span>
-              </button>
-              <button
-                @click="filterType = 'single'"
-                class="px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2"
-                :class="
-                  filterType === 'single'
-                    ? 'bg-primary/10 text-primary shadow-sm'
-                    : 'text-text/50 hover:text-primary hover:bg-primary/5'
-                "
-              >
-                <font-awesome-icon icon="fa-solid fa-box" />
-                <span>Satuan</span>
-              </button>
-              <button
-                @click="filterType = 'package'"
-                class="px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2"
-                :class="
-                  filterType === 'package'
-                    ? 'bg-accent/10 text-accent shadow-sm'
-                    : 'text-text/50 hover:text-accent hover:bg-accent/5'
-                "
-              >
-                <font-awesome-icon icon="fa-solid fa-boxes-stacked" />
-                <span>Paket</span>
-              </button>
-            </div>
+                <button
+                  @click="filterType = 'all'"
+                  class="px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2"
+                  :class="
+                    filterType === 'all'
+                      ? 'bg-background text-text'
+                      : 'text-text/50 hover:text-text hover:bg-secondary/5'
+                  "
+                >
+                  <font-awesome-icon icon="fa-solid fa-layer-group" />
+                  <span>Semua Tipe</span>
+                </button>
+                <button
+                  @click="filterType = 'single'"
+                  class="px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2"
+                  :class="
+                    filterType === 'single'
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-text/50 hover:text-primary hover:bg-primary/5'
+                  "
+                >
+                  <font-awesome-icon icon="fa-solid fa-box" />
+                  <span>Satuan</span>
+                </button>
+                <button
+                  @click="filterType = 'package'"
+                  class="px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2"
+                  :class="
+                    filterType === 'package'
+                      ? 'bg-accent/10 text-accent'
+                      : 'text-text/50 hover:text-accent hover:bg-accent/5'
+                  "
+                >
+                  <font-awesome-icon icon="fa-solid fa-boxes-stacked" />
+                  <span>Paket</span>
+                </button>
+              </div>
 
-            <!-- Filter Status -->
-            <div class="shrink-0 w-full sm:w-44">
-              <BaseSelect
-                v-model="filterStatus"
-                :options="statusOptions"
-                label="label"
-                track-by="id"
-                placeholder="Semua Status"
-                :searchable="false"
-                emit-value
-                clearable
-                clear-value="all"
-              />
-            </div>
-
-            <!-- Filter Kategori -->
-            <div class="shrink-0 w-full sm:w-48">
-              <TriStateSelect
-                v-model="filterCategory"
-                :options="categoryOptions"
-                label="label"
-                track="id"
-                placeholder="Semua Kategori"
-                :searchable="true"
-              />
-            </div>
-
-            <!-- Search Group -->
-            <div class="flex flex-col sm:flex-row flex-1 gap-2 w-full lg:w-auto lg:ml-auto">
-              <div class="shrink-0 w-full sm:w-28">
+              <!-- Filter Status -->
+              <div class="shrink-0 w-full sm:w-44">
                 <BaseSelect
-                  v-model="searchBy"
-                  :options="searchByOptions"
+                  v-model="filterStatus"
+                  :options="statusOptions"
                   label="label"
                   track-by="id"
-                  placeholder="Cari"
+                  placeholder="Semua Status"
                   :searchable="false"
                   emit-value
+                  clearable
+                  clear-value="all"
                 />
               </div>
 
-              <div class="relative flex-1">
-                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-text/40">
-                  <font-awesome-icon icon="fa-solid fa-search" />
-                </span>
-                <input
-                  id="global-search-input"
-                  v-model="searchQuery"
-                  type="text"
-                  :placeholder="`Cari ${searchBy === 'sku' ? 'SKU' : 'Nama'}...`"
-                  class="w-full pl-9 pr-4 py-2.5 bg-background border border-secondary/20 rounded-xl focus:outline-none focus:border-primary text-text text-sm placeholder-text/30 transition-all shadow-sm"
+              <!-- Filter Kategori -->
+              <div class="shrink-0 w-full sm:w-48">
+                <TriStateSelect
+                  v-model="filterCategory"
+                  :options="categoryOptions"
+                  label="label"
+                  track="id"
+                  placeholder="Semua Kategori"
+                  :searchable="true"
                 />
               </div>
+
+              <!-- Search Group -->
+              <div class="flex flex-col sm:flex-row flex-1 gap-2 w-full lg:w-auto lg:ml-auto">
+                <div class="shrink-0 w-full sm:w-28">
+                  <BaseSelect
+                    v-model="searchBy"
+                    :options="searchByOptions"
+                    label="label"
+                    track-by="id"
+                    placeholder="Cari"
+                    :searchable="false"
+                    emit-value
+                  />
+                </div>
+
+                <div class="relative flex-1">
+                  <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-text/40">
+                    <font-awesome-icon icon="fa-solid fa-search" />
+                  </span>
+                  <input
+                    id="global-search-input"
+                    v-model="searchQuery"
+                    type="text"
+                    :placeholder="`Cari ${searchBy === 'sku' ? 'SKU' : 'Nama'}...`"
+                    class="w-full pl-9 pr-4 py-2.5 bg-background border border-secondary/20 rounded-xl focus:outline-none focus:border-primary text-text text-sm placeholder-text/30 transition-all shadow-sm"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        </template>
-      </BaseFilterPanel>
+          </template>
+        </BaseFilterPanel>
+      </div>
     </div>
 
     <!-- TABLE COMPONENT -->

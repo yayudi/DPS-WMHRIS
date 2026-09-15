@@ -99,37 +99,37 @@ const routes = [
         path: 'return',
         name: 'WMSReturnView',
         component: () => import('../views/wms/WmsReturn.vue'),
-        meta: { requiresPermission: 'manage-stock-adjustment' }
+        meta: { requiresPermission: 'stock_adjustment.manage' }
       },
       {
         path: 'batch-movement',
         name: 'WMSBatchMovement',
         component: () => import('../views/wms/BatchMovement.vue'),
-        meta: { requiresPermission: 'perform-batch-movement' }
+        meta: { requiresPermission: 'stock_batch.move' }
       },
       {
         path: 'spreadsheet',
         name: 'WMSSpreadsheet',
         component: () => import('../views/wms/SpreadsheetTransaction.vue'),
-        meta: { requiresPermission: 'perform-batch-movement' }
+        meta: { requiresPermission: 'stock_batch.move' }
       },
       {
         path: 'picking-list',
         name: 'WMSPickingList',
         component: () => import('../views/wms/PickingList.vue'),
-        meta: { requiresPermission: 'upload-picking-list' }
+        meta: { requiresPermission: 'picking_list.upload' }
       },
       {
         path: 'batch-log',
         name: 'WMSBatchLog',
         component: () => import('../views/wms/BatchLogs.vue'),
-        meta: { requiresPermission: 'view-batch-log' }
+        meta: { requiresPermission: 'stock_batch_log.view' }
       },
       {
         path: 'batch-adjustment',
         name: 'WMSBatchAdjustment',
         component: () => import('../views/wms/BatchAdjustment.vue'),
-        meta: { requiresPermission: 'manage-stock-adjustment' }
+        meta: { requiresPermission: 'stock_adjustment.manage' }
       },
       {
         path: 'stock-requests',
@@ -141,7 +141,7 @@ const routes = [
         path: 'investigation-stock',
         name: 'InvestigationStock',
         component: () => import('../views/InvestigationStock.vue'),
-        meta: { requiresPermission: 'view-system-logs', title: 'Investigasi Stok' }
+        meta: { requiresPermission: 'system_log.view', title: 'Investigasi Stok' }
       }
     ]
   },
@@ -152,7 +152,7 @@ const routes = [
     meta: {
       requiresAuth: true,
       title: 'Input Retur Manual',
-      permission: 'manage-stock-adjustment'
+      permission: 'stock_adjustment.manage'
     }
   },
 
@@ -166,31 +166,31 @@ const routes = [
         path: 'users',
         name: 'UserManagement',
         component: () => import('../views/admin/UserManagement.vue'),
-        meta: { requiresPermission: 'manage-users' }
+        meta: { requiresPermission: 'user.manage' }
       },
       {
         path: 'roles',
         name: 'RoleManagement',
         component: () => import('../views/admin/RoleManagement.vue'),
-        meta: { requiresPermission: 'manage-roles' }
+        meta: { requiresPermission: 'role.manage' }
       },
       {
         path: 'products',
         name: 'ProductManagement',
         component: () => import('../views/admin/ProductManagement.vue'),
-        meta: { requiresPermission: 'manage-products' }
+        meta: { requiresPermission: 'product.manage' }
       },
       {
         path: 'packages',
         name: 'PackageManagement',
         component: () => import('../views/admin/PackageManagement.vue'),
-        meta: { requiresPermission: 'manage-products' }
+        meta: { requiresPermission: 'product.manage' }
       },
       {
         path: 'locations',
         name: 'LocationManagement',
         component: () => import('../views/admin/LocationManagement.vue'),
-        meta: { requiresPermission: 'manage-locations' }
+        meta: { requiresPermission: 'location.manage' }
       },
       {
         path: 'categories',
@@ -209,25 +209,25 @@ const routes = [
         path: 'reports',
         name: 'Reports',
         component: () => import('../views/admin/ReportsView.vue'),
-        meta: { requiresPermission: 'view-reports' }
+        meta: { requiresPermission: 'report.view' }
       },
       {
         path: 'logs',
         name: 'Logs',
         component: () => import('../views/admin/LogsView.vue'),
-        meta: { requiresPermission: 'view-system-logs' }
+        meta: { requiresPermission: 'system_log.view' }
       },
       {
         path: 'shifts',
         name: 'ShiftManagement',
         component: () => import('../views/admin/ShiftManagement.vue'),
-        meta: { requiresPermission: 'manage-users' }
+        meta: { requiresPermission: 'user.manage' }
       },
       {
         path: 'schedules',
         name: 'ShiftSchedule',
         component: () => import('../views/admin/ShiftSchedule.vue'),
-        meta: { requiresPermission: 'manage-users' }
+        meta: { requiresPermission: 'user.manage' }
       }
     ]
   },

@@ -16,6 +16,7 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import TriStateSelect from '@/components/ui/TriStateSelect.vue'
 import BaseFilterPanel from '@/components/ui/BaseFilterPanel.vue'
+import FilterToggle from '@/components/ui/FilterToggle.vue'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import BaseContextMenu from '@/components/ui/BaseContextMenu.vue'
 import { useContextMenu } from '@/composables/useContextMenu.js'
@@ -34,6 +35,7 @@ const selectedUser = ref(null)
 const searchQuery = ref('')
 const searchRole = ref({ include: [], exclude: [] })
 const searchShift = ref({ include: [], exclude: [] })
+const showFilters = ref(false)
 
 // State untuk semua modal
 const isCreateModalOpen = ref(false)
@@ -200,6 +202,7 @@ onMounted(fetchData)
 <template>
   <WmsActionHeader title="Manajemen Pengguna" icon="fa-solid fa-users">
     <template #actions>
+      <FilterToggle v-model="showFilters" />
       <button
         @click="isCreateModalOpen = true"
         class="bg-primary text-secondary text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90 hover:shadow-sm transition-colors flex items-center gap-2 w-full md:w-auto justify-center"
@@ -212,7 +215,8 @@ onMounted(fetchData)
 
   <div class="p-6">
     <!-- Filter Section -->
-    <BaseFilterPanel class="mb-6">
+    <div v-show="showFilters" class="animate-fade-in-down mb-6">
+      <BaseFilterPanel>
       <template #filters>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:flex xl:flex-row lg:justify-between items-end gap-4">
           <!-- Search -->
@@ -267,7 +271,8 @@ onMounted(fetchData)
           </button>
         </div>
       </template>
-    </BaseFilterPanel>
+      </BaseFilterPanel>
+    </div>
 
     <div
       class="bg-secondary/5 shadow-md rounded-xl border border-secondary/20 overflow-x-auto overflow-y-auto relative custom-scrollbar h-[calc(70vh)]"

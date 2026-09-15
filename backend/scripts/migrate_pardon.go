@@ -9,7 +9,7 @@ import (
 
 func main() {
 	if err := godotenv.Load("../.env"); err != nil {
-		godotenv.Load("../../.env")
+		_ = godotenv.Load("../../.env") // #nosec G104
 	}
 	config.LoadConfig()
 	db := database.ConnectDB()

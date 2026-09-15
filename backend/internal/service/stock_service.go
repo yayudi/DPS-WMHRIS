@@ -490,16 +490,16 @@ func (s *stockServiceImpl) GenerateAdjustmentTemplate(ctx context.Context) (*exc
 
 	f := excelize.NewFile()
 	mainSheet := "Input Stok"
-	f.SetSheetName("Sheet1", mainSheet)
+	_ = f.SetSheetName("Sheet1", mainSheet) // #nosec G104
 	
 	// DataValidasi sheet for dropdown
 	validSheet := "DataValidasi"
-	f.NewSheet(validSheet)
-	f.SetSheetVisible(validSheet, false)
+	_, _ = f.NewSheet(validSheet) // #nosec G104
+	_ = f.SetSheetVisible(validSheet, false) // #nosec G104
 
 	for i, loc := range locations {
 		cell, _ := excelize.CoordinatesToCellName(1, i+1)
-		f.SetCellValue(validSheet, cell, loc.Code)
+		_ = f.SetCellValue(validSheet, cell, loc.Code) // #nosec G104
 	}
 
 	styles := utils.InitExcelStyles(f)
@@ -513,7 +513,7 @@ func (s *stockServiceImpl) GenerateAdjustmentTemplate(ctx context.Context) (*exc
 		dv.SetError(excelize.DataValidationErrorStyleWarning, "Lokasi Tidak Valid", "Silakan pilih lokasi yang valid dari daftar dropdown.")
 		formula := fmt.Sprintf("DataValidasi!$A$1:$A$%d", len(locations))
 		dv.SetSqrefDropList(formula)
-		f.AddDataValidation(mainSheet, dv)
+		_ = f.AddDataValidation(mainSheet, dv) // #nosec G104
 	}
 
 	return f, nil
@@ -527,16 +527,16 @@ func (s *stockServiceImpl) GenerateInboundTemplate(ctx context.Context) (*exceli
 
 	f := excelize.NewFile()
 	mainSheet := "Inbound Stok"
-	f.SetSheetName("Sheet1", mainSheet)
+	_ = f.SetSheetName("Sheet1", mainSheet) // #nosec G104
 	
 	// DataValidasi sheet for dropdown
 	validSheet := "DataValidasi"
-	f.NewSheet(validSheet)
-	f.SetSheetVisible(validSheet, false)
+	_, _ = f.NewSheet(validSheet) // #nosec G104
+	_ = f.SetSheetVisible(validSheet, false) // #nosec G104
 
 	for i, loc := range locations {
 		cell, _ := excelize.CoordinatesToCellName(1, i+1)
-		f.SetCellValue(validSheet, cell, loc.Code)
+		_ = f.SetCellValue(validSheet, cell, loc.Code) // #nosec G104
 	}
 
 	styles := utils.InitExcelStyles(f)
@@ -550,7 +550,7 @@ func (s *stockServiceImpl) GenerateInboundTemplate(ctx context.Context) (*exceli
 		dv.SetError(excelize.DataValidationErrorStyleWarning, "Lokasi Tidak Valid", "Silakan pilih lokasi yang valid dari daftar dropdown.")
 		formula := fmt.Sprintf("DataValidasi!$A$1:$A$%d", len(locations))
 		dv.SetSqrefDropList(formula)
-		f.AddDataValidation(mainSheet, dv)
+		_ = f.AddDataValidation(mainSheet, dv) // #nosec G104
 	}
 
 	return f, nil

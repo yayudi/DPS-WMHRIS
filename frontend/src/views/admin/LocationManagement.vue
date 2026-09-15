@@ -2,7 +2,8 @@
 <script setup>
 import { swalConfirm } from '@/composables/useSweetAlert'
 import WmsActionHeader from '@/components/wms/shared/WmsActionHeader.vue'
-import { ref, computed, onMounted, watch } from 'vue'
+import FilterToggle from '@/components/ui/FilterToggle.vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useFirebaseSync } from '@/composables/useFirebaseSync'
 import { useMagicKeys } from '@vueuse/core'
 import { useToast } from '@/composables/useToast.js'
@@ -32,8 +33,9 @@ const purposeOptions = computed(() => {
   return [...new Set([...defaults, ...fromData])]
 })
 const searchQuery = ref('')
-const selectedPurpose = ref('all')
 const selectedBuilding = ref('all')
+const selectedPurpose = ref('all')
+const showFilters = ref(false)
 
 const buildingOptions = computed(() => {
   const buildings = allLocations.value.map(l => l.building).filter(Boolean)
@@ -199,6 +201,7 @@ watch(Alt_S, pressed => {
 <template>
   <WmsActionHeader title="Manajemen Lokasi" icon="fa-solid fa-map-marker-alt">
     <template #actions>
+      <FilterToggle v-model="showFilters" />
       <button
         @click="openCreateModal"
         class="bg-primary text-secondary text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
@@ -212,7 +215,8 @@ watch(Alt_S, pressed => {
   <div class="flex flex-col gap-4">
     <!-- Filter Bar -->
     <div
-      class="flex flex-col md:flex-row gap-4 items-center justify-between bg-background p-4 rounded-xl shadow-sm border border-secondary/20"
+      v-show="showFilters"
+      class="flex flex-col md:flex-row gap-4 items-center justify-between bg-background p-4 rounded-xl shadow-sm border border-secondary/20 animate-fade-in-down"
     >
       <div class="w-full md:w-96 relative group">
         <font-awesome-icon

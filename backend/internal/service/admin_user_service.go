@@ -1,6 +1,7 @@
 package service
 
 import (
+	"log"
 	"context"
 	"encoding/json"
 	"errors"
@@ -81,7 +82,7 @@ func (s *adminUserServiceImpl) CreateUser(ctx context.Context, req dto.AdminCrea
 	if ip != "" { ipPtr = &ip }
 	if userAgent != "" { uaPtr = &userAgent }
 
-	s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
+	if errLog := s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
 		UserID:     adminID,
 		Action:     "CREATE",
 		TargetType: "USER",
@@ -89,7 +90,9 @@ func (s *adminUserServiceImpl) CreateUser(ctx context.Context, req dto.AdminCrea
 		Changes:    &changesStr,
 		IP:         ipPtr,
 		UserAgent:  uaPtr,
-	})
+	}); errLog != nil {
+		log.Printf("Failed to save system log: %v", errLog)
+	}
 
 	return &newUser, nil
 }
@@ -171,7 +174,7 @@ func (s *adminUserServiceImpl) UpdateUser(ctx context.Context, targetID int, req
 		if ip != "" { ipPtr = &ip }
 		if userAgent != "" { uaPtr = &userAgent }
 
-		s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
+		if errLog := s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
 			UserID:     adminID,
 			Action:     "UPDATE",
 			TargetType: "USER",
@@ -179,7 +182,9 @@ func (s *adminUserServiceImpl) UpdateUser(ctx context.Context, targetID int, req
 			Changes:    &changesStr,
 			IP:         ipPtr,
 			UserAgent:  uaPtr,
-		})
+		}); errLog != nil {
+		log.Printf("Failed to save system log: %v", errLog)
+	}
 	}
 
 	return nil
@@ -208,7 +213,7 @@ func (s *adminUserServiceImpl) DeleteUser(ctx context.Context, targetID int, adm
 	if ip != "" { ipPtr = &ip }
 	if userAgent != "" { uaPtr = &userAgent }
 
-	s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
+	if errLog := s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
 		UserID:     adminID,
 		Action:     "DELETE",
 		TargetType: "USER",
@@ -216,7 +221,9 @@ func (s *adminUserServiceImpl) DeleteUser(ctx context.Context, targetID int, adm
 		Changes:    &changesStr,
 		IP:         ipPtr,
 		UserAgent:  uaPtr,
-	})
+	}); errLog != nil {
+		log.Printf("Failed to save system log: %v", errLog)
+	}
 
 	return nil
 }
@@ -254,7 +261,7 @@ func (s *adminUserServiceImpl) UpdateUserLocations(ctx context.Context, targetID
 	if ip != "" { ipPtr = &ip }
 	if userAgent != "" { uaPtr = &userAgent }
 
-	s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
+	if errLog := s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
 		UserID:     adminID,
 		Action:     "UPDATE",
 		TargetType: "USER",
@@ -262,7 +269,9 @@ func (s *adminUserServiceImpl) UpdateUserLocations(ctx context.Context, targetID
 		Changes:    &changesStr,
 		IP:         ipPtr,
 		UserAgent:  uaPtr,
-	})
+	}); errLog != nil {
+		log.Printf("Failed to save system log: %v", errLog)
+	}
 
 	return nil
 }

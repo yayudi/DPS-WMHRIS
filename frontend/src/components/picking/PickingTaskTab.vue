@@ -473,7 +473,7 @@ defineExpose({
               </button>
 
               <button
-                v-if="authStore.hasPermission('void-picking-list')"
+                v-if="authStore.hasPermission('picking_list.void')"
                 @click="handleVoidSelectedItems"
                 class="flex-1 sm:flex-none group relative overflow-hidden bg-danger hover:bg-danger/90 text-background px-4 sm:pl-6 sm:pr-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-primary/30 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:bg-secondary disabled:text-text/50 disabled:shadow-none"
                 :disabled="isVoiding || isLoadingPicking || isRetryingBatch || selectedItems.size === 0"

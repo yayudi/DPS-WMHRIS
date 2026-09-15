@@ -90,7 +90,7 @@ func (h *PackageHandler) ImportPackagesBatch(c *gin.Context) {
 
 	filename := fmt.Sprintf("import_%d%s", time.Now().UnixNano(), ext)
 	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "package")
-	os.MkdirAll(uploadDir, os.ModePerm)
+	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
 	savePath := filepath.Join(uploadDir, filename)
 
 	if err := c.SaveUploadedFile(file, savePath); err != nil {

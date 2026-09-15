@@ -7,7 +7,7 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 
 const props = defineProps({
   isOpen: Boolean,
-  logData: Object,
+  logData: Object
 })
 
 const emit = defineEmits(['close', 'update'])
@@ -18,7 +18,7 @@ const form = ref({
   timeOut: '',
   latePardonMinutes: 0,
   isFullPardon: false,
-  notes: '',
+  notes: ''
 })
 
 const isLoading = ref(false)
@@ -27,7 +27,7 @@ const errorMsg = ref('')
 // Initialize form when logData changes
 watch(
   () => props.logData,
-  (newVal) => {
+  newVal => {
     if (newVal) {
       // Determine status from existing data
       let currentStatus = 'HADIR'
@@ -48,11 +48,11 @@ watch(
         timeOut: newVal.jamKeluar ? minutesToTimeStr(newVal.jamKeluar) : '',
         latePardonMinutes: newVal.late_pardon_minutes || 0,
         isFullPardon: (newVal.late_pardon_minutes || 0) >= 480,
-        notes: newVal.notes || '', // No need to replace regex anymore
+        notes: newVal.notes || '' // No need to replace regex anymore
       }
     }
   },
-  { immediate: true },
+  { immediate: true }
 )
 
 function minutesToTimeStr(minutes) {
@@ -68,7 +68,7 @@ const statusOptions = [
   { value: 'HADIR', label: 'Hadir' },
   { value: 'SAKIT', label: 'Sakit' },
   { value: 'IZIN', label: 'Izin' },
-  { value: 'ALPHA', label: 'Alpha / Tanpa Ket' },
+  { value: 'ALPHA', label: 'Alpha / Tanpa Ket' }
 ]
 
 const canSave = computed(() => {
@@ -93,7 +93,7 @@ async function handleSave() {
       timeIn: form.value.timeIn,
       timeOut: form.value.timeOut,
       latePardonMinutes: form.value.isFullPardon ? 480 : form.value.latePardonMinutes,
-      notes: form.value.notes,
+      notes: form.value.notes
     }
 
     const { data } = await axios.post('/attendance/update', payload)
@@ -113,7 +113,7 @@ async function handleSave() {
 // --- LOCAL HOTKEYS ---
 const { Alt_S } = useMagicKeys()
 
-watch(Alt_S, (pressed) => {
+watch(Alt_S, pressed => {
   if (pressed && props.isOpen && !isLoading.value && canSave.value) {
     handleSave()
   }
@@ -146,13 +146,7 @@ watch(Alt_S, (pressed) => {
       <!-- Status -->
       <div>
         <label class="block text-xs font-bold uppercase text-text/50 mb-1">Status Kehadiran</label>
-        <BaseSelect
-          v-model="form.status"
-          :options="statusOptions"
-          track-by="value"
-          emit-value
-          :searchable="false"
-        />
+        <BaseSelect v-model="form.status" :options="statusOptions" track-by="value" emit-value :searchable="false" />
       </div>
 
       <!-- Times and Pardon -->
@@ -174,7 +168,9 @@ watch(Alt_S, (pressed) => {
           />
         </div>
         <div class="flex flex-col">
-          <label class="block text-[10px] font-bold uppercase text-text/50 mb-1 leading-tight">Pengampunan Keterlambatan</label>
+          <label class="block text-[10px] font-bold uppercase text-text/50 mb-1 leading-tight"
+            >Pengampunan Keterlambatan</label
+          >
           <div class="flex items-center gap-2 mt-1 mb-2">
             <input type="checkbox" id="fullPardon" v-model="form.isFullPardon" class="accent-primary w-4 h-4" />
             <label for="fullPardon" class="text-xs font-medium cursor-pointer text-text">Diampuni Penuh</label>
@@ -194,9 +190,7 @@ watch(Alt_S, (pressed) => {
 
       <!-- Notes -->
       <div>
-        <label class="block text-xs font-bold uppercase text-text/50 mb-1"
-          >Catatan / Keterangan</label
-        >
+        <label class="block text-xs font-bold uppercase text-text/50 mb-1">Catatan / Keterangan</label>
         <textarea
           v-model="form.notes"
           rows="3"
@@ -221,7 +215,7 @@ watch(Alt_S, (pressed) => {
         <button
           @click="handleSave"
           :disabled="isLoading || !canSave"
-          class="px-4 py-2 text-sm font-bold text-background bg-primary hover:bg-primary/90 rounded-lg shadow-lg shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
+          class="px-4 py-2 text-sm font-bold text-background bg-primary hover:bg-primary/90 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
         >
           <span v-if="isLoading" class="animate-spin text-background">
             <font-awesome-icon icon="fa-solid fa-spinner" />

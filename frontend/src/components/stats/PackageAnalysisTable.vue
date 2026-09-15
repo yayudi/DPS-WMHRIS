@@ -3,6 +3,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { dayjs } from '@/api/helpers/time.js'
 import FilterBar from '@/components/ui/FilterBar.vue'
+import FilterToggle from '@/components/ui/FilterToggle.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import { usePagination } from '@/composables/usePagination.js'
 import { fetchPackageAnalysis } from '@/api/helpers/stats.js'
@@ -13,6 +14,7 @@ const masterStore = useMasterDataStore()
 const isDataLoading = ref(false)
 const analysisData = ref([])
 const expandedRows = ref([])
+const showFilters = ref(false)
 
 const filterValues = ref({
   reportType: 'monthly',
@@ -251,13 +253,19 @@ const getStatusText = status => {
 
 <template>
   <div class="space-y-6">
-    <div class="mb-6 border-b border-secondary/20 pb-4">
-      <h3 class="text-lg font-bold text-text">Analisa Kebutuhan Komponen Paket</h3>
-      <p class="text-sm text-text/50 mt-1">Estimasi kebutuhan komponen berdasarkan histori penjualan paket.</p>
+    <div class="mb-6 border-b border-secondary/20 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h3 class="text-lg font-bold text-text">Analisa Kebutuhan Komponen Paket</h3>
+        <p class="text-sm text-text/50 mt-1">Estimasi kebutuhan komponen berdasarkan histori penjualan paket.</p>
+      </div>
+      <div class="flex items-center w-full md:w-auto">
+        <FilterToggle v-model="showFilters" />
+      </div>
     </div>
 
     <!-- Filter Controls -->
-    <FilterBar
+    <div v-show="showFilters" class="animate-fade-in-down">
+      <FilterBar
       v-model="filterValues"
       :filters="mainFilters"
       @change="applyFilters"
@@ -278,6 +286,7 @@ const getStatusText = status => {
         }
       "
     />
+    </div>
 
     <!-- Loading -->
     <main

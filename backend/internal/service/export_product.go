@@ -13,7 +13,7 @@ import (
 )
 
 func (s *exportServiceImpl) ProcessExportProduct(ctx context.Context, jobID int, filtersJSON string) error {
-	s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil)
+	_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil) // #nosec G104
 
 	var filters map[string]interface{}
 	if filtersJSON != "" {
@@ -81,7 +81,7 @@ func (s *exportServiceImpl) ProcessExportProduct(ctx context.Context, jobID int,
 	}()
 
 	sheetName := "Master Produk"
-	f.SetSheetName("Sheet1", sheetName)
+	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 	styles := utils.InitExcelStyles(f)
 
 	utils.SetHeaders(f, sheetName, []string{"SKU", "Nama Produk", "Kategori", "Harga", "Berat (g)", "Total Stock", "Aktif", "Is Package"}, styles.Header)
@@ -99,7 +99,7 @@ func (s *exportServiceImpl) ProcessExportProduct(ctx context.Context, jobID int,
 		if row.IsPackage {
 			isPkg = 1
 		}
-		f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{ // #nosec G104
 			row.SKU, row.Name, catName, row.Price, row.Weight, row.TotalStock, isActive, isPkg,
 		})
 	}

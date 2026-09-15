@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import FilterBar from '@/components/ui/FilterBar.vue'
+import FilterToggle from '@/components/ui/FilterToggle.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import { useReturnManager } from '@/composables/useReturnManager'
 import { formatDate } from '@/api/helpers/time'
@@ -29,6 +30,8 @@ const {
   changePage,
   changeLimit
 } = useReturnManager()
+
+const showFilters = ref(false)
 
 // --- WATCHER: SET DEFAULT LOCATIONS ---
 watch(showProcessModal, isOpen => {
@@ -173,62 +176,64 @@ watch(Slash, pressed => {
 <template>
   <div class="space-y-6 animate-fade-in text-text">
     <!-- Top Section: Header & Actions -->
-    <div class="p-6 pb-4">
-      <FilterBar title="Manajemen Retur" :filters="returnFilters" v-model="filterState" @clear="handleClearFilters">
-        <template #tabs>
-          <!-- Custom basic tab styling since we removed BaseTabs -->
-          <div class="flex gap-2">
-            <button
-              v-for="tab in tabList"
-              :key="tab.value"
-              @click="activeTab = tab.value"
-              class="px-4 py-2 rounded-lg text-xs font-bold transition-colors"
-              :class="
-                activeTab === tab.value
-                  ? 'bg-primary text-secondary shadow-md'
-                  : 'bg-background hover:bg-secondary/10 text-text/60'
-              "
-            >
-              {{ tab.label }}
-            </button>
-          </div>
-        </template>
+    <div class="p-6 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <h3 class="text-xl font-bold text-text">Manajemen Retur</h3>
+    </div>
 
-        <template #search>
-          <div class="relative w-full max-w-sm">
-            <font-awesome-icon
-              icon="fa-solid fa-search"
-              class="absolute left-3 top-1/2 -translate-y-1/2 text-text/30 text-xs"
-            />
-            <input
-              ref="searchInputRef"
-              v-model="searchQuery"
-              type="text"
-              placeholder="Cari Invoice, SKU (Tekan / )"
-              class="input-filter pl-9 w-full"
-            />
-          </div>
-        </template>
+    <!-- Top Controls: Tabs, Search, Actions -->
+    <div
+      class="px-6 pb-4 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-secondary/20"
+    >
+      <!-- Tabs (Left) -->
+      <div class="flex gap-2 w-full xl:w-auto overflow-x-auto pb-2 xl:pb-0 shrink-0 custom-scrollbar">
+        <button
+          v-for="tab in tabList"
+          :key="tab.value"
+          @click="activeTab = tab.value"
+          class="px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap"
+          :class="
+            activeTab === tab.value
+              ? 'bg-primary text-secondary shadow-md'
+              : 'bg-secondary/10 hover:bg-secondary/20 text-text/60'
+          "
+        >
+          {{ tab.label }}
+        </button>
+      </div>
 
-        <template #actions>
-          <div class="flex items-center gap-2">
-            <button
-              @click="goToManualPage"
-              class="bg-accent text-secondary px-4 py-2 rounded-lg text-xs font-bold hover:bg-accent/90 shadow-lg shadow-accent/20 transition-all flex items-center gap-2"
-            >
-              <font-awesome-icon icon="fa-solid fa-plus" />
-              <span>Retur Manual</span>
-            </button>
+      <!-- Controls (Right) -->
+      <div
+        class="flex flex-col sm:flex-row items-center justify-between sm:justify-end gap-3 w-full xl:w-auto flex-wrap sm:flex-nowrap"
+      >
+        <div class="relative w-full sm:w-64 shrink-0">
+          <font-awesome-icon icon="fa-solid fa-search" class="absolute left-3 top-1/2 -translate-y-1/2 text-text/40" />
+          <input
+            ref="searchInputRef"
+            v-model="searchQuery"
+            type="text"
+            placeholder="Cari Invoice, SKU ( / )"
+            class="w-full h-[42px] pl-9 pr-4 py-2 bg-background border border-secondary/20 rounded-lg text-sm focus:outline-none focus:border-primary transition-colors text-text shadow-sm"
+          />
+        </div>
+        <FilterToggle v-model="showFilters" class="shrink-0" />
+        <button
+          @click="goToManualPage"
+          class="w-full h-[42px] sm:w-auto bg-accent text-secondary px-4 py-2 rounded-lg text-sm font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2 shadow-sm shrink-0"
+        >
+          <font-awesome-icon icon="fa-solid fa-plus" />
+          <span>Retur Manual</span>
+        </button>
+      </div>
+    </div>
 
-            <!-- Stats / Counter -->
-            <div
-              class="flex items-center justify-end px-3 py-2 text-xs font-bold text-text/40 bg-secondary/5 rounded-lg border border-secondary/10"
-            >
-              <span>{{ pagination.total }} Data</span>
-            </div>
-          </div>
-        </template>
-      </FilterBar>
+    <!-- Filter Controls -->
+    <div v-show="showFilters" class="px-6 pb-4 animate-fade-in-down border-b border-secondary/20 pt-4">
+      <FilterBar
+        :filters="returnFilters"
+        :modelValue="filterState"
+        @update:modelValue="Object.assign(filterState, $event)"
+        @clear="handleClearFilters"
+      />
     </div>
 
     <!-- Table Container -->
@@ -236,7 +241,6 @@ watch(Slash, pressed => {
       class="bg-secondary/5 rounded-xl border border-secondary/20 overflow-hidden shadow-sm min-h-[400px] relative flex flex-col"
     >
       <!-- Table Header -->
-      <!-- Table Header (Desktop Only) -->
       <div
         class="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-secondary/10 border-b border-secondary/20 text-[10px] font-bold uppercase tracking-wider text-text/60"
       >
@@ -286,11 +290,10 @@ watch(Slash, pressed => {
       <div v-else class="divide-y divide-secondary/10 bg-background flex-1">
         <transition-group name="list">
           <div
-            v-for="item in items"
-            :key="item.id"
+            v-for="(item, index) in items"
+            :key="item.id || item.reference || item.original_invoice_id || index"
             class="grid grid-cols-12 gap-4 px-6 py-4 items-start hover:bg-primary/[0.02] transition-colors group"
           >
-            <!-- Col 1: Invoice -->
             <div class="col-span-12 md:col-span-3">
               <div class="flex flex-col items-start gap-1.5">
                 <span
@@ -313,8 +316,6 @@ watch(Slash, pressed => {
                 </div>
               </div>
             </div>
-
-            <!-- Col 2: Produk -->
             <div :class="activeTab === 'pending' ? 'col-span-12 md:col-span-4' : 'col-span-12 md:col-span-2'">
               <div class="font-bold text-text text-sm mb-0.5">
                 {{ item.sku || item.original_sku }}
@@ -323,8 +324,6 @@ watch(Slash, pressed => {
                 {{ item.product_name }}
               </div>
             </div>
-
-            <!-- Col 3: Qty -->
             <div class="col-span-6 md:col-span-2 flex md:justify-center items-center gap-2 md:gap-0">
               <span class="md:hidden text-[10px] font-bold text-text/40 uppercase">Qty:</span>
               <span
@@ -333,8 +332,6 @@ watch(Slash, pressed => {
                 {{ item.quantity }}
               </span>
             </div>
-
-            <!-- Col 4: Sumber (Now Visible on Mobile) -->
             <div class="col-span-6 md:col-span-2 flex md:justify-center items-center gap-2 md:gap-0">
               <span class="md:hidden text-[10px] font-bold text-text/40 uppercase">Source:</span>
               <span
@@ -346,8 +343,6 @@ watch(Slash, pressed => {
                 {{ item.source || (item.type === 'MANUAL' ? 'Manual' : 'Marketplace') }}
               </span>
             </div>
-
-            <!-- Col 4.5: Lokasi & Notes (Only History) -->
             <div
               v-if="activeTab === 'history'"
               class="col-span-12 md:col-span-2 flex flex-col items-start gap-1 mt-2 md:mt-0"
@@ -370,8 +365,6 @@ watch(Slash, pressed => {
                 {{ item.notes }}
               </div>
             </div>
-
-            <!-- Col 5: Action -->
             <div class="col-span-12 md:col-span-1 flex justify-end items-start mt-2 md:mt-0">
               <button
                 v-if="activeTab === 'pending'"
@@ -382,7 +375,6 @@ watch(Slash, pressed => {
                 <font-awesome-icon icon="fa-solid fa-check" />
                 <span>Proses</span>
               </button>
-
               <div v-else class="flex flex-col items-end gap-1 w-full md:w-auto">
                 <span
                   v-if="item.condition === 'BAD'"

@@ -5,6 +5,7 @@ import { ref, onMounted, watch } from 'vue'
 import axios from '@/api/axios.js'
 import { dayjs } from '@/api/helpers/time.js'
 import DateRangeFilter from '@/components/ui/DateRangeFilter.vue'
+import FilterToggle from '@/components/ui/FilterToggle.vue'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import TriStateSelect from '@/components/ui/TriStateSelect.vue'
@@ -36,6 +37,7 @@ const targetFilter = ref({ include: [], exclude: [] })
 
 const startDate = ref(null)
 const endDate = ref(null)
+const showFilters = ref(false)
 
 const actionOptions = [
   { id: 'CREATE', label: 'CREATE' },
@@ -127,6 +129,7 @@ onMounted(() => {
   <div class="px-6">
     <WmsActionHeader title="Audit Logs" icon="fa-solid fa-history">
       <template #actions>
+        <FilterToggle v-model="showFilters" />
         <button
           @click="fetchLogs"
           class="bg-primary/10 text-primary px-4 py-2 rounded-lg hover:bg-primary/20 transition-colors"
@@ -138,7 +141,7 @@ onMounted(() => {
     </WmsActionHeader>
 
     <!-- Filters -->
-    <div class="bg-background rounded-xl shadow-sm border border-secondary/20 p-4 mb-6 flex flex-wrap gap-4">
+    <div v-show="showFilters" class="animate-fade-in-down bg-background rounded-xl shadow-sm border border-secondary/20 p-4 mb-6 flex flex-wrap gap-4">
       <div class="flex-1 min-w-[200px]">
         <input
           v-model="search"

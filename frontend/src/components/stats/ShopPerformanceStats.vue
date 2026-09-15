@@ -3,6 +3,7 @@ import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
 import { dayjs } from '@/api/helpers/time.js'
 import { useTheme } from '@/composables/useTheme.js'
 import FilterBar from '@/components/ui/FilterBar.vue'
+import FilterToggle from '@/components/ui/FilterToggle.vue'
 import { fetchShopPerformance } from '@/api/helpers/stats.js'
 import api from '@/api/axios'
 const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
@@ -12,6 +13,7 @@ import { formatNumber, formatCurrency } from '@/utils/formatters.js'
 const { themeColors, isDarkTheme, isThemeChanging } = useTheme()
 const isDataLoading = ref(false)
 const activeTab = ref('summary')
+const showFilters = ref(false)
 
 // Data from API
 const summaryData = ref([])
@@ -142,29 +144,30 @@ const mainFilters = computed(() => {
   } else {
     filters.push({ type: 'daterange', keyStart: 'startDate', keyEnd: 'endDate', label: 'Rentang Waktu' })
   }
+
+  filters.push(
+    {
+      type: 'triselect',
+      key: 'source',
+      label: 'Saluran Marketplace',
+      options: sourceOptions,
+      optionLabel: 'label',
+      trackBy: 'id',
+      placeholder: 'Semua Saluran'
+    },
+    {
+      type: 'triselect',
+      key: 'shopName',
+      label: 'Nama Toko / Sales',
+      options: shopOptions.value,
+      optionLabel: 'label',
+      trackBy: 'id',
+      placeholder: 'Semua Toko / Sales'
+    }
+  )
+
   return filters
 })
-
-const advancedFilters = computed(() => [
-  {
-    type: 'triselect',
-    key: 'source',
-    label: 'Saluran Marketplace',
-    options: sourceOptions,
-    optionLabel: 'label',
-    trackBy: 'id',
-    placeholder: 'Semua Saluran'
-  },
-  {
-    type: 'triselect',
-    key: 'shopName',
-    label: 'Nama Toko / Sales',
-    options: shopOptions.value,
-    optionLabel: 'label',
-    trackBy: 'id',
-    placeholder: 'Semua Toko / Sales'
-  }
-])
 
 const fetchStatistics = async () => {
   const payload = getApiPayload()
@@ -377,32 +380,40 @@ const periodLabel = computed(() => {
 
 <template>
   <div class="space-y-6">
-    <div class="mb-6 border-b border-secondary/20 pb-4">
-      <h3 class="text-lg font-bold text-text">Penjualan & Performa Toko</h3>
-      <p class="text-sm text-text/50 mt-1">Analitik penjualan, tren, dan kesehatan pemenuhan per toko.</p>
+    <div
+      class="mb-6 border-b border-secondary/20 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+    >
+      <div>
+        <h3 class="text-lg font-bold text-text">Penjualan & Performa Toko</h3>
+        <p class="text-sm text-text/50 mt-1">Analitik penjualan, tren, dan kesehatan pemenuhan per toko.</p>
+      </div>
+      <div class="flex items-center w-full md:w-auto">
+        <FilterToggle v-model="showFilters" />
+      </div>
     </div>
 
     <!-- Filter Controls -->
-    <FilterBar
-      v-model="filterValues"
-      :filters="mainFilters"
-      :advancedFilters="advancedFilters"
-      @change="applyFilters"
-      @clear="
-        () => {
-          filterValues = {
-            reportType: 'monthly',
-            year: new Date().getFullYear(),
-            selectedMonth: ('0' + (new Date().getMonth() + 1)).slice(-2),
-            startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
-            endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
-            source: { include: [], exclude: [] },
-            shopName: { include: [], exclude: [] }
+    <div v-show="showFilters" class="animate-fade-in-down">
+      <FilterBar
+        v-model="filterValues"
+        :filters="mainFilters"
+        @change="applyFilters"
+        @clear="
+          () => {
+            filterValues = {
+              reportType: 'monthly',
+              year: new Date().getFullYear(),
+              selectedMonth: ('0' + (new Date().getMonth() + 1)).slice(-2),
+              startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
+              endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
+              source: { include: [], exclude: [] },
+              shopName: { include: [], exclude: [] }
+            }
+            applyFilters()
           }
-          applyFilters()
-        }
-      "
-    />
+        "
+      />
+    </div>
 
     <!-- Tabs -->
     <div class="flex gap-1 bg-secondary/10 p-1 rounded-xl overflow-x-auto">
@@ -557,9 +568,7 @@ const periodLabel = computed(() => {
                   </td>
                   <td class="px-6 py-4 text-right">
                     <div class="flex items-center justify-end gap-2">
-                      <span class="text-xs font-bold"
-                        >{{ getPercentage(item.total_orders, totalOrdersOverall) }}%</span
-                      >
+                      <span class="text-xs font-bold">{{ getPercentage(item.total_orders, totalOrdersOverall) }}%</span>
                       <div class="w-16 h-1.5 bg-secondary/20 rounded-full overflow-hidden">
                         <div
                           class="h-full bg-accent"

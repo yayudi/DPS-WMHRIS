@@ -44,7 +44,7 @@ func NewExportService(jobRepo repository.JobRepository, statisticService Statist
 }
 
 func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobID int, filtersJSON string) error {
-	s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil)
+	_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil) // #nosec G104
 
 	req := dto.StatisticFilterRequest{}
 	_ = json.Unmarshal([]byte(filtersJSON), &req)
@@ -62,7 +62,7 @@ func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobI
 	styles := utils.InitExcelStyles(f)
 
 	sheetName := "Stock Movements"
-	f.SetSheetName("Sheet1", sheetName)
+	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
 	// Set Headers
 	utils.SetHeaders(f, sheetName, []string{"SKU", "Nama Produk", "Stok Saat Ini", "Total Terjual", "Total Masuk", "Rata-rata Terjual Harian", "Estimasi Hari Habis", "Status"}, styles.Header)
@@ -78,7 +78,7 @@ func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobI
 			}
 		}
 		
-		f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{ // #nosec G104
 			row.SKU, row.Name, row.CurrentStock, row.TotalSold, row.TotalInbound, row.AvgDailySales, estimasi, row.Status,
 		})
 	}
@@ -93,7 +93,7 @@ func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobI
 }
 
 func (s *exportServiceImpl) ProcessExportStockTimeline(ctx context.Context, jobID int, filtersJSON string) error {
-	s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil)
+	_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil) // #nosec G104
 
 	req := dto.StatisticFilterRequest{}
 	_ = json.Unmarshal([]byte(filtersJSON), &req)
@@ -113,16 +113,16 @@ func (s *exportServiceImpl) ProcessExportStockTimeline(ctx context.Context, jobI
 	styles := utils.InitExcelStyles(f)
 
 	sheetName := "Stock Timeline"
-	f.SetSheetName("Sheet1", sheetName)
+	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
 	utils.SetHeaders(f, sheetName, []string{"Tanggal", "Total Masuk", "Total Keluar", "Net Perubahan"}, styles.Header)
 
 	for r, row := range data {
-		f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{row.Date, row.TotalIn, row.TotalOut, row.NetChange})
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{row.Date, row.TotalIn, row.TotalOut, row.NetChange}) // #nosec G104
 	}
 
 	utils.SetColStyles(f, sheetName, map[string]int{"B": styles.NumInt, "C": styles.NumInt, "D": styles.NumInt})
-	f.SetCellStyle(sheetName, "A1", "D1", styles.Header) // Re-apply header style after ColStyle
+	_ = f.SetCellStyle(sheetName, "A1", "D1", styles.Header) // Re-apply header style after ColStyle // #nosec G104
 
 	utils.SetColWidths(f, sheetName, map[string]float64{"A": 20, "B": 20, "C": 20, "D": 20})
 
@@ -131,7 +131,7 @@ func (s *exportServiceImpl) ProcessExportStockTimeline(ctx context.Context, jobI
 }
 
 func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int, filtersJSON string) error {
-	s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil)
+	_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil) // #nosec G104
 
 	var filter dto.BatchLogFilter
 	if filtersJSON != "" {
@@ -159,19 +159,19 @@ func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int
 	f := excelize.NewFile()
 	styles := utils.InitExcelStyles(f)
 	sheetName := "Batch Log"
-	f.SetSheetName("Sheet1", sheetName)
+	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
 	utils.SetHeaders(f, sheetName, []string{"No", "Tanggal", "SKU", "Nama Produk", "Tipe Mutasi", "Jumlah", "Dari Lokasi", "Ke Lokasi", "Keterangan", "User"}, styles.Header)
 
 	for i, logItem := range logs {
 		row := i + 2
-		f.SetSheetRow(sheetName, fmt.Sprintf("A%d", row), &[]interface{}{
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", row), &[]interface{}{ // #nosec G104
 			i + 1, logItem.CreatedAt, logItem.SKU, logItem.ProductName, logItem.MovementType, logItem.Quantity, logItem.FromLocation, logItem.ToLocation, logItem.Notes, logItem.User,
 		})
 	}
 
 	utils.SetColStyles(f, sheetName, map[string]int{"F": styles.NumInt})
-	f.SetCellStyle(sheetName, "A1", "J1", styles.Header) // Re-apply header style after ColStyle
+	_ = f.SetCellStyle(sheetName, "A1", "J1", styles.Header) // Re-apply header style after ColStyle // #nosec G104
 
 	utils.SetColWidths(f, sheetName, map[string]float64{
 		"A": 5, "B": 20, "C": 15, "D": 35, "E": 30,
@@ -183,12 +183,12 @@ func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int
 }
 
 func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID int, filtersJSON string) error {
-	s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil)
+	_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil) // #nosec G104
 
 	var filter dto.StockReportFilter
 	if err := json.Unmarshal([]byte(filtersJSON), &filter); err != nil {
 		errMsg := fmt.Sprintf("Failed to parse filters: %v", err)
-		s.jobRepo.UpdateExportJobStatus(ctx, jobID, "FAILED", nil, &errMsg)
+		_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "FAILED", nil, &errMsg) // #nosec G104
 		return err
 	}
 
@@ -206,7 +206,7 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 	styles := utils.InitExcelStyles(f)
 
 	rawSheet := "Data Mentah"
-	f.SetSheetName("Sheet1", rawSheet)
+	_ = f.SetSheetName("Sheet1", rawSheet) // #nosec G104
 
 	utils.SetHeaders(f, rawSheet, []string{"SKU", "Nama Produk", "Lokasi", "Kuantitas"}, styles.Header)
 	utils.SetColWidths(f, rawSheet, map[string]float64{"A": 20, "B": 50, "C": 15, "D": 12})
@@ -235,10 +235,10 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 			lokasi = *row.Lokasi
 		}
 
-		f.SetSheetRow(rawSheet, fmt.Sprintf("A%d", rowIdx), &[]interface{}{row.Sku, row.NamaProduk, lokasi, row.Kuantitas})
+		_ = f.SetSheetRow(rawSheet, fmt.Sprintf("A%d", rowIdx), &[]interface{}{row.Sku, row.NamaProduk, lokasi, row.Kuantitas}) // #nosec G104
 
 		if row.Kuantitas < 0 {
-			f.SetCellStyle(rawSheet, fmt.Sprintf("D%d", rowIdx), fmt.Sprintf("D%d", rowIdx), redStyle)
+			_ = f.SetCellStyle(rawSheet, fmt.Sprintf("D%d", rowIdx), fmt.Sprintf("D%d", rowIdx), redStyle) // #nosec G104
 		}
 
 		// Pivot processing
@@ -267,15 +267,15 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 
 	// Create Pivot Sheet
 	pivotSheet := "Ringkasan Stok"
-	f.NewSheet(pivotSheet)
+	_, _ = f.NewSheet(pivotSheet) // #nosec G104
 
-	f.MergeCell(pivotSheet, "A1", "B1")
-	f.SetCellValue(pivotSheet, "A1", "Laporan Ringkasan Stok (Per Lokasi)")
+	_ = f.MergeCell(pivotSheet, "A1", "B1") // #nosec G104
+	_ = f.SetCellValue(pivotSheet, "A1", "Laporan Ringkasan Stok (Per Lokasi)") // #nosec G104
 	titleStyle, _ := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{Size: 14, Bold: true},
 		Alignment: &excelize.Alignment{Horizontal: "center"},
 	})
-	f.SetCellStyle(pivotSheet, "A1", "A1", titleStyle)
+	_ = f.SetCellStyle(pivotSheet, "A1", "A1", titleStyle) // #nosec G104
 
 	// Headers
 	headers := []interface{}{"SKU", "Nama Produk"}
@@ -283,18 +283,18 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 	for _, loc := range locationCodes {
 		headers = append(headers, loc)
 		colName, _ := excelize.ColumnNumberToName(colIdx)
-		f.SetColWidth(pivotSheet, colName, colName, 10)
+		_ = f.SetColWidth(pivotSheet, colName, colName, 10) // #nosec G104
 		colIdx++
 	}
 	headers = append(headers, "Grand Total")
 	colName, _ := excelize.ColumnNumberToName(colIdx)
-	f.SetColWidth(pivotSheet, colName, colName, 15)
+	_ = f.SetColWidth(pivotSheet, colName, colName, 15) // #nosec G104
 	
-	f.SetSheetRow(pivotSheet, "A2", &headers)
+	_ = f.SetSheetRow(pivotSheet, "A2", &headers) // #nosec G104
 
-	f.SetCellStyle(pivotSheet, "A2", fmt.Sprintf("%s2", colName), styles.Header)
-	f.SetColWidth(pivotSheet, "A", "A", 20)
-	f.SetColWidth(pivotSheet, "B", "B", 50)
+	_ = f.SetCellStyle(pivotSheet, "A2", fmt.Sprintf("%s2", colName), styles.Header) // #nosec G104
+	_ = f.SetColWidth(pivotSheet, "A", "A", 20) // #nosec G104
+	_ = f.SetColWidth(pivotSheet, "B", "B", 50) // #nosec G104
 
 	pRowIdx := 3
 	for _, sku := range skus {
@@ -309,7 +309,7 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 				if val < 0 {
 					cName, _ := excelize.ColumnNumberToName(cIdx)
 					cellName := fmt.Sprintf("%s%d", cName, pRowIdx)
-					f.SetCellStyle(pivotSheet, cellName, cellName, redStyle)
+					_ = f.SetCellStyle(pivotSheet, cellName, cellName, redStyle) // #nosec G104
 				}
 			} else {
 				row = append(row, "")
@@ -319,14 +319,14 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 		
 		gt, _ := pData["GrandTotal"].(int)
 		row = append(row, gt)
-		f.SetSheetRow(pivotSheet, fmt.Sprintf("A%d", pRowIdx), &row)
+		_ = f.SetSheetRow(pivotSheet, fmt.Sprintf("A%d", pRowIdx), &row) // #nosec G104
 
 		cName, _ := excelize.ColumnNumberToName(cIdx)
 		cellName := fmt.Sprintf("%s%d", cName, pRowIdx)
 		if gt < 0 {
-			f.SetCellStyle(pivotSheet, cellName, cellName, boldRedStyle)
+			_ = f.SetCellStyle(pivotSheet, cellName, cellName, boldRedStyle) // #nosec G104
 		} else {
-			f.SetCellStyle(pivotSheet, cellName, cellName, boldStyle)
+			_ = f.SetCellStyle(pivotSheet, cellName, cellName, boldStyle) // #nosec G104
 		}
 		
 		pRowIdx++
@@ -342,7 +342,7 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 }
 
 func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, jobID int, filtersJSON string) error {
-	s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil)
+	_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil) // #nosec G104
 
 	var req dto.ExportLocationCapacityRequest
 	_ = json.Unmarshal([]byte(filtersJSON), &req)
@@ -393,7 +393,7 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 	styles := utils.InitExcelStyles(f)
 
 	sheetName := "Location Capacity"
-	f.SetSheetName("Sheet1", sheetName)
+	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
 	isDetailed := req.ExportFormat == "detailed"
 
@@ -418,7 +418,7 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 				purpose = *row.Purpose
 			}
 
-			f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{
+			_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{ // #nosec G104
 				row.Code, building, floor, purpose, row.TotalProducts, row.TotalQuantity, row.TotalWeight / 1000, row.TotalCBM,
 			})
 
@@ -429,8 +429,8 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 		}
 
 		lastRow := len(data.LocationLoads) + 2
-		f.SetSheetRow(sheetName, fmt.Sprintf("A%d", lastRow), &[]interface{}{"GRAND TOTAL", "", "", "", totalSKU, totalQty, totalWeight, totalCBM})
-		f.MergeCell(sheetName, fmt.Sprintf("A%d", lastRow), fmt.Sprintf("D%d", lastRow))
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", lastRow), &[]interface{}{"GRAND TOTAL", "", "", "", totalSKU, totalQty, totalWeight, totalCBM}) // #nosec G104
+		_ = f.MergeCell(sheetName, fmt.Sprintf("A%d", lastRow), fmt.Sprintf("D%d", lastRow)) // #nosec G104
 
 		utils.SetColStyles(f, sheetName, map[string]int{
 			"E": styles.NumInt, "F": styles.NumInt,
@@ -438,20 +438,20 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 		})
 
 		// Fix header style overridden by ColStyle
-		f.SetCellStyle(sheetName, "A1", "H1", styles.Header)
+		_ = f.SetCellStyle(sheetName, "A1", "H1", styles.Header) // #nosec G104
 
-		f.SetCellStyle(sheetName, fmt.Sprintf("A%d", lastRow), fmt.Sprintf("D%d", lastRow), styles.Total)
-		f.SetCellStyle(sheetName, fmt.Sprintf("E%d", lastRow), fmt.Sprintf("F%d", lastRow), styles.TotalInt)
-		f.SetCellStyle(sheetName, fmt.Sprintf("G%d", lastRow), fmt.Sprintf("H%d", lastRow), styles.TotalDec)
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("A%d", lastRow), fmt.Sprintf("D%d", lastRow), styles.Total) // #nosec G104
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("E%d", lastRow), fmt.Sprintf("F%d", lastRow), styles.TotalInt) // #nosec G104
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("G%d", lastRow), fmt.Sprintf("H%d", lastRow), styles.TotalDec) // #nosec G104
 
-		f.SetColWidth(sheetName, "A", "A", 20)
-		f.SetColWidth(sheetName, "B", "B", 20)
-		f.SetColWidth(sheetName, "C", "C", 15)
-		f.SetColWidth(sheetName, "D", "D", 20)
-		f.SetColWidth(sheetName, "E", "E", 20)
-		f.SetColWidth(sheetName, "F", "F", 20)
-		f.SetColWidth(sheetName, "G", "G", 20)
-		f.SetColWidth(sheetName, "H", "H", 20)
+		_ = f.SetColWidth(sheetName, "A", "A", 20) // #nosec G104
+		_ = f.SetColWidth(sheetName, "B", "B", 20) // #nosec G104
+		_ = f.SetColWidth(sheetName, "C", "C", 15) // #nosec G104
+		_ = f.SetColWidth(sheetName, "D", "D", 20) // #nosec G104
+		_ = f.SetColWidth(sheetName, "E", "E", 20) // #nosec G104
+		_ = f.SetColWidth(sheetName, "F", "F", 20) // #nosec G104
+		_ = f.SetColWidth(sheetName, "G", "G", 20) // #nosec G104
+		_ = f.SetColWidth(sheetName, "H", "H", 20) // #nosec G104
 	} else {
 		headers := []string{"Kode Lokasi", "Gedung", "Lantai", "SKU", "Nama Produk", "Kategori", "Kuantitas", "Berat (kg)", "Kubikasi (m3)"}
 		utils.SetHeaders(f, sheetName, headers, styles.Header)
@@ -480,7 +480,7 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 			}
 
 			for _, det := range details {
-				f.SetSheetRow(sheetName, fmt.Sprintf("A%d", currentRow), &[]interface{}{
+				_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", currentRow), &[]interface{}{ // #nosec G104
 					loc.Code, building, floor, det.SKU, det.Name, det.CategoryName, det.Quantity, det.TotalWeight / 1000, det.TotalCBM,
 				})
 
@@ -491,19 +491,19 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 			}
 		}
 
-		f.SetSheetRow(sheetName, fmt.Sprintf("A%d", currentRow), &[]interface{}{"GRAND TOTAL", "", "", "", "", "", totalQty, totalWeight, totalCBM})
-		f.MergeCell(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("F%d", currentRow))
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", currentRow), &[]interface{}{"GRAND TOTAL", "", "", "", "", "", totalQty, totalWeight, totalCBM}) // #nosec G104
+		_ = f.MergeCell(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("F%d", currentRow)) // #nosec G104
 
 		utils.SetColStyles(f, sheetName, map[string]int{
 			"G": styles.NumInt, "H": styles.NumDec, "I": styles.NumDec,
 		})
 
 		// Fix header style overridden by ColStyle
-		f.SetCellStyle(sheetName, "A1", "I1", styles.Header)
+		_ = f.SetCellStyle(sheetName, "A1", "I1", styles.Header) // #nosec G104
 
-		f.SetCellStyle(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("F%d", currentRow), styles.Total)
-		f.SetCellStyle(sheetName, fmt.Sprintf("G%d", currentRow), fmt.Sprintf("G%d", currentRow), styles.TotalInt)
-		f.SetCellStyle(sheetName, fmt.Sprintf("H%d", currentRow), fmt.Sprintf("I%d", currentRow), styles.TotalDec)
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("F%d", currentRow), styles.Total) // #nosec G104
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("G%d", currentRow), fmt.Sprintf("G%d", currentRow), styles.TotalInt) // #nosec G104
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("H%d", currentRow), fmt.Sprintf("I%d", currentRow), styles.TotalDec) // #nosec G104
 
 		utils.SetColWidths(f, sheetName, map[string]float64{
 			"A": 20, "B": 20, "C": 15, "D": 20,

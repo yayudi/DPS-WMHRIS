@@ -1,6 +1,7 @@
 package service
 
 import (
+	"log"
 	"context"
 	"encoding/json"
 	"errors"
@@ -145,7 +146,7 @@ func (s *userServiceImpl) UpdateProfile(ctx context.Context, userID int, req dto
 	if ip != "" { ipPtr = &ip }
 	if userAgent != "" { uaPtr = &userAgent }
 
-	s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
+	if errLog := s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
 		UserID:     userID,
 		Action:     "UPDATE",
 		TargetType: "USER",
@@ -153,7 +154,9 @@ func (s *userServiceImpl) UpdateProfile(ctx context.Context, userID int, req dto
 		Changes:    &changesStr,
 		IP:         ipPtr,
 		UserAgent:  uaPtr,
-	})
+	}); errLog != nil {
+		log.Printf("Failed to save system log: %v", errLog)
+	}
 
 	return &dto.UserProfile{
 		ID:       updatedUser.ID,

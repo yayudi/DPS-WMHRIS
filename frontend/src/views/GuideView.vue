@@ -211,16 +211,16 @@ const faqCategories = [
                 <!-- WMS Guides -->
                 <template
                   v-if="
-                    auth.hasPermission('perform-batch-movement') ||
-                    auth.hasPermission('manage-stock-adjustment') ||
-                    auth.hasPermission('upload-picking-list')
+                    auth.hasPermission('stock_batch.move') ||
+                    auth.hasPermission('stock_adjustment.manage') ||
+                    auth.hasPermission('picking_list.upload')
                   "
                 >
                   <h3 class="text-xs font-bold text-text/40 uppercase tracking-wider mt-6 mb-3 px-3">
                     Operasional WMS
                   </h3>
                   <button
-                    v-if="auth.hasPermission('perform-batch-movement')"
+                    v-if="auth.hasPermission('stock_batch.move')"
                     @click="activeGuide = 'movement'"
                     class="w-full text-left px-3 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-3"
                     :class="
@@ -232,7 +232,7 @@ const faqCategories = [
                     <font-awesome-icon icon="fa-solid fa-truck-fast" class="w-4 opacity-70" /> Perpindahan Stok
                   </button>
                   <button
-                    v-if="auth.hasPermission('manage-stock-adjustment')"
+                    v-if="auth.hasPermission('stock_adjustment.manage')"
                     @click="activeGuide = 'opname'"
                     class="w-full text-left px-3 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-3"
                     :class="
@@ -244,7 +244,7 @@ const faqCategories = [
                     <font-awesome-icon icon="fa-solid fa-boxes-stacked" class="w-4 opacity-70" /> Stock Opname
                   </button>
                   <button
-                    v-if="auth.hasPermission('manage-stock-adjustment')"
+                    v-if="auth.hasPermission('stock_adjustment.manage')"
                     @click="activeGuide = 'return'"
                     class="w-full text-left px-3 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-3"
                     :class="
@@ -256,7 +256,7 @@ const faqCategories = [
                     <font-awesome-icon icon="fa-solid fa-arrow-rotate-left" class="w-4 opacity-70" /> Retur Manual
                   </button>
                   <button
-                    v-if="auth.hasPermission('upload-picking-list')"
+                    v-if="auth.hasPermission('picking_list.upload')"
                     @click="activeGuide = 'picking'"
                     class="w-full text-left px-3 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-3"
                     :class="
@@ -270,10 +270,10 @@ const faqCategories = [
                 </template>
 
                 <!-- Media & Products Guides -->
-                <template v-if="auth.hasPermission('manage-products') || auth.hasPermission('product.image.view')">
+                <template v-if="auth.hasPermission('product.manage') || auth.hasPermission('product.image.view')">
                   <h3 class="text-xs font-bold text-text/40 uppercase tracking-wider mt-6 mb-3 px-3">Produk & Media</h3>
                   <button
-                    v-if="auth.hasPermission('manage-products')"
+                    v-if="auth.hasPermission('product.manage')"
                     @click="activeGuide = 'sticker'"
                     class="w-full text-left px-3 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-3"
                     :class="
@@ -285,7 +285,7 @@ const faqCategories = [
                     <font-awesome-icon icon="fa-solid fa-barcode" class="w-4 opacity-70" /> Cetak Sticker & Barcode
                   </button>
                   <button
-                    v-if="auth.hasPermission('manage-products')"
+                    v-if="auth.hasPermission('product.manage')"
                     @click="activeGuide = 'package'"
                     class="w-full text-left px-3 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-3"
                     :class="
@@ -324,7 +324,7 @@ const faqCategories = [
                   <font-awesome-icon icon="fa-solid fa-clock" class="w-4 opacity-70" /> Panduan Absensi
                 </button>
                 <button
-                  v-if="auth.hasPermission('manage-users')"
+                  v-if="auth.hasPermission('user.manage')"
                   @click="activeGuide = 'shift'"
                   class="w-full text-left px-3 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-3"
                   :class="
@@ -473,7 +473,7 @@ const faqCategories = [
 
             <!-- Movement Guide -->
             <section
-              v-if="activeGuide === 'movement' && auth.hasPermission('perform-batch-movement')"
+              v-if="activeGuide === 'movement' && auth.hasPermission('stock_batch.move')"
               class="bg-secondary/5 border border-secondary/20 rounded-2xl p-6 md:p-8 animate-fade-in shadow-sm"
             >
               <h2 class="text-2xl font-bold text-text mb-4 flex items-center gap-3 border-b border-secondary/10 pb-4">
@@ -521,7 +521,7 @@ const faqCategories = [
 
             <!-- Stock Opname Guide -->
             <section
-              v-if="activeGuide === 'opname' && auth.hasPermission('manage-stock-adjustment')"
+              v-if="activeGuide === 'opname' && auth.hasPermission('stock_adjustment.manage')"
               class="bg-secondary/5 border border-secondary/20 rounded-2xl p-6 md:p-8 animate-fade-in shadow-sm"
             >
               <h2 class="text-2xl font-bold text-text mb-4 flex items-center gap-3 border-b border-secondary/10 pb-4">
@@ -632,7 +632,7 @@ const faqCategories = [
 
             <!-- Manual Return Guide -->
             <section
-              v-if="activeGuide === 'return' && auth.hasPermission('manage-stock-adjustment')"
+              v-if="activeGuide === 'return' && auth.hasPermission('stock_adjustment.manage')"
               class="bg-secondary/5 border border-secondary/20 rounded-2xl p-6 md:p-8 animate-fade-in shadow-sm"
             >
               <h2 class="text-2xl font-bold text-text mb-4 flex items-center gap-3 border-b border-secondary/10 pb-4">
@@ -673,7 +673,7 @@ const faqCategories = [
 
             <!-- Picking List Guide -->
             <section
-              v-if="activeGuide === 'picking' && auth.hasPermission('upload-picking-list')"
+              v-if="activeGuide === 'picking' && auth.hasPermission('picking_list.upload')"
               class="bg-secondary/5 border border-secondary/20 rounded-2xl p-6 md:p-8 animate-fade-in shadow-sm"
             >
               <h2 class="text-2xl font-bold text-text mb-4 flex items-center gap-3 border-b border-secondary/10 pb-4">
@@ -718,7 +718,7 @@ const faqCategories = [
 
             <!-- Package Management Guide -->
             <section
-              v-if="activeGuide === 'package' && auth.hasPermission('manage-products')"
+              v-if="activeGuide === 'package' && auth.hasPermission('product.manage')"
               class="bg-secondary/5 border border-secondary/20 rounded-2xl p-6 md:p-8 animate-fade-in shadow-sm"
             >
               <h2 class="text-2xl font-bold text-text mb-4 flex items-center gap-3 border-b border-secondary/10 pb-4">
@@ -788,7 +788,7 @@ const faqCategories = [
 
             <!-- Sticker Generator Guide -->
             <section
-              v-if="activeGuide === 'sticker' && auth.hasPermission('manage-products')"
+              v-if="activeGuide === 'sticker' && auth.hasPermission('product.manage')"
               class="bg-secondary/5 border border-secondary/20 rounded-2xl p-6 md:p-8 animate-fade-in shadow-sm"
             >
               <h2 class="text-2xl font-bold text-text mb-4 flex items-center gap-3 border-b border-secondary/10 pb-4">
@@ -1228,7 +1228,7 @@ const faqCategories = [
 
             <!-- Shift Guide -->
             <section
-              v-if="activeGuide === 'shift' && auth.hasPermission('manage-users')"
+              v-if="activeGuide === 'shift' && auth.hasPermission('user.manage')"
               class="bg-secondary/5 border border-secondary/20 rounded-2xl p-6 md:p-8 animate-fade-in shadow-sm"
             >
               <h2 class="text-2xl font-bold text-text mb-4 flex items-center gap-3 border-b border-secondary/10 pb-4">

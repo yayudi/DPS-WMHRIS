@@ -366,7 +366,6 @@ onUnmounted(() => {
           >
             <div @click.stop>
               <ProductThumbnail :image-url="getImageUrl(product)" @click="$emit('view-image', product)" />
-              {{ console.log('imageUrl:', getImageUrl(product)) }}
             </div>
           </td>
 
@@ -658,7 +657,7 @@ onUnmounted(() => {
           :style="menuFloatingStyles"
         >
           <button
-            v-if="auth.hasPermission('manage-stock-adjustment')"
+            v-if="auth.hasPermission('stock_adjustment.manage')"
             @click="handleMenuAction('openAdjust')"
             class="w-full text-left px-4 py-2.5 hover:bg-primary/10 hover:text-primary flex items-center gap-3 transition-colors"
           >

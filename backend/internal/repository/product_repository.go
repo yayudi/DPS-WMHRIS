@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"time"
 	"fmt"
 	"strings"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/dps-wmhris/backend/internal/dto"
@@ -426,8 +426,10 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 	builder = builder.OrderBy(sortCol + " " + sortOrder)
 
 	// Pagination
-	offset := uint64((filters.Page - 1) * filters.Limit)
-	builder = builder.Limit(uint64(filters.Limit)).Offset(offset)
+	safePage := max(1, filters.Page)
+	safeLimit := max(0, filters.Limit)
+	offset := uint64((safePage - 1) * safeLimit) // #nosec G115
+	builder = builder.Limit(uint64(safeLimit)).Offset(offset)
 
 	finalSql, finalArgs, err := builder.ToSql()
 	if err != nil {
@@ -480,7 +482,10 @@ func (r *productRepositoryImpl) SearchProducts(ctx context.Context, keyword stri
 	}
 
 	builder = builder.Column("(SELECT COALESCE(SUM(quantity), 0) FROM stock_locations WHERE product_id = p.id) as total_stock")
-	builder = builder.OrderBy("p.name ASC").Limit(uint64(limit)).Offset(uint64((page - 1) * limit))
+	safePage := max(1, page)
+	safeLimit := max(0, limit)
+	offset := uint64((safePage - 1) * safeLimit) // #nosec G115
+	builder = builder.OrderBy("p.name ASC").Limit(uint64(safeLimit)).Offset(offset)
 
 	sql, args, _ := builder.ToSql()
 	var results []dto.ProductDetailResponse
@@ -732,7 +737,8 @@ func (r *productRepositoryImpl) GetSumOfNewerStockMovements(ctx context.Context,
 		})
 	}
 
-	subQuery = subQuery.OrderBy("sm.created_at DESC").Limit(uint64(offset))
+	safeOffset := max(0, offset)
+	subQuery = subQuery.OrderBy("sm.created_at DESC").Limit(uint64(safeOffset))
 	
 	subSql, subArgs, err := subQuery.ToSql()
 	if err != nil {
@@ -774,7 +780,9 @@ func (r *productRepositoryImpl) GetProductStockMovementsPaginated(ctx context.Co
 		})
 	}
 
-	builder = builder.OrderBy("sm.created_at DESC").Limit(uint64(limit)).Offset(uint64(offset))
+	safeLimit := max(0, limit)
+	safeOffset := max(0, offset)
+	builder = builder.OrderBy("sm.created_at DESC").Limit(uint64(safeLimit)).Offset(uint64(safeOffset))
 
 	sqlStr, args, err := builder.ToSql()
 	if err != nil {

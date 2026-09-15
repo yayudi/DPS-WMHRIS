@@ -544,7 +544,7 @@ const printStickerHeight = computed(() => {
                   <font-awesome-icon icon="fa-solid fa-copy" />
                 </button>
                 <button
-                  v-if="selectedTemplate && authStore.hasPermission('manage-users')"
+                  v-if="selectedTemplate && authStore.hasPermission('user.manage')"
                   @click="handleEditTemplate"
                   class="px-2 text-text/60 hover:text-accent hover:bg-accent/10 rounded-lg transition-colors"
                   title="Edit Template"
@@ -552,7 +552,7 @@ const printStickerHeight = computed(() => {
                   <font-awesome-icon icon="fa-solid fa-pen" />
                 </button>
                 <button
-                  v-if="selectedTemplate && authStore.hasPermission('manage-users')"
+                  v-if="selectedTemplate && authStore.hasPermission('user.manage')"
                   @click="deleteTemplate(selectedTemplate.id)"
                   class="px-2 text-danger hover:bg-danger/10 rounded-lg transition-colors"
                   title="Hapus Template"

@@ -26,8 +26,8 @@ type UpdateProductRequest struct {
 }
 
 type ProductFilterRequest struct {
-	Page            int      `form:"page,default=1"`
-	Limit           int      `form:"limit,default=20"`
+	Page            int      `form:"page,default=1" binding:"min=1"`
+	Limit           int      `form:"limit,default=20" binding:"min=0"`
 	Search          string   `form:"search"`
 	SearchBy        string   `form:"searchBy,default=name"`
 	Location        string   `form:"location,default=all"`

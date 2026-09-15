@@ -12,6 +12,7 @@ import PackageBatchEditModal from '@/components/products/PackageBatchEditModal.v
 import BaseFilterPanel from '@/components/ui/BaseFilterPanel.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import WmsActionHeader from '@/components/wms/shared/WmsActionHeader.vue'
+import FilterToggle from '@/components/ui/FilterToggle.vue'
 import { useInlineSave } from '@/composables/useInlineSave.js'
 import { useDownloadStore } from '@/stores/downloadStore.js'
 import { useMobile } from '@/composables/useMobile.js'
@@ -28,6 +29,7 @@ const searchBy = ref('name')
 const filterStatus = ref('active')
 const sortBy = ref('name')
 const sortOrder = ref('asc')
+const showFilters = ref(false)
 
 const packageTableRef = ref(null)
 const tableKey = ref(0)
@@ -325,17 +327,17 @@ watch(Slash, pressed => {
         <WmsActionHeader title="Manajemen Paket" icon="fa-solid fa-boxes-stacked">
           <template #actions>
             <div class="flex flex-wrap gap-3">
+              <FilterToggle v-model="showFilters" />
               <button
                 v-if="hasDirtyProducts"
                 @click="handleCancelInlineEdit"
                 :disabled="isSavingInline"
-                class="px-5 py-2.5 bg-danger hover:bg-danger/90 text-secondary rounded-xl shadow-md font-medium flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+                class="px-5 py-2.5 bg-danger hover:bg-danger/90 text-secondary rounded-xl font-medium flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
               >
                 <font-awesome-icon icon="fa-solid fa-times" />
                 <span class="hidden sm:inline">Batal</span>
               </button>
 
-              <!-- Tombol Simpan Perubahan (Muncul jika ada dirty) -->
               <button
                 v-if="dirtyProducts.size > 0"
                 @click="executeBulkSaveInline"
@@ -347,20 +349,18 @@ watch(Slash, pressed => {
                 Simpan Semua ({{ dirtyProducts.size }})
               </button>
 
-              <!-- Tombol Batch Edit -->
               <button
                 @click="showBatchEditModal = true"
-                class="px-5 py-2.5 bg-secondary hover:bg-secondary/80 text-text rounded-xl shadow-md font-medium flex items-center gap-2 transition-all border border-secondary/30 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+                class="px-5 py-2.5 bg-background/30 hover:bg-secondary/80 text-text rounded-xl font-medium flex items-center gap-2 transition-all border-2 border-secondary hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
                 title="Edit paket secara massal (Export & Import)"
               >
                 <font-awesome-icon icon="fa-solid fa-pen-to-square" />
                 <span class="hidden sm:inline">Batch Edit</span>
               </button>
 
-              <!-- Tombol Tambah Paket -->
               <button
                 @click="openAddModal"
-                class="px-5 py-2.5 bg-primary hover:bg-primary/90 text-secondary rounded-xl shadow-lg font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+                class="px-5 py-2.5 bg-primary hover:bg-primary/90 text-secondary rounded-xl font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
               >
                 <font-awesome-icon icon="fa-solid fa-plus" />
                 <span>Buat Paket</span>
@@ -370,36 +370,38 @@ watch(Slash, pressed => {
         </WmsActionHeader>
 
         <!-- FILTER BAR SIMPLIFIED -->
-        <BaseFilterPanel class="mb-4">
-          <template #search>
-            <div class="flex flex-col sm:flex-row items-center gap-4 w-full">
-              <div class="relative flex-1 w-full">
-                <input
-                  id="global-search-input"
-                  v-model="searchQuery"
-                  type="text"
-                  placeholder="Cari nama paket atau SKU (Tekan / )"
-                  class="w-full h-[40px] pl-10 pr-4 py-2 bg-background border border-secondary rounded-lg focus:outline-none focus:border-primary text-sm shadow-sm"
-                  :class="isMobile ? 'mb-4 mr-4' : 'm-0'"
-                />
-                <font-awesome-icon icon="fa-solid fa-search" class="absolute left-3 top-2.5 text-text/40" />
+        <div v-show="showFilters" class="animate-fade-in-down mb-4">
+          <BaseFilterPanel>
+            <template #search>
+              <div class="flex flex-col sm:flex-row items-center gap-4 w-full">
+                <div class="relative flex-1 w-full">
+                  <input
+                    id="global-search-input"
+                    v-model="searchQuery"
+                    type="text"
+                    placeholder="Cari nama paket atau SKU (Tekan / )"
+                    class="w-full h-[40px] pl-10 pr-4 py-2 bg-background border border-secondary rounded-lg focus:outline-none focus:border-primary text-sm shadow-sm"
+                    :class="isMobile ? 'mb-4 mr-4' : 'm-0'"
+                  />
+                  <font-awesome-icon icon="fa-solid fa-search" class="absolute left-3 top-2.5 text-text/40" />
+                </div>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                  <label class="text-xs font-bold text-text/60 whitespace-nowrap">Status:</label>
+                  <BaseSelect
+                    v-model="filterStatus"
+                    :options="statusOptions"
+                    track-by="value"
+                    emit-value
+                    clearable
+                    clearValue="all"
+                    :searchable="false"
+                    class="w-full sm:w-[150px]"
+                  />
+                </div>
               </div>
-              <div class="flex items-center gap-2 w-full sm:w-auto">
-                <label class="text-xs font-bold text-text/60 whitespace-nowrap">Status:</label>
-                <BaseSelect
-                  v-model="filterStatus"
-                  :options="statusOptions"
-                  track-by="value"
-                  emit-value
-                  clearable
-                  clearValue="all"
-                  :searchable="false"
-                  class="w-full sm:w-[150px]"
-                />
-              </div>
-            </div>
-          </template>
-        </BaseFilterPanel>
+            </template>
+          </BaseFilterPanel>
+        </div>
       </div>
 
       <!-- TABLE COMPONENT -->

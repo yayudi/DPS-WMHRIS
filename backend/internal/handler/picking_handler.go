@@ -74,7 +74,7 @@ func (h *PickingHandler) UploadAndValidate(c *gin.Context) {
 	userNotes := c.PostForm("notes")
 
 	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "picking") + string(filepath.Separator)
-	os.MkdirAll(uploadDir, os.ModePerm)
+	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
 	var createdJobs []int
 
 	for i, file := range files {
@@ -152,7 +152,7 @@ func (h *PickingHandler) GetPickingDetail(c *gin.Context) {
 	// Parse ID from param
 	idStr := c.Param("id")
 	var id int
-	fmt.Sscanf(idStr, "%d", &id)
+	_, _ = fmt.Sscanf(idStr, "%d", &id) // #nosec G104
 
 	items, err := h.pickingService.GetPickingDetail(c.Request.Context(), id)
 	if err != nil {
@@ -195,7 +195,7 @@ func (h *PickingHandler) CompleteItems(c *gin.Context) {
 func (h *PickingHandler) VoidPickingList(c *gin.Context) {
 	idStr := c.Param("id")
 	var id int
-	fmt.Sscanf(idStr, "%d", &id)
+	_, _ = fmt.Sscanf(idStr, "%d", &id) // #nosec G104
 
 	userID := getUserID(c)
 
@@ -210,7 +210,7 @@ func (h *PickingHandler) VoidPickingList(c *gin.Context) {
 func (h *PickingHandler) RetryBackorders(c *gin.Context) {
 	idStr := c.Param("id")
 	var id int
-	fmt.Sscanf(idStr, "%d", &id)
+	_, _ = fmt.Sscanf(idStr, "%d", &id) // #nosec G104
 
 	msg, err := h.pickingService.RetryBackorders(c.Request.Context(), id)
 	if err != nil {

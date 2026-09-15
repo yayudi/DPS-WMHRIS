@@ -16,6 +16,7 @@ import FilterBar from '@/components/ui/FilterBar.vue'
 import StockTimelineModal from '@/components/stats/StockTimelineModal.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import ExportDropdown from '@/components/ui/ExportDropdown.vue'
+import FilterToggle from '@/components/ui/FilterToggle.vue'
 import { formatNumber, generateDynamicExportName } from '@/utils/formatters.js'
 import { usePagination } from '@/composables/usePagination.js'
 
@@ -30,6 +31,7 @@ const selectedProductId = ref(null)
 const statisticsList = ref([])
 const viewMode = ref('table')
 const chartMaxCap = ref(10)
+const showFilters = ref(false)
 
 const { displayedData, sortBy, getSortIcon } = useStatsTable(statisticsList, {
   initialSortKey: 'total_sold'
@@ -84,16 +86,13 @@ const chartMaxCapOptions = [
 ]
 
 const mainFilters = computed(() => [
-  { type: 'daterange', keyStart: 'startDate', keyEnd: 'endDate', class: 'md:col-span-1 lg:col-span-2' },
+  { type: 'daterange', keyStart: 'startDate', keyEnd: 'endDate', class: 'md:col-span-1 lg:col-span-1' },
   {
     type: 'text',
     key: 'searchQuery',
     placeholder: 'Cari SKU atau Nama Produk...',
     class: 'md:col-span-2 lg:col-span-2'
-  }
-])
-
-const advancedFilters = computed(() => [
+  },
   {
     type: 'triselect',
     key: 'building',
@@ -112,12 +111,6 @@ const advancedFilters = computed(() => [
     placeholder: 'Semua Status'
   },
   {
-    type: 'segmented',
-    key: 'movement',
-    label: 'Aktivitas Transaksi',
-    options: movementOptions
-  },
-  {
     type: 'triselect',
     key: 'categoryId',
     label: 'Kategori Produk',
@@ -126,6 +119,12 @@ const advancedFilters = computed(() => [
     trackBy: 'id',
     placeholder: 'Semua Kategori',
     searchable: true
+  },
+  {
+    type: 'segmented',
+    key: 'movement',
+    label: 'Aktivitas Transaksi',
+    options: movementOptions
   }
 ])
 
@@ -148,9 +147,7 @@ onMounted(async () => {
 })
 
 const canExport = computed(
-  () =>
-    authStore.user?.permissions?.includes('statistic.stock.export') ||
-    authStore.user?.permissions?.includes('manage-all')
+  () => authStore.hasPermission('statistic.stock.export') || authStore.hasPermission('manage-all')
 )
 
 const openTimelineInvestigation = productId => {
@@ -589,52 +586,54 @@ const chartScatterOptions = computed(() => ({
       class="mb-6 border-b border-secondary/20 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
     >
       <div>
-        <h3 class="text-lg font-bold text-text">Pergerakan Stok</h3>
+        <div class="flex items-center gap-3">
+          <h3 class="text-lg font-bold text-text">Pergerakan Stok</h3>
+        </div>
         <p class="text-sm text-text/50 mt-1">
           Data penjualan, inbound, dan estimasi waktu sisa stok berdasarkan rata-rata harian.
         </p>
       </div>
 
-      <BaseTabs
-        v-model="viewMode"
-        :tabs="[
-          { label: 'Tabel Data', value: 'table' },
-          { label: 'Grafik & Insight', value: 'chart' }
-        ]"
-      />
-    </div>
-    <!-- Filter Controls -->
-    <FilterBar
-      v-model="filterValues"
-      :filters="mainFilters"
-      :advancedFilters="advancedFilters"
-      @change="applyFilters"
-      @clear="
-        () => {
-          filterValues = {
-            startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
-            endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
-            searchQuery: '',
-            status: { include: [], exclude: [] },
-            movement: 'all',
-            building: { include: [], exclude: [] },
-            categoryId: { include: [], exclude: [] }
-          }
-          applyFilters()
-        }
-      "
-    >
-      <template #actions>
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <FilterToggle v-model="showFilters" />
         <ExportDropdown
           v-if="canExport"
           @select="handleExport"
           :loading="isExporting"
           :options="[{ key: 'xlsx', label: 'Excel (.xlsx)', icon: 'fa-file-excel', iconClass: 'text-success' }]"
-          class="flex-1 lg:flex-none"
-          buttonClass="w-full h-[42px] inline-flex items-center justify-center rounded-md bg-success/5 px-4 py-2 text-sm font-semibold text-success shadow-sm ring-1 ring-inset ring-success/30 hover:bg-success/10 transition-color"
+          buttonClass="h-[42px] inline-flex items-center justify-center rounded-md bg-success/5 px-4 py-2 text-sm font-semibold text-success shadow-sm ring-1 ring-inset ring-success/30 hover:bg-success/10 transition-colors"
         />
-      </template>
-    </FilterBar>
+        <BaseTabs
+          v-model="viewMode"
+          :tabs="[
+            { label: 'Tabel Data', value: 'table' },
+            { label: 'Grafik & Insight', value: 'chart' }
+          ]"
+        />
+      </div>
+    </div>
+    <!-- Filter Controls -->
+    <div v-show="showFilters" class="animate-fade-in-down">
+      <FilterBar
+        v-model="filterValues"
+        :filters="mainFilters"
+        @change="applyFilters"
+        @clear="
+          () => {
+            filterValues = {
+              startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
+              endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
+              searchQuery: '',
+              status: { include: [], exclude: [] },
+              movement: 'all',
+              building: { include: [], exclude: [] },
+              categoryId: { include: [], exclude: [] }
+            }
+            applyFilters()
+          }
+        "
+      />
+    </div>
 
     <!-- Banner Laporan Stok Mati -->
     <div

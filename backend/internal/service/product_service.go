@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -302,7 +304,15 @@ func containsString(slice []string, val *string) bool {
 }
 
 func (s *productServiceImpl) ProcessBatchUpdate(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error) {
-	parseRes, parsedRows := parser.ParseMassProductFile(filePath)
+	cleanPath := filepath.Clean(filePath)
+	ext := filepath.Ext(cleanPath)
+	file, err := os.Open(cleanPath)
+	if err != nil {
+		return "", fmt.Errorf("gagal membuka file batch update: %v", err)
+	}
+	defer file.Close()
+
+	parseRes, parsedRows := parser.ParseMassProductFile(file, ext)
 	if !parseRes.Success {
 		var errMsgs []string
 		for _, e := range parseRes.Errors {

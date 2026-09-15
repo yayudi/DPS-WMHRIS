@@ -3,8 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import VueApexCharts from 'vue3-apexcharts'
 import {
   getStockMovementStatistics,
-  getInventoryValueStatistics,
-  fetchLocationAnalysis
+  getInventoryValueStatistics
 } from '@/api/helpers/statistics.js'
 import { fetchShopPerformance, fetchPackageAnalysis } from '@/api/helpers/stats.js'
 import { useMasterDataStore } from '@/stores/masterData'
@@ -12,11 +11,13 @@ import { useToast } from '@/composables/useToast'
 import { dayjs } from '@/api/helpers/time.js'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import FilterBar from '@/components/ui/FilterBar.vue'
+import FilterToggle from '@/components/ui/FilterToggle.vue'
 
 const masterData = useMasterDataStore()
 const { toast } = useToast()
 
 const isLoading = ref(true)
+const showFilters = ref(false)
 
 // Global Filters
 const buildingOptions = ref([])
@@ -311,10 +312,16 @@ watch(
 </script>
 
 <template>
-  <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+  <div class="mb-6 border-b border-secondary/20 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
     <h1 class="text-2xl font-bold text-primary">Dashboard Analitik Terpadu</h1>
 
-    <!-- Global Filters -->
+    <div class="flex items-center w-full md:w-auto">
+      <FilterToggle v-model="showFilters" />
+    </div>
+  </div>
+
+  <!-- Global Filters -->
+  <div v-show="showFilters" class="animate-fade-in-down mb-6">
     <FilterBar v-model="filters" :filters="mainFilters" @change="fetchData" />
   </div>
 

@@ -60,8 +60,8 @@ describe('Auth Store', () => {
     expect(store.hasPermission('any-permission')).toBe(true)
 
     // Non-admin with specific permission
-    store.setUser({ id: 2, role_id: 2, permissions: ['view-prices'] })
-    expect(store.hasPermission('view-prices')).toBe(true)
+    store.setUser({ id: 2, role_id: 2, permissions: ['product_price.view'] })
+    expect(store.hasPermission('product_price.view')).toBe(true)
     expect(store.hasPermission('delete-users')).toBe(false)
     expect(store.canViewPrices).toBe(true)
   })

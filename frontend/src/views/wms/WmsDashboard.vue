@@ -254,7 +254,7 @@ watch(Escape, pressed => {
   >
     <template #actions>
       <div
-        v-if="auth.hasPermission('perform-batch-movement')"
+        v-if="auth.hasPermission('stock_batch.move')"
         class="bg-secondary/35 p-1.5 rounded-xl border border-secondary/20 shadow-sm flex gap-3 overflow-x-auto items-center custom-scrollbar"
         :class="isMobile ? 'w-full justify-center' : ''"
       >
@@ -277,7 +277,7 @@ watch(Escape, pressed => {
         </button>
         <div v-if="!isMobile" class="w-px h-6 bg-primary"></div>
         <button
-          v-if="auth.hasPermission('view-prices')"
+          v-if="auth.hasPermission('product_price.view')"
           @click="isSimulationModalOpen = true"
           class="w-1/2 px-4 py-2 text-sm font-bold text-success hover:bg-success/10 rounded-lg transition-all flex items-center gap-2 justify-center whitespace-nowrap"
           title="Simulasi Harga & Berat"

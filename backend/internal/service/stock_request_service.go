@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
+	"log"
+	"math/big"
 	"time"
 
 	"github.com/dps-wmhris/backend/internal/database"
@@ -65,7 +67,11 @@ func (s *stockRequestServiceImpl) CreateStockRequest(ctx context.Context, userID
 	}
 
 	dateStr := time.Now().Format("060102")
-	randStr := fmt.Sprintf("%04d", 1000+rand.Intn(9000))
+	n, err := rand.Int(rand.Reader, big.NewInt(9000))
+	if err != nil {
+		return nil, errors.New("gagal memproses nomor request (rand error)")
+	}
+	randStr := fmt.Sprintf("%04d", 1000+n.Int64())
 	requestNumber := fmt.Sprintf("SR-%s-%s", dateStr, randStr)
 
 	request := &model.StockRequest{
@@ -78,7 +84,7 @@ func (s *stockRequestServiceImpl) CreateStockRequest(ctx context.Context, userID
 		Notes:          req.Notes,
 	}
 
-	err := database.WithTransaction(s.db, ctx, func(tx *sqlx.Tx) error {
+	err = database.WithTransaction(s.db, ctx, func(tx *sqlx.Tx) error {
 		if err := s.stockRequestRepo.CreateTx(ctx, tx, request); err != nil {
 			return err
 		}
@@ -104,9 +110,11 @@ func (s *stockRequestServiceImpl) CreateStockRequest(ctx context.Context, userID
 	}
 
 	// Notifikasi
-	s.notificationService.NotifyUsersByPermission(ctx, "approve-stock-requests", "WMS", "Permintaan Stok Baru",
+	if err := s.notificationService.NotifyUsersByPermission(ctx, "approve-stock-requests", "WMS", "Permintaan Stok Baru",
 		fmt.Sprintf("Permintaan stok baru (%s) telah dibuat dan menunggu persetujuan.", request.Type),
-		map[string]interface{}{"requestId": request.ID, "type": request.Type}, &userID, true)
+		map[string]interface{}{"requestId": request.ID, "type": request.Type}, &userID, true); err != nil {
+		log.Printf("Failed to send notification: %v", err)
+	}
 
 	return request, nil
 }

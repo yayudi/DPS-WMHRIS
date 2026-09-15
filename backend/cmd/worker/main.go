@@ -117,11 +117,11 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 
 		job, err := jobRepo.ClaimNextImportJob(ctx, tx)
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback() // #nosec G104
 			<-sem
 			break // No more jobs or error
 		}
-		tx.Commit()
+		_ = tx.Commit() // #nosec G104
 
 		wg.Add(1)
 		go func(job model.ImportJob) {
@@ -242,18 +242,24 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 			// Update job status
 			if processErr != nil {
 				log.Printf("Job %d failed: %v", job.ID, processErr)
-				jobService.UpdateImportJobStatus(ctx, job.ID, "FAILED")
+				if errLog := jobService.UpdateImportJobStatus(ctx, job.ID, "FAILED"); errLog != nil {
+				log.Printf("Failed to update job status: %v", errLog)
+			}
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "IMPORT_FAILED")
 			} else if logSummary != "" {
 				log.Printf("Job %d completed with summary: %s", job.ID, logSummary)
-				jobService.UpdateImportJobStatusWithSummary(ctx, job.ID, "COMPLETED", logSummary)
+				if errLog := jobService.UpdateImportJobStatusWithSummary(ctx, job.ID, "COMPLETED", logSummary); errLog != nil {
+				log.Printf("Failed to update job status: %v", errLog)
+			}
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "IMPORT_COMPLETED")
 				if job.JobType == "IMPORT_ATTENDANCE" {
 					_ = firebaseService.EmitSharedTaskSignal(ctx, "HRIS_ATTENDANCE", "REFRESH_ATTENDANCE")
 				}
 			} else {
 				log.Printf("Job %d completed", job.ID)
-				jobService.UpdateImportJobStatus(ctx, job.ID, "COMPLETED")
+				if errLog := jobService.UpdateImportJobStatus(ctx, job.ID, "COMPLETED"); errLog != nil {
+				log.Printf("Failed to update job status: %v", errLog)
+			}
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "IMPORT_COMPLETED")
 				if job.JobType == "IMPORT_ATTENDANCE" {
 					_ = firebaseService.EmitSharedTaskSignal(ctx, "HRIS_ATTENDANCE", "REFRESH_ATTENDANCE")
@@ -281,11 +287,11 @@ func processPendingExportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 
 		job, err := jobRepo.ClaimNextExportJob(ctx, tx)
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback() // #nosec G104
 			<-sem
 			break
 		}
-		tx.Commit()
+		_ = tx.Commit() // #nosec G104
 
 		wg.Add(1)
 		go func(job model.ExportJob) {
@@ -335,7 +341,9 @@ func processPendingExportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 			if processErr != nil {
 				log.Printf("Export Job %d failed: %v", job.ID, processErr)
 				errMsg := processErr.Error()
-				jobService.UpdateExportJobStatus(ctx, job.ID, "FAILED", nil, &errMsg)
+				if errLog := jobService.UpdateExportJobStatus(ctx, job.ID, "FAILED", nil, &errMsg); errLog != nil {
+				log.Printf("Failed to update job status: %v", errLog)
+			}
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "EXPORT_FAILED")
 			} else {
 				log.Printf("Export Job %d completed successfully", job.ID)

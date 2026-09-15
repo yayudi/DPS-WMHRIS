@@ -1,6 +1,7 @@
 package service
 
 import (
+	"log"
 	"context"
 	"encoding/json"
 	"errors"
@@ -84,7 +85,7 @@ func (s *roleServiceImpl) UpdateRolePermissions(ctx context.Context, roleID int,
 	if ip != "" { ipPtr = &ip }
 	if userAgent != "" { uaPtr = &userAgent }
 
-	s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
+	if errLog := s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
 		UserID:     userID,
 		Action:     "UPDATE",
 		TargetType: "ROLE",
@@ -92,7 +93,9 @@ func (s *roleServiceImpl) UpdateRolePermissions(ctx context.Context, roleID int,
 		Changes:    &changesStr,
 		IP:         ipPtr,
 		UserAgent:  uaPtr,
-	})
+	}); errLog != nil {
+		log.Printf("Failed to save system log: %v", errLog)
+	}
 
 	return nil
 }
@@ -117,7 +120,7 @@ func (s *roleServiceImpl) CreateRole(ctx context.Context, req dto.CreateRoleRequ
 	if ip != "" { ipPtr = &ip }
 	if userAgent != "" { uaPtr = &userAgent }
 
-	s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
+	if errLog := s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
 		UserID:     userID,
 		Action:     "CREATE",
 		TargetType: "ROLE",
@@ -125,7 +128,9 @@ func (s *roleServiceImpl) CreateRole(ctx context.Context, req dto.CreateRoleRequ
 		Changes:    &changesStr,
 		IP:         ipPtr,
 		UserAgent:  uaPtr,
-	})
+	}); errLog != nil {
+		log.Printf("Failed to save system log: %v", errLog)
+	}
 
 	return roleID, nil
 }
@@ -153,7 +158,7 @@ func (s *roleServiceImpl) UpdateRole(ctx context.Context, roleID int, req dto.Cr
 	if ip != "" { ipPtr = &ip }
 	if userAgent != "" { uaPtr = &userAgent }
 
-	s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
+	if errLog := s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
 		UserID:     userID,
 		Action:     "UPDATE",
 		TargetType: "ROLE",
@@ -161,7 +166,9 @@ func (s *roleServiceImpl) UpdateRole(ctx context.Context, roleID int, req dto.Cr
 		Changes:    &changesStr,
 		IP:         ipPtr,
 		UserAgent:  uaPtr,
-	})
+	}); errLog != nil {
+		log.Printf("Failed to save system log: %v", errLog)
+	}
 
 	return nil
 }
@@ -185,7 +192,7 @@ func (s *roleServiceImpl) DeleteRole(ctx context.Context, roleID int, userID int
 	if ip != "" { ipPtr = &ip }
 	if userAgent != "" { uaPtr = &userAgent }
 
-	s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
+	if errLog := s.systemLogRepo.Create(ctx, s.db, &model.SystemLog{
 		UserID:     userID,
 		Action:     "DELETE",
 		TargetType: "ROLE",
@@ -193,7 +200,9 @@ func (s *roleServiceImpl) DeleteRole(ctx context.Context, roleID int, userID int
 		Changes:    &changesStr,
 		IP:         ipPtr,
 		UserAgent:  uaPtr,
-	})
+	}); errLog != nil {
+		log.Printf("Failed to save system log: %v", errLog)
+	}
 
 	return nil
 }

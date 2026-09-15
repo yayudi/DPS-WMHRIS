@@ -232,7 +232,7 @@ func (h *ProductHandler) ImportBatchProductUpdate(c *gin.Context) {
 	notes := "Mass Price Update via Web Upload"
 
 	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "product") + string(filepath.Separator)
-	os.MkdirAll(uploadDir, os.ModePerm)
+	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
 	filepath := uploadDir + file.Filename
 
 	if err := c.SaveUploadedFile(file, filepath); err != nil {

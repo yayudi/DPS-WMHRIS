@@ -267,15 +267,15 @@ func (h *MediaHandler) DownloadBulkLinkTemplate(c *gin.Context) {
 	}()
 
 	sheetName := "Template Tautkan Media"
-	f.SetSheetName("Sheet1", sheetName)
+	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
 	styles := utils.InitExcelStyles(f)
 	utils.SetHeaders(f, sheetName, []string{"SKU", "Image_URL"}, styles.Header)
 	utils.SetColWidths(f, sheetName, map[string]float64{"A": 20, "B": 50})
 
 	// Add sample data
-	f.SetSheetRow(sheetName, "A2", &[]interface{}{"PP000R081", "https://api.dpvindonesia.com/uploads/main/main-1783397524366-325551216.webp"})
-	f.SetSheetRow(sheetName, "A3", &[]interface{}{"PP000453P", "https://api.dpvindonesia.com/uploads/main/main-dpv_indonesia_logo-white_lettermark_sm.png"})
+	_ = f.SetSheetRow(sheetName, "A2", &[]interface{}{"PP000R081", "https://api.dpvindonesia.com/uploads/main/main-1783397524366-325551216.webp"}) // #nosec G104
+	_ = f.SetSheetRow(sheetName, "A3", &[]interface{}{"PP000453P", "https://api.dpvindonesia.com/uploads/main/main-dpv_indonesia_logo-white_lettermark_sm.png"}) // #nosec G104
 
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Header("Content-Disposition", "attachment; filename=Template_Tautkan_Media.xlsx")
@@ -299,7 +299,7 @@ func (h *MediaHandler) BulkLinkExcel(c *gin.Context) {
 	}
 
 	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "media_links") + string(filepath.Separator)
-	os.MkdirAll(uploadDir, os.ModePerm)
+	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
 	
 	// Create a unique filename
 	filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)

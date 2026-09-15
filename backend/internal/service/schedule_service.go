@@ -78,11 +78,11 @@ func (s *scheduleServiceImpl) GenerateTemplate(ctx context.Context) (*excelize.F
 	dataSheet := "DataList"
 
 	// Rename default sheet
-	f.SetSheetName("Sheet1", mainSheet)
+	_ = f.SetSheetName("Sheet1", mainSheet) // #nosec G104
 	
 	// Create DataList sheet for dropdowns
-	f.NewSheet(dataSheet)
-	f.SetSheetVisible(dataSheet, false) // Hide data sheet
+	_, _ = f.NewSheet(dataSheet) // #nosec G104
+	_ = f.SetSheetVisible(dataSheet, false) // Hide data sheet // #nosec G104
 
 	users, _ := s.userRepo.GetAll(ctx) // Assuming GetAll exists
 	shifts, _ := s.shiftRepo.GetAll(ctx)
@@ -90,11 +90,11 @@ func (s *scheduleServiceImpl) GenerateTemplate(ctx context.Context) (*excelize.F
 	// Fill DataList
 	for i, u := range users {
 		cell, _ := excelize.CoordinatesToCellName(1, i+1) // A1, A2, ...
-		f.SetCellValue(dataSheet, cell, u.Username)
+		_ = f.SetCellValue(dataSheet, cell, u.Username) // #nosec G104
 	}
 	for i, sh := range shifts {
 		cell, _ := excelize.CoordinatesToCellName(2, i+1) // B1, B2, ...
-		f.SetCellValue(dataSheet, cell, sh.Name)
+		_ = f.SetCellValue(dataSheet, cell, sh.Name) // #nosec G104
 	}
 
 	// Style header
@@ -105,17 +105,17 @@ func (s *scheduleServiceImpl) GenerateTemplate(ctx context.Context) (*excelize.F
 	utils.SetColWidths(f, mainSheet, map[string]float64{"A": 25, "B": 20, "C": 25})
 
 	// Example Row
-	f.SetSheetRow(mainSheet, "A2", &[]interface{}{"user_demo", "2026-01-31", "Regular Pagi"})
+	_ = f.SetSheetRow(mainSheet, "A2", &[]interface{}{"user_demo", "2026-01-31", "Regular Pagi"}) // #nosec G104
 	italicStyle, _ := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{Italic: true, Color: "#888888"},
 	})
-	f.SetCellStyle(mainSheet, "A2", "C2", italicStyle)
+	_ = f.SetCellStyle(mainSheet, "A2", "C2", italicStyle) // #nosec G104
 
 	// Add data validation for 1000 rows
 	dvUsername := excelize.NewDataValidation(true)
 	dvUsername.Sqref = "A2:A1000"
-	dvUsername.SetDropList([]string{})
-	dvUsername.SetSqrefDropList("DataList!$A$1:$A$1000")	
+	_ = dvUsername.SetDropList([]string{}) // #nosec G104
+	dvUsername.SetSqrefDropList("DataList!$A$1:$A$1000")
 	return f, nil
 }
 

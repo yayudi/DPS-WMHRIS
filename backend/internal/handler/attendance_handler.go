@@ -132,7 +132,7 @@ func (h *AttendanceHandler) UploadLogs(c *gin.Context) {
 
 	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "attendance") + string(filepath.Separator)
 	// Ensure directory exists
-	os.MkdirAll(uploadDir, os.ModePerm)
+	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
 	
 	filepath := uploadDir + file.Filename
 	

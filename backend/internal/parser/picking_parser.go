@@ -2,8 +2,8 @@ package parser
 
 import (
 	"fmt"
+	"io"
 	"log"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -84,16 +84,16 @@ func parseDate(val string) *time.Time {
 	return nil
 }
 
-func ParseSalesFile(filePath string, source string) ([]ParsedOrder, error) {
-	ext := strings.ToLower(filepath.Ext(filePath))
+func ParseSalesFile(r io.Reader, ext string, source string) ([]ParsedOrder, error) {
+	ext = strings.ToLower(ext)
 	var rows []map[string]string
 	var err error
 
-	log.Printf("[ParseSalesFile] Starting to parse file: %s (Source: %s, Ext: %s)", filePath, source, ext)
+	log.Printf("[ParseSalesFile] Starting to parse file from stream (Source: %s, Ext: %s)", source, ext)
 
 	if ext == ".xlsx" || ext == ".xls" {
 		log.Printf("[ParseSalesFile] Using Excel parser")
-		rows, err = ReadExcel(filePath)
+		rows, err = ReadExcel(r)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read Excel: %w", err)
 		}
@@ -103,7 +103,7 @@ func ParseSalesFile(filePath string, source string) ([]ParsedOrder, error) {
 			delimiter = ';'
 		}
 		log.Printf("[ParseSalesFile] Using CSV parser with delimiter: '%c'", delimiter)
-		rows, err = ReadCSV(filePath, rune(delimiter))
+		rows, err = ReadCSV(r, rune(delimiter))
 		if err != nil {
 			return nil, fmt.Errorf("failed to read CSV: %w", err)
 		}

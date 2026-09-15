@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/xuri/excelize/v2"
@@ -22,14 +21,8 @@ type ParseResult struct {
 }
 
 // ReadCSV reads a CSV file and converts it into a slice of maps using the first row as headers.
-func ReadCSV(filePath string, separator rune) ([]map[string]string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
+func ReadCSV(r io.Reader, separator rune) ([]map[string]string, error) {
+	reader := csv.NewReader(r)
 	reader.Comma = separator
 	reader.LazyQuotes = true
 
@@ -66,8 +59,8 @@ func ReadCSV(filePath string, separator rune) ([]map[string]string, error) {
 }
 
 // ReadExcel reads the first sheet of an Excel file and converts it into a slice of maps.
-func ReadExcel(filePath string) ([]map[string]string, error) {
-	f, err := excelize.OpenFile(filePath)
+func ReadExcel(r io.Reader) ([]map[string]string, error) {
+	f, err := excelize.OpenReader(r)
 	if err != nil {
 		return nil, err
 	}

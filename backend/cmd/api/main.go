@@ -140,6 +140,9 @@ func main() {
 	r.Static("/assets", "./assets")
 	r.Use(middleware.GlobalErrorHandler())
 
+	// Global Rate Limiting: Maksimal 10 request per detik, burst 20
+	r.Use(middleware.RateLimiter(10, 20))
+
 	// CORS setup
 	r.Use(func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
@@ -187,7 +190,7 @@ func main() {
 			protected.DELETE("/categories/:id", categoryHandler.Delete)
 
 			// Locations
-			locations := protected.Group("/locations")
+			locations := protected.Group("/locations", middleware.RequirePermission(db, "location.manage"))
 			{
 				locations.GET("", locationHandler.GetAll)
 				locations.POST("", locationHandler.Create)
@@ -201,8 +204,8 @@ func main() {
 				stockRequests.GET("", stockRequestHandler.GetAll)
 				stockRequests.POST("", stockRequestHandler.Create)
 				stockRequests.POST("/bulk-action", stockRequestHandler.BulkAction)
-				stockRequests.POST("/:id/approve", stockRequestHandler.Approve)
-				stockRequests.POST("/:id/reject", stockRequestHandler.Reject)
+				stockRequests.POST("/:id/approve", middleware.RequirePermission(db, "stock_request.approve"), stockRequestHandler.Approve)
+				stockRequests.POST("/:id/reject", middleware.RequirePermission(db, "stock_request.approve"), stockRequestHandler.Reject)
 				stockRequests.POST("/:id/dispatch", stockRequestHandler.Dispatch)
 				stockRequests.POST("/:id/complete", stockRequestHandler.Complete)
 			}
@@ -213,15 +216,15 @@ func main() {
 			{
 				stock.GET("", stockHandler.GetAllStocks)
 				stock.POST("/transfer", stockHandler.TransferStock)
-				stock.POST("/adjust", stockHandler.AdjustStock)
-				stock.POST("/batch-process", stockHandler.BatchProcess) // Match frontend endpoint exactly
+				stock.POST("/adjust", middleware.RequirePermission(db, "stock_adjustment.manage"), stockHandler.AdjustStock)
+				stock.POST("/batch-process", middleware.RequireAnyPermission(db, "stock_batch.manage", "stock_batch.move"), stockHandler.BatchProcess) // Match frontend endpoint exactly
 				stock.GET("/movement-types", stockHandler.GetMovementTypes)
 				stock.GET("/batch-log", stockHandler.GetBatchLogs)
 				stock.GET("/history/:productId", stockHandler.GetStockHistory)
-				stock.POST("/import-batch", stockHandler.ImportBatchInbound)
+				stock.POST("/import-batch", middleware.RequireAnyPermission(db, "stock_batch.manage", "stock_batch.move"), stockHandler.ImportBatchInbound)
 				
 				// New endpoints for Stock matching Node.js
-				stock.POST("/batch-transfer", stockHandler.BatchTransfer)
+				stock.POST("/batch-transfer", middleware.RequireAnyPermission(db, "stock_batch.manage", "stock_batch.move"), stockHandler.BatchTransfer)
 				stock.POST("/validate-return", stockHandler.ValidateReturn)
 				stock.POST("/batch-log/export", stockHandler.RequestBatchLogExport)
 				stock.GET("/template/inbound", stockHandler.GetInboundTemplate)
@@ -270,7 +273,7 @@ func main() {
 			}
 
 			// Reports
-			reports := protected.Group("/reports")
+			reports := protected.Group("/reports", middleware.RequirePermission(db, "report.view"))
 			{
 				reports.POST("/request-export-stock", reportHandler.RequestStockReport)
 				reports.GET("/my-jobs", reportHandler.GetUserExportJobs)
@@ -284,7 +287,7 @@ func main() {
 			}
 
 			// Products
-			products := protected.Group("/products")
+			products := protected.Group("/products", middleware.RequirePermission(db, "product.manage"))
 			{
 				products.GET("", productHandler.GetProducts)
 				products.GET("/search", productHandler.SearchProducts)
@@ -299,26 +302,26 @@ func main() {
 				products.PUT("/:id", productHandler.Update)
 				products.DELETE("/:id", productHandler.Delete)
 				products.POST("/batch/product-update", productHandler.ImportBatchProductUpdate)
-				products.POST("/:id/link-media", productHandler.LinkMedia)
-				products.PUT("/:id/images/:imageId/primary", productHandler.SetPrimaryImage)
-				products.DELETE("/:id/images/:imageId", productHandler.DeleteProductImage)
+				products.POST("/:id/link-media", middleware.RequireAnyPermission(db, "product_image.upload", "product_image.delete"), productHandler.LinkMedia)
+				products.PUT("/:id/images/:imageId/primary", middleware.RequireAnyPermission(db, "product_image.upload", "product_image.delete"), productHandler.SetPrimaryImage)
+				products.DELETE("/:id/images/:imageId", middleware.RequireAnyPermission(db, "product_image.upload", "product_image.delete"), productHandler.DeleteProductImage)
 			}
 
 			// Picking
 			picking := protected.Group("/picking")
 			{
-				picking.POST("/upload-and-validate", pickingHandler.UploadAndValidate)
+				picking.POST("/upload-and-validate", middleware.RequirePermission(db, "picking_list.upload"), pickingHandler.UploadAndValidate)
 				picking.GET("/pending-items", pickingHandler.GetPendingItems)
 				picking.GET("/history-items", pickingHandler.GetHistoryItems)
 				picking.GET("/:id", pickingHandler.GetPickingDetail)
-				picking.POST("/complete-items", pickingHandler.CompleteItems)
-				picking.POST("/void/:id", pickingHandler.VoidPickingList)
+				picking.POST("/complete-items", middleware.RequirePermission(db, "picking_list.confirm"), pickingHandler.CompleteItems)
+				picking.POST("/void/:id", middleware.RequirePermission(db, "picking_list.void"), pickingHandler.VoidPickingList)
 				picking.POST("/:id/retry-backorders", pickingHandler.RetryBackorders)
 				picking.POST("/retry-backorders-batch", pickingHandler.RetryBackordersBatch)
 			}
 
 			// RBAC
-			roles := protected.Group("/admin/roles")
+			roles := protected.Group("/admin/roles", middleware.RequirePermission(db, "role.manage"))
 			{
 				roles.GET("", roleHandler.GetRoles)
 				roles.GET("/permissions", roleHandler.GetPermissions)
@@ -330,7 +333,7 @@ func main() {
 			}
 
 			// Admin Users
-			adminUsers := protected.Group("/admin/users")
+			adminUsers := protected.Group("/admin/users", middleware.RequirePermission(db, "user.manage"))
 			{
 				adminUsers.GET("", adminUserHandler.GetUsers)
 				adminUsers.POST("", adminUserHandler.CreateUser)
@@ -342,7 +345,7 @@ func main() {
 			}
 			
 			// System Logs
-			protected.GET("/logs", systemLogHandler.GetLogs)
+			protected.GET("/logs", middleware.RequirePermission(db, "system_log.view"), systemLogHandler.GetLogs)
 
 
 			salesChannels := protected.Group("/sales-channels")
@@ -418,11 +421,11 @@ func main() {
 
 			// HRIS: Attendance
 			protected.GET("/attendance/indexes", attendanceHandler.GetIndexes)
-			protected.GET("/attendance/history", attendanceHandler.GetHistory)
+			protected.GET("/attendance/history", middleware.RequirePermission(db, "attendance.view_other"), attendanceHandler.GetHistory)
 			protected.GET("/attendance/range", attendanceHandler.GetRangeData)
 			protected.GET("/attendance/:year/:month", attendanceHandler.GetMonthlyData)
-			protected.POST("/attendance/update", attendanceHandler.UpdateLog)
-			protected.POST("/attendance/upload", attendanceHandler.UploadLogs)
+			protected.POST("/attendance/update", middleware.RequireAnyPermission(db, "attendance.manage", "attendance.edit_other"), attendanceHandler.UpdateLog)
+			protected.POST("/attendance/upload", middleware.RequireAnyPermission(db, "attendance.manage", "attendance.edit_other"), attendanceHandler.UploadLogs)
 
 			// System: Jobs
 			protected.GET("/jobs/import", jobHandler.GetImportJobs)
@@ -434,8 +437,8 @@ func main() {
 			{
 				statistics.GET("/stock-movements", statisticHandler.GetStockMovements)
 				statistics.POST("/stock-movements/export", statisticHandler.RequestStockMovementsExport)
-				statistics.GET("/inventory-value", statisticHandler.GetInventoryValue)
-				statistics.GET("/stock-timeline", statisticHandler.GetStockTimeline)
+				statistics.GET("/inventory-value", middleware.RequirePermission(db, "statistic_finance.view"), statisticHandler.GetInventoryValue)
+				statistics.GET("/stock-timeline", middleware.RequirePermission(db, "statistic_stock.view"), statisticHandler.GetStockTimeline)
 				statistics.POST("/stock-timeline/export", statisticHandler.RequestStockTimelineExport)
 				statistics.GET("/shop-performance", statisticHandler.GetShopPerformance)
 				statistics.GET("/package-analysis", statisticHandler.GetPackageAnalysis)

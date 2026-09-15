@@ -41,7 +41,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isGudang = computed(() => user.value?.role_id === 3)
   const username = computed(() => user.value?.username)
 
-  const canViewPrices = computed(() => hasPermission('view-prices'))
+  const canViewPrices = computed(() => hasPermission('product_price.view'))
 
   const hasPermission = permissionName => {
     if (isAdmin.value) return true

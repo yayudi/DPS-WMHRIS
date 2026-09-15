@@ -53,25 +53,25 @@ func InitExcelStyles(f *excelize.File) ExcelStyles {
 func SetHeaders(f *excelize.File, sheetName string, headers []string, styleID int) {
 	for i, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheetName, cell, h)
+		_ = f.SetCellValue(sheetName, cell, h) // #nosec G104
 	}
 	if len(headers) > 0 {
 		lastCol, _ := excelize.CoordinatesToCellName(len(headers), 1)
-		f.SetCellStyle(sheetName, "A1", lastCol, styleID)
+		_ = f.SetCellStyle(sheetName, "A1", lastCol, styleID) // #nosec G104
 	}
 }
 
 // SetColWidths sets the width of multiple columns at once using a map (e.g., map[string]float64{"A": 20, "B": 50}).
 func SetColWidths(f *excelize.File, sheetName string, widths map[string]float64) {
 	for col, width := range widths {
-		f.SetColWidth(sheetName, col, col, width)
+		_ = f.SetColWidth(sheetName, col, col, width) // #nosec G104
 	}
 }
 
 // SetColStyles sets the style of multiple columns at once using a map (e.g., map[string]int{"A": styleID, "B": styleID}).
 func SetColStyles(f *excelize.File, sheetName string, styles map[string]int) {
 	for col, styleID := range styles {
-		f.SetColStyle(sheetName, col, styleID)
+		_ = f.SetColStyle(sheetName, col, styleID) // #nosec G104
 	}
 }
 

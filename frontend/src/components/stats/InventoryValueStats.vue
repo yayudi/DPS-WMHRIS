@@ -10,6 +10,7 @@ import { useStatsTable } from '@/composables/useStatsTable.js'
 import { useMasterDataStore } from '@/stores/masterData'
 import StatsChartCard from './shared/StatsChartCard.vue'
 import FilterBar from '@/components/ui/FilterBar.vue'
+import FilterToggle from '@/components/ui/FilterToggle.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import { usePagination } from '@/composables/usePagination.js'
 
@@ -20,6 +21,7 @@ const isDataLoading = ref(false)
 const statisticsList = ref([])
 const viewMode = ref('table')
 const chartMaxCap = ref(10)
+const showFilters = ref(false)
 
 const { displayedData, sortBy, getSortIcon } = useStatsTable(statisticsList, {
   initialSortKey: 'total_value'
@@ -93,12 +95,21 @@ const mainFilters = computed(() => [
   {
     type: 'text',
     key: 'searchQuery',
+    label: 'Cari Barang',
     placeholder: 'Cari SKU atau Nama Produk...',
-    class: 'md:col-span-4 lg:col-span-4'
-  }
-])
-
-const advancedFilters = computed(() => [
+    class: 'md:col-span-3'
+  },
+  {
+    type: 'triselect',
+    key: 'categoryId',
+    label: 'Kategori Produk',
+    options: reportFilters.value.allCategories,
+    optionLabel: 'label',
+    trackBy: 'id',
+    placeholder: 'Semua Kategori',
+    searchable: true,
+    class: 'md:col-span-1'
+  },
   {
     type: 'triselect',
     key: 'building',
@@ -130,16 +141,6 @@ const advancedFilters = computed(() => [
     key: 'isPackage',
     label: 'Tipe Barang',
     options: isPackageOptions
-  },
-  {
-    type: 'triselect',
-    key: 'categoryId',
-    label: 'Kategori Produk',
-    options: reportFilters.value.allCategories,
-    optionLabel: 'label',
-    trackBy: 'id',
-    placeholder: 'Semua Kategori',
-    searchable: true
   }
 ])
 
@@ -254,20 +255,23 @@ const chartTopAssetProportionOptions = computed(() => {
         <p class="text-sm text-text/50 mt-1">Data sebaran aset gudang, valuasi barang, dan top kontributor aset.</p>
       </div>
 
-      <BaseTabs
-        v-model="viewMode"
-        :tabs="[
-          { label: 'Tabel Data', value: 'table' },
-          { label: 'Grafik & Insight', value: 'chart' }
-        ]"
-      />
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <FilterToggle v-model="showFilters" />
+        <BaseTabs
+          v-model="viewMode"
+          :tabs="[
+            { label: 'Tabel Data', value: 'table' },
+            { label: 'Grafik & Insight', value: 'chart' }
+          ]"
+        />
+      </div>
     </div>
 
     <!-- Filter Controls -->
-    <FilterBar
+    <div v-show="showFilters" class="animate-fade-in-down">
+      <FilterBar
       v-model="filterValues"
       :filters="mainFilters"
-      :advancedFilters="advancedFilters"
       @change="applyFilters"
       @clear="
         () => {
@@ -283,6 +287,7 @@ const chartTopAssetProportionOptions = computed(() => {
         }
       "
     />
+    </div>
 
     <!-- Main Content Layout -->
     <div class="flex flex-col lg:flex-row gap-6 items-start">
@@ -455,11 +460,7 @@ const chartTopAssetProportionOptions = computed(() => {
           </table>
         </div>
         <div class="border-t border-secondary/20 bg-secondary/5 flex flex-col sm:flex-row items-center justify-between">
-          <BasePagination
-            :pagination="pagination"
-            @changePage="handleChangePage"
-            @update:limit="handleUpdateLimit"
-          />
+          <BasePagination :pagination="pagination" @changePage="handleChangePage" @update:limit="handleUpdateLimit" />
         </div>
       </main>
 

@@ -20,7 +20,7 @@ export function useReturnManager() {
     endDate: '',
     sortOrder: 'desc'
   })
-  
+
   const totalItems = ref(0)
   const {
     currentPage,
@@ -33,7 +33,7 @@ export function useReturnManager() {
     initialLimit: 10,
     storageKey: 'returnManagerLimit'
   })
-  
+
   const locations = ref([])
 
   // State Modal Process (Enhanced)
@@ -43,13 +43,13 @@ export function useReturnManager() {
     // Kita pisahkan state untuk Good dan Bad
     good: {
       qty: 0,
-      locationId: '',
+      locationId: ''
     },
     bad: {
       qty: 0,
-      locationId: '', // Default ke lokasi Z-BAD jika ada
+      locationId: '' // Default ke lokasi Z-BAD jika ada
     },
-    notes: '',
+    notes: ''
   })
 
   // Fetch Data Lokasi
@@ -66,15 +66,68 @@ export function useReturnManager() {
     isLoading.value = true
     try {
       const endpoint = activeTab.value === 'pending' ? '/return/pending' : '/return/history'
-      const response = await api.get(endpoint, {
-        params: {
-          page: currentPage.value,
-          limit: currentLimit.value,
-          search: searchQuery.value,
-          ...filterState
+      const params = {
+        page: currentPage.value,
+        limit: currentLimit.value,
+        search: searchQuery.value,
+        ...filterState
+      }
+      const response = await api.get(endpoint, { params })
+      let resultData = response.data.data
+
+      // Normalize history data if it returns an object of separated arrays
+      if (activeTab.value === 'history' && resultData && !Array.isArray(resultData)) {
+        resultData = [...(resultData.manual_returns || []), ...(resultData.marketplace_returns || [])]
+        // Sort newest first by default
+        resultData.sort(
+          (a, b) => new Date(b.date || b.created_at || 0).getTime() - new Date(a.date || a.created_at || 0).getTime()
+        )
+      }
+
+      // --- LOCAL FILTERING ---
+      if (Array.isArray(resultData)) {
+        // 1. Filter Source
+        if (filterState.source && filterState.source.include && filterState.source.include.length > 0) {
+          const includes = filterState.source.include.map(s => String(s).toLowerCase())
+          resultData = resultData.filter(item => {
+            const s = (item.source || item.type || '').toLowerCase()
+            return includes.includes(s) || (s === 'manual' && includes.includes('manual'))
+          })
         }
-      })
-      items.value = response.data.data
+
+        // 2. Filter Condition (History only)
+        if (filterState.condition) {
+          resultData = resultData.filter(item => item.condition === filterState.condition)
+        }
+
+        // 3. Filter Location
+        if (filterState.locationId) {
+          const loc = locations.value.find(l => l.id === filterState.locationId)
+          if (loc) {
+            resultData = resultData.filter(
+              item => item.location_code === loc.code || item.location_id === filterState.locationId
+            )
+          }
+        }
+
+        // 4. Filter Date Range
+        if (filterState.startDate || filterState.endDate) {
+          const start = filterState.startDate ? new Date(filterState.startDate).getTime() : 0
+          const end = filterState.endDate ? new Date(filterState.endDate).getTime() : Infinity
+          resultData = resultData.filter(item => {
+            const itemTime = new Date(item.date || item.created_at || 0).getTime()
+            return itemTime >= start && itemTime <= end
+          })
+        }
+
+        // 5. Sort Order
+        if (filterState.sortOrder === 'asc') {
+          resultData.reverse()
+        }
+      }
+
+      items.value = resultData
+
       if (response.data.pagination) {
         totalItems.value = response.data.pagination.total
       }
@@ -84,41 +137,49 @@ export function useReturnManager() {
         await fetchLocations()
       }
     } catch (e) {
-      console.error(e)
+      console.error('[useReturnManager] FETCH ERROR:', JSON.stringify(e))
     } finally {
       isLoading.value = false
     }
   }
 
   // Reload data ketika tab atau filter diubah
-  watch([activeTab, filterState], () => {
-    currentPage.value = 1
-    fetchData()
-  }, { deep: true })
+  watch(
+    [activeTab, filterState],
+    () => {
+      currentPage.value = 1
+      fetchData()
+    },
+    { deep: true }
+  )
 
   // Pencarian dengan debounce agar tidak spam server
-  watchDebounced(searchQuery, () => {
-    currentPage.value = 1
-    fetchData()
-  }, { debounce: 300 })
+  watchDebounced(
+    searchQuery,
+    () => {
+      currentPage.value = 1
+      fetchData()
+    },
+    { debounce: 300 }
+  )
 
-  const changePage = (p) => {
+  const changePage = p => {
     doChangePage(p)
     fetchData()
   }
 
-  const changeLimit = (l) => {
+  const changeLimit = l => {
     doChangeLimit(l)
     fetchData()
   }
 
   // Buka Modal
-  const openProcessModal = (item) => {
+  const openProcessModal = item => {
     processForm.value = {
       itemData: item,
       good: { qty: 0, locationId: '' },
       bad: { qty: 0, locationId: '' }, // Nanti bisa auto-select lokasi 'RETUR-RUSAK' disini jika mau
-      notes: '',
+      notes: ''
     }
     showProcessModal.value = true
   }
@@ -156,7 +217,7 @@ export function useReturnManager() {
           qtyAccepted: good.qty,
           condition: 'GOOD',
           locationId: good.locationId,
-          notes: notes,
+          notes: notes
         })
       }
 
@@ -169,7 +230,7 @@ export function useReturnManager() {
           qtyAccepted: bad.qty,
           condition: 'BAD',
           locationId: bad.locationId,
-          notes: notes ? `${notes} (Rusak)` : '',
+          notes: notes ? `${notes} (Rusak)` : ''
         })
       }
 

@@ -112,7 +112,7 @@ onUnmounted(() => {
           </RouterLink>
           <RouterLink
             to="/media"
-            v-if="auth.user?.permissions?.includes('product.image.view')"
+            v-if="auth.hasPermission('product.image.view')"
             class="text-text/80 hover:text-primary transition-colors flex items-center gap-2"
             active-class="!text-primary text-lg font-bold border-primary"
           >
@@ -129,7 +129,7 @@ onUnmounted(() => {
           </RouterLink>
           <RouterLink
             to="/stats"
-            v-if="auth.user?.permissions?.includes('view-reports')"
+            v-if="auth.hasPermission('report.view')"
             class="text-text/80 hover:text-primary transition-colors flex items-center gap-2"
             active-class="!text-primary text-lg font-bold border-primary"
           >
@@ -138,7 +138,7 @@ onUnmounted(() => {
           </RouterLink>
           <RouterLink
             to="/admin/users"
-            v-if="auth.user?.permissions?.includes('manage-users')"
+            v-if="auth.hasPermission('user.manage')"
             class="text-text/80 hover:text-primary transition-colors flex items-center gap-2"
             :class="isAdminActive && '!text-primary text-lg font-bold border-primary'"
           >
@@ -254,7 +254,7 @@ onUnmounted(() => {
         <RouterLink
           to="/media"
           @click="isMobileMenuOpen = false"
-          v-if="auth.user?.permissions?.includes('product.image.view')"
+          v-if="auth.hasPermission('product.image.view')"
           class="block px-6 py-3 rounded-md text-base font-medium text-text/80 hover:bg-secondary/20 hover:text-primary"
           active-class="!text-primary font-bold bg-secondary/10"
           >Media</RouterLink
@@ -263,7 +263,7 @@ onUnmounted(() => {
         <RouterLink
           to="/stats"
           @click="isMobileMenuOpen = false"
-          v-if="auth.user?.permissions?.includes('view-reports')"
+          v-if="auth.hasPermission('report.view')"
           class="block px-6 py-3 rounded-md text-base font-medium text-text/80 hover:bg-secondary/20 hover:text-primary"
           active-class="!text-primary font-bold bg-secondary/10"
           >Stats & Reports</RouterLink
@@ -272,7 +272,7 @@ onUnmounted(() => {
         <RouterLink
           to="/admin/users"
           @click="isMobileMenuOpen = false"
-          v-if="auth.user?.permissions?.includes('manage-users')"
+          v-if="auth.hasPermission('user.manage')"
           class="block px-6 py-3 rounded-md text-base font-medium text-text/80 hover:bg-secondary/20 hover:text-primary"
           :class="isAdminActive && '!text-primary font-bold bg-secondary/10'"
           >Panel Admin</RouterLink

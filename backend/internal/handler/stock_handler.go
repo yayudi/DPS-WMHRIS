@@ -44,7 +44,7 @@ func (h *StockHandler) ImportBatchInbound(c *gin.Context) {
 	}
 
 	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "stock") + string(filepath.Separator)
-	os.MkdirAll(uploadDir, os.ModePerm)
+	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
 	filepath := uploadDir + file.Filename
 
 	if err := c.SaveUploadedFile(file, filepath); err != nil {
@@ -341,7 +341,7 @@ func (h *StockHandler) GetInboundTemplate(c *gin.Context) {
 
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Header("Content-Disposition", "attachment; filename=Template_Inbound_Stok.xlsx")
-	f.Write(c.Writer)
+	_ = f.Write(c.Writer) // #nosec G104
 }
 
 func (h *StockHandler) DownloadAdjustmentTemplate(c *gin.Context) {
@@ -353,7 +353,7 @@ func (h *StockHandler) DownloadAdjustmentTemplate(c *gin.Context) {
 
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Header("Content-Disposition", "attachment; filename=Template_Adjustment_Stok.xlsx")
-	f.Write(c.Writer)
+	_ = f.Write(c.Writer) // #nosec G104
 }
 
 func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
@@ -382,7 +382,7 @@ func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
 	}
 
 	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "stock") + string(filepath.Separator)
-	os.MkdirAll(uploadDir, os.ModePerm)
+	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
 	filepath := uploadDir + file.Filename
 	if err := c.SaveUploadedFile(file, filepath); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menyimpan file", "")

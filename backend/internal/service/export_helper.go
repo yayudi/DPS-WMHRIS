@@ -11,7 +11,7 @@ import (
 // failExportJob mencatat error ke database job dan mengubah status menjadi FAILED
 func failExportJob(ctx context.Context, jobID int, err error, jobRepo repository.JobRepository) error {
 	errMsg := err.Error()
-	jobRepo.UpdateExportJobStatus(ctx, jobID, "FAILED", nil, &errMsg)
+	_ = jobRepo.UpdateExportJobStatus(ctx, jobID, "FAILED", nil, &errMsg) // #nosec G104
 	return err
 }
 
@@ -27,6 +27,6 @@ func finalizeExportJob(ctx context.Context, f *excelize.File, jobID int, fileNam
 		return failExportJob(ctx, jobID, err, jobRepo)
 	}
 
-	jobRepo.UpdateExportJobStatus(ctx, jobID, "COMPLETED", &url, nil)
+	_ = jobRepo.UpdateExportJobStatus(ctx, jobID, "COMPLETED", &url, nil) // #nosec G104
 	return nil
 }

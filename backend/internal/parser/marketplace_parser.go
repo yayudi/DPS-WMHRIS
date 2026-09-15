@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -40,7 +41,7 @@ type MassProductRow struct {
 }
 
 // ParseMarketplaceFile parses Tokopedia, Shopee or Offline files
-func ParseMarketplaceFile(filePath string, source string) (ParseResult, []MarketplaceRow) {
+func ParseMarketplaceFile(r io.ReadSeeker, ext string, source string) (ParseResult, []MarketplaceRow) {
 	var res ParseResult
 	var parsedRows []MarketplaceRow
 
@@ -52,10 +53,11 @@ func ParseMarketplaceFile(filePath string, source string) (ParseResult, []Market
 	var rawRows []map[string]string
 	var err error
 
-	if strings.HasSuffix(strings.ToLower(filePath), ".xlsx") || strings.HasSuffix(strings.ToLower(filePath), ".xls") {
-		rawRows, err = ReadExcel(filePath)
+	ext = strings.ToLower(ext)
+	if strings.HasSuffix(ext, ".xlsx") || strings.HasSuffix(ext, ".xls") {
+		rawRows, err = ReadExcel(r)
 	} else {
-		rawRows, err = ReadCSV(filePath, rune(delimiter))
+		rawRows, err = ReadCSV(r, rune(delimiter))
 		if err == nil && len(rawRows) > 0 && source == "Tokopedia" {
 			// check if it actually should be semicolon
 			hasOrder := false
@@ -66,7 +68,8 @@ func ParseMarketplaceFile(filePath string, source string) (ParseResult, []Market
 				}
 			}
 			if !hasOrder {
-				rawRows, _ = ReadCSV(filePath, ';')
+				_, _ = r.Seek(0, io.SeekStart) // #nosec G104
+				rawRows, _ = ReadCSV(r, ';')
 			}
 		}
 	}
@@ -249,17 +252,18 @@ func parseOfflineRow(row map[string]string) (MarketplaceRow, bool) {
 	return res, true
 }
 
-func ParseMassProductFile(filePath string) (ParseResult, []MassProductRow) {
+func ParseMassProductFile(r io.ReadSeeker, ext string) (ParseResult, []MassProductRow) {
 	var res ParseResult
 	var parsedRows []MassProductRow
 
 	var rawRows []map[string]string
 	var err error
 
-	if strings.HasSuffix(strings.ToLower(filePath), ".xlsx") || strings.HasSuffix(strings.ToLower(filePath), ".xls") {
-		rawRows, err = ReadExcel(filePath)
+	ext = strings.ToLower(ext)
+	if strings.HasSuffix(ext, ".xlsx") || strings.HasSuffix(ext, ".xls") {
+		rawRows, err = ReadExcel(r)
 	} else {
-		rawRows, err = ReadCSV(filePath, ',')
+		rawRows, err = ReadCSV(r, ',')
 		if err == nil && len(rawRows) > 0 {
 			hasSKU := false
 			for k := range rawRows[0] {
@@ -269,7 +273,8 @@ func ParseMassProductFile(filePath string) (ParseResult, []MassProductRow) {
 				}
 			}
 			if !hasSKU {
-				rawRows, _ = ReadCSV(filePath, ';')
+				_, _ = r.Seek(0, io.SeekStart) // #nosec G104
+				rawRows, _ = ReadCSV(r, ';')
 			}
 		}
 	}

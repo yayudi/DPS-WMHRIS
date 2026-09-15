@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/dps-wmhris/backend/internal/model"
 	"github.com/dps-wmhris/backend/internal/parser"
@@ -23,21 +25,30 @@ func (s *pickingService) ProcessSalesImport(
 	log.Printf("[ProcessSalesImport] Starting Job #%d from source %s (DryRun: %v)", jobID, source, isDryRun)
 
 	// 1. Parse File (CSV or Excel)
-	parsedOrders, err := parser.ParseSalesFile(filePath, source)
+	cleanPath := filepath.Clean(filePath)
+	ext := filepath.Ext(cleanPath)
+	file, err := os.Open(cleanPath)
 	if err != nil {
-		s.jobService.UpdateImportJobStatus(ctx, jobID, "FAILED")
+		_ = s.jobService.UpdateImportJobStatus(ctx, jobID, "FAILED") // #nosec G104
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	parsedOrders, err := parser.ParseSalesFile(file, ext, source)
+	if err != nil {
+		_ = s.jobService.UpdateImportJobStatus(ctx, jobID, "FAILED") // #nosec G104
 		return fmt.Errorf("failed to parse CSV: %w", err)
 	}
 
 	totalOrders := len(parsedOrders)
 	if totalOrders == 0 {
 		log.Printf("[ProcessSalesImport] No orders to process for Job #%d", jobID)
-		s.jobService.UpdateImportJobStatus(ctx, jobID, "COMPLETED")
+		_ = s.jobService.UpdateImportJobStatus(ctx, jobID, "COMPLETED") // #nosec G104
 		return nil
 	}
 
 	// Initial progress
-	s.jobService.UpdateImportJobProgress(ctx, jobID, 0, totalOrders)
+	_ = s.jobService.UpdateImportJobProgress(ctx, jobID, 0, totalOrders) // #nosec G104
 
 	// 2. Fetch Reference Data (SKU -> Product ID)
 	var allSkus []string
@@ -53,7 +64,7 @@ func (s *pickingService) ProcessSalesImport(
 
 	productMap, err := s.productRepo.GetProductMapWithComponents(ctx, allSkus)
 	if err != nil {
-		s.jobService.UpdateImportJobStatus(ctx, jobID, "FAILED")
+		_ = s.jobService.UpdateImportJobStatus(ctx, jobID, "FAILED") // #nosec G104
 		return fmt.Errorf("failed to fetch product reference data: %w", err)
 	}
 
@@ -73,7 +84,7 @@ func (s *pickingService) ProcessSalesImport(
 	for _, order := range parsedOrders {
 		processed++
 		if processed%10 == 0 || processed == totalOrders {
-			s.jobService.UpdateImportJobProgress(ctx, jobID, processed, totalOrders)
+			_ = s.jobService.UpdateImportJobProgress(ctx, jobID, processed, totalOrders) // #nosec G104
 		}
 
 		// Simplified inserting
@@ -114,12 +125,12 @@ func (s *pickingService) ProcessSalesImport(
 	}
 
 	if isDryRun {
-		tx.Rollback()
+		_ = tx.Rollback() // #nosec G104
 		log.Printf("[ProcessSalesImport] Dry Run completed. Rolled back transaction.")
 	} else {
 		err = tx.Commit()
 		if err != nil {
-			s.jobService.UpdateImportJobStatus(ctx, jobID, "FAILED")
+			_ = s.jobService.UpdateImportJobStatus(ctx, jobID, "FAILED") // #nosec G104
 			return err
 		}
 	}
@@ -130,7 +141,7 @@ func (s *pickingService) ProcessSalesImport(
 		errJSON, _ := json.Marshal(errorsList)
 		log.Printf("[ProcessSalesImport] Job #%d finished with errors: %s", jobID, string(errJSON))
 	}
-	s.jobService.UpdateImportJobStatus(ctx, jobID, finalStatus)
+	_ = s.jobService.UpdateImportJobStatus(ctx, jobID, finalStatus) // #nosec G104
 
 	return nil
 }

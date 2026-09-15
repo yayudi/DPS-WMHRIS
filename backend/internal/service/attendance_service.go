@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -241,7 +243,14 @@ func (s *attendanceServiceImpl) ProcessImport(ctx context.Context, jobID int, fi
 		}
 	}
 
-	data, err := parser.ParseAttendanceCSV(filePath, thresholds)
+	cleanPath := filepath.Clean(filePath)
+	file, err := os.Open(cleanPath)
+	if err != nil {
+		return "", fmt.Errorf("gagal membuka file absensi: %v", err)
+	}
+	defer file.Close()
+
+	data, err := parser.ParseAttendanceCSV(file, thresholds)
 	if err != nil {
 		return "", fmt.Errorf("gagal memparsing CSV absensi: %v", err)
 	}

@@ -109,7 +109,7 @@ func (h *ScheduleHandler) UploadImportSchedule(c *gin.Context) {
 
 	// Create temp directory for uploads if not exists
 	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "schedule") + string(filepath.Separator)
-	os.MkdirAll(uploadDir, os.ModePerm)
+	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
 	filepath := uploadDir + file.Filename
 	
 	if err := c.SaveUploadedFile(file, filepath); err != nil {

@@ -10,6 +10,7 @@ import { useMobile } from '@/composables/useMobile.js'
 import { calculateSummaryForUser } from '@/api/helpers/summary.js'
 import BaseTabs from '@/components/ui/BaseTabs.vue'
 import FilterBar from '@/components/ui/FilterBar.vue'
+import FilterToggle from '@/components/ui/FilterToggle.vue'
 import DateRangeFilter from '@/components/ui/DateRangeFilter.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 
@@ -33,6 +34,7 @@ const isExclusionsModalOpen = ref(false)
 const isHeaderExpanded = ref(true)
 const isLoadingUsers = ref(false)
 const isDataLoading = ref(false)
+const showFilters = ref(false)
 const { isMobile } = useMobile()
 const mobileLayout = ref(isMobile.value ? 'card' : 'compact') // 'card' | 'compact'
 const filterValues = ref({
@@ -44,7 +46,7 @@ const filterValues = ref({
 watch(isMobile, mobile => {
   mobileLayout.value = mobile ? 'card' : 'compact'
 })
-const canViewAll = computed(() => authStore.user?.permissions?.includes('view-other-attendance'))
+const canViewAll = computed(() => authStore.hasPermission('attendance.view_other'))
 
 const displayedUsers = computed(() => {
   if (canViewAll.value && filterValues.value.name && filterValues.value.name.length > 0) {
@@ -238,6 +240,7 @@ async function handleExportExcel() {
             />
 
             <div class="flex flex-row items-center justify-end gap-3 shrink-0 w-full md:w-auto">
+              <FilterToggle v-model="showFilters" />
               <button
                 v-if="canViewAll"
                 @click="handleExportExcel"
@@ -260,60 +263,64 @@ async function handleExportExcel() {
           </div>
 
           <!-- BOTTOM ROW: FilterBar -->
-          <FilterBar :filters="[]" v-model="filterValues" @clear="clearFilters" class="flex-grow w-full md:w-auto">
-            <template #prepend>
-              <div class="flex gap-2">
-                <DateRangeFilter
-                  v-model:startDate="filterValues.startDate"
-                  v-model:endDate="filterValues.endDate"
-                  align="left"
-                  class="w-full sm:w-fit shrink-0 md:w-1/2"
-                />
-
-                <div v-if="canViewAll" class="w-full sm:w-fit sm:min-w-[200px] md:w-1/2 shrink-0">
-                  <BaseSelect
-                    v-model="filterValues.name"
-                    :options="allUsersForFilter"
-                    :multiple="true"
-                    :loading="isLoadingUsers"
-                    :disabled="isLoadingUsers"
-                    label="label"
-                    track-by="value"
-                    placeholder="Cari nama karyawan..."
-                    class="w-full"
+          <div v-show="showFilters" class="animate-fade-in-down w-full">
+            <FilterBar :filters="[]" v-model="filterValues" @clear="clearFilters" class="flex-grow w-full md:w-auto">
+              <template #prepend>
+                <div class="flex gap-2">
+                  <DateRangeFilter
+                    v-model:startDate="filterValues.startDate"
+                    v-model:endDate="filterValues.endDate"
+                    align="left"
+                    class="w-full sm:w-fit shrink-0 md:w-1/2"
                   />
+
+                  <div v-if="canViewAll" class="w-full sm:w-fit sm:min-w-[200px] md:w-1/2 shrink-0">
+                    <BaseSelect
+                      v-model="filterValues.name"
+                      :options="allUsersForFilter"
+                      :multiple="true"
+                      :loading="isLoadingUsers"
+                      :disabled="isLoadingUsers"
+                      label="label"
+                      track-by="value"
+                      placeholder="Cari nama karyawan..."
+                      class="w-full"
+                    />
+                  </div>
                 </div>
-              </div>
-            </template>
-            <template #filter-actions>
-              <div
-                class="flex items-center bg-secondary/20 rounded-lg p-1 border border-secondary/20 lg:hidden shrink-0 h-[42px]"
-              >
-                <button
-                  @click="mobileLayout = 'card'"
-                  class="p-2 rounded-md transition-all duration-200 flex items-center justify-center w-8 h-8"
-                  :class="
-                    mobileLayout === 'card' ? 'bg-primary text-secondary shadow-sm' : 'text-text/60 hover:text-primary'
-                  "
-                  title="Tampilan Card"
+              </template>
+              <template #filter-actions>
+                <div
+                  class="flex items-center bg-secondary/20 rounded-lg p-1 border border-secondary/20 lg:hidden shrink-0 h-[42px]"
                 >
-                  <font-awesome-icon icon="fa-solid fa-grip" />
-                </button>
-                <button
-                  @click="mobileLayout = 'compact'"
-                  class="p-2 rounded-md transition-all duration-200 flex items-center justify-center w-8 h-8"
-                  :class="
-                    mobileLayout === 'compact'
-                      ? 'bg-primary text-secondary shadow-sm'
-                      : 'text-text/60 hover:text-primary'
-                  "
-                  title="Tampilan Compact"
-                >
-                  <font-awesome-icon icon="fa-solid fa-list" />
-                </button>
-              </div>
-            </template>
-          </FilterBar>
+                  <button
+                    @click="mobileLayout = 'card'"
+                    class="p-2 rounded-md transition-all duration-200 flex items-center justify-center w-8 h-8"
+                    :class="
+                      mobileLayout === 'card'
+                        ? 'bg-primary text-secondary shadow-sm'
+                        : 'text-text/60 hover:text-primary'
+                    "
+                    title="Tampilan Card"
+                  >
+                    <font-awesome-icon icon="fa-solid fa-grip" />
+                  </button>
+                  <button
+                    @click="mobileLayout = 'compact'"
+                    class="p-2 rounded-md transition-all duration-200 flex items-center justify-center w-8 h-8"
+                    :class="
+                      mobileLayout === 'compact'
+                        ? 'bg-primary text-secondary shadow-sm'
+                        : 'text-text/60 hover:text-primary'
+                    "
+                    title="Tampilan Compact"
+                  >
+                    <font-awesome-icon icon="fa-solid fa-list" />
+                  </button>
+                </div>
+              </template>
+            </FilterBar>
+          </div>
         </div>
       </div>
     </transition>

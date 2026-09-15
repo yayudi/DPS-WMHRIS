@@ -39,6 +39,7 @@ build/
 scratch/
 /frontend/bundle-stats.html
 migrations/
+gosec*
 
 # ===================================================================
 # IDE & EDITORS

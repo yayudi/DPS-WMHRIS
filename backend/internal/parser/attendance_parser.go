@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -30,16 +29,8 @@ func timeToMinutes(t time.Time) int {
 	return t.Hour()*60 + t.Minute()
 }
 
-// ParseAttendanceCSV parses the exported DAT/CSV file from attendance machine.
-func ParseAttendanceCSV(filepath string, thresholds map[string]int) (map[string]*UserAttendance, error) {
-	file, err := os.Open(filepath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	// The CSV might have varying number of fields or weird quotes, relax the reader
+func ParseAttendanceCSV(r io.Reader, thresholds map[string]int) (map[string]*UserAttendance, error) {
+	reader := csv.NewReader(r)
 	reader.FieldsPerRecord = -1
 	reader.LazyQuotes = true
 
