@@ -23,6 +23,7 @@ type StatisticRepository interface {
 	GetLocationLoads(ctx context.Context, filters dto.StatisticFilterRequest) ([]dto.LocationLoad, error)
 	GetLocationCapacityDetails(ctx context.Context, locationId int, filters dto.StatisticFilterRequest) ([]dto.LocationCapacityDetailResponse, error)
 	GetDuplicateLocations(ctx context.Context, filters dto.StatisticFilterRequest) ([]dto.DuplicateProductLocation, error)
+	GetStockBuildingBreakdown(ctx context.Context, productID int, startDate, endDate string) ([]dto.StockBuildingBreakdownResponse, error)
 }
 
 type statisticRepositoryImpl struct {
@@ -248,7 +249,7 @@ func (r *statisticRepositoryImpl) GetStockMovementStats(ctx context.Context, fil
 			FROM stock_movements sm
 			LEFT JOIN locations fl ON sm.from_location_id = fl.id
 			LEFT JOIN locations tl ON sm.to_location_id = tl.id
-			WHERE DATE(sm.created_at) >= ? AND DATE(sm.created_at) <= ?
+			WHERE sm.created_at >= ? AND sm.created_at <= CONCAT(?, ' 23:59:59')
 			%s
 			GROUP BY sm.product_id
 		) s_mov ON p.id = s_mov.product_id
@@ -374,7 +375,7 @@ func (r *statisticRepositoryImpl) GetMovementTimelineStats(ctx context.Context, 
 		LEFT JOIN locations fl ON sm.from_location_id = fl.id
 		LEFT JOIN locations tl ON sm.to_location_id = tl.id
 		%s
-		WHERE DATE(sm.created_at) >= ? AND DATE(sm.created_at) <= ?
+		WHERE sm.created_at >= ? AND sm.created_at <= CONCAT(?, ' 23:59:59')
 		%s
 		%s
 		GROUP BY %s
@@ -724,8 +725,8 @@ func (r *statisticRepositoryImpl) GetPackageComponentAnalysis(ctx context.Contex
 				JOIN picking_lists pl ON pli.picking_list_id = pl.id
 				WHERE pl.status NOT IN ('CANCEL', 'OBSOLETE')
 					AND pl.is_active = 1
-					AND COALESCE(DATE(pl.order_date), DATE(pl.created_at)) >= ?
-					AND COALESCE(DATE(pl.order_date), DATE(pl.created_at)) <= ?
+					AND COALESCE(pl.order_date, pl.created_at) >= ?
+					AND COALESCE(pl.order_date, pl.created_at) <= CONCAT(?, ' 23:59:59')
 				GROUP BY pli.original_sku, pli.product_id
 		) s_mov ON pp.sku = s_mov.original_sku AND cp.id = s_mov.product_id
 		WHERE cp.is_package = 0 AND pp.is_active = 1
@@ -786,8 +787,8 @@ func (r *statisticRepositoryImpl) GetLocationLoads(ctx context.Context, filters 
 			l.purpose,
 			COUNT(DISTINCT sl.product_id) as total_products,
 			COALESCE(SUM(sl.quantity), 0) as total_quantity,
-			COALESCE(SUM(sl.quantity * COALESCE(p.weight, 0)), 0) as total_weight,
-			COALESCE(SUM(sl.quantity * (COALESCE(p.length, 0) * COALESCE(p.width, 0) * COALESCE(p.height, 0))) / 1000000, 0) as total_cbm
+			COALESCE(SUM((CASE WHEN sl.quantity > 0 THEN sl.quantity ELSE 0 END) * COALESCE(p.weight, 0)), 0) as total_weight,
+			COALESCE(SUM((CASE WHEN sl.quantity > 0 THEN sl.quantity ELSE 0 END) * (COALESCE(p.length, 0) * COALESCE(p.width, 0) * COALESCE(p.height, 0))) / 1000000, 0) as total_cbm
 		FROM locations l
 		LEFT JOIN stock_locations sl ON l.id = sl.location_id
 		LEFT JOIN products p ON sl.product_id = p.id
@@ -877,8 +878,8 @@ func (r *statisticRepositoryImpl) GetLocationCapacityDetails(ctx context.Context
 			p.category_id,
 			COALESCE(c.name, '-') as category_name,
 			COALESCE(SUM(sl.quantity), 0) as quantity,
-			COALESCE(SUM(sl.quantity * COALESCE(p.weight, 0)), 0) / 1000 as total_weight,
-			COALESCE(SUM(sl.quantity * (COALESCE(p.length, 0) * COALESCE(p.width, 0) * COALESCE(p.height, 0))) / 1000000, 0) as total_cbm
+			COALESCE(SUM((CASE WHEN sl.quantity > 0 THEN sl.quantity ELSE 0 END) * COALESCE(p.weight, 0)), 0) / 1000 as total_weight,
+			COALESCE(SUM((CASE WHEN sl.quantity > 0 THEN sl.quantity ELSE 0 END) * (COALESCE(p.length, 0) * COALESCE(p.width, 0) * COALESCE(p.height, 0))) / 1000000, 0) as total_cbm
 		FROM products p
 		JOIN stock_locations sl ON p.id = sl.product_id
 		LEFT JOIN categories c ON p.category_id = c.id
@@ -891,6 +892,72 @@ func (r *statisticRepositoryImpl) GetLocationCapacityDetails(ctx context.Context
 	err := r.db.SelectContext(ctx, &rows, query, queryParams...)
 	if rows == nil {
 		rows = []dto.LocationCapacityDetailResponse{}
+	}
+	return rows, err
+}
+
+// GetStockBuildingBreakdown returns stock distribution per building for a single product.
+func (r *statisticRepositoryImpl) GetStockBuildingBreakdown(ctx context.Context, productID int, startDate, endDate string) ([]dto.StockBuildingBreakdownResponse, error) {
+	query := `
+		SELECT
+			b.building,
+			COALESCE(s_loc.current_stock, 0) AS current_stock,
+			COALESCE(s_out.total_out, 0) AS total_out,
+			COALESCE(s_in.total_inbound, 0) AS total_inbound
+		FROM (
+			SELECT DISTINCT l.building
+			FROM stock_locations sl
+			JOIN locations l ON sl.location_id = l.id
+			WHERE sl.product_id = ?
+			UNION
+			SELECT DISTINCT COALESCE(fl.building, tl.building) AS building
+			FROM stock_movements sm
+			LEFT JOIN locations fl ON sm.from_location_id = fl.id
+			LEFT JOIN locations tl ON sm.to_location_id = tl.id
+			WHERE sm.product_id = ?
+				AND sm.created_at >= ? AND sm.created_at <= CONCAT(?, ' 23:59:59')
+		) b
+		LEFT JOIN (
+			SELECT l.building, SUM(sl.quantity) AS current_stock
+			FROM stock_locations sl
+			JOIN locations l ON sl.location_id = l.id
+			WHERE sl.product_id = ?
+			GROUP BY l.building
+		) s_loc ON b.building = s_loc.building
+		LEFT JOIN (
+			SELECT fl.building, SUM(sm.quantity) AS total_out
+			FROM stock_movements sm
+			JOIN locations fl ON sm.from_location_id = fl.id
+			WHERE sm.product_id = ?
+				AND sm.movement_type IN ('SALE', 'OUT')
+				AND sm.created_at >= ? AND sm.created_at <= CONCAT(?, ' 23:59:59')
+			GROUP BY fl.building
+		) s_out ON b.building = s_out.building
+		LEFT JOIN (
+			SELECT tl.building, SUM(sm.quantity) AS total_inbound
+			FROM stock_movements sm
+			JOIN locations tl ON sm.to_location_id = tl.id
+			WHERE sm.product_id = ?
+				AND sm.movement_type = 'INBOUND'
+				AND sm.created_at >= ? AND sm.created_at <= CONCAT(?, ' 23:59:59')
+			GROUP BY tl.building
+		) s_in ON b.building = s_in.building
+		WHERE b.building IS NOT NULL AND b.building != ''
+		ORDER BY b.building ASC
+	`
+
+	params := []interface{}{
+		productID,                   // buildings from stock_locations
+		productID, startDate, endDate, // buildings from stock_movements
+		productID,                   // s_loc subquery
+		productID, startDate, endDate, // s_out subquery
+		productID, startDate, endDate, // s_in subquery
+	}
+
+	var rows []dto.StockBuildingBreakdownResponse
+	err := r.db.SelectContext(ctx, &rows, query, params...)
+	if rows == nil {
+		rows = []dto.StockBuildingBreakdownResponse{}
 	}
 	return rows, err
 }

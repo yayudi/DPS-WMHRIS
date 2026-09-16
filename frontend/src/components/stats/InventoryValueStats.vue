@@ -3,7 +3,9 @@ import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import BaseTabs from '@/components/ui/BaseTabs.vue'
 import { useTheme } from '@/composables/useTheme.js'
-import { getInventoryValueStatistics } from '@/api/helpers/statistics.js'
+import { getInventoryValueStatistics, getStockBuildingBreakdown } from '@/api/helpers/statistics.js'
+import { dayjs } from '@/api/helpers/time.js'
+import StockTimelineModal from '@/components/stats/StockTimelineModal.vue'
 const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
 import { formatCurrency, formatNumber } from '@/utils/formatters.js'
 import { useStatsTable } from '@/composables/useStatsTable.js'
@@ -15,13 +17,43 @@ import BasePagination from '@/components/ui/BasePagination.vue'
 import { usePagination } from '@/composables/usePagination.js'
 
 const masterData = useMasterDataStore()
-// const { toast } = useToast()
-
 const isDataLoading = ref(false)
 const statisticsList = ref([])
 const viewMode = ref('table')
 const chartMaxCap = ref(10)
 const showFilters = ref(false)
+const showTimelineModal = ref(false)
+const selectedProductId = ref(null)
+const expandedRow = ref(null)
+const breakdownData = ref({})
+const breakdownLoading = ref({})
+
+const openTimelineInvestigation = productId => {
+  selectedProductId.value = productId
+  showTimelineModal.value = true
+}
+
+const toggleRowExpand = async (sku, productId) => {
+  if (expandedRow.value === sku) {
+    expandedRow.value = null
+    return
+  }
+  expandedRow.value = sku
+  if (!breakdownData.value[productId]) {
+    breakdownLoading.value[productId] = true
+    try {
+      const startDate = dayjs().startOf('month').format('YYYY-MM-DD')
+      const endDate = dayjs().format('YYYY-MM-DD')
+      const response = await getStockBuildingBreakdown(productId, startDate, endDate)
+      breakdownData.value[productId] = response?.data || response || []
+    } catch (err) {
+      console.error('Failed to fetch breakdown:', err)
+      breakdownData.value[productId] = []
+    } finally {
+      breakdownLoading.value[productId] = false
+    }
+  }
+}
 
 const { displayedData, sortBy, getSortIcon } = useStatsTable(statisticsList, {
   initialSortKey: 'total_value'
@@ -40,6 +72,9 @@ const {
 
 const fetchStatistics = async () => {
   isDataLoading.value = true
+  expandedRow.value = null
+  breakdownData.value = {}
+  breakdownLoading.value = {}
   try {
     const data = await getInventoryValueStatistics(filterValues.value)
     statisticsList.value = data.data || []
@@ -270,23 +305,23 @@ const chartTopAssetProportionOptions = computed(() => {
     <!-- Filter Controls -->
     <div v-show="showFilters" class="animate-fade-in-down">
       <FilterBar
-      v-model="filterValues"
-      :filters="mainFilters"
-      @change="applyFilters"
-      @clear="
-        () => {
-          filterValues = {
-            searchQuery: '',
-            stockStatus: { include: [], exclude: [] },
-            building: { include: [], exclude: [] },
-            purpose: { include: [], exclude: [] },
-            isPackage: '',
-            categoryId: { include: [], exclude: [] }
+        v-model="filterValues"
+        :filters="mainFilters"
+        @change="applyFilters"
+        @clear="
+          () => {
+            filterValues = {
+              searchQuery: '',
+              stockStatus: { include: [], exclude: [] },
+              building: { include: [], exclude: [] },
+              purpose: { include: [], exclude: [] },
+              isPackage: '',
+              categoryId: { include: [], exclude: [] }
+            }
+            applyFilters()
           }
-          applyFilters()
-        }
-      "
-    />
+        "
+      />
     </div>
 
     <!-- Main Content Layout -->
@@ -408,53 +443,154 @@ const chartTopAssetProportionOptions = computed(() => {
                 </tr>
               </template>
               <template v-else>
-                <tr v-for="item in paginatedData" :key="item.sku" class="hover:bg-secondary/10 transition-colors">
-                  <td class="px-4 py-3 font-medium text-text bg-background/50 border-r border-secondary/10 w-auto">
-                    {{ item.sku }}
-                  </td>
-                  <td class="px-4 py-3 w-full">
-                    <div class="whitespace-normal leading-tight font-medium text-text/90" :title="item.name">
-                      {{ item.name }}
-                    </div>
-                    <div class="text-[10px] text-text/40 font-bold uppercase tracking-wider mt-1">
-                      {{ item.category || 'NO-CATEGORY' }}
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 font-mono text-sm text-right whitespace-nowrap opacity-80">
-                    {{ formatCurrency(item.price) }}
-                  </td>
-                  <td
-                    class="px-4 py-3 font-black text-center text-base"
-                    :class="
-                      item.total_quantity < 0
-                        ? 'text-danger'
-                        : item.total_quantity === 0
-                          ? 'text-text/30'
-                          : 'text-primary'
-                    "
+                <template v-for="item in paginatedData" :key="item.sku">
+                  <tr
+                    @click="toggleRowExpand(item.sku, item.product_id)"
+                    class="hover:bg-secondary/10 transition-colors cursor-pointer group"
+                    :class="{ 'bg-primary/5': expandedRow === item.sku }"
                   >
-                    {{ formatNumber(item.total_quantity) }}
-                  </td>
-                  <td
-                    class="px-4 py-3 font-mono text-sm text-right whitespace-nowrap font-bold"
-                    :class="item.total_value > 10000000 ? 'text-text' : 'text-text/70'"
-                  >
-                    {{ formatCurrency(item.total_value) }}
-                  </td>
-                  <td class="px-4 py-3 font-bold whitespace-nowrap text-center text-xs">
-                    <span class="inline-block w-12 text-right">{{ item.percentage }}%</span>
-                    <!-- Mini progress bar -->
-                    <div class="w-20 h-1.5 bg-secondary/30 rounded-full inline-block ml-2 align-middle overflow-hidden">
+                    <td class="px-4 py-3 font-medium text-text bg-background/50 border-r border-secondary/10 w-auto">
+                      {{ item.sku }}
+                    </td>
+                    <td class="px-4 py-3 w-full">
+                      <div class="whitespace-normal leading-tight font-medium text-text/90" :title="item.name">
+                        {{ item.name }}
+                      </div>
+                      <div class="text-[10px] text-text/40 font-bold uppercase tracking-wider mt-1">
+                        {{ item.category || 'NO-CATEGORY' }}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 font-mono text-sm text-right whitespace-nowrap opacity-80">
+                      {{ formatCurrency(item.price) }}
+                    </td>
+                    <td
+                      class="px-4 py-3 font-black text-center text-base"
+                      :class="
+                        item.total_quantity < 0
+                          ? 'text-danger'
+                          : item.total_quantity === 0
+                            ? 'text-text/30'
+                            : 'text-primary'
+                      "
+                    >
+                      {{ formatNumber(item.total_quantity) }}
+                    </td>
+                    <td
+                      class="px-4 py-3 font-mono text-sm text-right whitespace-nowrap font-bold"
+                      :class="item.total_value > 10000000 ? 'text-text' : 'text-text/70'"
+                    >
+                      {{ formatCurrency(item.total_value) }}
+                    </td>
+                    <td class="px-4 py-3 font-bold whitespace-nowrap text-center text-xs">
+                      <span class="inline-block w-12 text-right">{{ item.percentage }}%</span>
+                      <!-- Mini progress bar -->
                       <div
-                        class="h-full bg-primary"
-                        :style="{
-                          width: `${item.percentage}%`,
-                          minWidth: item.percentage > 0 ? '2px' : '0'
-                        }"
-                      ></div>
-                    </div>
-                  </td>
-                </tr>
+                        class="w-20 h-1.5 bg-secondary/30 rounded-full inline-block ml-2 align-middle overflow-hidden"
+                      >
+                        <div
+                          class="h-full bg-primary"
+                          :style="{
+                            width: `${item.percentage}%`,
+                            minWidth: item.percentage > 0 ? '2px' : '0'
+                          }"
+                        ></div>
+                      </div>
+                    </td>
+                  </tr>
+                  <!-- Expanded Detail Row -->
+                  <tr v-if="expandedRow === item.sku">
+                    <td colspan="6" class="p-0">
+                      <div class="bg-primary/[0.03] border-t border-b border-primary/10 px-6 py-5 animate-fade-in">
+                        <div class="my-2">
+                          <div
+                            class="flex flex-row items-center justify-between gap-3 my-2 border-t border-secondary/10"
+                          >
+                            <h5
+                              class="text-xs font-semibold text-text/60 uppercase tracking-wider flex items-center gap-2"
+                            >
+                              <font-awesome-icon icon="fa-solid fa-building" class="text-primary/60" />
+                              Distribusi Valuasi Per Gedung
+                            </h5>
+                            <button
+                              @click.stop="openTimelineInvestigation(item.product_id)"
+                              class="inline-flex items-center justify-end gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
+                            >
+                              <font-awesome-icon icon="fa-solid fa-clock-rotate-left" />
+                              Investigasi Timeline
+                            </button>
+                          </div>
+                          <div
+                            v-if="breakdownLoading[item.product_id]"
+                            class="flex items-center gap-2 text-text/50 text-sm py-4"
+                          >
+                            <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-primary" />
+                            Memuat data gedung...
+                          </div>
+                          <div
+                            v-else-if="breakdownData[item.product_id]?.length > 0"
+                            class="bg-background rounded-lg border border-secondary/20 overflow-hidden"
+                          >
+                            <table class="w-full text-sm">
+                              <thead>
+                                <tr class="bg-secondary/10 text-text/60">
+                                  <th class="px-3 py-2 text-left font-semibold text-xs uppercase tracking-wider">
+                                    Gedung
+                                  </th>
+                                  <th class="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wider">
+                                    Stok Fisik
+                                  </th>
+                                  <th class="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wider">
+                                    Gross Value
+                                  </th>
+                                  <th class="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wider">
+                                    % Distribusi
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody class="divide-y divide-secondary/10">
+                                <tr
+                                  v-for="bld in breakdownData[item.product_id]"
+                                  :key="bld.building"
+                                  class="hover:bg-secondary/5"
+                                >
+                                  <td class="px-3 py-2 font-medium text-text">
+                                    <div class="flex items-center gap-1.5">
+                                      <font-awesome-icon
+                                        icon="fa-solid fa-warehouse"
+                                        class="text-[10px] text-text/30"
+                                      />
+                                      {{ bld.building }}
+                                    </div>
+                                  </td>
+                                  <td
+                                    class="px-3 py-2 text-right font-medium"
+                                    :class="bld.current_stock < 0 ? 'text-danger' : 'text-text'"
+                                  >
+                                    {{ formatNumber(bld.current_stock) }}
+                                  </td>
+                                  <td class="px-3 py-2 text-right font-medium text-primary">
+                                    {{ formatCurrency(bld.current_stock * item.price) }}
+                                  </td>
+                                  <td class="px-3 py-2 text-right font-medium text-text/80">
+                                    {{
+                                      (item.total_quantity > 0
+                                        ? (bld.current_stock / item.total_quantity) * 100
+                                        : 0
+                                      ).toFixed(1)
+                                    }}%
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                          <div v-else class="text-text/40 text-xs py-3">
+                            Tidak ada data distribusi gedung untuk produk ini.
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
               </template>
             </tbody>
           </table>
@@ -515,5 +651,7 @@ const chartTopAssetProportionOptions = computed(() => {
         </div>
       </main>
     </div>
+
+    <StockTimelineModal :show="showTimelineModal" :productId="selectedProductId" @close="showTimelineModal = false" />
   </div>
 </template>

@@ -82,6 +82,15 @@ type StockMovementResponse struct {
 	Timeline []StockMovementTimelineResponse `json:"timeline"`
 }
 
+// StockBuildingBreakdownResponse represents stock distribution of a single product per building.
+type StockBuildingBreakdownResponse struct {
+	Building     string  `json:"building" db:"building"`
+	CurrentStock float64 `json:"current_stock" db:"current_stock"`
+	TotalOut     float64 `json:"total_out" db:"total_out"`
+	TotalInbound float64 `json:"total_inbound" db:"total_inbound"`
+}
+
+
 type StockTimelineResponse struct {
 	Date      string  `json:"date" db:"date"`
 	TotalIn   float64 `json:"totalIn" db:"total_in"`

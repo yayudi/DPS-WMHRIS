@@ -118,7 +118,7 @@ function emitClear() {
               v-model="localValues[filter.key]"
               :options="filter.options"
               @update:modelValue="emitChange"
-              class="w-full h-[42px]"
+              class="w-full"
             />
 
             <!-- Text Input -->

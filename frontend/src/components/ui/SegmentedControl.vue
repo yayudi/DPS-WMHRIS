@@ -46,7 +46,10 @@ const setRef = (el, val) => {
     >
       {{ label }}
     </label>
-    <div class="flex w-full p-1 space-x-1 bg-secondary/50 rounded-lg relative" @mouseleave="hoveredOption = null">
+    <div
+      class="h-[42px] flex w-full p-1 space-x-1 bg-secondary/50 rounded-lg relative"
+      @mouseleave="hoveredOption = null"
+    >
       <button
         v-for="option in options"
         :key="option.value"

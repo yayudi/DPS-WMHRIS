@@ -4,5 +4,12 @@ dist/
 *.generated.py
 .git/
 .vscode/
+.agent/
 .agents/
 backend/uploads/
+backend-node/
+graphify-out/
+tests/
+scratch
+temp*
+tmp*

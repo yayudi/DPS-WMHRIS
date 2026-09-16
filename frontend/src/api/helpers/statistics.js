@@ -87,3 +87,25 @@ export const fetchLocationAnalysis = async (filters) => {
     throw error;
   }
 };
+
+/**
+ * Fetch stock breakdown per building for a specific product
+ * @param {number} productId
+ * @param {string} startDate - YYYY-MM-DD
+ * @param {string} endDate - YYYY-MM-DD
+ * @returns {Promise<Array>} Array of building breakdown data
+ */
+export const getStockBuildingBreakdown = async (productId, startDate, endDate) => {
+  try {
+    const { data } = await api.get(`/statistics/stock-movements/${productId}/breakdown`, {
+      params: { startDate, endDate }
+    });
+    return data;
+  } catch (error) {
+    console.error(error)
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
+};

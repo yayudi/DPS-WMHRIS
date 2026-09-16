@@ -26,7 +26,8 @@ const filters = ref({
   building: { include: [], exclude: [] },
   floor: { include: [], exclude: [] },
   categoryId: { include: [], exclude: [] },
-  searchQuery: ''
+  searchQuery: '',
+  hideEmpty: true
 })
 
 const selectedProduct = ref(null)
@@ -108,7 +109,12 @@ const handleSort = field => {
 }
 
 const sortedLocationLoads = computed(() => {
-  const data = [...locationLoads.value]
+  let data = [...locationLoads.value]
+
+  if (filters.value.hideEmpty) {
+    data = data.filter(loc => (loc.total_quantity || 0) > 0)
+  }
+
   const field = sortState.value.field
   const dir = sortState.value.direction === 'asc' ? 1 : -1
 
@@ -441,9 +447,18 @@ onMounted(async () => {
             @update:model-value="fetchData"
           />
         </div>
-        <div class="sm:col-span-2 lg:col-span-1">
+        <div>
           <label class="block text-sm font-medium leading-6 text-text mb-1">Cari Produk</label>
           <ProductSearchSelector v-model="selectedProduct" placeholder="Ketik SKU atau Nama..." />
+        </div>
+        <div class="flex items-center gap-3 ml-2 pt-4">
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" v-model="filters.hideEmpty" class="sr-only peer" />
+            <div
+              class="w-9 h-5 bg-secondary/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"
+            ></div>
+            <span class="ml-3 text-sm font-medium text-text/80">Sembunyikan Lokasi Kosong (Qty 0)</span>
+          </label>
         </div>
       </div>
     </div>
@@ -487,7 +502,7 @@ onMounted(async () => {
         </div>
         <div class="overflow-x-auto flex-1 max-h-[800px] custom-scrollbar">
           <table class="min-w-full divide-y divide-secondary/20">
-            <thead class="bg-background divide-y-2 divide-secondary sticky top-0 z-10">
+            <thead class="bg-background divide-y-2 divide-secondary sticky top-0 z-20">
               <tr>
                 <th scope="col" class="py-3.5 pl-4 pr-3 text-left w-8"></th>
                 <th

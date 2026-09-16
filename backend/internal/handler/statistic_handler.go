@@ -222,3 +222,28 @@ func (h *StatisticHandler) ExportLocationCapacity(c *gin.Context) {
 		"message": "Export job berhasil dibuat",
 	})
 }
+
+// GetStockBuildingBreakdown handles GET /statistics/stock-movements/:productId/breakdown
+func (h *StatisticHandler) GetStockBuildingBreakdown(c *gin.Context) {
+	productIdStr := c.Param("productId")
+	productId, err := strconv.Atoi(productIdStr)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid product ID", "")
+		return
+	}
+
+	startDate := c.Query("startDate")
+	endDate := c.Query("endDate")
+	if startDate == "" || endDate == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "startDate dan endDate wajib diisi", "VALIDATION_ERROR")
+		return
+	}
+
+	data, err := h.statisticService.GetStockBuildingBreakdown(c.Request.Context(), productId, startDate, endDate)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		return
+	}
+
+	utils.SuccessDataResponse(c, http.StatusOK, data)
+}

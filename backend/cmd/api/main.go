@@ -437,6 +437,7 @@ func main() {
 			{
 				statistics.GET("/stock-movements", statisticHandler.GetStockMovements)
 				statistics.POST("/stock-movements/export", statisticHandler.RequestStockMovementsExport)
+				statistics.GET("/stock-movements/:productId/breakdown", statisticHandler.GetStockBuildingBreakdown)
 				statistics.GET("/inventory-value", middleware.RequirePermission(db, "statistic_finance.view"), statisticHandler.GetInventoryValue)
 				statistics.GET("/stock-timeline", middleware.RequirePermission(db, "statistic_stock.view"), statisticHandler.GetStockTimeline)
 				statistics.POST("/stock-timeline/export", statisticHandler.RequestStockTimelineExport)

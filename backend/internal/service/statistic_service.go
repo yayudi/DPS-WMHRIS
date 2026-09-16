@@ -24,6 +24,7 @@ type StatisticService interface {
 	GetLocationAnalysis(ctx context.Context, filters dto.StatisticFilterRequest) (*dto.LocationAnalysisResponse, error)
 	GetLocationCapacityDetails(ctx context.Context, locationId int, filters dto.StatisticFilterRequest) ([]dto.LocationCapacityDetailResponse, error)
 	RequestLocationCapacityExport(ctx context.Context, userID int, req dto.ExportLocationCapacityRequest) (int, error)
+	GetStockBuildingBreakdown(ctx context.Context, productID int, startDate, endDate string) ([]dto.StockBuildingBreakdownResponse, error)
 }
 
 type statisticServiceImpl struct {
@@ -615,4 +616,16 @@ func toSliceOfStrings(val interface{}) []string {
 		result = v
 	}
 	return result
+}
+
+// GetStockBuildingBreakdown returns stock distribution per building for a single product.
+func (s *statisticServiceImpl) GetStockBuildingBreakdown(ctx context.Context, productID int, startDate, endDate string) ([]dto.StockBuildingBreakdownResponse, error) {
+	rows, err := s.repo.GetStockBuildingBreakdown(ctx, productID, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []dto.StockBuildingBreakdownResponse{}
+	}
+	return rows, nil
 }
