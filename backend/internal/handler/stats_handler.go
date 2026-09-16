@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/dps-wmhris/backend/internal/utils"
+	"github.com/dps-wmhris/backend/internal/shared/utils"
 
 	"github.com/dps-wmhris/backend/internal/service"
 	"github.com/gin-gonic/gin"

@@ -16,10 +16,12 @@ trigger: always_on
 
 ---
 
-## 2. BACKEND ARCHITECTURE (STRICT SEPARATION)
-Adhere strictly to the **Controller-Service-Repository** pattern.
+## 2. BACKEND ARCHITECTURE (MODULAR DDD)
+Adhere strictly to the **Domain-Driven Design (Modular Monolith)** pattern.
+The backend code must be grouped by **Domain / Bounded Context** inside `backend/internal/modules/` (e.g., `iam`, `hris`, `catalog`, `inventory`).
+Within each domain folder, the standard layers are maintained:
 
-### A. Repository Layer (`backend/repository/`)
+### A. Repository Layer (`.../repository/`)
 **Role:** SQL Query Executor ONLY.
 * **DO:**
     * Handle `SELECT`, `INSERT`, `UPDATE`, `DELETE`.
@@ -33,7 +35,7 @@ Adhere strictly to the **Controller-Service-Repository** pattern.
     * Handle Transactions (`BEGIN`, `COMMIT`, `ROLLBACK`) unless it's a specific transaction repository function.
     * Import global DB config directly (use Dependency Injection).
 
-### B. Service Layer (`backend/service/`)
+### B. Service Layer (`.../service/`)
 **Role:** The "Brain" & Orchestrator.
 * **DO:**
     * Manage Transactions: Orchestrate multiple repository calls within a transaction.
@@ -41,7 +43,7 @@ Adhere strictly to the **Controller-Service-Repository** pattern.
     * **Validation:** Validate business rules and return standard `error`.
     * Add Godoc comments for every function.
 
-### C. Controller/Handler Layer (`backend/handler/`)
+### C. Controller/Handler Layer (`.../handler/`)
 **Role:** HTTP Interface.
 * **DO:**
     * Parse HTTP requests and bind JSON/Forms to Go structs.
@@ -52,6 +54,10 @@ Adhere strictly to the **Controller-Service-Repository** pattern.
 * **DO NOT:**
     * Write ANY SQL queries.
     * Contain complex business logic.
+
+### D. Cross-Domain Communication (CRITICAL)
+* **Rule:** A domain MUST NOT directly query the database tables or call the Repository of another domain.
+* **Practice:** Use **Domain Events** (event-driven) to communicate state changes across domains.
 
 ---
 
@@ -172,10 +178,10 @@ The project uses the standard Go `testing` package.
 
 ---
 
-## 10. BACKEND-NODE AS THE SOURCE OF TRUTH (CRITICAL)
-**Context:** We are refactoring from an existing Node.js architecture (`backend-node`) to Golang (`backend`).
-* **Rule:** You MUST NOT invent new endpoints, schemas, or behaviors that did not exist in the Node.js implementation. The `backend-node` folder is the ABSOLUTE SOURCE OF TRUTH.
+## 10. BACKEND-GO-STABLE AS THE SOURCE OF TRUTH (CRITICAL)
+**Context:** We are refactoring the Golang backend architecture into a Domain-Driven Design (DDD) Modular Monolith.
+* **Rule:** The `backend-go-stable/` folder is the ABSOLUTE SOURCE OF TRUTH for existing business logic, validation, and endpoint schemas.
 * **Procedure:**
-    1. Before starting any new module or phase, you MUST analyze the corresponding router, controller, service, and repository inside `backend-node/`.
-    2. Ensure that the Go implementation precisely matches the Node.js implementation in terms of endpoint paths, logic, and response structures.
-    3. Use `graphify-out` to efficiently trace dependencies and business logic within `backend-node/` before writing Go code.
+    1. Before migrating any module, you MUST analyze the corresponding handler, service, and repository inside `backend-go-stable/`.
+    2. Ensure that the new DDD implementation precisely matches the logic, responses, and behavior of the `backend-go-stable` implementation, unless specifically instructed otherwise.
+    3. Use Domain Events to decouple cross-domain interactions that previously used direct service/repository injection in the stable backend.

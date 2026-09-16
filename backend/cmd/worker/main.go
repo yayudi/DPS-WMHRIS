@@ -12,11 +12,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dps-wmhris/backend/internal/config"
-	"github.com/dps-wmhris/backend/internal/database"
+	catalog_repo "github.com/dps-wmhris/backend/internal/modules/catalog/repository"
+	catalog_service "github.com/dps-wmhris/backend/internal/modules/catalog/service"
+	hris_repo "github.com/dps-wmhris/backend/internal/modules/hris/repository"
+	hris_service "github.com/dps-wmhris/backend/internal/modules/hris/service"
+	iam_repo "github.com/dps-wmhris/backend/internal/modules/iam/repository"
+	inventory_repo "github.com/dps-wmhris/backend/internal/modules/inventory/repository"
+	inventory_service "github.com/dps-wmhris/backend/internal/modules/inventory/service"
+
 	"github.com/dps-wmhris/backend/internal/model"
 	"github.com/dps-wmhris/backend/internal/repository"
 	"github.com/dps-wmhris/backend/internal/service"
+	"github.com/dps-wmhris/backend/internal/shared/config"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -36,28 +44,28 @@ func main() {
 	statisticRepo := repository.NewStatisticRepository(db)
 	statisticService := service.NewStatisticService(statisticRepo, jobRepo)
 	storageService := service.NewStorageService()
-	stockRepo := repository.NewStockRepository(db)
+	stockRepo := inventory_repo.NewStockRepository(db)
 	reportRepo := repository.NewReportRepository(db)
-	productRepo := repository.NewProductRepository(db)
-	categoryRepo := repository.NewCategoryRepository(db)
+	productRepo := catalog_repo.NewProductRepository(db)
+	categoryRepo := catalog_repo.NewCategoryRepository(db)
 	exportService := service.NewExportService(jobRepo, statisticService, storageService, stockRepo, reportRepo, productRepo, categoryRepo)
 
-	attendanceRepo := repository.NewAttendanceRepository(db)
-	userRepo := repository.NewUserRepository(db)
-	shiftRepo := repository.NewShiftRepository(db)
-	scheduleRepo := repository.NewScheduleRepository(db)
+	attendanceRepo := hris_repo.NewAttendanceRepository(db)
+	userRepo := iam_repo.NewUserRepository(db)
+	shiftRepo := hris_repo.NewShiftRepository(db)
+	scheduleRepo := hris_repo.NewScheduleRepository(db)
 	settingRepo := repository.NewSettingRepository(db)
-	attendanceService := service.NewAttendanceService(attendanceRepo, userRepo, shiftRepo, scheduleRepo, settingRepo)
+	attendanceService := hris_service.NewAttendanceService(attendanceRepo, userRepo, shiftRepo, scheduleRepo, settingRepo)
 
-	pickingRepo := repository.NewPickingRepository(db)
-	locationRepo := repository.NewLocationRepository(db)
-	pickingService := service.NewPickingService(db, pickingRepo, locationRepo, stockRepo, jobService, productRepo)
-	stockService := service.NewStockService(db, stockRepo, productRepo, locationRepo, userRepo, pickingRepo)
+	pickingRepo := inventory_repo.NewPickingRepository(db)
+	locationRepo := inventory_repo.NewLocationRepository(db)
+	pickingService := inventory_service.NewPickingService(db, pickingRepo, locationRepo, stockRepo, jobService, productRepo)
+	stockService := inventory_service.NewStockService(db, stockRepo, productRepo, locationRepo, userRepo, pickingRepo)
 	firebaseService := service.NewFirebaseSignalService()
-	scheduleService := service.NewScheduleService(scheduleRepo, shiftRepo, userRepo)
+	scheduleService := hris_service.NewScheduleService(scheduleRepo, shiftRepo, userRepo)
 
-	productAuditRepo := repository.NewProductAuditRepository()
-	productService := service.NewProductService(db, productRepo, productAuditRepo, categoryRepo)
+	productAuditRepo := catalog_repo.NewProductAuditRepository()
+	productService := catalog_service.NewProductService(db, productRepo, productAuditRepo, categoryRepo)
 
 	mediaRepo := repository.NewMediaRepository(db)
 	mediaService := service.NewMediaService(db, mediaRepo, productRepo, storageService)
@@ -101,7 +109,7 @@ func main() {
 
 const maxConcurrentJobs = 3
 
-func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo repository.JobRepository, jobService service.JobService, attendanceService service.AttendanceService, pickingService service.PickingService, stockService service.StockService, scheduleService service.ScheduleService, productService service.ProductService, firebaseService service.FirebaseSignalService, mediaService service.MediaService) {
+func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo repository.JobRepository, jobService service.JobService, attendanceService hris_service.AttendanceService, pickingService inventory_service.PickingService, stockService inventory_service.StockService, scheduleService hris_service.ScheduleService, productService catalog_service.ProductService, firebaseService service.FirebaseSignalService, mediaService service.MediaService) {
 	sem := make(chan struct{}, maxConcurrentJobs)
 	var wg sync.WaitGroup
 
@@ -133,7 +141,7 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 			defer cancel()
 
 			log.Printf("Found PENDING import job: %d (%s)", job.ID, job.JobType)
-			
+
 			// Execute Job
 			var processErr error
 			var logSummary string
@@ -193,7 +201,7 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 					"IMPORT_SALES_MANUAL":    "Offline",
 				}
 				source := sourceMap[job.JobType]
-				
+
 				shopName := ""
 				locationPurpose := "DISPLAY"
 				if job.Options != nil {
@@ -243,14 +251,14 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 			if processErr != nil {
 				log.Printf("Job %d failed: %v", job.ID, processErr)
 				if errLog := jobService.UpdateImportJobStatus(ctx, job.ID, "FAILED"); errLog != nil {
-				log.Printf("Failed to update job status: %v", errLog)
-			}
+					log.Printf("Failed to update job status: %v", errLog)
+				}
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "IMPORT_FAILED")
 			} else if logSummary != "" {
 				log.Printf("Job %d completed with summary: %s", job.ID, logSummary)
 				if errLog := jobService.UpdateImportJobStatusWithSummary(ctx, job.ID, "COMPLETED", logSummary); errLog != nil {
-				log.Printf("Failed to update job status: %v", errLog)
-			}
+					log.Printf("Failed to update job status: %v", errLog)
+				}
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "IMPORT_COMPLETED")
 				if job.JobType == "IMPORT_ATTENDANCE" {
 					_ = firebaseService.EmitSharedTaskSignal(ctx, "HRIS_ATTENDANCE", "REFRESH_ATTENDANCE")
@@ -258,8 +266,8 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 			} else {
 				log.Printf("Job %d completed", job.ID)
 				if errLog := jobService.UpdateImportJobStatus(ctx, job.ID, "COMPLETED"); errLog != nil {
-				log.Printf("Failed to update job status: %v", errLog)
-			}
+					log.Printf("Failed to update job status: %v", errLog)
+				}
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "IMPORT_COMPLETED")
 				if job.JobType == "IMPORT_ATTENDANCE" {
 					_ = firebaseService.EmitSharedTaskSignal(ctx, "HRIS_ATTENDANCE", "REFRESH_ATTENDANCE")
@@ -303,7 +311,7 @@ func processPendingExportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 			defer cancel()
 
 			log.Printf("Found PENDING export job: %d (%s)", job.ID, job.JobType)
-			
+
 			var processErr error
 			filtersJSON := ""
 			if job.Filters != nil {
@@ -337,13 +345,13 @@ func processPendingExportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 				log.Printf("Unknown export job type: %s (hex: %x)", job.JobType, job.JobType)
 				processErr = fmt.Errorf("unknown export job type: %s", job.JobType)
 			}
-			
+
 			if processErr != nil {
 				log.Printf("Export Job %d failed: %v", job.ID, processErr)
 				errMsg := processErr.Error()
 				if errLog := jobService.UpdateExportJobStatus(ctx, job.ID, "FAILED", nil, &errMsg); errLog != nil {
-				log.Printf("Failed to update job status: %v", errLog)
-			}
+					log.Printf("Failed to update job status: %v", errLog)
+				}
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "EXPORT_FAILED")
 			} else {
 				log.Printf("Export Job %d completed successfully", job.ID)

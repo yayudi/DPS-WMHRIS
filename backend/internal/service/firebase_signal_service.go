@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dps-wmhris/backend/internal/config"
+	"github.com/dps-wmhris/backend/internal/shared/config"
 )
 
 type FirebaseSignalService interface {

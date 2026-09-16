@@ -13,9 +13,11 @@ import (
 	"strings"
 	"time"
 
+	catalog_repo "github.com/dps-wmhris/backend/internal/modules/catalog/repository"
+
 	"github.com/dps-wmhris/backend/internal/dto"
 	"github.com/dps-wmhris/backend/internal/repository"
-	"github.com/dps-wmhris/backend/internal/utils"
+	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/jmoiron/sqlx"
 	"github.com/xuri/excelize/v2"
 )
@@ -35,11 +37,11 @@ type MediaService interface {
 type mediaServiceImpl struct {
 	db             *sqlx.DB
 	mediaRepo      repository.MediaRepository
-	productRepo    repository.ProductRepository
+	productRepo    catalog_repo.ProductRepository
 	storageService StorageService
 }
 
-func NewMediaService(db *sqlx.DB, mediaRepo repository.MediaRepository, productRepo repository.ProductRepository, storageService StorageService) MediaService {
+func NewMediaService(db *sqlx.DB, mediaRepo repository.MediaRepository, productRepo catalog_repo.ProductRepository, storageService StorageService) MediaService {
 	return &mediaServiceImpl{
 		db:             db,
 		mediaRepo:      mediaRepo,
@@ -301,7 +303,7 @@ func (s *mediaServiceImpl) processExternalImage(ctx context.Context, imageURL st
 		return 0, fmt.Errorf("gagal upload ke storage")
 	}
 	defer putResp.Body.Close()
-	
+
 	if putResp.StatusCode != 200 {
 		return 0, fmt.Errorf("gagal upload ke storage (status %d)", putResp.StatusCode)
 	}

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/dps-wmhris/backend/internal/database"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/dto"
 	"github.com/dps-wmhris/backend/internal/repository"
 	"github.com/jmoiron/sqlx"

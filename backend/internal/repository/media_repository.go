@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/dps-wmhris/backend/internal/dto"
-	"github.com/dps-wmhris/backend/internal/utils"
+	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/jmoiron/sqlx"
 )
 

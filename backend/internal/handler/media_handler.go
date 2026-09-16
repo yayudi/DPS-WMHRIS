@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dps-wmhris/backend/internal/config"
-	"github.com/dps-wmhris/backend/internal/database"
+	"github.com/dps-wmhris/backend/internal/shared/config"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/dto"
 	"github.com/dps-wmhris/backend/internal/repository"
 	"github.com/dps-wmhris/backend/internal/service"
-	"github.com/dps-wmhris/backend/internal/utils"
+	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"github.com/xuri/excelize/v2"
@@ -328,3 +328,12 @@ func (h *MediaHandler) BulkLinkExcel(c *gin.Context) {
 
 	utils.SuccessResponse(c, http.StatusOK, "File Bulk Link masuk antrian.", jobID)
 }
+
+func getUserID(c *gin.Context) int {
+	userID, _ := c.Get("user_id")
+	if id, ok := userID.(int); ok {
+		return id
+	}
+	return 0
+}
+

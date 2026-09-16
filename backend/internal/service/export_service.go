@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	catalog_repo "github.com/dps-wmhris/backend/internal/modules/catalog/repository"
+	inventory_repo "github.com/dps-wmhris/backend/internal/modules/inventory/repository"
+
 	"github.com/dps-wmhris/backend/internal/dto"
 	"github.com/dps-wmhris/backend/internal/repository"
-	"github.com/dps-wmhris/backend/internal/utils"
+	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -25,13 +28,13 @@ type exportServiceImpl struct {
 	jobRepo          repository.JobRepository
 	statisticService StatisticService
 	storageService   StorageService
-	stockRepo        repository.StockRepository
+	stockRepo        inventory_repo.StockRepository
 	reportRepo       repository.ReportRepository
-	productRepo      repository.ProductRepository
-	categoryRepo     repository.CategoryRepository
+	productRepo      catalog_repo.ProductRepository
+	categoryRepo     catalog_repo.CategoryRepository
 }
 
-func NewExportService(jobRepo repository.JobRepository, statisticService StatisticService, storageService StorageService, stockRepo repository.StockRepository, reportRepo repository.ReportRepository, productRepo repository.ProductRepository, categoryRepo repository.CategoryRepository) ExportService {
+func NewExportService(jobRepo repository.JobRepository, statisticService StatisticService, storageService StorageService, stockRepo inventory_repo.StockRepository, reportRepo repository.ReportRepository, productRepo catalog_repo.ProductRepository, categoryRepo catalog_repo.CategoryRepository) ExportService {
 	return &exportServiceImpl{
 		jobRepo:          jobRepo,
 		statisticService: statisticService,
@@ -57,7 +60,8 @@ func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobI
 	// Buat file Excel
 	f := excelize.NewFile()
 	defer func() {
-		if err := f.Close(); err != nil {}
+		if err := f.Close(); err != nil {
+		}
 	}()
 	styles := utils.InitExcelStyles(f)
 
@@ -77,7 +81,7 @@ func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobI
 				estimasi = fmt.Sprintf("%.1f", *row.DaysOfInventory)
 			}
 		}
-		
+
 		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{ // #nosec G104
 			row.SKU, row.Name, row.CurrentStock, row.TotalSold, row.TotalInbound, row.AvgDailySales, estimasi, row.Status,
 		})
@@ -97,10 +101,10 @@ func (s *exportServiceImpl) ProcessExportStockTimeline(ctx context.Context, jobI
 
 	req := dto.StatisticFilterRequest{}
 	_ = json.Unmarshal([]byte(filtersJSON), &req)
-	
+
 	// Untuk timeline asumsikan rentang diambil secara dinamis atau hardcode,
 	// karena getStockTimeline tidak selalu minta startDate.
-	req.StartDate = "2020-01-01" 
+	req.StartDate = "2020-01-01"
 	req.EndDate = "2030-01-01"
 
 	data, err := s.statisticService.GetStockTimelineStatistics(ctx, req)
@@ -137,11 +141,11 @@ func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int
 	if filtersJSON != "" {
 		_ = json.Unmarshal([]byte(filtersJSON), &filter)
 	}
-	
+
 	// Override limit to get all logs
 	filter.Page = 1
 	filter.Limit = 999999
-	
+
 	// Default dates if not set
 	if filter.StartDate == "" {
 		filter.StartDate = "2020-01-01"
@@ -214,11 +218,11 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 	redStyle, _ := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{Color: "#9C0006"},
 	})
-	
+
 	boldRedStyle, _ := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{Color: "#9C0006", Bold: true},
 	})
-	
+
 	boldStyle, _ := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{Bold: true},
 	})
@@ -258,7 +262,7 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 			val, _ := pivotData[row.Sku][lokasi].(int)
 			pivotData[row.Sku][lokasi] = val + row.Kuantitas
 		}
-		
+
 		total, _ := pivotData[row.Sku]["GrandTotal"].(int)
 		pivotData[row.Sku]["GrandTotal"] = total + row.Kuantitas
 
@@ -269,10 +273,10 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 	pivotSheet := "Ringkasan Stok"
 	_, _ = f.NewSheet(pivotSheet) // #nosec G104
 
-	_ = f.MergeCell(pivotSheet, "A1", "B1") // #nosec G104
+	_ = f.MergeCell(pivotSheet, "A1", "B1")                                     // #nosec G104
 	_ = f.SetCellValue(pivotSheet, "A1", "Laporan Ringkasan Stok (Per Lokasi)") // #nosec G104
 	titleStyle, _ := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{Size: 14, Bold: true},
+		Font:      &excelize.Font{Size: 14, Bold: true},
 		Alignment: &excelize.Alignment{Horizontal: "center"},
 	})
 	_ = f.SetCellStyle(pivotSheet, "A1", "A1", titleStyle) // #nosec G104
@@ -289,18 +293,18 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 	headers = append(headers, "Grand Total")
 	colName, _ := excelize.ColumnNumberToName(colIdx)
 	_ = f.SetColWidth(pivotSheet, colName, colName, 15) // #nosec G104
-	
+
 	_ = f.SetSheetRow(pivotSheet, "A2", &headers) // #nosec G104
 
 	_ = f.SetCellStyle(pivotSheet, "A2", fmt.Sprintf("%s2", colName), styles.Header) // #nosec G104
-	_ = f.SetColWidth(pivotSheet, "A", "A", 20) // #nosec G104
-	_ = f.SetColWidth(pivotSheet, "B", "B", 50) // #nosec G104
+	_ = f.SetColWidth(pivotSheet, "A", "A", 20)                                      // #nosec G104
+	_ = f.SetColWidth(pivotSheet, "B", "B", 50)                                      // #nosec G104
 
 	pRowIdx := 3
 	for _, sku := range skus {
 		pData := pivotData[sku]
 		row := []interface{}{pData["Sku"], pData["NamaProduk"]}
-		
+
 		cIdx := 3
 		for _, loc := range locationCodes {
 			val, ok := pData[loc].(int)
@@ -316,7 +320,7 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 			}
 			cIdx++
 		}
-		
+
 		gt, _ := pData["GrandTotal"].(int)
 		row = append(row, gt)
 		_ = f.SetSheetRow(pivotSheet, fmt.Sprintf("A%d", pRowIdx), &row) // #nosec G104
@@ -328,7 +332,7 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 		} else {
 			_ = f.SetCellStyle(pivotSheet, cellName, cellName, boldStyle) // #nosec G104
 		}
-		
+
 		pRowIdx++
 	}
 
@@ -430,7 +434,7 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 
 		lastRow := len(data.LocationLoads) + 2
 		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", lastRow), &[]interface{}{"GRAND TOTAL", "", "", "", totalSKU, totalQty, totalWeight, totalCBM}) // #nosec G104
-		_ = f.MergeCell(sheetName, fmt.Sprintf("A%d", lastRow), fmt.Sprintf("D%d", lastRow)) // #nosec G104
+		_ = f.MergeCell(sheetName, fmt.Sprintf("A%d", lastRow), fmt.Sprintf("D%d", lastRow))                                                            // #nosec G104
 
 		utils.SetColStyles(f, sheetName, map[string]int{
 			"E": styles.NumInt, "F": styles.NumInt,
@@ -440,7 +444,7 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 		// Fix header style overridden by ColStyle
 		_ = f.SetCellStyle(sheetName, "A1", "H1", styles.Header) // #nosec G104
 
-		_ = f.SetCellStyle(sheetName, fmt.Sprintf("A%d", lastRow), fmt.Sprintf("D%d", lastRow), styles.Total) // #nosec G104
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("A%d", lastRow), fmt.Sprintf("D%d", lastRow), styles.Total)    // #nosec G104
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("E%d", lastRow), fmt.Sprintf("F%d", lastRow), styles.TotalInt) // #nosec G104
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("G%d", lastRow), fmt.Sprintf("H%d", lastRow), styles.TotalDec) // #nosec G104
 
@@ -492,7 +496,7 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 		}
 
 		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", currentRow), &[]interface{}{"GRAND TOTAL", "", "", "", "", "", totalQty, totalWeight, totalCBM}) // #nosec G104
-		_ = f.MergeCell(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("F%d", currentRow)) // #nosec G104
+		_ = f.MergeCell(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("F%d", currentRow))                                                       // #nosec G104
 
 		utils.SetColStyles(f, sheetName, map[string]int{
 			"G": styles.NumInt, "H": styles.NumDec, "I": styles.NumDec,
@@ -501,7 +505,7 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 		// Fix header style overridden by ColStyle
 		_ = f.SetCellStyle(sheetName, "A1", "I1", styles.Header) // #nosec G104
 
-		_ = f.SetCellStyle(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("F%d", currentRow), styles.Total) // #nosec G104
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("F%d", currentRow), styles.Total)    // #nosec G104
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("G%d", currentRow), fmt.Sprintf("G%d", currentRow), styles.TotalInt) // #nosec G104
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("H%d", currentRow), fmt.Sprintf("I%d", currentRow), styles.TotalDec) // #nosec G104
 

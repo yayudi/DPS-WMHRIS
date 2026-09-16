@@ -3,12 +3,24 @@ package main
 import (
 	"log"
 
-	"github.com/dps-wmhris/backend/internal/config"
-	"github.com/dps-wmhris/backend/internal/database"
 	"github.com/dps-wmhris/backend/internal/handler"
-	"github.com/dps-wmhris/backend/internal/middleware"
+	catalog_handler "github.com/dps-wmhris/backend/internal/modules/catalog/handler"
+	inventory_handler "github.com/dps-wmhris/backend/internal/modules/inventory/handler"
+	hris_handler "github.com/dps-wmhris/backend/internal/modules/hris/handler"
+	hris_repo "github.com/dps-wmhris/backend/internal/modules/hris/repository"
+	hris_service "github.com/dps-wmhris/backend/internal/modules/hris/service"
+	iam_handler "github.com/dps-wmhris/backend/internal/modules/iam/handler"
+	iam_repo "github.com/dps-wmhris/backend/internal/modules/iam/repository"
+	iam_service "github.com/dps-wmhris/backend/internal/modules/iam/service"
 	"github.com/dps-wmhris/backend/internal/repository"
+	catalog_repo "github.com/dps-wmhris/backend/internal/modules/catalog/repository"
+	inventory_repo "github.com/dps-wmhris/backend/internal/modules/inventory/repository"
 	"github.com/dps-wmhris/backend/internal/service"
+	catalog_service "github.com/dps-wmhris/backend/internal/modules/catalog/service"
+	inventory_service "github.com/dps-wmhris/backend/internal/modules/inventory/service"
+	"github.com/dps-wmhris/backend/internal/shared/config"
+	"github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -32,17 +44,17 @@ func main() {
 	systemLogService := service.NewSystemLogService(systemLogRepo)
 	systemLogHandler := handler.NewSystemLogHandler(systemLogService)
 
-	roleRepo := repository.NewRoleRepository(db)
-	roleService := service.NewRoleService(db, roleRepo, systemLogRepo)
-	roleHandler := handler.NewRoleHandler(roleService)
+	roleRepo := iam_repo.NewRoleRepository(db)
+	roleService := iam_service.NewRoleService(db, roleRepo, systemLogRepo)
+	roleHandler := iam_handler.NewRoleHandler(roleService)
 
-	userRepo := repository.NewUserRepository(db)
-	userService := service.NewUserService(db, userRepo, systemLogRepo)
-	userHandler := handler.NewUserHandler(userService)
+	userRepo := iam_repo.NewUserRepository(db)
+	userService := iam_service.NewUserService(db, userRepo, systemLogRepo)
+	userHandler := iam_handler.NewUserHandler(userService)
 
-	adminUserRepo := repository.NewAdminUserRepository(db)
-	adminUserService := service.NewAdminUserService(db, adminUserRepo, roleRepo, systemLogRepo)
-	adminUserHandler := handler.NewAdminUserHandler(adminUserService)
+	adminUserRepo := iam_repo.NewAdminUserRepository(db)
+	adminUserService := iam_service.NewAdminUserService(db, adminUserRepo, roleRepo, systemLogRepo)
+	adminUserHandler := iam_handler.NewAdminUserHandler(adminUserService)
 
 	salesChannelRepo := repository.NewSalesChannelRepository(db)
 	salesChannelService := service.NewSalesChannelService(db, salesChannelRepo, systemLogRepo)
@@ -68,44 +80,44 @@ func main() {
 
 	storageService := service.NewStorageService()
 	uploadHandler := handler.NewUploadHandler(storageService)
-	
-	productRepo := repository.NewProductRepository(db)
-	
+
+	productRepo := catalog_repo.NewProductRepository(db)
+
 	mediaRepo := repository.NewMediaRepository(db)
 	mediaService := service.NewMediaService(db, mediaRepo, productRepo, storageService)
 	mediaHandler := handler.NewMediaHandler(db, mediaService, storageService, jobService)
 
-	categoryRepo := repository.NewCategoryRepository(db)
-	categoryService := service.NewCategoryService(categoryRepo)
-	categoryHandler := handler.NewCategoryHandler(categoryService)
+	categoryRepo := catalog_repo.NewCategoryRepository(db)
+	categoryService := catalog_service.NewCategoryService(categoryRepo)
+	categoryHandler := catalog_handler.NewCategoryHandler(categoryService)
 
-	productAuditRepo := repository.NewProductAuditRepository()
-	productService := service.NewProductService(db, productRepo, productAuditRepo, categoryRepo)
-	productHandler := handler.NewProductHandler(productService, jobService)
+	productAuditRepo := catalog_repo.NewProductAuditRepository()
+	productService := catalog_service.NewProductService(db, productRepo, productAuditRepo, categoryRepo)
+	productHandler := catalog_handler.NewProductHandler(productService, jobService)
 
-	locationRepo := repository.NewLocationRepository(db)
-	locationService := service.NewLocationService(db, locationRepo, systemLogRepo)
-	locationHandler := handler.NewLocationHandler(locationService)
+	locationRepo := inventory_repo.NewLocationRepository(db)
+	locationService := inventory_service.NewLocationService(db, locationRepo, systemLogRepo)
+	locationHandler := inventory_handler.NewLocationHandler(locationService)
 
-	pickingRepo := repository.NewPickingRepository(db)
+	pickingRepo := inventory_repo.NewPickingRepository(db)
 
-	stockRepo := repository.NewStockRepository(db)
-	stockService := service.NewStockService(db, stockRepo, productRepo, locationRepo, userRepo, pickingRepo)
-	stockHandler := handler.NewStockHandler(stockService, jobService)
+	stockRepo := inventory_repo.NewStockRepository(db)
+	stockService := inventory_service.NewStockService(db, stockRepo, productRepo, locationRepo, userRepo, pickingRepo)
+	stockHandler := inventory_handler.NewStockHandler(stockService, jobService)
 
-	stockRequestRepo := repository.NewStockRequestRepository(db)
-	stockRequestService := service.NewStockRequestService(db, stockRequestRepo, stockService, notificationService)
-	stockRequestHandler := handler.NewStockRequestHandler(stockRequestService)
+	stockRequestRepo := inventory_repo.NewStockRequestRepository(db)
+	stockRequestService := inventory_service.NewStockRequestService(db, stockRequestRepo, stockService, notificationService)
+	stockRequestHandler := inventory_handler.NewStockRequestHandler(stockRequestService)
 
 	packageHandler := handler.NewPackageHandler(jobService)
 
-	returnRepo := repository.NewReturnRepository(db)
-	returnService := service.NewReturnService(db, returnRepo, locationRepo, stockRepo)
-	returnHandler := handler.NewReturnHandler(returnService)
+	returnRepo := inventory_repo.NewReturnRepository(db)
+	returnService := inventory_service.NewReturnService(db, returnRepo, locationRepo, stockRepo)
+	returnHandler := inventory_handler.NewReturnHandler(returnService)
 
-	investigationRepo := repository.NewInvestigationRepository(db)
-	investigationService := service.NewInvestigationService(db, investigationRepo, locationRepo, stockRepo)
-	investigationHandler := handler.NewInvestigationHandler(investigationService)
+	investigationRepo := inventory_repo.NewInvestigationRepository(db)
+	investigationService := inventory_service.NewInvestigationService(db, investigationRepo, locationRepo, stockRepo)
+	investigationHandler := inventory_handler.NewInvestigationHandler(investigationService)
 
 	statsRepo := repository.NewStatsRepository(db)
 	statsService := service.NewStatsService(statsRepo)
@@ -119,21 +131,21 @@ func main() {
 	statisticService := service.NewStatisticService(statisticRepo, jobRepo)
 	statisticHandler := handler.NewStatisticHandler(statisticService)
 
-	shiftRepo := repository.NewShiftRepository(db)
-	shiftService := service.NewShiftService(db, shiftRepo)
-	shiftHandler := handler.NewShiftHandler(shiftService)
+	shiftRepo := hris_repo.NewShiftRepository(db)
+	shiftService := hris_service.NewShiftService(db, shiftRepo)
+	shiftHandler := hris_handler.NewShiftHandler(shiftService)
 
-	pickingService := service.NewPickingService(db, pickingRepo, locationRepo, stockRepo, jobService, productRepo)
-	pickingHandler := handler.NewPickingHandler(jobService, pickingService)
+	pickingService := inventory_service.NewPickingService(db, pickingRepo, locationRepo, stockRepo, jobService, productRepo)
+	pickingHandler := inventory_handler.NewPickingHandler(jobService, pickingService)
 
-	scheduleRepo := repository.NewScheduleRepository(db)
-	scheduleService := service.NewScheduleService(scheduleRepo, shiftRepo, userRepo)
-	scheduleHandler := handler.NewScheduleHandler(scheduleService, jobService)
+	scheduleRepo := hris_repo.NewScheduleRepository(db)
+	scheduleService := hris_service.NewScheduleService(scheduleRepo, shiftRepo, userRepo)
+	scheduleHandler := hris_handler.NewScheduleHandler(scheduleService, jobService)
 
 	settingRepo := repository.NewSettingRepository(db)
-	attendanceRepo := repository.NewAttendanceRepository(db)
-	attendanceService := service.NewAttendanceService(attendanceRepo, userRepo, shiftRepo, scheduleRepo, settingRepo)
-	attendanceHandler := handler.NewAttendanceHandler(attendanceService, jobService)
+	attendanceRepo := hris_repo.NewAttendanceRepository(db)
+	attendanceService := hris_service.NewAttendanceService(attendanceRepo, userRepo, shiftRepo, scheduleRepo, settingRepo)
+	attendanceHandler := hris_handler.NewAttendanceHandler(attendanceService, jobService)
 
 	// Setup Router
 	r := gin.Default()
@@ -222,7 +234,7 @@ func main() {
 				stock.GET("/batch-log", stockHandler.GetBatchLogs)
 				stock.GET("/history/:productId", stockHandler.GetStockHistory)
 				stock.POST("/import-batch", middleware.RequireAnyPermission(db, "stock_batch.manage", "stock_batch.move"), stockHandler.ImportBatchInbound)
-				
+
 				// New endpoints for Stock matching Node.js
 				stock.POST("/batch-transfer", middleware.RequireAnyPermission(db, "stock_batch.manage", "stock_batch.move"), stockHandler.BatchTransfer)
 				stock.POST("/validate-return", stockHandler.ValidateReturn)
@@ -242,7 +254,7 @@ func main() {
 				returns.POST("/approve", returnHandler.ApproveReturn)
 				returns.POST("/manual-entry", returnHandler.CreateManualReturn)
 			}
-			
+
 			// Alias for Returns (to match Node.js apiRouter.use("/return", ...))
 			returnAlias := protected.Group("/return")
 			{
@@ -343,10 +355,9 @@ func main() {
 				adminUsers.GET("/:id/locations", adminUserHandler.GetUserLocations)
 				adminUsers.PUT("/:id/locations", adminUserHandler.UpdateUserLocations)
 			}
-			
+
 			// System Logs
 			protected.GET("/logs", middleware.RequirePermission(db, "system_log.view"), systemLogHandler.GetLogs)
-
 
 			salesChannels := protected.Group("/sales-channels")
 			{

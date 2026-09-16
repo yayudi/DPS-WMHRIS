@@ -7,7 +7,7 @@ import (
 	"github.com/dps-wmhris/backend/internal/dto"
 	"github.com/dps-wmhris/backend/internal/model"
 	"github.com/dps-wmhris/backend/internal/repository"
-	"github.com/dps-wmhris/backend/internal/utils"
+	"github.com/dps-wmhris/backend/internal/shared/utils"
 )
 
 type JobService interface {

@@ -82,9 +82,10 @@ gosec*
 graphify-out
 
 # ===================================================================
-# BACKEND SPECIFIC
+# Refactor references
 # ===================================================================
 /backend-node/
+/backend-go-stable/
 
 # Go Binaries
 /backend/*.exe
