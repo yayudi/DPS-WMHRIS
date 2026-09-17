@@ -1,6 +1,13 @@
 package main
 
 import (
+	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
+
+	analytics_usecase "github.com/dps-wmhris/backend/internal/modules/analytics/application/usecase"
+	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
+	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
+
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,17 +19,8 @@ import (
 	"syscall"
 	"time"
 
-	catalog_repo "github.com/dps-wmhris/backend/internal/modules/catalog/repository"
-	catalog_service "github.com/dps-wmhris/backend/internal/modules/catalog/service"
-	hris_repo "github.com/dps-wmhris/backend/internal/modules/hris/repository"
-	hris_service "github.com/dps-wmhris/backend/internal/modules/hris/service"
-	iam_repo "github.com/dps-wmhris/backend/internal/modules/iam/repository"
-	inventory_repo "github.com/dps-wmhris/backend/internal/modules/inventory/repository"
-	inventory_service "github.com/dps-wmhris/backend/internal/modules/inventory/service"
-
-	"github.com/dps-wmhris/backend/internal/model"
-	"github.com/dps-wmhris/backend/internal/repository"
-	"github.com/dps-wmhris/backend/internal/service"
+	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
+	hris_port "github.com/dps-wmhris/backend/internal/modules/hris/port"
 	"github.com/dps-wmhris/backend/internal/shared/config"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/jmoiron/sqlx"
@@ -38,37 +36,23 @@ func main() {
 	db := database.ConnectDB()
 	defer db.Close()
 
-	jobRepo := repository.NewJobRepository(db)
-	jobService := service.NewJobService(jobRepo)
+	jobRepo := system_mysql.NewJobRepository(db)
+	container, err := InitializeWorker(db)
+	if err != nil {
+		log.Fatalf("failed to initialize worker: %v", err)
+	}
 
-	statisticRepo := repository.NewStatisticRepository(db)
-	statisticService := service.NewStatisticService(statisticRepo, jobRepo)
-	storageService := service.NewStorageService()
-	stockRepo := inventory_repo.NewStockRepository(db)
-	reportRepo := repository.NewReportRepository(db)
-	productRepo := catalog_repo.NewProductRepository(db)
-	categoryRepo := catalog_repo.NewCategoryRepository(db)
-	exportService := service.NewExportService(jobRepo, statisticService, storageService, stockRepo, reportRepo, productRepo, categoryRepo)
-
-	attendanceRepo := hris_repo.NewAttendanceRepository(db)
-	userRepo := iam_repo.NewUserRepository(db)
-	shiftRepo := hris_repo.NewShiftRepository(db)
-	scheduleRepo := hris_repo.NewScheduleRepository(db)
-	settingRepo := repository.NewSettingRepository(db)
-	attendanceService := hris_service.NewAttendanceService(attendanceRepo, userRepo, shiftRepo, scheduleRepo, settingRepo)
-
-	pickingRepo := inventory_repo.NewPickingRepository(db)
-	locationRepo := inventory_repo.NewLocationRepository(db)
-	pickingService := inventory_service.NewPickingService(db, pickingRepo, locationRepo, stockRepo, jobService, productRepo)
-	stockService := inventory_service.NewStockService(db, stockRepo, productRepo, locationRepo, userRepo, pickingRepo)
-	firebaseService := service.NewFirebaseSignalService()
-	scheduleService := hris_service.NewScheduleService(scheduleRepo, shiftRepo, userRepo)
-
-	productAuditRepo := catalog_repo.NewProductAuditRepository()
-	productService := catalog_service.NewProductService(db, productRepo, productAuditRepo, categoryRepo)
-
-	mediaRepo := repository.NewMediaRepository(db)
-	mediaService := service.NewMediaService(db, mediaRepo, productRepo, storageService)
+	jobService := container.JobService
+	_ = container.StatisticService
+	_ = container.StorageService
+	exportService := container.ExportService
+	attendanceService := container.AttendanceService
+	pickingService := container.PickingService
+	stockService := container.StockService
+	firebaseService := container.FirebaseService
+	scheduleService := container.ScheduleService
+	productService := container.ProductService
+	mediaService := container.MediaService
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -109,7 +93,7 @@ func main() {
 
 const maxConcurrentJobs = 3
 
-func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo repository.JobRepository, jobService service.JobService, attendanceService hris_service.AttendanceService, pickingService inventory_service.PickingService, stockService inventory_service.StockService, scheduleService hris_service.ScheduleService, productService catalog_service.ProductService, firebaseService service.FirebaseSignalService, mediaService service.MediaService) {
+func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_mysql.JobRepository, jobService system_usecase.JobService, attendanceService hris_port.AttendanceUseCase, pickingService inventory_port.PickingUseCase, stockService inventory_port.StockUseCase, scheduleService hris_port.ScheduleUseCase, productService catalog_port.ProductUseCase, firebaseService system_usecase.FirebaseSignalService, mediaService system_usecase.MediaService) {
 	sem := make(chan struct{}, maxConcurrentJobs)
 	var wg sync.WaitGroup
 
@@ -123,7 +107,7 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 			break
 		}
 
-		job, err := jobRepo.ClaimNextImportJob(ctx, tx)
+		job, err := jobRepo.ClaimNextImportJob(ctx)
 		if err != nil {
 			_ = tx.Rollback() // #nosec G104
 			<-sem
@@ -132,7 +116,7 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 		_ = tx.Commit() // #nosec G104
 
 		wg.Add(1)
-		go func(job model.ImportJob) {
+		go func(job system_domain.ImportJob) {
 			defer wg.Done()
 			defer func() { <-sem }()
 
@@ -279,7 +263,7 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 	wg.Wait()
 }
 
-func processPendingExportJobs(ctx context.Context, db *sqlx.DB, jobRepo repository.JobRepository, jobService service.JobService, exportService service.ExportService, firebaseService service.FirebaseSignalService) {
+func processPendingExportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_mysql.JobRepository, jobService system_usecase.JobService, exportService analytics_usecase.ExportService, firebaseService system_usecase.FirebaseSignalService) {
 	sem := make(chan struct{}, maxConcurrentJobs)
 	var wg sync.WaitGroup
 
@@ -293,7 +277,7 @@ func processPendingExportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 			break
 		}
 
-		job, err := jobRepo.ClaimNextExportJob(ctx, tx)
+		job, err := jobRepo.ClaimNextExportJob(ctx)
 		if err != nil {
 			_ = tx.Rollback() // #nosec G104
 			<-sem
@@ -302,7 +286,7 @@ func processPendingExportJobs(ctx context.Context, db *sqlx.DB, jobRepo reposito
 		_ = tx.Commit() // #nosec G104
 
 		wg.Add(1)
-		go func(job model.ExportJob) {
+		go func(job system_domain.ExportJob) {
 			defer wg.Done()
 			defer func() { <-sem }()
 

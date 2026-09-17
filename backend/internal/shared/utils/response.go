@@ -27,7 +27,7 @@ func ErrorResponse(c *gin.Context, statusCode int, message string, errorCode str
 	})
 }
 
-// BindAndValidate mencoba melakukan binding JSON ke struct generik. 
+// BindAndValidate mencoba melakukan binding JSON ke struct generik.
 // Mengembalikan true jika berhasil, atau false (beserta respons error otomatis) jika gagal.
 func BindAndValidate[T any](c *gin.Context) (*T, bool) {
 	var req T
@@ -66,9 +66,9 @@ func PaginatedResponse(c *gin.Context, statusCode int, data any, page int, limit
 		"success": true,
 		"data":    data,
 		"pagination": gin.H{
-			"page":       page,
-			"limit":      limit,
-			"total":      total,
+			"page":        page,
+			"limit":       limit,
+			"total":       total,
 			"total_pages": totalPages,
 		},
 	})

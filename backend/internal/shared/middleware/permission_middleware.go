@@ -52,7 +52,7 @@ func RequirePermission(db *sqlx.DB, requiredPermission string) gin.HandlerFunc {
 		if roleCached {
 			hasPerm, permChecked := rolePerms[requiredPermission]
 			cacheMu.RUnlock()
-			
+
 			if permChecked { // Permission ini sudah pernah di-query sebelumnya
 				if hasPerm {
 					c.Next()
@@ -74,7 +74,7 @@ func RequirePermission(db *sqlx.DB, requiredPermission string) gin.HandlerFunc {
 			WHERE rp.role_id = ? AND p.name = ?
 			LIMIT 1
 		`
-		
+
 		err := db.QueryRow(query, roleID, requiredPermission).Scan(&hasPermission)
 		isAllowed := (err == nil)
 
@@ -152,7 +152,7 @@ func RequireAnyPermission(db *sqlx.DB, permissions ...string) gin.HandlerFunc {
 			WHERE rp.role_id = ? AND perm.name = ?
 			LIMIT 1
 		`
-		
+
 		cacheMu.Lock()
 		if permCache[roleID] == nil {
 			permCache[roleID] = make(map[string]bool)
@@ -161,14 +161,14 @@ func RequireAnyPermission(db *sqlx.DB, permissions ...string) gin.HandlerFunc {
 		for _, p := range permissions {
 			// Skip jika status permission ini sudah tersimpan di cache (berarti false, karena loop cache sebelumnya tidak lolos)
 			if _, checked := permCache[roleID][p]; checked {
-				continue 
+				continue
 			}
-			
+
 			var hasPermission int
 			err := db.QueryRow(query, roleID, p).Scan(&hasPermission)
 			allowed := (err == nil)
 			permCache[roleID][p] = allowed
-			
+
 			if allowed {
 				isAllowed = true
 				break // Stop query DB, karena cukup 1 izin saja untuk lolos (OR logic)

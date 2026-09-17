@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+
 	"github.com/dps-wmhris/backend/internal/shared/config"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/joho/godotenv"

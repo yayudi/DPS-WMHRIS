@@ -10,54 +10,52 @@ trigger: always_on
 
 ### Technology Stack
 * **Frontend:** Vue.js 3 (Composition API, `<script setup>`), Tailwind CSS.
-* **Backend:** Golang (Standard Library or Gin/Fiber), MySQL (Library: `database/sql` + `sqlx` or `gorm`).
+* **Backend:** Golang (Gin Framework), MySQL (Library: `database/sql` + `sqlx`).
+* **Message Broker / Event Bus:** RabbitMQ.
 * **Testing:** Go `testing` package.
 * **Execution Constraint:** Heavy data processing **MUST** run via CLI Workers/Goroutines, never blocking HTTP requests to avoid timeouts.
 
 ---
 
-## 2. BACKEND ARCHITECTURE (MODULAR DDD)
-Adhere strictly to the **Domain-Driven Design (Modular Monolith)** pattern.
+## 2. BACKEND ARCHITECTURE (HEXAGONAL / PORTS & ADAPTERS)
+Adhere strictly to the **Domain-Driven Design (Hexagonal Architecture)** pattern.
 The backend code must be grouped by **Domain / Bounded Context** inside `backend/internal/modules/` (e.g., `iam`, `hris`, `catalog`, `inventory`).
 Within each domain folder, the standard layers are maintained:
 
-### A. Repository Layer (`.../repository/`)
-**Role:** SQL Query Executor ONLY.
+### A. Domain Layer (`.../domain/`)
+**Role:** The Core Business Logic.
 * **DO:**
-    * Handle `SELECT`, `INSERT`, `UPDATE`, `DELETE`.
-    * Accept `context.Context` and database connection/transaction (`*sql.DB` or `*sql.Tx`) as parameters.
-    * Use **snake_case** for raw SQL column names.
-    * **SQLx STRICT MAPPING:** Be careful when using `SELECT *`. `sqlx` will panic/error (`missing destination name...`) if the query returns a column that doesn't exist in the destination Go `struct`. Either explicitly `SELECT` only the columns you need, or ensure the Go `struct` is perfectly 1:1 mapped to the DB schema (including `db:"..."` tags for every nullable/new column).
-    * Add Godoc comments for every function.
-    * **SECURITY:** ALWAYS use parameterized queries (`?`). NEVER use string concatenation for values inside SQL strings.
-* **DO NOT:**
-    * Write Business Logic.
-    * Handle Transactions (`BEGIN`, `COMMIT`, `ROLLBACK`) unless it's a specific transaction repository function.
-    * Import global DB config directly (use Dependency Injection).
+    * Define Entities, Value Objects, and Domain Services.
+    * Implement pure business logic without depending on ANY external libraries, database frameworks, or HTTP context.
+    * Define Custom Domain Errors.
 
-### B. Service Layer (`.../service/`)
-**Role:** The "Brain" & Orchestrator.
+### B. Port Layer (`.../port/`)
+**Role:** Interfaces connecting the Application to the Outside World.
 * **DO:**
-    * Manage Transactions: Orchestrate multiple repository calls within a transaction.
-    * **Audit Logging:** Log every data change.
-    * **Validation:** Validate business rules and return standard `error`.
-    * Add Godoc comments for every function.
+    * Define **Inbound Ports** (Interfaces implemented by Use Cases).
+    * Define **Outbound Ports** (Interfaces for Repositories, EventBus, external APIs).
 
-### C. Controller/Handler Layer (`.../handler/`)
-**Role:** HTTP Interface.
+### C. Application Layer (`.../application/`)
+**Role:** Application Use Cases (formerly Service layer).
 * **DO:**
-    * Parse HTTP requests and bind JSON/Forms to Go structs.
-    * **Validation:** Perform structural validation (e.g. valid email, numeric quantity) BEFORE calling Services (using `validator` package).
-    * Call Services.
-    * Return standardized JSON responses.
-    * Catch Service errors and map to appropriate HTTP Status Codes (400, 404, 500).
-* **DO NOT:**
-    * Write ANY SQL queries.
-    * Contain complex business logic.
+    * Implement Inbound Ports.
+    * Orchestrate domain logic using Entities and Outbound Ports (e.g., calling Repositories).
+    * **Manage Transactions:** Use `database.TransactionManager` injected via DI. Wrap operations in `s.txManager.WithTransaction(ctx, func(ctx context.Context) error { ... })`. **NEVER** inject `*sqlx.DB` directly into UseCases.
+    * Accept and return simple DTOs or domain models (NO `gin.Context` or HTTP Request structures).
 
-### D. Cross-Domain Communication (CRITICAL)
-* **Rule:** A domain MUST NOT directly query the database tables or call the Repository of another domain.
-* **Practice:** Use **Domain Events** (event-driven) to communicate state changes across domains.
+### D. Adapter Layer (`.../adapter/`)
+**Role:** External integration (HTTP, Database, Event Listeners).
+* **DO:**
+    * **Inbound (`adapter/inbound/http`)**: HTTP Handlers. Parse HTTP requests (Gin), perform structural validation, map to Application DTOs, and call Application Use Cases. **NEVER** inject raw database connections here.
+    * **Outbound (`adapter/outbound/mysql`)**: Repositories implementing Outbound Ports using `database/sql` + `sqlx`. Handle SQL execution here ONLY. Extract active transactions gracefully using `database.GetExt(ctx, r.db)`.
+
+### E. Cross-Domain Communication (CRITICAL)
+* **Rule:** A domain MUST NOT directly query the database tables, Repositories, or Application Use Cases of another domain.
+* **Practice:** Use **RabbitMQ (Event Bus)** to publish and consume Domain Events to communicate state changes asynchronously across domains.
+
+### F. Boilerplate vs. DRY
+* **Rule:** Hexagonal Architecture introduces boilerplate (e.g., interface definitions, DTO-to-Entity mappers). This boilerplate is **ALLOWED** and expected for loose coupling.
+* **Practice:** Even with boilerplate, apply **DRY (Don't Repeat Yourself)** principles within each layer where possible (e.g., generic repository helpers, shared validation logic).
 
 ---
 
@@ -80,7 +78,7 @@ The Agent **MUST** read these files before generating code to prevent hallucinat
     * **Database Columns:** `snake_case` (e.g., `is_active`, `created_at`)
     * **Go Variables/Structs:** `camelCase` for unexported, `PascalCase` for exported (e.g., `isActive`, `CreatedAt`)
     * **Files:** `snake_case` (e.g., `product_service.go`, `user_repository.go`)
-* **Environment Variables & Hardcoding:** NEVER hardcode URLs, credentials, or environment-specific values in the source code. All URLs (like `MEDIA_URL`, `R2_PUBLIC_URL`) MUST be fetched from the `.env` file via the config package.
+* **Environment Variables & Hardcoding:** NEVER hardcode URLs, credentials, or environment-specific values in the source code. All URLs (like `MEDIA_URL`, `R2_PUBLIC_URL`, `RABBITMQ_URL`) MUST be fetched from the `.env` file via the `config` package.
 
 ---
 
@@ -178,10 +176,11 @@ The project uses the standard Go `testing` package.
 
 ---
 
-## 10. BACKEND-GO-STABLE AS THE SOURCE OF TRUTH (CRITICAL)
-**Context:** We are refactoring the Golang backend architecture into a Domain-Driven Design (DDD) Modular Monolith.
-* **Rule:** The `backend-go-stable/` folder is the ABSOLUTE SOURCE OF TRUTH for existing business logic, validation, and endpoint schemas.
+## 10. MAINTAINING DDD PURITY (CRITICAL)
+**Context:** The project has achieved 100% Hexagonal Architecture (DDD) compliance. We must maintain this purity.
+* **Rule:** Do not introduce ANY leaking abstractions under any circumstances.
 * **Procedure:**
-    1. Before migrating any module, you MUST analyze the corresponding handler, service, and repository inside `backend-go-stable/`.
-    2. Ensure that the new DDD implementation precisely matches the logic, responses, and behavior of the `backend-go-stable` implementation, unless specifically instructed otherwise.
-    3. Use Domain Events to decouple cross-domain interactions that previously used direct service/repository injection in the stable backend.
+    1. **Dependency Injection:** Use `google/wire` exclusively in `cmd/api` and `cmd/worker`. Never construct services manually inside handlers.
+    2. **Transactions:** Never use `tx.Begin()` directly. Always inject `TransactionManager` into UseCases and use `WithTransaction(ctx, ...)`.
+    3. **HTTP Context:** The `gin.Context` object MUST NOT leave the `adapter/inbound/http` layer. Use standard `context.Context` everywhere else.
+    4. **Database Models:** Repository models (e.g., `Filter` structs with SQL tags) MUST NOT be imported into Handlers. Handlers must parse input into Application DTOs (`application/dto`).

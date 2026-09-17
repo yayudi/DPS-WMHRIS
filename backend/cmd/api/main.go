@@ -3,21 +3,6 @@ package main
 import (
 	"log"
 
-	"github.com/dps-wmhris/backend/internal/handler"
-	catalog_handler "github.com/dps-wmhris/backend/internal/modules/catalog/handler"
-	inventory_handler "github.com/dps-wmhris/backend/internal/modules/inventory/handler"
-	hris_handler "github.com/dps-wmhris/backend/internal/modules/hris/handler"
-	hris_repo "github.com/dps-wmhris/backend/internal/modules/hris/repository"
-	hris_service "github.com/dps-wmhris/backend/internal/modules/hris/service"
-	iam_handler "github.com/dps-wmhris/backend/internal/modules/iam/handler"
-	iam_repo "github.com/dps-wmhris/backend/internal/modules/iam/repository"
-	iam_service "github.com/dps-wmhris/backend/internal/modules/iam/service"
-	"github.com/dps-wmhris/backend/internal/repository"
-	catalog_repo "github.com/dps-wmhris/backend/internal/modules/catalog/repository"
-	inventory_repo "github.com/dps-wmhris/backend/internal/modules/inventory/repository"
-	"github.com/dps-wmhris/backend/internal/service"
-	catalog_service "github.com/dps-wmhris/backend/internal/modules/catalog/service"
-	inventory_service "github.com/dps-wmhris/backend/internal/modules/inventory/service"
 	"github.com/dps-wmhris/backend/internal/shared/config"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/middleware"
@@ -40,112 +25,37 @@ func main() {
 	}
 
 	// Setup Dependencies
-	systemLogRepo := repository.NewSystemLogRepository(db)
-	systemLogService := service.NewSystemLogService(systemLogRepo)
-	systemLogHandler := handler.NewSystemLogHandler(systemLogService)
+	container, err := InitializeAPI(db)
+	if err != nil {
+		log.Fatalf("failed to initialize api: %v", err)
+	}
 
-	roleRepo := iam_repo.NewRoleRepository(db)
-	roleService := iam_service.NewRoleService(db, roleRepo, systemLogRepo)
-	roleHandler := iam_handler.NewRoleHandler(roleService)
-
-	userRepo := iam_repo.NewUserRepository(db)
-	userService := iam_service.NewUserService(db, userRepo, systemLogRepo)
-	userHandler := iam_handler.NewUserHandler(userService)
-
-	adminUserRepo := iam_repo.NewAdminUserRepository(db)
-	adminUserService := iam_service.NewAdminUserService(db, adminUserRepo, roleRepo, systemLogRepo)
-	adminUserHandler := iam_handler.NewAdminUserHandler(adminUserService)
-
-	salesChannelRepo := repository.NewSalesChannelRepository(db)
-	salesChannelService := service.NewSalesChannelService(db, salesChannelRepo, systemLogRepo)
-	salesChannelHandler := handler.NewSalesChannelHandler(salesChannelService)
-
-	paperSizeRepo := repository.NewPaperSizeRepository(db)
-	paperSizeService := service.NewPaperSizeService(db, paperSizeRepo, systemLogRepo)
-	paperSizeHandler := handler.NewPaperSizeHandler(paperSizeService)
-
-	stickerTemplateRepo := repository.NewStickerTemplateRepository(db)
-	stickerTemplateService := service.NewStickerTemplateService(db, stickerTemplateRepo, systemLogRepo)
-	stickerTemplateHandler := handler.NewStickerTemplateHandler(stickerTemplateService)
-
-	firebaseService := service.NewFirebaseSignalService()
-
-	notificationRepo := repository.NewNotificationRepository(db)
-	notificationService := service.NewNotificationService(db, notificationRepo, firebaseService)
-	notificationHandler := handler.NewNotificationHandler(notificationService)
-
-	jobRepo := repository.NewJobRepository(db)
-	jobService := service.NewJobService(jobRepo)
-	jobHandler := handler.NewJobHandler(jobService)
-
-	storageService := service.NewStorageService()
-	uploadHandler := handler.NewUploadHandler(storageService)
-
-	productRepo := catalog_repo.NewProductRepository(db)
-
-	mediaRepo := repository.NewMediaRepository(db)
-	mediaService := service.NewMediaService(db, mediaRepo, productRepo, storageService)
-	mediaHandler := handler.NewMediaHandler(db, mediaService, storageService, jobService)
-
-	categoryRepo := catalog_repo.NewCategoryRepository(db)
-	categoryService := catalog_service.NewCategoryService(categoryRepo)
-	categoryHandler := catalog_handler.NewCategoryHandler(categoryService)
-
-	productAuditRepo := catalog_repo.NewProductAuditRepository()
-	productService := catalog_service.NewProductService(db, productRepo, productAuditRepo, categoryRepo)
-	productHandler := catalog_handler.NewProductHandler(productService, jobService)
-
-	locationRepo := inventory_repo.NewLocationRepository(db)
-	locationService := inventory_service.NewLocationService(db, locationRepo, systemLogRepo)
-	locationHandler := inventory_handler.NewLocationHandler(locationService)
-
-	pickingRepo := inventory_repo.NewPickingRepository(db)
-
-	stockRepo := inventory_repo.NewStockRepository(db)
-	stockService := inventory_service.NewStockService(db, stockRepo, productRepo, locationRepo, userRepo, pickingRepo)
-	stockHandler := inventory_handler.NewStockHandler(stockService, jobService)
-
-	stockRequestRepo := inventory_repo.NewStockRequestRepository(db)
-	stockRequestService := inventory_service.NewStockRequestService(db, stockRequestRepo, stockService, notificationService)
-	stockRequestHandler := inventory_handler.NewStockRequestHandler(stockRequestService)
-
-	packageHandler := handler.NewPackageHandler(jobService)
-
-	returnRepo := inventory_repo.NewReturnRepository(db)
-	returnService := inventory_service.NewReturnService(db, returnRepo, locationRepo, stockRepo)
-	returnHandler := inventory_handler.NewReturnHandler(returnService)
-
-	investigationRepo := inventory_repo.NewInvestigationRepository(db)
-	investigationService := inventory_service.NewInvestigationService(db, investigationRepo, locationRepo, stockRepo)
-	investigationHandler := inventory_handler.NewInvestigationHandler(investigationService)
-
-	statsRepo := repository.NewStatsRepository(db)
-	statsService := service.NewStatsService(statsRepo)
-	statsHandler := handler.NewStatsHandler(statsService)
-
-	reportRepo := repository.NewReportRepository(db)
-	reportService := service.NewReportService(reportRepo)
-	reportHandler := handler.NewReportHandler(reportService, jobService, storageService, jobRepo)
-
-	statisticRepo := repository.NewStatisticRepository(db)
-	statisticService := service.NewStatisticService(statisticRepo, jobRepo)
-	statisticHandler := handler.NewStatisticHandler(statisticService)
-
-	shiftRepo := hris_repo.NewShiftRepository(db)
-	shiftService := hris_service.NewShiftService(db, shiftRepo)
-	shiftHandler := hris_handler.NewShiftHandler(shiftService)
-
-	pickingService := inventory_service.NewPickingService(db, pickingRepo, locationRepo, stockRepo, jobService, productRepo)
-	pickingHandler := inventory_handler.NewPickingHandler(jobService, pickingService)
-
-	scheduleRepo := hris_repo.NewScheduleRepository(db)
-	scheduleService := hris_service.NewScheduleService(scheduleRepo, shiftRepo, userRepo)
-	scheduleHandler := hris_handler.NewScheduleHandler(scheduleService, jobService)
-
-	settingRepo := repository.NewSettingRepository(db)
-	attendanceRepo := hris_repo.NewAttendanceRepository(db)
-	attendanceService := hris_service.NewAttendanceService(attendanceRepo, userRepo, shiftRepo, scheduleRepo, settingRepo)
-	attendanceHandler := hris_handler.NewAttendanceHandler(attendanceService, jobService)
+	systemLogHandler := container.SystemLogHandler
+	roleHandler := container.RoleHandler
+	userHandler := container.UserHandler
+	adminUserHandler := container.AdminUserHandler
+	salesChannelHandler := container.SalesChannelHandler
+	paperSizeHandler := container.PaperSizeHandler
+	stickerTemplateHandler := container.StickerTemplateHandler
+	notificationHandler := container.NotificationHandler
+	jobHandler := container.JobHandler
+	uploadHandler := container.UploadHandler
+	mediaHandler := container.MediaHandler
+	categoryHandler := container.CategoryHandler
+	productHandler := container.ProductHandler
+	locationHandler := container.LocationHandler
+	stockHandler := container.StockHandler
+	stockRequestHandler := container.StockRequestHandler
+	packageHandler := container.PackageHandler
+	returnHandler := container.ReturnHandler
+	investigationHandler := container.InvestigationHandler
+	statsHandler := container.StatsHandler
+	reportHandler := container.ReportHandler
+	statisticHandler := container.StatisticHandler
+	shiftHandler := container.ShiftHandler
+	pickingHandler := container.PickingHandler
+	scheduleHandler := container.ScheduleHandler
+	attendanceHandler := container.AttendanceHandler
 
 	// Setup Router
 	r := gin.Default()

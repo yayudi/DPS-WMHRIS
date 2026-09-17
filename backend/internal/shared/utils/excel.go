@@ -27,13 +27,13 @@ func InitExcelStyles(f *excelize.File) ExcelStyles {
 		Fill: excelize.Fill{Type: "pattern", Color: []string{"#FFF2CC"}, Pattern: 1},
 	})
 	totalInt, _ := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{Bold: true},
-		Fill: excelize.Fill{Type: "pattern", Color: []string{"#FFF2CC"}, Pattern: 1},
+		Font:         &excelize.Font{Bold: true},
+		Fill:         excelize.Fill{Type: "pattern", Color: []string{"#FFF2CC"}, Pattern: 1},
 		CustomNumFmt: &[]string{"#,##0"}[0],
 	})
 	totalDec, _ := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{Bold: true},
-		Fill: excelize.Fill{Type: "pattern", Color: []string{"#FFF2CC"}, Pattern: 1},
+		Font:         &excelize.Font{Bold: true},
+		Fill:         excelize.Fill{Type: "pattern", Color: []string{"#FFF2CC"}, Pattern: 1},
 		CustomNumFmt: &[]string{"#,##0.00"}[0],
 	})
 	numInt, _ := f.NewStyle(&excelize.Style{CustomNumFmt: &[]string{"#,##0"}[0]})

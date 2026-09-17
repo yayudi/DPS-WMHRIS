@@ -13,8 +13,8 @@ import (
 type BaseRepository[T any] interface {
 	FindAll(ctx context.Context) ([]T, error)
 	FindByID(ctx context.Context, id int) (*T, error)
-	SoftDelete(ctx context.Context, db sqlx.ExtContext, id int) error
-	Restore(ctx context.Context, db sqlx.ExtContext, id int) error
+	SoftDelete(ctx context.Context, id int) error
+	Restore(ctx context.Context, id int) error
 }
 
 type baseRepository[T any] struct {
@@ -50,7 +50,7 @@ func extractDBColumns(t reflect.Type) ([]string, bool, bool) {
 
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		
+
 		// Rekursi untuk Embedded Structs (contoh: BaseEntity)
 		if field.Anonymous {
 			subCols, subDel, subAct := extractDBColumns(field.Type)
@@ -90,7 +90,8 @@ func (r *baseRepository[T]) FindAll(ctx context.Context) ([]T, error) {
 	}
 
 	var results []T
-	err = r.db.SelectContext(ctx, &results, query, args...)
+	ext := GetExt(ctx, r.db)
+	err = ext.SelectContext(ctx, &results, query, args...)
 	// Return empty slice instead of nil if no error but empty
 	if err == nil && results == nil {
 		results = []T{}
@@ -111,14 +112,15 @@ func (r *baseRepository[T]) FindByID(ctx context.Context, id int) (*T, error) {
 	}
 
 	var result T
-	err = r.db.GetContext(ctx, &result, query, args...)
+	ext := GetExt(ctx, r.db)
+	err = ext.GetContext(ctx, &result, query, args...)
 	if err != nil {
 		return nil, err
 	}
 	return &result, nil
 }
 
-func (r *baseRepository[T]) SoftDelete(ctx context.Context, db sqlx.ExtContext, id int) error {
+func (r *baseRepository[T]) SoftDelete(ctx context.Context, id int) error {
 	var query string
 	if r.hasDeletedAt && r.hasIsActive {
 		query = fmt.Sprintf("UPDATE %s SET deleted_at = NOW(), is_active = 0 WHERE id = ?", r.tableName)
@@ -129,12 +131,12 @@ func (r *baseRepository[T]) SoftDelete(ctx context.Context, db sqlx.ExtContext, 
 	} else {
 		query = fmt.Sprintf("DELETE FROM %s WHERE id = ?", r.tableName)
 	}
-
-	_, err := db.ExecContext(ctx, query, id)
+	ext := GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, query, id)
 	return err
 }
 
-func (r *baseRepository[T]) Restore(ctx context.Context, db sqlx.ExtContext, id int) error {
+func (r *baseRepository[T]) Restore(ctx context.Context, id int) error {
 	var query string
 	if r.hasDeletedAt && r.hasIsActive {
 		query = fmt.Sprintf("UPDATE %s SET deleted_at = NULL, is_active = 1 WHERE id = ?", r.tableName)
@@ -145,7 +147,7 @@ func (r *baseRepository[T]) Restore(ctx context.Context, db sqlx.ExtContext, id 
 	} else {
 		return fmt.Errorf("restore tidak didukung untuk tabel %s", r.tableName)
 	}
-
-	_, err := db.ExecContext(ctx, query, id)
+	ext := GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, query, id)
 	return err
 }

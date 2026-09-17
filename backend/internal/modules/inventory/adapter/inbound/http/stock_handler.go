@@ -1,0 +1,421 @@
+package http
+
+import (
+	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
+
+	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
+
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+
+	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
+
+	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	"github.com/dps-wmhris/backend/internal/shared/config"
+	"github.com/dps-wmhris/backend/internal/shared/utils"
+	"github.com/gin-gonic/gin"
+)
+
+type StockHandler struct {
+	stockService inventory_port.StockUseCase
+	jobService   system_usecase.JobService
+}
+
+func NewStockHandler(stockService inventory_port.StockUseCase, jobService system_usecase.JobService) *StockHandler {
+	return &StockHandler{
+		stockService: stockService,
+		jobService:   jobService,
+	}
+}
+
+func (h *StockHandler) ImportBatchInbound(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Tidak ada file yang diunggah.", "VALIDATION_ERROR")
+		return
+	}
+
+	userID := getUserID(c)
+	notes := c.PostForm("notes")
+	finalNotes := "Batch Stock Inbound"
+	if notes != "" {
+		finalNotes += " | " + notes
+	}
+
+	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "stock") + string(filepath.Separator)
+	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
+	filepath := uploadDir + file.Filename
+
+	if err := c.SaveUploadedFile(file, filepath); err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save file", "INTERNAL_ERROR")
+		return
+	}
+
+	req := system_dto.CreateImportJobRequest{
+		UserID:           userID,
+		JobType:          "IMPORT_STOCK_INBOUND",
+		OriginalFilename: file.Filename,
+		FilePath:         filepath,
+		Notes:            &finalNotes,
+	}
+
+	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "File inbound masuk antrian.", jobID)
+}
+
+func (h *StockHandler) GetAllStocks(c *gin.Context) {
+	stocks, err := h.stockService.GetAllStocks(c.Request.Context())
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		return
+	}
+	utils.SuccessDataResponse(c, http.StatusOK, stocks)
+}
+
+func (h *StockHandler) TransferStock(c *gin.Context) {
+	req_ptr, ok := utils.BindAndValidate[inventory_dto.TransferStockRequest](c)
+	if !ok {
+		return
+	}
+	req := *req_ptr
+
+	userID := getUserID(c)
+	if userID == 0 {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
+		return
+	}
+
+	// Membungkus panggilan ke MoveStock
+	moveReq := inventory_dto.MoveStockRequest{
+		ProductID:      req.ProductID,
+		Quantity:       req.Quantity,
+		MovementType:   "TRANSFER",
+		FromLocationID: &req.FromLocationID,
+		ToLocationID:   &req.ToLocationID,
+		Notes:          req.Notes,
+	}
+
+	if err := h.stockService.MoveStock(c.Request.Context(), userID, moveReq); err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Transfer stok berhasil.", nil)
+}
+
+func (h *StockHandler) AdjustStock(c *gin.Context) {
+	req_ptr, ok := utils.BindAndValidate[inventory_dto.AdjustStockRequest](c)
+	if !ok {
+		return
+	}
+	req := *req_ptr
+
+	userID := getUserID(c)
+	if userID == 0 {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
+		return
+	}
+
+	// Konversi input logic berdasarkan type
+	movementType := "ADJUST_PLUS"
+	qty := req.Quantity
+	var fromLocationID, toLocationID *int
+
+	switch req.Type {
+	case "ADJUST_MINUS", "OUT":
+		movementType = "ADJUST_MINUS"
+		if qty > 0 {
+			qty = -qty
+		}
+	case "ADJUST_PLUS", "IN":
+		movementType = "ADJUST_PLUS"
+		if qty < 0 {
+			qty = -qty
+		}
+	}
+
+	if qty > 0 {
+		toLocationID = &req.LocationID
+	} else if qty < 0 {
+		fromLocationID = &req.LocationID
+	} else {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Quantity tidak boleh 0", "")
+		return
+	}
+
+	// abs the quantity for moveReq because MoveStock expects positive quantity
+	absQty := qty
+	if absQty < 0 {
+		absQty = -absQty
+	}
+
+	moveReq := inventory_dto.MoveStockRequest{
+		ProductID:      req.ProductID,
+		Quantity:       absQty,
+		MovementType:   movementType,
+		FromLocationID: fromLocationID,
+		ToLocationID:   toLocationID,
+		Notes:          req.Notes,
+	}
+
+	if err := h.stockService.MoveStock(c.Request.Context(), userID, moveReq); err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Penyesuaian stok berhasil.", nil)
+}
+
+func (h *StockHandler) BatchProcess(c *gin.Context) {
+	req_ptr, ok := utils.BindAndValidate[inventory_dto.BatchProcessRequest](c)
+	if !ok {
+		return
+	}
+	req := *req_ptr
+
+	userID := c.GetInt("user_id")
+	userRoleID := c.GetInt("role_id")
+
+	err := h.stockService.ProcessBatchMovements(c.Request.Context(), req, userID, userRoleID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		return
+	}
+
+	utils.RawResponse(c, http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("Batch %s berhasil.", req.Type)})
+}
+
+func (h *StockHandler) GetMovementTypes(c *gin.Context) {
+	types, err := h.stockService.GetMovementTypes(c.Request.Context())
+	if err != nil {
+		utils.RawResponse(c, http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal mengambil tipe pergerakan stok", "error": err.Error()})
+		return
+	}
+	utils.SuccessDataResponse(c, http.StatusOK, types)
+}
+
+func (h *StockHandler) GetBatchLogs(c *gin.Context) {
+	filter_ptr, ok := utils.BindQueryAndValidate[inventory_dto.BatchLogFilter](c)
+	if !ok {
+		return
+	}
+	filter := *filter_ptr
+
+	// Set default start/end dates if not provided
+	if filter.StartDate == "" || filter.EndDate == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Tanggal mulai dan selesai harus diisi", "")
+		return
+	}
+
+	result, err := h.stockService.GetBatchLogs(c.Request.Context(), filter)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil log stok: "+err.Error(), "")
+		return
+	}
+
+	utils.PaginatedResponse(c, http.StatusOK, result.Data, result.Page, result.Limit, result.Total, result.TotalPages)
+}
+
+func (h *StockHandler) GetStockHistory(c *gin.Context) {
+	var filter inventory_dto.StockHistoryFilter
+	if err := c.ShouldBindUri(&filter); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID produk tidak valid: "+err.Error(), "VALIDATION_ERROR")
+		return
+	}
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Filter tidak valid: "+err.Error(), "VALIDATION_ERROR")
+		return
+	}
+
+	result, err := h.stockService.GetStockHistory(c.Request.Context(), filter)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil riwayat stok: "+err.Error(), "")
+		return
+	}
+
+	utils.PaginatedResponse(c, http.StatusOK, result.Data, result.Page, result.Limit, result.Total, result.TotalPages)
+}
+
+func (h *StockHandler) BatchTransfer(c *gin.Context) {
+	req_ptr, ok := utils.BindAndValidate[inventory_dto.BatchTransferRequest](c)
+	if !ok {
+		return
+	}
+	req := *req_ptr
+	userID := getUserID(c)
+	roleID := c.GetInt("role_id")
+	if userID == 0 {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+		return
+	}
+
+	processReq := inventory_dto.BatchProcessRequest{
+		Type:           "TRANSFER",
+		FromLocationID: &req.FromLocationID,
+		ToLocationID:   &req.ToLocationID,
+		Movements:      req.Movements,
+	}
+
+	err := h.stockService.ProcessBatchMovements(c.Request.Context(), processReq, userID, roleID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
+		return
+	}
+	utils.SuccessResponse(c, http.StatusOK, "Batch transfer berhasil.", nil)
+}
+
+func (h *StockHandler) ValidateReturn(c *gin.Context) {
+	req_ptr, ok := utils.BindAndValidate[inventory_dto.ValidateReturnRequest](c)
+	if !ok {
+		return
+	}
+	req := *req_ptr
+	userID := getUserID(c)
+	if userID == 0 {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+		return
+	}
+
+	err := h.stockService.ValidateReturn(c.Request.Context(), req, userID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
+		return
+	}
+	utils.RawResponse(c, http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("Item (ID: %d) berhasil divalidasi.", req.PickingListItemID)})
+}
+
+func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {
+	req_ptr, ok := utils.BindAndValidate[inventory_dto.BatchLogExportRequest](c)
+	if !ok {
+		return
+	}
+	req := *req_ptr
+	userID := getUserID(c)
+	if userID == 0 {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+		return
+	}
+
+	filterMap := map[string]interface{}{
+		"startDate":           req.StartDate,
+		"endDate":             req.EndDate,
+		"productName":         req.ProductName,
+		"movementType":        req.MovementType,
+		"sourceLocation":      req.SourceLocation,
+		"destinationLocation": req.DestinationLocation,
+		"notes":               req.Notes,
+		"format":              req.Format,
+		"exportName":          req.ExportName,
+	}
+
+	filterJSON, _ := json.Marshal(filterMap)
+	filterStr := string(filterJSON)
+
+	jobReq := system_dto.CreateExportJobRequest{
+		UserID:  userID,
+		JobType: "BATCH_LOG_EXPORT",
+		Filters: &filterStr,
+	}
+
+	jobID, err := h.jobService.CreateExportJob(c.Request.Context(), jobReq)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusAccepted, "Permintaan ekspor batch log diterima. File sedang diproses.", jobID)
+}
+
+func (h *StockHandler) GetInboundTemplate(c *gin.Context) {
+	f, err := h.stockService.GenerateInboundTemplate(c.Request.Context())
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		return
+	}
+
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=Template_Inbound_Stok.xlsx")
+	_ = f.Write(c.Writer) // #nosec G104
+}
+
+func (h *StockHandler) DownloadAdjustmentTemplate(c *gin.Context) {
+	f, err := h.stockService.GenerateAdjustmentTemplate(c.Request.Context())
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		return
+	}
+
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=Template_Adjustment_Stok.xlsx")
+	_ = f.Write(c.Writer) // #nosec G104
+}
+
+func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
+	file, err := c.FormFile("adjustmentFile")
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Tidak ada file yang diunggah.", "")
+		return
+	}
+	userID := getUserID(c)
+	if userID == 0 {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+		return
+	}
+
+	isDryRun := c.PostForm("dryRun") == "true"
+	jobType := "ADJUST_STOCK"
+	msg := "File adjustment masuk antrian."
+	notes := "Stock Opname"
+	if isDryRun {
+		jobType = "ADJUST_STOCK_DRY_RUN"
+		msg = "Simulasi validasi stok berjalan..."
+		notes = "Simulasi Stock Opname"
+	}
+	if userNotes := c.PostForm("notes"); userNotes != "" {
+		notes = userNotes
+	}
+
+	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "stock") + string(filepath.Separator)
+	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
+	filepath := uploadDir + file.Filename
+	if err := c.SaveUploadedFile(file, filepath); err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menyimpan file", "")
+		return
+	}
+
+	req := system_dto.CreateImportJobRequest{
+		UserID:           userID,
+		JobType:          jobType,
+		OriginalFilename: file.Filename,
+		FilePath:         filepath,
+		Notes:            &notes,
+	}
+
+	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		return
+	}
+
+	utils.RawResponse(c, http.StatusOK, gin.H{
+		"success": true,
+		"message": msg,
+		"jobId":   jobID,
+	})
+}
+
+func getUserID(c *gin.Context) int {
+	userID, _ := c.Get("user_id")
+	if id, ok := userID.(int); ok {
+		return id
+	}
+	return 0
+}
