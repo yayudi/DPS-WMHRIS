@@ -12,7 +12,7 @@ const globalHotkeys = [
   { keys: ['Alt', 'H'], desc: 'Buka Modul Guide' },
   { keys: ['Alt', 'T'], desc: 'Ganti Tema' },
   { keys: ['Alt', 'Shift', 'L'], desc: 'Logout' },
-  { keys: ['Alt', '/'], desc: 'Tampilkan Bantuan Shortcut' },
+  { keys: ['Alt', 'Q'], desc: 'Tampilkan Bantuan Shortcut' }
 ]
 
 const localHotkeys = [
@@ -23,7 +23,7 @@ const localHotkeys = [
   { keys: ['Alt', 'A'], desc: 'Pilih Semua (Bulk Action)' },
   { keys: ['Ctrl', 'D'], desc: 'Gandakan (Duplicate) Baris' },
   { keys: ['Shift', 'Del'], desc: 'Hapus Baris' },
-  { keys: ['Esc'], desc: 'Tutup Modal / Batal' },
+  { keys: ['Esc'], desc: 'Tutup Modal / Batal' }
 ]
 
 function close() {
@@ -44,12 +44,18 @@ function close() {
       <section>
         <h3 class="text-lg font-semibold mb-4 text-text/90 border-b border-secondary/20 pb-2">Global Navigation</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div v-for="hk in globalHotkeys" :key="hk.desc"
-            class="flex justify-between items-center bg-secondary/25 p-3 rounded-lg border border-secondary/10">
+          <div
+            v-for="hk in globalHotkeys"
+            :key="hk.desc"
+            class="flex justify-between items-center bg-secondary/25 p-3 rounded-lg border border-secondary/10"
+          >
             <span class="text-sm font-medium">{{ hk.desc }}</span>
             <div class="flex gap-1">
-              <kbd v-for="k in hk.keys" :key="k"
-                class="bg-background border border-secondary/40 text-text/80 rounded px-2 py-1 text-xs font-mono shadow-sm">
+              <kbd
+                v-for="k in hk.keys"
+                :key="k"
+                class="bg-background border border-secondary/40 text-text/80 rounded px-2 py-1 text-xs font-mono shadow-sm"
+              >
                 {{ k }}
               </kbd>
             </div>
@@ -60,12 +66,18 @@ function close() {
       <section>
         <h3 class="text-lg font-semibold mb-4 text-text/90 border-b border-secondary/20 pb-2">Form & WMS Actions</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div v-for="hk in localHotkeys" :key="hk.desc"
-            class="flex justify-between items-center bg-secondary/25 p-3 rounded-lg border border-secondary/10">
+          <div
+            v-for="hk in localHotkeys"
+            :key="hk.desc"
+            class="flex justify-between items-center bg-secondary/25 p-3 rounded-lg border border-secondary/10"
+          >
             <span class="text-sm font-medium">{{ hk.desc }}</span>
             <div class="flex gap-1">
-              <kbd v-for="k in hk.keys" :key="k"
-                class="bg-background border border-secondary/40 text-text/80 rounded px-2 py-1 text-xs font-mono shadow-sm">
+              <kbd
+                v-for="k in hk.keys"
+                :key="k"
+                class="bg-background border border-secondary/40 text-text/80 rounded px-2 py-1 text-xs font-mono shadow-sm"
+              >
                 {{ k }}
               </kbd>
             </div>

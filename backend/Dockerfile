@@ -20,5 +20,8 @@ WORKDIR /app
 COPY --from=builder /app/bin/api .
 COPY --from=builder /app/bin/worker .
 
+ENV GOMEMLIMIT=450MiB
+ENV GOGC=50
+
 EXPOSE 3000
 CMD ["./api"]

@@ -176,10 +176,6 @@ watch(Slash, pressed => {
 <template>
   <div class="space-y-6 animate-fade-in text-text">
     <!-- Top Section: Header & Actions -->
-    <div class="p-6 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-      <h3 class="text-xl font-bold text-text">Manajemen Retur</h3>
-    </div>
-
     <!-- Top Controls: Tabs, Search, Actions -->
     <div
       class="px-6 pb-4 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-secondary/20"
@@ -586,3 +582,4 @@ watch(Slash, pressed => {
   }
 }
 </style>
+

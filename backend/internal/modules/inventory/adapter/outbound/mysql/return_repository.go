@@ -41,7 +41,7 @@ func (r *returnRepositoryImpl) GetPendingReturns(ctx context.Context, params map
 	query := fmt.Sprintf(`
 		SELECT SQL_CALC_FOUND_ROWS
 			pli.id,
-			pli.picking_list_id,
+			pli.fulfilment_list_id,
 			pli.product_id,
 			pli.original_sku as sku,
 			pli.quantity,
@@ -52,8 +52,8 @@ func (r *returnRepositoryImpl) GetPendingReturns(ctx context.Context, params map
 			pl.customer_name,
 			pl.marketplace_status,
 			pl.created_at as order_date
-		FROM picking_list_items pli
-		JOIN picking_lists pl ON pli.picking_list_id = pl.id
+		FROM fulfilment_list_items pli
+		JOIN fulfilment_lists pl ON pli.fulfilment_list_id = pl.id
 		LEFT JOIN products p ON pli.product_id = p.id
 		WHERE %s
 		ORDER BY pl.created_at DESC
@@ -116,8 +116,8 @@ func (r *returnRepositoryImpl) GetMarketplaceReturnHistory(ctx context.Context, 
 			l.code as location_code,
 			pl.updated_at as date,
 			pl.source
-		FROM picking_list_items pli
-		JOIN picking_lists pl ON pli.picking_list_id = pl.id
+		FROM fulfilment_list_items pli
+		JOIN fulfilment_lists pl ON pli.fulfilment_list_id = pl.id
 		JOIN products p ON pli.product_id = p.id
 		LEFT JOIN locations l ON pli.confirmed_location_id = l.id
 		WHERE %s
@@ -160,9 +160,9 @@ func (r *returnRepositoryImpl) GetManualReturnHistory(ctx context.Context, page,
 	return utils.FetchPaginated[domain.ManualReturnItem](ctx, r.db, query, page, limit, queryParams...)
 }
 
-func (r *returnRepositoryImpl) GetPickingItemById(ctx context.Context, id int) (*domain.PickingListItem, error) {
-	var item domain.PickingListItem
-	query := "SELECT * FROM picking_list_items WHERE id = ?"
+func (r *returnRepositoryImpl) GetFulfilmentItemById(ctx context.Context, id int) (*domain.FulfilmentListItem, error) {
+	var item domain.FulfilmentListItem
+	query := "SELECT * FROM fulfilment_list_items WHERE id = ?"
 	ext := database.GetExt(ctx, r.db)
 	err := ext.GetContext(ctx, &item, query, id)
 	if err != nil {
@@ -173,7 +173,7 @@ func (r *returnRepositoryImpl) GetPickingItemById(ctx context.Context, id int) (
 
 func (r *returnRepositoryImpl) CompleteReturnItem(ctx context.Context, itemID int, condition string, notes string, locationID int) error {
 	query := `
-		UPDATE picking_list_items
+		UPDATE fulfilment_list_items
 		SET
 			status = 'COMPLETED_RETURN',
 			return_condition = ?,
@@ -187,21 +187,21 @@ func (r *returnRepositoryImpl) CompleteReturnItem(ctx context.Context, itemID in
 }
 
 func (r *returnRepositoryImpl) DecreaseItemQty(ctx context.Context, itemID int, qtyToDeduct int) error {
-	query := "UPDATE picking_list_items SET quantity = quantity - ? WHERE id = ?"
+	query := "UPDATE fulfilment_list_items SET quantity = quantity - ? WHERE id = ?"
 	ext := database.GetExt(ctx, r.db)
 	_, err := ext.ExecContext(ctx, query, qtyToDeduct, itemID)
 	return err
 }
 
-func (r *returnRepositoryImpl) CreateSplitReturnItem(ctx context.Context, originItem *domain.PickingListItem, qtyReturn int, condition string, notes string, locationID int) (int, error) {
+func (r *returnRepositoryImpl) CreateSplitReturnItem(ctx context.Context, originItem *domain.FulfilmentListItem, qtyReturn int, condition string, notes string, locationID int) (int, error) {
 	query := `
-		INSERT INTO picking_list_items
-			(picking_list_id, product_id, original_sku, quantity, status, return_condition, return_notes, confirmed_location_id, suggested_location_id, picked_from_location_id)
+		INSERT INTO fulfilment_list_items
+			(fulfilment_list_id, product_id, original_sku, quantity, status, return_condition, return_notes, confirmed_location_id, suggested_location_id, picked_from_location_id)
 		VALUES (?, ?, ?, ?, 'COMPLETED_RETURN', ?, ?, ?, ?, ?)
 	`
 	ext := database.GetExt(ctx, r.db)
 	res, err := ext.ExecContext(ctx, query,
-		originItem.PickingListID,
+		originItem.FulfilmentListID,
 		originItem.ProductID,
 		originItem.OriginalSKU,
 		qtyReturn,

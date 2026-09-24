@@ -23,6 +23,8 @@ import (
 	hris_port "github.com/dps-wmhris/backend/internal/modules/hris/port"
 	"github.com/dps-wmhris/backend/internal/shared/config"
 	"github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/eventbus"
+	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/inbound/rabbitmq"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -39,7 +41,61 @@ func main() {
 	jobRepo := system_mysql.NewJobRepository(db)
 	container, err := InitializeWorker(db)
 	if err != nil {
-		log.Fatalf("failed to initialize worker: %v", err)
+		log.Fatalf("Failed to subscribe to SalesOrderCreated: %v", err)
+	}
+
+	eventBus := container.EventBus
+	
+	// Register StockConsumer
+	inventoryRabbitMQ := rabbitmq.NewStockConsumer(container.FulfilmentService)
+	if err := inventoryRabbitMQ.RegisterHandlers(eventBus); err != nil {
+		log.Printf("Failed to register StockConsumer handlers: %v", err)
+	}
+
+	err = eventBus.Subscribe("FulfillmentCompleted", func(ctx context.Context, event eventbus.Event) error {
+		payload, ok := event.Payload.(map[string]interface{})
+		if !ok {
+			log.Printf("FulfillmentCompleted payload is not a map")
+			return nil
+		}
+
+		source, _ := payload["source"].(*string)
+		if source != nil && *source == "Kelja ERP" {
+			origIDStr, ok := payload["original_invoice_id"].(string)
+			if ok {
+				var keljaID int
+				fmt.Sscanf(origIDStr, "%d", &keljaID)
+				if keljaID > 0 {
+					var expID int
+					if eFloat, ok := payload["expedition_id"].(float64); ok {
+						expID = int(eFloat)
+					} else if eInt, ok := payload["expedition_id"].(int); ok {
+						expID = eInt
+					}
+					var awb string
+					if awbStr, ok := payload["awb"].(string); ok {
+						awb = awbStr
+					}
+
+					// We will trigger all 3 endpoints for now as they represent the physical fulfillment progression
+					actions := []string{"checker", "packer", "shipper"}
+					for _, action := range actions {
+						log.Printf("Sending Callback to Kelja for ID %d (action: %s)...", keljaID, action)
+						err := container.KeljaClient.SendCallbackDone(ctx, keljaID, expID, awb, action)
+						if err != nil {
+							log.Printf("Failed to send %s callback to Kelja: %v", action, err)
+							// Do not return here, try next actions anyway or maybe break?
+						} else {
+							log.Printf("Successfully sent %s callback to Kelja for ID %d", action, keljaID)
+						}
+					}
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Printf("Error subscribing to FulfillmentCompleted: %v", err)
 	}
 
 	jobService := container.JobService
@@ -47,7 +103,7 @@ func main() {
 	_ = container.StorageService
 	exportService := container.ExportService
 	attendanceService := container.AttendanceService
-	pickingService := container.PickingService
+	fulfilmentService := container.FulfilmentService
 	stockService := container.StockService
 	firebaseService := container.FirebaseService
 	scheduleService := container.ScheduleService
@@ -66,8 +122,60 @@ func main() {
 		log.Println("Shutting down worker...")
 		cancel()
 	}()
+	go func() {
+		log.Println("Starting EventBus...")
+		if err := eventBus.Start(ctx); err != nil {
+			log.Printf("EventBus failed to start: %v", err)
+		}
+	}()
 
 	log.Println("Worker started. Polling for jobs...")
+
+	// Auto-sync Kelja every 5 minutes
+	go func() {
+		// Initial delay to let the worker fully start
+		time.Sleep(10 * time.Second)
+		keljaTicker := time.NewTicker(5 * time.Minute)
+		defer keljaTicker.Stop()
+
+		createKeljaSyncJob := func() {
+			// Guard: don't create if there's already a PENDING or PROCESSING job
+			var count int
+			err := db.GetContext(ctx, &count,
+				`SELECT COUNT(*) FROM import_jobs WHERE job_type = 'SYNC_API_KELJA' AND status IN ('PENDING', 'PROCESSING')`)
+			if err != nil {
+				log.Printf("[KeljaAutoSync] Error checking existing jobs: %v", err)
+				return
+			}
+			if count > 0 {
+				log.Printf("[KeljaAutoSync] Skipped: %d job(s) still pending/processing", count)
+				return
+			}
+
+			// systemUserID for automated tasks
+			const systemUserID = 2147483650
+			_, err = db.ExecContext(ctx,
+				`INSERT INTO import_jobs (user_id, job_type, original_filename, file_path, status) VALUES (?, 'SYNC_API_KELJA', 'API_KELJA', '', 'PENDING')`,
+				systemUserID)
+			if err != nil {
+				log.Printf("[KeljaAutoSync] Error creating job: %v", err)
+				return
+			}
+			log.Println("[KeljaAutoSync] Created SYNC_API_KELJA job")
+		}
+
+		// Run immediately on startup
+		createKeljaSyncJob()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-keljaTicker.C:
+				createKeljaSyncJob()
+			}
+		}
+	}()
 
 	pollInterval := 5 * time.Second
 	ticker := time.NewTicker(pollInterval)
@@ -85,7 +193,7 @@ func main() {
 			if recovered, err := jobRepo.RecoverStuckExportJobs(ctx); err == nil && recovered > 0 {
 				log.Printf("Recovered %d stuck export jobs", recovered)
 			}
-			processPendingImportJobs(ctx, db, jobRepo, jobService, attendanceService, pickingService, stockService, scheduleService, productService, firebaseService, mediaService)
+			processPendingImportJobs(ctx, db, jobRepo, jobService, attendanceService, fulfilmentService, stockService, scheduleService, productService, firebaseService, mediaService)
 			processPendingExportJobs(ctx, db, jobRepo, jobService, exportService, firebaseService)
 		}
 	}
@@ -93,7 +201,7 @@ func main() {
 
 const maxConcurrentJobs = 3
 
-func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_mysql.JobRepository, jobService system_usecase.JobService, attendanceService hris_port.AttendanceUseCase, pickingService inventory_port.PickingUseCase, stockService inventory_port.StockUseCase, scheduleService hris_port.ScheduleUseCase, productService catalog_port.ProductUseCase, firebaseService system_usecase.FirebaseSignalService, mediaService system_usecase.MediaService) {
+func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_mysql.JobRepository, jobService system_usecase.JobService, attendanceService hris_port.AttendanceUseCase, fulfilmentService inventory_port.FulfilmentUseCase, stockService inventory_port.StockUseCase, scheduleService hris_port.ScheduleUseCase, productService catalog_port.ProductUseCase, firebaseService system_usecase.FirebaseSignalService, mediaService system_usecase.MediaService) {
 	sem := make(chan struct{}, maxConcurrentJobs)
 	var wg sync.WaitGroup
 
@@ -109,6 +217,9 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_m
 
 		job, err := jobRepo.ClaimNextImportJob(ctx)
 		if err != nil {
+			if err.Error() != "sql: no rows in result set" {
+				log.Printf("Error claiming next import job: %v", err)
+			}
 			_ = tx.Rollback() // #nosec G104
 			<-sem
 			break // No more jobs or error
@@ -200,7 +311,7 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_m
 					}
 				}
 
-				processErr = pickingService.ProcessSalesImport(ctx, job.ID, job.FilePath, source, job.UserID, false, locationPurpose, shopName)
+				processErr = fulfilmentService.ProcessSalesImport(ctx, job.ID, job.FilePath, source, job.UserID, false, locationPurpose, shopName)
 			case "IMPORT_SALES_TOKOPEDIA_DRY_RUN", "IMPORT_SALES_SHOPEE_DRY_RUN", "IMPORT_SALES_TIKTOK_DRY_RUN", "IMPORT_SALES_MANUAL_DRY_RUN":
 				log.Printf("Processing %s (Dry Run): %s", job.JobType, job.FilePath)
 				sourceMap := map[string]string{
@@ -225,7 +336,15 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_m
 					}
 				}
 
-				processErr = pickingService.ProcessSalesImport(ctx, job.ID, job.FilePath, source, job.UserID, true, locationPurpose, shopName)
+				processErr = fulfilmentService.ProcessSalesImport(ctx, job.ID, job.FilePath, source, job.UserID, true, locationPurpose, shopName)
+			case "SYNC_API_KELJA":
+				log.Printf("[Worker] Processing SYNC_API_KELJA (Job #%d)", job.ID)
+				processErr = fulfilmentService.ProcessKeljaSync(ctx, job.ID, job.UserID)
+				if processErr != nil {
+					log.Printf("[Worker] SYNC_API_KELJA Job #%d FAILED: %v", job.ID, processErr)
+				} else {
+					log.Printf("[Worker] SYNC_API_KELJA Job #%d completed successfully", job.ID)
+				}
 			default:
 				log.Printf("Unknown job type: %s", job.JobType)
 				processErr = fmt.Errorf("unknown job type: %s", job.JobType)
@@ -234,14 +353,18 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_m
 			// Update job status
 			if processErr != nil {
 				log.Printf("Job %d failed: %v", job.ID, processErr)
-				if errLog := jobService.UpdateImportJobStatus(ctx, job.ID, "FAILED"); errLog != nil {
-					log.Printf("Failed to update job status: %v", errLog)
+				if job.JobType != "SYNC_API_KELJA" {
+					if errLog := jobService.UpdateImportJobStatusWithSummary(ctx, job.ID, "FAILED", processErr.Error()); errLog != nil {
+						log.Printf("Failed to update job status: %v", errLog)
+					}
 				}
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "IMPORT_FAILED")
 			} else if logSummary != "" {
 				log.Printf("Job %d completed with summary: %s", job.ID, logSummary)
-				if errLog := jobService.UpdateImportJobStatusWithSummary(ctx, job.ID, "COMPLETED", logSummary); errLog != nil {
-					log.Printf("Failed to update job status: %v", errLog)
+				if job.JobType != "SYNC_API_KELJA" {
+					if errLog := jobService.UpdateImportJobStatusWithSummary(ctx, job.ID, "COMPLETED", logSummary); errLog != nil {
+						log.Printf("Failed to update job status: %v", errLog)
+					}
 				}
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "IMPORT_COMPLETED")
 				if job.JobType == "IMPORT_ATTENDANCE" {
@@ -249,8 +372,10 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_m
 				}
 			} else {
 				log.Printf("Job %d completed", job.ID)
-				if errLog := jobService.UpdateImportJobStatus(ctx, job.ID, "COMPLETED"); errLog != nil {
-					log.Printf("Failed to update job status: %v", errLog)
+				if job.JobType != "SYNC_API_KELJA" {
+					if errLog := jobService.UpdateImportJobStatus(ctx, job.ID, "COMPLETED"); errLog != nil {
+						log.Printf("Failed to update job status: %v", errLog)
+					}
 				}
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "IMPORT_COMPLETED")
 				if job.JobType == "IMPORT_ATTENDANCE" {

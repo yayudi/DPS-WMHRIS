@@ -46,6 +46,8 @@ func main() {
 	locationHandler := container.LocationHandler
 	stockHandler := container.StockHandler
 	stockRequestHandler := container.StockRequestHandler
+	stockTransactionHandler := container.StockTransactionHandler
+	stockQueryHandler := container.StockQueryHandler
 	packageHandler := container.PackageHandler
 	returnHandler := container.ReturnHandler
 	investigationHandler := container.InvestigationHandler
@@ -53,7 +55,7 @@ func main() {
 	reportHandler := container.ReportHandler
 	statisticHandler := container.StatisticHandler
 	shiftHandler := container.ShiftHandler
-	pickingHandler := container.PickingHandler
+	fulfilmentHandler := container.FulfilmentHandler
 	scheduleHandler := container.ScheduleHandler
 	attendanceHandler := container.AttendanceHandler
 
@@ -130,6 +132,13 @@ func main() {
 				stockRequests.POST("/:id/reject", middleware.RequirePermission(db, "stock_request.approve"), stockRequestHandler.Reject)
 				stockRequests.POST("/:id/dispatch", stockRequestHandler.Dispatch)
 				stockRequests.POST("/:id/complete", stockRequestHandler.Complete)
+			}
+			
+			// WMS
+			wms := protected.Group("/wms")
+			{
+				wms.GET("/stock-balances", stockQueryHandler.GetBalances)
+				wms.POST("/transactions/fulfillment", stockTransactionHandler.CreateFulfillment)
 			}
 
 			// Stock Movements
@@ -229,17 +238,19 @@ func main() {
 				products.DELETE("/:id/images/:imageId", middleware.RequireAnyPermission(db, "product_image.upload", "product_image.delete"), productHandler.DeleteProductImage)
 			}
 
-			// Picking
-			picking := protected.Group("/picking")
+			// Fulfilment
+			fulfilment := protected.Group("/fulfilment")
 			{
-				picking.POST("/upload-and-validate", middleware.RequirePermission(db, "picking_list.upload"), pickingHandler.UploadAndValidate)
-				picking.GET("/pending-items", pickingHandler.GetPendingItems)
-				picking.GET("/history-items", pickingHandler.GetHistoryItems)
-				picking.GET("/:id", pickingHandler.GetPickingDetail)
-				picking.POST("/complete-items", middleware.RequirePermission(db, "picking_list.confirm"), pickingHandler.CompleteItems)
-				picking.POST("/void/:id", middleware.RequirePermission(db, "picking_list.void"), pickingHandler.VoidPickingList)
-				picking.POST("/:id/retry-backorders", pickingHandler.RetryBackorders)
-				picking.POST("/retry-backorders-batch", pickingHandler.RetryBackordersBatch)
+				fulfilment.POST("/upload-and-validate", middleware.RequirePermission(db, "fulfilment_list.upload"), fulfilmentHandler.UploadAndValidate)
+				fulfilment.POST("/sync-kelja", middleware.RequirePermission(db, "fulfilment_list.upload"), fulfilmentHandler.SyncKelja)
+				fulfilment.GET("/pending-filter-options", fulfilmentHandler.GetPendingFilterOptions)
+				fulfilment.GET("/pending-items", fulfilmentHandler.GetPendingItems)
+				fulfilment.GET("/history-items", fulfilmentHandler.GetHistoryItems)
+				fulfilment.GET("/:id", fulfilmentHandler.GetFulfilmentDetail)
+				fulfilment.POST("/complete-items", middleware.RequirePermission(db, "fulfilment_list.confirm"), fulfilmentHandler.CompleteItems)
+				fulfilment.POST("/void/:id", middleware.RequirePermission(db, "fulfilment_list.void"), fulfilmentHandler.VoidFulfilmentList)
+				fulfilment.POST("/:id/retry-backorders", fulfilmentHandler.RetryBackorders)
+				fulfilment.POST("/retry-backorders-batch", fulfilmentHandler.RetryBackordersBatch)
 			}
 
 			// RBAC

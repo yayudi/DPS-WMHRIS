@@ -37,6 +37,7 @@ coverage/
 build/
 .cache/
 scratch/
+scratch_*
 /frontend/bundle-stats.html
 migrations/
 gosec*

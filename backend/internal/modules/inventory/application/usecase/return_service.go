@@ -43,9 +43,9 @@ func (s *returnServiceImpl) GetManualReturnHistory(ctx context.Context, page, li
 
 func (s *returnServiceImpl) ApproveReturn(ctx context.Context, userID int, req inventory_dto.ApproveReturnRequest) error {
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		item, err := s.returnRepo.GetPickingItemById(ctx, req.ItemID)
+		item, err := s.returnRepo.GetFulfilmentItemById(ctx, req.ItemID)
 		if err != nil {
-			return errors.New("item picking tidak ditemukan")
+			return errors.New("item fulfilment tidak ditemukan")
 		}
 
 		if item.Status != "RETURNED" {

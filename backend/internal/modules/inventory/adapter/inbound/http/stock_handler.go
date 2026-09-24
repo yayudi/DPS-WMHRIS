@@ -289,7 +289,7 @@ func (h *StockHandler) ValidateReturn(c *gin.Context) {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
 		return
 	}
-	utils.RawResponse(c, http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("Item (ID: %d) berhasil divalidasi.", req.PickingListItemID)})
+	utils.RawResponse(c, http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("Item (ID: %d) berhasil divalidasi.", req.FulfilmentListItemID)})
 }
 
 func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {

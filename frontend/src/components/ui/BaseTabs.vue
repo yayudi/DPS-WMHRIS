@@ -25,14 +25,14 @@ function selectTab(value) {
       v-for="tab in tabs"
       :key="tab.value"
       @click="selectTab(tab.value)"
-      class="h-[35px] flex-1 md:w-auto px-4 py-1.5 text-sm font-semibold rounded-md transition-all whitespace-nowrap"
+      class="h-[35px] flex-1 md:w-auto px-4 py-1.5 text-sm font-semibold rounded-md transition-all whitespace-nowrap flex items-center justify-center"
       :class="[
         modelValue === tab.value
           ? 'bg-primary text-background shadow' // Active state
           : 'text-text/70 hover:bg-secondary/80 hover:text-primary' // Inactive state
       ]"
     >
-      <font-awesome-icon v-if="tab.icon" :icon="tab.icon" class="mr-2" />
+      <font-awesome-icon v-if="tab.icon" :icon="tab.icon" :class="{ 'mr-2': tab.label }" />
       {{ tab.label }}
     </button>
   </div>

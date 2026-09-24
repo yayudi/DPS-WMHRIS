@@ -146,6 +146,7 @@ func (r *statisticRepositoryImpl) GetStockMovementStats(ctx context.Context, fil
 	locSubquery := `
 		SELECT product_id, SUM(quantity) as current_stock
 		FROM stock_locations
+		GROUP BY product_id
 	`
 
 	bClauses := buildStatisticTriStateWhere("l.building", filters.Building, &queryParams)
@@ -157,8 +158,6 @@ func (r *statisticRepositoryImpl) GetStockMovementStats(ctx context.Context, fil
 			WHERE %s
 			GROUP BY sl.product_id
 		`, strings.Join(bClauses, " AND "))
-		// 	} else {
-		locSubquery += ` GROUP BY product_id`
 	}
 
 	movFilter := ""
@@ -522,8 +521,8 @@ func (r *statisticRepositoryImpl) GetShopPerformanceStats(ctx context.Context, f
 			COUNT(DISTINCT pl.id) as total_orders,
 			SUM(pli.quantity) as total_items_sold,
 			SUM(pli.quantity * pli.price) as total_revenue
-		FROM picking_lists pl
-		JOIN picking_list_items pli ON pl.id = pli.picking_list_id
+		FROM fulfilment_lists pl
+		JOIN fulfilment_list_items pli ON pl.id = pli.fulfilment_list_id
 		WHERE pl.order_date >= ?
 			AND pl.order_date <= ?
 			AND pl.status NOT IN ('CANCEL', 'OBSOLETE')
@@ -549,8 +548,8 @@ func (r *statisticRepositoryImpl) GetDailySalesTrend(ctx context.Context, filter
 			COUNT(DISTINCT pl.id) as total_orders,
 			SUM(pli.quantity) as total_items_sold,
 			SUM(pli.quantity * pli.price) as total_revenue
-		FROM picking_lists pl
-		JOIN picking_list_items pli ON pl.id = pli.picking_list_id
+		FROM fulfilment_lists pl
+		JOIN fulfilment_list_items pli ON pl.id = pli.fulfilment_list_id
 		WHERE pl.order_date >= ?
 			AND pl.order_date <= ?
 			AND pl.status NOT IN ('CANCEL', 'OBSOLETE')
@@ -578,8 +577,8 @@ func (r *statisticRepositoryImpl) GetTopSellingProducts(ctx context.Context, fil
 			p.name as product_name,
 			SUM(pli.quantity) as total_sold,
 			SUM(pli.quantity * pli.price) as revenue
-		FROM picking_lists pl
-		JOIN picking_list_items pli ON pl.id = pli.picking_list_id
+		FROM fulfilment_lists pl
+		JOIN fulfilment_list_items pli ON pl.id = pli.fulfilment_list_id
 		JOIN products p ON pli.product_id = p.id
 		WHERE pl.order_date >= ?
 			AND pl.order_date <= ?
@@ -611,7 +610,7 @@ func (r *statisticRepositoryImpl) GetFulfillmentHealth(ctx context.Context, filt
 			SUM(CASE WHEN pl.status = 'CANCEL' THEN 1 ELSE 0 END) as cancelled_orders,
 			SUM(CASE WHEN pl.status = 'RETURNED' THEN 1 ELSE 0 END) as returned_orders,
 			SUM(CASE WHEN pl.status = 'PENDING' THEN 1 ELSE 0 END) as pending_orders
-		FROM picking_lists pl
+		FROM fulfilment_lists pl
 		WHERE pl.order_date >= ?
 			AND pl.order_date <= ?
 			AND pl.is_active = 1
@@ -639,8 +638,8 @@ func (r *statisticRepositoryImpl) GetPeriodComparison(ctx context.Context, filte
 			COUNT(DISTINCT pl.id) as total_orders,
 			SUM(pli.quantity) as total_items_sold,
 			SUM(pli.quantity * pli.price) as total_revenue
-		FROM picking_lists pl
-		JOIN picking_list_items pli ON pl.id = pli.picking_list_id
+		FROM fulfilment_lists pl
+		JOIN fulfilment_list_items pli ON pl.id = pli.fulfilment_list_id
 		WHERE (
 				(pl.order_date >= ? AND pl.order_date <= ?)
 				OR (pl.order_date >= ? AND pl.order_date <= ?)
@@ -722,8 +721,8 @@ func (r *statisticRepositoryImpl) GetPackageComponentAnalysis(ctx context.Contex
 		JOIN products pp ON pc.package_product_id = pp.id
 		LEFT JOIN (
 				SELECT pli.original_sku, pli.product_id, SUM(pli.quantity) as comp_needed
-				FROM picking_list_items pli
-				JOIN picking_lists pl ON pli.picking_list_id = pl.id
+				FROM fulfilment_list_items pli
+				JOIN fulfilment_lists pl ON pli.fulfilment_list_id = pl.id
 				WHERE pl.status NOT IN ('CANCEL', 'OBSOLETE')
 					AND pl.is_active = 1
 					AND COALESCE(pl.order_date, pl.created_at) >= ?

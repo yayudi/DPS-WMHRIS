@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createTestingPinia } from '@pinia/testing'
 import { VueQueryPlugin } from '@tanstack/vue-query'
-import ProductManagement from '@/views/admin/ProductManagement.vue'
+import ProductManagement from '@/views/master-data/ProductManagement.vue'
 import axios from '@/api/axios'
 
 // --- Mocking ---
@@ -38,7 +38,7 @@ vi.mock('@vueuse/core', () => ({
 }))
 
 // Mock ResizeObserver for some components (e.g., masonry or charts)
-global.ResizeObserver = class ResizeObserver {
+globalThis.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}

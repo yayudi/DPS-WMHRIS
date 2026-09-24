@@ -256,21 +256,21 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="bg-background rounded-lg overflow-x-auto overflow-y-auto relative custom-scrollbar h-[80vh] table-container"
+    class="bg-background rounded-lg relative table-container h-full"
   >
     <table class="min-w-full md:min-w-[1000px] w-full bg-background text-sm text-text border-collapse rounded-xl">
       <!-- STATIC HEADER -->
       <thead
-        class="hidden md:table-header-group sticky top-0 z-50 bg-background shadow-sm uppercase text-xs font-bold text-text/60"
+        class="hidden md:table-header-group sticky top-0 z-30 bg-background shadow-sm uppercase text-xs font-bold text-text/60"
       >
         <tr>
           <th
-            class="px-4 py-3 w-16 text-center md:sticky md:left-0 z-30 bg-background md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]"
+            class="px-4 py-3 w-16 text-center md:sticky md:left-0 z-10 bg-background md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]"
           >
             Foto
           </th>
           <th
-            class="px-6 py-3 md:sticky md:left-16 md:border-r md:border-secondary/50 z-30 bg-background md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)] text-left cursor-pointer hover:text-primary transition-colors min-w-[250px] md:w-[350px]"
+            class="px-6 py-3 md:sticky md:left-16 md:border-r md:border-secondary/50 z-10 bg-background md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)] text-left cursor-pointer hover:text-primary transition-colors min-w-[250px] md:w-[350px]"
             @click="handleSort('name')"
           >
             <div class="flex items-center gap-2">Produk <font-awesome-icon :icon="sortIcon('name')" /></div>
@@ -315,7 +315,7 @@ onUnmounted(() => {
             Stok
           </th>
           <th
-            class="p-3 md:sticky md:right-0 z-30 bg-background md:border-r md:border-secondary/50 md:shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)] text-center w-[40px]"
+            class="p-3 md:sticky md:right-0 z-10 bg-background md:border-r md:border-secondary/50 md:shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)] text-center w-[40px]"
           >
             Aksi
           </th>

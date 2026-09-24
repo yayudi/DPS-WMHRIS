@@ -17,6 +17,7 @@ type JobService interface {
 	CancelImportJob(ctx context.Context, id int) error
 	UpdateImportJobStatus(ctx context.Context, id int, status string) error
 	UpdateImportJobStatusWithSummary(ctx context.Context, id int, status string, logSummary string) error
+	UpdateImportJobStatusWithLog(ctx context.Context, id int, status string, logSummary string, errorLog string) error
 	UpdateImportJobProgress(ctx context.Context, id int, processed int, total int) error
 
 	CreateExportJob(ctx context.Context, req system_dto.CreateExportJobRequest) (int, error)
@@ -66,6 +67,10 @@ func (s *jobServiceImpl) UpdateImportJobStatus(ctx context.Context, id int, stat
 
 func (s *jobServiceImpl) UpdateImportJobStatusWithSummary(ctx context.Context, id int, status string, logSummary string) error {
 	return s.jobRepo.UpdateImportJobStatus(ctx, id, status, &logSummary, nil)
+}
+
+func (s *jobServiceImpl) UpdateImportJobStatusWithLog(ctx context.Context, id int, status string, logSummary string, errorLog string) error {
+	return s.jobRepo.UpdateImportJobStatus(ctx, id, status, &logSummary, &errorLog)
 }
 
 func (s *jobServiceImpl) UpdateImportJobProgress(ctx context.Context, id int, processed int, total int) error {

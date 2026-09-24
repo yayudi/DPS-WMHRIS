@@ -43,7 +43,7 @@ func (r *locationRepositoryImpl) FindBestStock(ctx context.Context, productID in
 		SELECT sl.location_id
 		FROM stock_locations sl
 		JOIN locations l ON sl.location_id = l.id
-		WHERE sl.product_id = ? AND l.purpose = ? AND sl.quantity >= ?
+		WHERE sl.product_id = ? AND l.purpose = ? AND (sl.quantity - sl.reserved_quantity) >= ?
 		ORDER BY l.id ASC
 		LIMIT 1
 	`
@@ -77,6 +77,20 @@ func (r *locationRepositoryImpl) DeductStock(ctx context.Context, productID int,
 	var err error
 	ext := database.GetExt(ctx, r.db)
 	_, err = ext.ExecContext(ctx, query, qty, productID, locationID)
+	return err
+}
+
+func (r *locationRepositoryImpl) ReserveStock(ctx context.Context, productID int, locationID int, qty int) error {
+	query := `UPDATE stock_locations SET reserved_quantity = reserved_quantity + ? WHERE product_id = ? AND location_id = ?`
+	ext := database.GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, query, qty, productID, locationID)
+	return err
+}
+
+func (r *locationRepositoryImpl) ReleaseStock(ctx context.Context, productID int, locationID int, qty int) error {
+	query := `UPDATE stock_locations SET reserved_quantity = reserved_quantity - ? WHERE product_id = ? AND location_id = ?`
+	ext := database.GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, query, qty, productID, locationID)
 	return err
 }
 

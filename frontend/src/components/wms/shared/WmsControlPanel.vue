@@ -117,7 +117,7 @@ onClickOutside(
 </script>
 
 <template>
-  <BaseFilterPanel class="z-50" :collapse-breakpoint="1024">
+  <BaseFilterPanel class="z-40" :collapse-breakpoint="1024">
     <!-- Search Row -->
     <template #search>
       <div class="relative flex-grow group w-full xl:w-[1vw] shadow-sm rounded-lg items-end mt-auto">

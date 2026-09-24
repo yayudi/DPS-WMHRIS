@@ -23,6 +23,8 @@ type ProductRepository interface {
 	Create(ctx context.Context, product *domain.Product) error
 	Update(ctx context.Context, product *domain.Product) error
 	GetBySKUs(ctx context.Context, skus []string) ([]domain.Product, error)
+	GetProductIDBySKUTx(ctx context.Context, sku string) (int, error)
+	CreateProductTx(ctx context.Context, product *domain.Product) (int, error)
 
 	// New methods
 	GetProductsWithFilters(ctx context.Context, filters catalog_dto.ProductFilterRequest) ([]catalog_dto.ProductDetailResponse, int, error)

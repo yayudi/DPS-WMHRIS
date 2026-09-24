@@ -23,16 +23,19 @@ type LocationUseCase interface {
 	GetStockSample(ctx context.Context, locationID int) ([]inventory_dto.StockSampleResponse, error)
 }
 
-type PickingUseCase interface {
-	GetPendingItems(ctx context.Context) ([]inventory_dto.PendingPickingItemResponse, error)
-	GetHistoryItems(ctx context.Context, limit int) ([]inventory_dto.HistoryPickingItemResponse, error)
-	GetPickingDetail(ctx context.Context, pickingListID int) ([]inventory_dto.PickingListDetailResponse, error)
+type FulfilmentUseCase interface {
+	GetPendingItems(ctx context.Context, filter inventory_dto.PendingFulfilmentFilter) ([]inventory_dto.PendingFulfilmentItemResponse, int, error)
+	GetPendingFilterOptions(ctx context.Context) (inventory_dto.PendingFilterOptionsResponse, error)
+	GetHistoryItems(ctx context.Context, limit int) ([]inventory_dto.HistoryFulfilmentItemResponse, error)
+	GetFulfilmentDetail(ctx context.Context, fulfilmentListID int) ([]inventory_dto.FulfilmentListDetailResponse, error)
 
-	CompletePickingItems(ctx context.Context, req inventory_dto.CompletePickingRequest, userID int) (string, []string, error)
-	VoidPickingList(ctx context.Context, pickingListID int, userID int) error
-	RetryBackorders(ctx context.Context, pickingListID int) (string, error)
+	CompleteFulfilmentItems(ctx context.Context, req inventory_dto.CompleteFulfilmentRequest, userID int) (string, []string, error)
+	VoidFulfilmentList(ctx context.Context, fulfilmentListID int, userID int) error
+	RetryBackorders(ctx context.Context, fulfilmentListID int) (string, error)
 	RetryBackordersBatch(ctx context.Context, req inventory_dto.RetryBackordersBatchRequest) (string, error)
+	AutoRecoverBackorderByProductID(ctx context.Context, productID int) error
 	ProcessSalesImport(ctx context.Context, jobID int, filePath string, source string, userID int, isDryRun bool, locationPurpose string, shopName string) error
+	ProcessKeljaSync(ctx context.Context, jobID int, userID int) error
 }
 
 type ReturnUseCase interface {
@@ -65,4 +68,13 @@ type StockUseCase interface {
 	ValidateReturn(ctx context.Context, req inventory_dto.ValidateReturnRequest, userID int) error
 	ProcessStockImport(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) error
 	ProcessImportBatchInbound(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error)
+}
+
+type StockTransactionUseCase interface {
+	CreateFulfillment(ctx context.Context, req inventory_dto.CreateFulfillmentRequest) (*domain.StockTransaction, error)
+	ExecuteFulfilment(ctx context.Context, req inventory_dto.ExecuteFulfilmentRequest, userID uint) error
+}
+
+type StockQueryUseCase interface {
+	GetStockBalances(ctx context.Context, locationID *int, productID *int) ([]inventory_dto.StockBalanceResponse, error)
 }

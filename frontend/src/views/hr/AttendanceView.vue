@@ -206,7 +206,7 @@ async function handleExportExcel() {
 </script>
 <template>
   <header
-    class="flex flex-col gap-2 bg-background shadow-md fixed left-0 top-[53px] w-full z-[100] px-6 py-1 lg:px-0 transition-all duration-300"
+    class="flex flex-col gap-2 bg-background shadow-md sticky top-0 z-[30] px-6 py-1 lg:px-0 transition-all duration-300"
   >
     <transition
       enter-active-class="transition-all duration-300 ease-out"

@@ -12,7 +12,7 @@ export const formatDate = dateStr => {
   })
 }
 
-// Helper to extract Picking List Item ID from notes
+// Helper to extract Fulfilment Item ID from notes
 export const extractItemId = notes => {
   if (!notes) return '-'
   const match = notes.match(/Item\s*#(\d+)/i)

@@ -48,7 +48,7 @@ watch(Escape, pressed => {
     <div
       v-if="show"
       @click.self="emit('close')"
-      class="fixed inset-0 bg-text bg-opacity-60 flex justify-center z-[1000] transition-all duration-300"
+      class="fixed inset-0 bg-text bg-opacity-60 flex justify-center z-[99999] transition-all duration-300"
       :class="isMobile ? 'items-end p-0' : 'items-center p-4'"
     >
       <!-- Panel Modal -->

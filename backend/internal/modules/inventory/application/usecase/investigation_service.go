@@ -88,7 +88,7 @@ func (s *investigationServiceImpl) GetDuplicateTransactions(ctx context.Context,
 				BaseNote:         baseNote,
 				MovementType:     curr.MovementType,
 				ExtractedInvoice: extractedInvoice,
-				PickingList:      nil,
+				FulfilmentList:      nil,
 				Transactions:     []domain.DuplicateTransactionItem{},
 			}
 			grouped[key] = group
@@ -110,16 +110,16 @@ func (s *investigationServiceImpl) GetDuplicateTransactions(ctx context.Context,
 		group.UniqueItemsCount = len(uniqueSkus)
 	}
 
-	var pickingDetails []map[string]interface{}
+	var fulfilmentDetails []map[string]interface{}
 
 	if len(invoiceSet) > 0 {
 		var invoiceIds []string
 		for id := range invoiceSet {
 			invoiceIds = append(invoiceIds, id)
 		}
-		details, err := s.investigationRepo.FindPickingListDetailsByInvoices(ctx, invoiceIds)
+		details, err := s.investigationRepo.FindFulfilmentListDetailsByInvoices(ctx, invoiceIds)
 		if err == nil {
-			pickingDetails = append(pickingDetails, details...)
+			fulfilmentDetails = append(fulfilmentDetails, details...)
 		}
 	}
 
@@ -128,21 +128,21 @@ func (s *investigationServiceImpl) GetDuplicateTransactions(ctx context.Context,
 		for id := range itemIdSet {
 			itemIds = append(itemIds, id)
 		}
-		details, err := s.investigationRepo.FindPickingListDetailsByItemIds(ctx, itemIds)
+		details, err := s.investigationRepo.FindFulfilmentListDetailsByItemIds(ctx, itemIds)
 		if err == nil {
-			pickingDetails = append(pickingDetails, details...)
+			fulfilmentDetails = append(fulfilmentDetails, details...)
 		}
 	}
 
-	if len(pickingDetails) > 0 {
-		pickingLists := make(map[int]*domain.PickingListDetail)
-		pickingByInvoice := make(map[string]*domain.PickingListDetail)
+	if len(fulfilmentDetails) > 0 {
+		fulfilmentLists := make(map[int]*domain.FulfilmentListDetail)
+		fulfilmentByInvoice := make(map[string]*domain.FulfilmentListDetail)
 
-		for _, row := range pickingDetails {
-			listIdInt64 := row["picking_list_id"].(int64)
+		for _, row := range fulfilmentDetails {
+			listIdInt64 := row["fulfilment_list_id"].(int64)
 			listId := int(listIdInt64)
 
-			if _, ok := pickingLists[listId]; !ok {
+			if _, ok := fulfilmentLists[listId]; !ok {
 				var ms, sn *string
 				if v, ok := row["marketplace_status"].(string); ok {
 					ms = &v
@@ -161,7 +161,7 @@ func (s *investigationServiceImpl) GetDuplicateTransactions(ctx context.Context,
 					orderDate, _ = time.Parse(time.RFC3339, s)
 				}
 
-				pickingLists[listId] = &domain.PickingListDetail{
+				fulfilmentLists[listId] = &domain.FulfilmentListDetail{
 					ID:                listId,
 					OriginalInvoiceID: origInvoice,
 					CustomerName:      row["customer_name"].(string),
@@ -170,12 +170,12 @@ func (s *investigationServiceImpl) GetDuplicateTransactions(ctx context.Context,
 					Status:            row["list_status"].(string),
 					MarketplaceStatus: ms,
 					ShopName:          sn,
-					Items:             []domain.PickingListDetailItem{},
+					Items:             []domain.FulfilmentListDetailItem{},
 				}
-				pickingByInvoice[origInvoice] = pickingLists[listId]
+				fulfilmentByInvoice[origInvoice] = fulfilmentLists[listId]
 			}
 
-			item := domain.PickingListDetailItem{
+			item := domain.FulfilmentListDetailItem{
 				ItemID:      int(row["item_id"].(int64)),
 				ProductID:   int(row["product_id"].(int64)),
 				OriginalSKU: row["original_sku"].(string),
@@ -183,13 +183,13 @@ func (s *investigationServiceImpl) GetDuplicateTransactions(ctx context.Context,
 				Quantity:    int(row["quantity"].(int64)),
 				Status:      row["item_status"].(string),
 			}
-			pickingLists[listId].Items = append(pickingLists[listId].Items, item)
+			fulfilmentLists[listId].Items = append(fulfilmentLists[listId].Items, item)
 		}
 
 		for _, group := range grouped {
 			if group.ExtractedInvoice != nil {
-				if pl, ok := pickingByInvoice[*group.ExtractedInvoice]; ok {
-					group.PickingList = pl
+				if pl, ok := fulfilmentByInvoice[*group.ExtractedInvoice]; ok {
+					group.FulfilmentList = pl
 				}
 			}
 		}
@@ -200,7 +200,7 @@ func (s *investigationServiceImpl) GetDuplicateTransactions(ctx context.Context,
 		finalGrouped = append(finalGrouped, g)
 	}
 
-	// Application level filters for Picking Lists could be added here similar to Node.js
+	// Application level filters for Fulfilment Lists could be added here similar to Node.js
 	// (Skipping complex array logic for PL filters in Go for now, retaining 1:1 structure)
 
 	totalPages := int(math.Ceil(float64(totalGroups) / float64(req.Limit)))

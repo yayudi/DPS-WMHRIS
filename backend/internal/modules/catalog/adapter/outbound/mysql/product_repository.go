@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -57,6 +58,47 @@ func (r *productRepositoryImpl) Create(ctx context.Context, product *domain.Prod
 	return err
 }
 
+func (r *productRepositoryImpl) CreateProductTx(ctx context.Context, product *domain.Product) (int, error) {
+	query := `
+		INSERT INTO products (
+			sku, name, category_id, price, is_active, is_package, 
+			weight, length, width, height
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query,
+		product.SKU, product.Name, product.CategoryID, product.Price,
+		product.IsActive, product.IsPackage, product.Weight,
+		product.Length, product.Width, product.Height,
+	)
+
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := res.LastInsertId()
+	if err == nil {
+		product.ID = int(id)
+	}
+
+	return int(id), err
+}
+
+func (r *productRepositoryImpl) GetProductIDBySKUTx(ctx context.Context, sku string) (int, error) {
+	query := `SELECT id FROM products WHERE sku = ? LIMIT 1`
+	ext := database.GetExt(ctx, r.db)
+	
+	var id int
+	err := ext.QueryRowxContext(ctx, query, sku).Scan(&id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return id, nil
+}
+
 func (r *productRepositoryImpl) Update(ctx context.Context, product *domain.Product) error {
 	query := `
 		UPDATE products 
@@ -103,7 +145,7 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 
 	// Fetch stock locations
 	query, args, err := sqlx.In(`
-		SELECT sl.product_id, l.id as location_id, l.code as location_code, l.purpose, l.building, COALESCE(l.floor, '') as floor, sl.quantity
+		SELECT sl.product_id, l.id as location_id, l.code as location_code, COALESCE(l.purpose, '') as purpose, l.building, COALESCE(l.floor, '') as floor, sl.quantity
 		FROM stock_locations sl
 		JOIN locations l ON sl.location_id = l.id
 		WHERE sl.product_id IN (?)
@@ -112,6 +154,8 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 		return err
 	}
 	query = r.db.Rebind(query)
+	log.Println("query:", query)
+	log.Println("args:", args)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err == nil {
@@ -126,6 +170,8 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 					}
 					p.StockLocations = append(p.StockLocations, loc)
 				}
+			} else {
+				log.Println("ERROR rows.Scan stock_locations:", err)
 			}
 		}
 	}
@@ -409,7 +455,7 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 	err = r.db.SelectContext(ctx, &results, finalSql, finalArgs...)
 	if results == nil {
 		results = []catalog_dto.ProductDetailResponse{}
-		// 	} else {
+	} else {
 		_ = r.attachProductDetails(ctx, results)
 	}
 	return results, total, err
@@ -461,7 +507,7 @@ func (r *productRepositoryImpl) SearchProducts(ctx context.Context, keyword stri
 	err := r.db.SelectContext(ctx, &results, sql, args...)
 	if results == nil {
 		results = []catalog_dto.ProductDetailResponse{}
-		// 	} else {
+	} else {
 		_ = r.attachProductDetails(ctx, results)
 	}
 	return results, err
@@ -479,7 +525,7 @@ func (r *productRepositoryImpl) GetAllActiveProducts(ctx context.Context) ([]cat
 	err := r.db.SelectContext(ctx, &results, query)
 	if results == nil {
 		results = []catalog_dto.ProductDetailResponse{}
-		// 	} else {
+	} else {
 		_ = r.attachProductDetails(ctx, results)
 	}
 	return results, err
@@ -507,7 +553,7 @@ func (r *productRepositoryImpl) GetProductDetailWithStock(ctx context.Context, i
 func (r *productRepositoryImpl) GetProductStockDetails(ctx context.Context, id int) ([]catalog_dto.ProductStockDetailResponse, error) {
 	query := `
 		SELECT 
-			sl.location_id, l.code as location_code, l.name as location_name, l.purpose, l.building, COALESCE(l.floor, '') as floor, sl.quantity
+			sl.location_id, l.code as location_code, COALESCE(l.name, '') as location_name, COALESCE(l.purpose, '') as purpose, l.building, COALESCE(l.floor, '') as floor, sl.quantity
 		FROM stock_locations sl
 		JOIN locations l ON sl.location_id = l.id
 		WHERE sl.product_id = ?
@@ -515,6 +561,7 @@ func (r *productRepositoryImpl) GetProductStockDetails(ctx context.Context, id i
 	`
 	var results []catalog_dto.ProductStockDetailResponse
 	err := r.db.SelectContext(ctx, &results, query, id)
+	log.Printf("results %v\n", results)
 	return results, err
 }
 

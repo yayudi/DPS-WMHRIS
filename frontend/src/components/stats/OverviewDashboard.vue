@@ -3,7 +3,7 @@
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth.js'
 import { formatNumber, formatCurrency } from '@/utils/formatters.js'
-import CombinedAnalyticsDashboard from '@/views/stats/CombinedAnalyticsDashboard.vue'
+import CombinedAnalyticsDashboard from '@/views/analytics/CombinedAnalyticsDashboard.vue'
 
 const auth = useAuthStore()
 

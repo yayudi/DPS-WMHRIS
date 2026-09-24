@@ -1,4 +1,3 @@
-// frontend\src\router\index.js
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import NProgress from 'nprogress'
@@ -19,31 +18,6 @@ const routes = [
   { path: '/', redirect: { name: 'WMS' } },
 
   // --- GENERAL APP ROUTES ---
-  {
-    path: '/absensi',
-    name: 'Absensi',
-    component: () => import('../views/hr/AttendanceView.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/stats',
-    name: 'Stats',
-    component: () => import('../views/stats/StatsView.vue'),
-    meta: { requiresAuth: true, requiresPermission: 'statistic.stock.view' }
-  },
-  {
-    path: '/stats/dashboard',
-    name: 'CombinedAnalyticsDashboard',
-    component: () => import('../views/stats/CombinedAnalyticsDashboard.vue'),
-    meta: { requiresAuth: true, requiresPermission: 'statistic.stock.view' }
-  },
-  {
-    path: '/stats/locations',
-    name: 'StockDistributionAnalytics',
-    component: () => import('../views/stats/StockDistributionAnalytics.vue'),
-    meta: { requiresAuth: true, requiresPermission: 'statistic.stock.view' }
-  },
-
   {
     path: '/account',
     name: 'Account',
@@ -71,7 +45,80 @@ const routes = [
     meta: { requiresAuth: true }
   },
 
-  // --- WMS ROUTES ---
+  // --- HR DOMAIN ---
+  {
+    path: '/hr',
+    component: () => import('../layouts/RouterViewWrapper.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      { path: '', redirect: '/hr/attendance' },
+      {
+        path: 'attendance',
+        name: 'Attendance',
+        component: () => import('../views/hr/AttendanceView.vue')
+      },
+      {
+        path: 'shifts',
+        name: 'ShiftManagement',
+        component: () => import('../views/hr/ShiftManagement.vue'),
+        meta: { requiresPermission: 'user.manage' }
+      },
+      {
+        path: 'schedules',
+        name: 'ShiftSchedule',
+        component: () => import('../views/hr/ShiftSchedule.vue'),
+        meta: { requiresPermission: 'user.manage' }
+      }
+    ]
+  },
+
+  // --- MASTER DATA DOMAIN ---
+  {
+    path: '/master-data',
+    component: () => import('../layouts/RouterViewWrapper.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      { path: '', redirect: '/master-data/products' },
+      {
+        path: 'products',
+        name: 'ProductManagement',
+        component: () => import('../views/master-data/ProductManagement.vue'),
+        meta: { requiresPermission: 'product.manage' }
+      },
+      {
+        path: 'packages',
+        name: 'PackageManagement',
+        component: () => import('../views/master-data/PackageManagement.vue'),
+        meta: { requiresPermission: 'product.manage' }
+      },
+      {
+        path: 'categories',
+        name: 'CategoryManagement',
+        component: () => import('../views/master-data/CategoryManagement.vue'),
+        meta: { requiresPermission: 'manage-categories' }
+      },
+      {
+        path: 'locations',
+        name: 'LocationManagement',
+        component: () => import('../views/master-data/LocationManagement.vue'),
+        meta: { requiresPermission: 'location.manage' }
+      },
+      {
+        path: 'sales-channels',
+        name: 'SalesChannelManagement',
+        component: () => import('../views/master-data/SalesChannelManagement.vue'),
+        meta: { requiresPermission: 'sales_channel.manage' }
+      },
+      {
+        path: 'media',
+        name: 'MediaManagement',
+        component: () => import('../views/master-data/MediaManagement.vue'),
+        meta: { requiresPermission: 'product.image.view' }
+      }
+    ]
+  },
+
+  // --- WMS DOMAIN ---
   {
     path: '/wms/scanner-test',
     name: 'WMSScannerTest',
@@ -80,21 +127,14 @@ const routes = [
   },
   {
     path: '/wms',
-    name: 'WMS',
-    component: () => import('../views/wms/WmsDashboard.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/media',
-    name: 'MediaManagement',
-    component: () => import('../views/media/MediaManagement.vue'),
-    meta: { requiresAuth: true, requiresPermission: 'product.image.view' }
-  },
-  {
-    path: '/wms/actions',
-    component: () => import('../layouts/WMSActionsLayout.vue'),
+    component: () => import('../layouts/RouterViewWrapper.vue'),
     meta: { requiresAuth: true },
     children: [
+      {
+        path: '',
+        name: 'WMS',
+        component: () => import('../views/wms/WmsDashboard.vue')
+      },
       {
         path: 'return',
         name: 'WMSReturnView',
@@ -114,10 +154,27 @@ const routes = [
         meta: { requiresPermission: 'stock_batch.move' }
       },
       {
-        path: 'picking-list',
-        name: 'WMSPickingList',
-        component: () => import('../views/wms/PickingList.vue'),
-        meta: { requiresPermission: 'picking_list.upload' }
+        path: 'fulfilment',
+        component: () => import('../views/wms/FulfilmentList.vue'),
+        meta: { requiresPermission: 'fulfilment_list.upload' },
+        children: [
+          { path: '', redirect: { name: 'WMSFulfilmentTasks' } },
+          {
+            path: 'tasks',
+            name: 'WMSFulfilmentTasks',
+            component: () => import('../components/fulfilment/FulfilmentTaskTab.vue')
+          },
+          {
+            path: 'history',
+            name: 'WMSFulfilmentHistory',
+            component: () => import('../components/fulfilment/FulfilmentHistoryTab.vue')
+          },
+          {
+            path: 'process/:id',
+            name: 'WMSFulfilmentProcess',
+            component: () => import('../components/fulfilment/FulfilmentProcessTab.vue')
+          }
+        ]
       },
       {
         path: 'batch-log',
@@ -156,78 +213,97 @@ const routes = [
     }
   },
 
-  // --- ADMIN ROUTES ---
+  // --- ANALYTICS DOMAIN ---
   {
-    path: '/admin',
-    component: () => import('../layouts/AdminLayout.vue'),
+    path: '/analytics',
+    component: () => import('../layouts/RouterViewWrapper.vue'),
+    meta: { requiresAuth: true, requiresPermission: 'report.view' },
+    children: [
+      { path: '', redirect: '/analytics/dashboard' },
+      {
+        path: 'dashboard',
+        name: 'CombinedAnalyticsDashboard',
+        component: () => import('../views/analytics/DashboardView.vue')
+      },
+      {
+        path: 'stock-movement',
+        name: 'StockMovement',
+        component: () => import('../components/stats/StockMovementStats.vue')
+      },
+      {
+        path: 'stock-timeline',
+        name: 'StockTimeline',
+        component: () => import('../components/stats/StockTimelineFull.vue')
+      },
+      {
+        path: 'inventory-value',
+        name: 'InventoryValue',
+        component: () => import('../components/stats/InventoryValueStats.vue'),
+        meta: { requiresPermission: 'statistic.finance.view' }
+      },
+      {
+        path: 'time-performance',
+        name: 'TimePerformance',
+        component: () => import('../components/stats/TimePerformanceStats.vue')
+      },
+      {
+        path: 'channel-performance',
+        name: 'ChannelPerformance',
+        component: () => import('../components/stats/ShopPerformanceStats.vue'),
+        meta: { requiresPermission: 'statistic.finance.view' }
+      },
+      {
+        path: 'package-analysis',
+        name: 'PackageAnalysis',
+        component: () => import('../components/stats/PackageAnalysisTable.vue')
+      },
+      {
+        path: 'export-stock',
+        name: 'ExportStock',
+        component: () => import('../views/analytics/ExportStockView.vue')
+      },
+      {
+        path: 'location-capacity',
+        name: 'LocationCapacity',
+        component: () => import('../views/analytics/LocationCapacityStats.vue')
+      },
+      {
+        path: 'stock-distribution',
+        name: 'StockDistributionAnalytics',
+        component: () => import('../views/analytics/StockDistributionAnalytics.vue')
+      },
+      {
+        path: 'reports',
+        name: 'Reports',
+        component: () => import('../views/analytics/ReportsView.vue')
+      }
+    ]
+  },
+
+  // --- SETTINGS / ADMIN DOMAIN ---
+  {
+    path: '/settings',
+    component: () => import('../layouts/RouterViewWrapper.vue'),
     meta: { requiresAuth: true },
     children: [
+      { path: '', redirect: '/settings/users' },
       {
         path: 'users',
         name: 'UserManagement',
-        component: () => import('../views/admin/UserManagement.vue'),
+        component: () => import('../views/settings/UserManagement.vue'),
         meta: { requiresPermission: 'user.manage' }
       },
       {
         path: 'roles',
         name: 'RoleManagement',
-        component: () => import('../views/admin/RoleManagement.vue'),
+        component: () => import('../views/settings/RoleManagement.vue'),
         meta: { requiresPermission: 'role.manage' }
-      },
-      {
-        path: 'products',
-        name: 'ProductManagement',
-        component: () => import('../views/admin/ProductManagement.vue'),
-        meta: { requiresPermission: 'product.manage' }
-      },
-      {
-        path: 'packages',
-        name: 'PackageManagement',
-        component: () => import('../views/admin/PackageManagement.vue'),
-        meta: { requiresPermission: 'product.manage' }
-      },
-      {
-        path: 'locations',
-        name: 'LocationManagement',
-        component: () => import('../views/admin/LocationManagement.vue'),
-        meta: { requiresPermission: 'location.manage' }
-      },
-      {
-        path: 'categories',
-        name: 'CategoryManagement',
-        component: () => import('../views/admin/CategoryManagement.vue'),
-        meta: { requiresPermission: 'manage-categories' }
-      },
-      {
-        path: 'sales-channels',
-        name: 'SalesChannelManagement',
-        component: () => import('../views/admin/SalesChannelManagement.vue'),
-        // Untuk sekarang gunakan permission ini. Anda dapat menambahkan permission khusus nantinya.
-        meta: { requiresPermission: 'manage-categories' }
-      },
-      {
-        path: 'reports',
-        name: 'Reports',
-        component: () => import('../views/admin/ReportsView.vue'),
-        meta: { requiresPermission: 'report.view' }
       },
       {
         path: 'logs',
         name: 'Logs',
-        component: () => import('../views/admin/LogsView.vue'),
+        component: () => import('../views/settings/LogsView.vue'),
         meta: { requiresPermission: 'system_log.view' }
-      },
-      {
-        path: 'shifts',
-        name: 'ShiftManagement',
-        component: () => import('../views/admin/ShiftManagement.vue'),
-        meta: { requiresPermission: 'user.manage' }
-      },
-      {
-        path: 'schedules',
-        name: 'ShiftSchedule',
-        component: () => import('../views/admin/ShiftSchedule.vue'),
-        meta: { requiresPermission: 'user.manage' }
       }
     ]
   },

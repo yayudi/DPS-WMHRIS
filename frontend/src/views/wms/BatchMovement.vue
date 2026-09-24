@@ -50,14 +50,14 @@ watch(Alt_S, pressed => {
 
 // --- STATE FORM BATCH (untuk header) ---
 const objectSerializer = {
-  read: (v) => {
+  read: v => {
     try {
       return v === 'null' || !v ? null : JSON.parse(v)
     } catch {
       return null
     }
   },
-  write: (v) => JSON.stringify(v)
+  write: v => JSON.stringify(v)
 }
 
 const fromLocation = useLocalStorage('draft-bm-from', null, { serializer: objectSerializer })
@@ -250,17 +250,6 @@ async function submitBatch() {
 
 <template>
   <div class="animate-fade-in text-text">
-    <Teleport to="#header-actions">
-      <button
-        v-if="activeTab === 'INBOUND'"
-        @click="isBatchInboundModalOpen = true"
-        class="bg-success/20 text-success border border-success/30 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-success hover:text-background flex items-center gap-2 transition-all"
-      >
-        <font-awesome-icon icon="fa-solid fa-file-import" />
-        <span>Import Massal</span>
-      </button>
-    </Teleport>
-
     <!-- Komponen Header (Tabs + Form Lokasi Batch) -->
     <BatchMovementHeader
       v-model:activeTab="activeTab"
@@ -292,10 +281,23 @@ async function submitBatch() {
       />
 
       <!-- Tabel Daftar Batch -->
-      <BatchItemList :items="batchList" :active-tab="activeTab" @remove-item="removeFromBatch" @duplicate-item="duplicateFromBatch" />
+      <BatchItemList
+        :items="batchList"
+        :active-tab="activeTab"
+        @remove-item="removeFromBatch"
+        @duplicate-item="duplicateFromBatch"
+      />
 
       <!-- Tombol Aksi Final Batch -->
       <div class="flex justify-end pt-6 border-t border-secondary/20 gap-2">
+        <button
+          v-if="activeTab === 'INBOUND'"
+          @click="isBatchInboundModalOpen = true"
+          class="bg-success/5 text-success border border-success/30 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-success hover:text-background flex items-center gap-2 transition-all"
+        >
+          <font-awesome-icon icon="fa-solid fa-file-import" />
+          <span>Import Massal</span>
+        </button>
         <button
           v-if="activeTab === 'INBOUND'"
           @click="isStickerModalOpen = true"

@@ -14,11 +14,9 @@ import { useClipboard } from '@/composables/useClipboard'
 import WmsProductTable from '@/components/wms/shared/ProductTable.vue'
 import WmsControlPanel from '@/components/wms/shared/WmsControlPanel.vue'
 import WmsAdjustModal from '@/components/wms/shared/AdjustModal.vue'
-import WmsActionHeader from '@/components/wms/shared/WmsActionHeader.vue'
 import WmsTransferModal from '@/components/wms/transfer/TransferModal.vue'
 import WmsHistoryModal from '@/components/wms/shared/HistoryModal.vue'
 import WmsProductFormModal from '@/components/wms/shared/ProductFormModal.vue'
-import SalesSimulationModal from '@/components/wms/shared/SalesSimulationModal.vue'
 import ProductImageModal from '@/components/products/ProductImageModal.vue'
 import StickerGeneratorModal from '@/components/utilities/StickerGeneratorModal.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
@@ -73,7 +71,6 @@ const adjustReason = ref('')
 const searchTerm = ref('')
 const isProductFormOpen = ref(false)
 const productFormMode = ref('edit')
-const isSimulationModalOpen = ref(false)
 const isStickerModalOpen = ref(false)
 const selectedStickerProduct = ref(null)
 const mobileLayout = ref(isMobile.value ? 'card' : 'compact')
@@ -118,7 +115,7 @@ const buildingFilterOptions = computed(() => {
 
 const floorFilterOptions = computed(() => {
   const floors = allLocations.value.map(l => l.floor).filter(f => f !== null && f !== undefined)
-  return [...new Set(floors)].sort((a,b) => a - b).map(f => ({ label: String(f), value: String(f) }))
+  return [...new Set(floors)].sort((a, b) => a - b).map(f => ({ label: String(f), value: String(f) }))
 })
 
 function openTransferModal(product) {
@@ -180,7 +177,6 @@ function closeModal() {
   isAdjustModalOpen.value = false
   isProductFormOpen.value = false
   isProductFormOpen.value = false
-  isSimulationModalOpen.value = false
   isImageModalOpen.value = false
   isStickerModalOpen.value = false
   selectedProduct.value = null
@@ -224,7 +220,6 @@ const anyModalOpen = computed(() => {
     isUploadModalOpen.value ||
     isAdjustModalOpen.value ||
     isProductFormOpen.value ||
-    isSimulationModalOpen.value ||
     isImageModalOpen.value ||
     isStickerModalOpen.value
   )
@@ -247,135 +242,108 @@ watch(Escape, pressed => {
 </script>
 
 <template>
-  <WmsActionHeader
-    title="Warehouse <span class='text-primary'>Management</span>"
-    icon="fa-solid fa-warehouse"
-    class="mb-[1vh]"
-  >
-    <template #actions>
-      <div
-        v-if="auth.hasPermission('stock_batch.move')"
-        class="bg-secondary/35 p-1.5 rounded-xl border border-secondary/20 shadow-sm flex gap-3 overflow-x-auto items-center custom-scrollbar"
-        :class="isMobile ? 'w-full justify-center' : ''"
-      >
-        <router-link
-          to="/wms/actions/batch-movement"
-          class="w-1/2 px-4 py-2 text-sm font-bold text-primary hover:bg-primary/10 rounded-lg transition-all flex items-center gap-2 justify-center whitespace-nowrap"
-          title="Pindah Stok Antar Lokasi"
-        >
-          <font-awesome-icon icon="fa-solid fa-boxes-stacked" />
-          <span>Pindah</span>
-        </router-link>
-        <div v-if="!isMobile" class="w-px h-6 bg-primary"></div>
-        <button
-          @click="openStickerModal(null)"
-          class="w-1/2 px-4 py-2 text-sm font-bold text-accent hover:bg-accent/10 rounded-lg transition-all flex items-center gap-2 justify-center whitespace-nowrap"
-          title="Batch Sticker Generator"
-        >
-          <font-awesome-icon icon="fa-solid fa-print" />
-          <span>Sticker</span>
-        </button>
-        <div v-if="!isMobile" class="w-px h-6 bg-primary"></div>
-        <button
-          v-if="auth.hasPermission('product_price.view')"
-          @click="isSimulationModalOpen = true"
-          class="w-1/2 px-4 py-2 text-sm font-bold text-success hover:bg-success/10 rounded-lg transition-all flex items-center gap-2 justify-center whitespace-nowrap"
-          title="Simulasi Harga & Berat"
-        >
-          <font-awesome-icon icon="fa-solid fa-calculator" />
-          <span>Simulasi</span>
-        </button>
-      </div>
-    </template>
-  </WmsActionHeader>
-
-  <!-- Panel Kontrol Utama -->
-  <div class="bg-secondary/35 rounded-xl shadow-lg border border-secondary/20 p-2 lg:px-6 lg:pb-6 space-y-2 w-full">
-    <WmsControlPanel
-      class="sticky top-14"
-      :search-placeholder="searchPlaceholder"
-      :search-tabs="searchTabs"
-      :warehouse-views="warehouseViews"
-      :building-filter-options="buildingFilterOptions"
-      :floor-filter-options="floorFilterOptions"
-      :category-filter-options="categoryOptions"
-      :is-auto-refetching="isAutoRefetching"
-      @search="handleSearchInput"
-      @toggle-refetch="toggleAutoRefetch"
-      v-model:search-by="searchBy"
-      v-model:searchValue="searchTerm"
-      :active-view="activeView"
-      @update:active-view="val => { activeView = val; selectedBuilding = { include: [], exclude: [] }; selectedFloor = { include: [], exclude: [] } }"
-      v-model:stock-status-filter="stockStatusFilter"
-      v-model:product-type-filter="productTypeFilter"
-      :selected-building="selectedBuilding"
-      @update:selected-building="val => { selectedBuilding = val; selectedFloor = { include: [], exclude: [] } }"
-      v-model:selected-floor="selectedFloor"
-      v-model:selected-category="selectedCategory"
-      v-model:mobileLayout="mobileLayout"
-      v-model:viewMode="viewMode"
-      :available-columns="availableColumns"
-      :visible-columns="visibleColumns"
-      @toggle-column="toggleColumn"
-    />
-
-    <div v-if="loading" class="text-center py-16">
-      <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-primary text-3xl" />
-      <p class="text-text/70 text-sm">Memuat data produk...</p>
-    </div>
-
-    <div v-else-if="error" class="text-center py-16">
-      <font-awesome-icon icon="fa-solid fa-exclamation-triangle" class="text-accent text-3xl" />
-      <p class="font-semibold text-text">Gagal Memuat Data</p>
-      <p class="text-sm text-text/70">{{ error }}</p>
-    </div>
-
-    <div v-else class="overflow-x-auto">
-      <WmsProductTable
-        :products="displayedProducts"
+  <div class="flex flex-col h-full overflow-hidden">
+    <!-- Panel Kontrol Utama -->
+    <div
+      class="bg-secondary/35 rounded-xl shadow-lg border border-secondary/20 p-2 lg:px-6 lg:pb-6 flex flex-col flex-1 min-h-0 w-full overflow-hidden"
+    >
+      <WmsControlPanel
+        class="shrink-0 z-20 mb-2"
+        :search-placeholder="searchPlaceholder"
+        :search-tabs="searchTabs"
+        :warehouse-views="warehouseViews"
+        :building-filter-options="buildingFilterOptions"
+        :floor-filter-options="floorFilterOptions"
+        :category-filter-options="categoryOptions"
+        :is-auto-refetching="isAutoRefetching"
+        @search="handleSearchInput"
+        @toggle-refetch="toggleAutoRefetch"
+        v-model:search-by="searchBy"
+        v-model:searchValue="searchTerm"
         :active-view="activeView"
-        :sort-by="sortBy"
-        :sort-order="sortOrder"
-        :loading="loading"
-        :mobile-layout="mobileLayout"
-        @copy="copyToClipboard"
-        @openTransfer="openTransferModal"
-        @openAdjust="openAdjustModal"
-        @openHistory="openHistoryModal"
-        @openEdit="openEditProductModal"
-        @delete="handleDeleteProduct"
-        @sort="handleSort"
+        @update:active-view="
+          val => {
+            activeView = val
+            selectedBuilding = { include: [], exclude: [] }
+            selectedFloor = { include: [], exclude: [] }
+          }
+        "
+        v-model:stock-status-filter="stockStatusFilter"
+        v-model:product-type-filter="productTypeFilter"
+        :selected-building="selectedBuilding"
+        @update:selected-building="
+          val => {
+            selectedBuilding = val
+            selectedFloor = { include: [], exclude: [] }
+          }
+        "
+        v-model:selected-floor="selectedFloor"
+        v-model:selected-category="selectedCategory"
+        v-model:mobileLayout="mobileLayout"
+        v-model:viewMode="viewMode"
+        :available-columns="availableColumns"
         :visible-columns="visibleColumns"
-        @view-image="openImageModal"
-        @openSticker="openStickerModal"
-      >
-        <template #footer>
-          <div
-            v-if="viewMode === 'pagination'"
-            class="border-t border-secondary/20 bg-background sticky bottom-0 z-40 left-0 min-w-max md:min-w-full"
-          >
-            <BasePagination
-              :pagination="{
-                page: currentPage,
-                limit: pageSize,
-                total: totalProducts,
-                totalPages: totalPages
-              }"
-              :show-limit-picker="true"
-              @changePage="goToPage"
-              @update:limit="changePageSize"
-              :limit-options="[25, 50, 75, 108]"
-            />
-          </div>
-          <div v-else ref="loader" class="text-center pt-6 pb-2">
-            <span v-if="displayedProducts.length === 0 && !loading" class="text-text/50 text-sm">
-              -- Tidak ada produk yang cocok --
-            </span>
-            <span v-else-if="hasMoreData" class="text-text/50 text-sm"> Memuat lebih banyak... </span>
-            <span v-else class="text-text/50 text-sm"> -- Akhir dari daftar -- </span>
-          </div>
-        </template>
-      </WmsProductTable>
+        @toggle-column="toggleColumn"
+      />
+
+      <div v-if="loading" class="text-center py-16">
+        <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-primary text-3xl" />
+        <p class="text-text/70 text-sm">Memuat data produk...</p>
+      </div>
+
+      <div v-else-if="error" class="text-center py-16">
+        <font-awesome-icon icon="fa-solid fa-exclamation-triangle" class="text-accent text-3xl" />
+        <p class="font-semibold text-text">Gagal Memuat Data</p>
+        <p class="text-sm text-text/70">{{ error }}</p>
+      </div>
+
+      <div v-else class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar">
+        <WmsProductTable
+          :products="displayedProducts"
+          :active-view="activeView"
+          :sort-by="sortBy"
+          :sort-order="sortOrder"
+          :loading="loading"
+          :mobile-layout="mobileLayout"
+          @copy="copyToClipboard"
+          @openTransfer="openTransferModal"
+          @openAdjust="openAdjustModal"
+          @openHistory="openHistoryModal"
+          @openEdit="openEditProductModal"
+          @delete="handleDeleteProduct"
+          @sort="handleSort"
+          :visible-columns="visibleColumns"
+          @view-image="openImageModal"
+          @openSticker="openStickerModal"
+        >
+          <template #footer>
+            <div
+              v-if="viewMode === 'pagination'"
+              class="border-t border-secondary/20 bg-background sticky bottom-0 z-40 left-0 min-w-max md:min-w-full"
+            >
+              <BasePagination
+                :pagination="{
+                  page: currentPage,
+                  limit: pageSize,
+                  total: totalProducts,
+                  totalPages: totalPages
+                }"
+                :show-limit-picker="true"
+                @changePage="goToPage"
+                @update:limit="changePageSize"
+                :limit-options="[25, 50, 75, 108]"
+              />
+            </div>
+            <div v-else ref="loader" class="text-center pt-6 pb-2">
+              <span v-if="displayedProducts.length === 0 && !loading" class="text-text/50 text-sm">
+                -- Tidak ada produk yang cocok --
+              </span>
+              <span v-else-if="hasMoreData" class="text-text/50 text-sm"> Memuat lebih banyak... </span>
+              <span v-else class="text-text/50 text-sm"> -- Akhir dari daftar -- </span>
+            </div>
+          </template>
+        </WmsProductTable>
+      </div>
     </div>
   </div>
 
@@ -417,8 +385,6 @@ watch(Escape, pressed => {
     @refresh="handleProductSaved"
   />
 
-  <SalesSimulationModal :show="isSimulationModalOpen" @close="isSimulationModalOpen = false" />
-
   <!-- Image Modal -->
   <ProductImageModal
     :show="isImageModalOpen"
@@ -454,3 +420,4 @@ watch(Escape, pressed => {
   transform: translateY(10px);
 }
 </style>
+

@@ -21,6 +21,7 @@ import (
 	mysql2 "github.com/dps-wmhris/backend/internal/modules/iam/adapter/outbound/mysql"
 	usecase2 "github.com/dps-wmhris/backend/internal/modules/iam/application/usecase"
 	http3 "github.com/dps-wmhris/backend/internal/modules/inventory/adapter/inbound/http"
+	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/erp"
 	mysql3 "github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/mysql"
 	usecase3 "github.com/dps-wmhris/backend/internal/modules/inventory/application/usecase"
 	http4 "github.com/dps-wmhris/backend/internal/modules/misc/adapter/inbound/http"
@@ -87,12 +88,18 @@ func InitializeAPI(db *sqlx.DB) (*di.Container, error) {
 	locationUseCase := usecase3.NewLocationUseCase(transactionManager, locationRepository, eventBus)
 	locationHandler := http3.NewLocationHandler(locationUseCase)
 	stockRepository := mysql3.NewStockRepository(db)
-	pickingRepository := mysql3.NewPickingRepository(db)
-	stockUseCase := usecase3.NewStockUseCase(transactionManager, stockRepository, productRepository, locationRepository, userRepository, pickingRepository)
+	fulfilmentRepository := mysql3.NewFulfilmentRepository(db)
+	stockUseCase := usecase3.NewStockUseCase(transactionManager, stockRepository, productRepository, locationRepository, userRepository, fulfilmentRepository, eventBus)
 	stockHandler := http3.NewStockHandler(stockUseCase, jobService)
 	stockRequestRepository := mysql3.NewStockRequestRepository(db)
 	stockRequestUseCase := usecase3.NewStockRequestUseCase(transactionManager, stockRequestRepository, stockUseCase, notificationService)
 	stockRequestHandler := http3.NewStockRequestHandler(stockRequestUseCase)
+	stockTransactionRepository := mysql3.NewStockTransactionRepository(db)
+	stockTransactionUseCase := usecase3.NewStockTransactionService(transactionManager, stockTransactionRepository, locationRepository, eventBus)
+	stockTransactionHandler := http3.NewStockTransactionHandler(stockTransactionUseCase)
+	stockQueryRepository := mysql3.NewStockQueryRepository(db)
+	stockQueryUseCase := usecase3.NewStockQueryService(stockQueryRepository)
+	stockQueryHandler := http3.NewStockQueryHandler(stockQueryUseCase)
 	packageHandler := http5.NewPackageHandler(jobService)
 	returnRepository := mysql3.NewReturnRepository(db)
 	returnUseCase := usecase3.NewReturnUseCase(transactionManager, returnRepository, locationRepository, stockRepository)
@@ -112,8 +119,9 @@ func InitializeAPI(db *sqlx.DB) (*di.Container, error) {
 	shiftRepository := mysql7.NewShiftRepository(db)
 	shiftUseCase := usecase7.NewShiftUseCase(transactionManager, shiftRepository)
 	shiftHandler := http7.NewShiftHandler(shiftUseCase)
-	pickingUseCase := usecase3.NewPickingUseCase(transactionManager, pickingRepository, locationRepository, stockRepository, jobService, productRepository)
-	pickingHandler := http3.NewPickingHandler(jobService, pickingUseCase)
+	keljaERPClient := erp.NewKeljaClient()
+	fulfilmentUseCase := usecase3.NewFulfilmentUseCase(transactionManager, fulfilmentRepository, locationRepository, stockRepository, jobService, productRepository, keljaERPClient, eventBus)
+	fulfilmentHandler := http3.NewFulfilmentHandler(jobService, fulfilmentUseCase)
 	scheduleRepository := mysql7.NewScheduleRepository(db)
 	scheduleUseCase := usecase7.NewScheduleUseCase(scheduleRepository, shiftRepository, userRepository)
 	scheduleHandler := http7.NewScheduleHandler(scheduleUseCase, jobService)
@@ -121,6 +129,6 @@ func InitializeAPI(db *sqlx.DB) (*di.Container, error) {
 	settingRepository := mysql.NewSettingRepository(db)
 	attendanceUseCase := usecase7.NewAttendanceUseCase(attendanceRepository, userRepository, shiftRepository, scheduleRepository, settingRepository)
 	attendanceHandler := http7.NewAttendanceHandler(attendanceUseCase, jobService)
-	container := di.NewContainer(systemLogHandler, roleHandler, userHandler, adminUserHandler, salesChannelHandler, paperSizeHandler, stickerTemplateHandler, notificationHandler, jobHandler, uploadHandler, mediaHandler, categoryHandler, eventBus, logListener, productHandler, locationHandler, stockHandler, stockRequestHandler, packageHandler, returnHandler, investigationHandler, statsHandler, reportHandler, statisticHandler, shiftHandler, pickingHandler, scheduleHandler, attendanceHandler)
+	container := di.NewContainer(systemLogHandler, roleHandler, userHandler, adminUserHandler, salesChannelHandler, paperSizeHandler, stickerTemplateHandler, notificationHandler, jobHandler, uploadHandler, mediaHandler, categoryHandler, eventBus, logListener, productHandler, locationHandler, stockHandler, stockRequestHandler, stockTransactionHandler, stockQueryHandler, packageHandler, returnHandler, investigationHandler, statsHandler, reportHandler, statisticHandler, shiftHandler, fulfilmentHandler, scheduleHandler, attendanceHandler)
 	return container, nil
 }

@@ -17,7 +17,7 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 import { isGenericTitle, stripExtension } from '@/utils/mediaUtils'
 import { useFirebaseSync } from '@/composables/useFirebaseSync.js'
 import MediaPickerModal from '@/components/shared/MediaPickerModal.vue'
-const ImageCropperModal = defineAsyncComponent(() => import('@/views/media/ImageCropperModal.vue'))
+const ImageCropperModal = defineAsyncComponent(() => import('@/views/master-data/ImageCropperModal.vue'))
 
 const props = defineProps({
   show: Boolean,

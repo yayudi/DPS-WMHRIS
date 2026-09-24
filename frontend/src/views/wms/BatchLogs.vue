@@ -455,7 +455,7 @@ async function handleExport() {
                     </span>
                   </div>
 
-                  <!-- Jika hanya From Location (Outbound/Picking/Adjustment min) -->
+                  <!-- Jika hanya From Location (Outbound/Fulfilment/Adjustment min) -->
                   <div
                     v-else-if="log.from_location && (!log.to_location || log.from_location === log.to_location)"
                     class="flex items-center gap-1.5"

@@ -450,7 +450,7 @@ const periodLabel = computed(() => {
       <font-awesome-icon icon="fa-solid fa-store-slash" class="text-4xl mb-4 text-text/30" />
       <h4 class="font-bold text-text text-lg">Tidak ada data penjualan toko</h4>
       <p class="text-text/60 mt-2 text-sm max-w-sm">
-        Pada rentang pencarian ini, belum ada data picking list yang valid ter-record.
+        Pada rentang pencarian ini, belum ada data fulfilment list yang valid ter-record.
       </p>
     </main>
 

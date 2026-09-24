@@ -111,14 +111,14 @@ export async function fetchBatchLogs(startDate, endDate, filters = {}, page = 1,
       page,
       limit
     }
-    
+
     // Hanya kirim jika nilainya truthy (bukan null, undefined, atau string kosong)
-    if (productName) params.productName = productName;
-    if (movementType) params.movementType = movementType;
-    if (sourceLocation) params.sourceLocation = sourceLocation;
-    if (destinationLocation) params.destinationLocation = destinationLocation;
-    if (userId) params.userId = userId;
-    if (notes) params.notes = notes;
+    if (productName) params.productName = productName
+    if (movementType) params.movementType = movementType
+    if (sourceLocation) params.sourceLocation = sourceLocation
+    if (destinationLocation) params.destinationLocation = destinationLocation
+    if (userId) params.userId = userId
+    if (notes) params.notes = notes
 
     const response = await axios.get('/stock/batch-log', {
       params
@@ -143,20 +143,20 @@ export async function requestBatchLogExport(startDate, endDate, filters = {}) {
       startDate,
       endDate,
       ...filters
-    };
-    
+    }
+
     // Hapus null/undefined fields
     Object.keys(payload).forEach(key => {
       if (payload[key] == null || payload[key] === '') {
-        delete payload[key];
+        delete payload[key]
       }
-    });
+    })
 
-    const response = await axios.post('/stock/batch-log/export', payload);
-    return response.data;
+    const response = await axios.post('/stock/batch-log/export', payload)
+    return response.data
   } catch (error) {
-    console.error(`Error saat request export batch log:`, error.response?.data || error.message);
-    throw error.response?.data || error;
+    console.error(`Error saat request export batch log:`, error.response?.data || error.message)
+    throw error.response?.data || error
   }
 }
 
@@ -265,7 +265,7 @@ export async function voidImportJob(jobId) {
 /**
  * [FASE 5b] Memvalidasi item retur dan mengembalikan stok ke lokasi spesifik.
  * @param {object} payload
- * @param {number} payload.pickingListItemId - ID dari item di picking_list_items
+ * @param {number} payload.fulfilmentListItemId - ID dari item di fulfilment_list_items
  * @param {number} payload.returnToLocationId - ID lokasi tujuan pengembalian stok
  * @returns {Promise<object>}
  */

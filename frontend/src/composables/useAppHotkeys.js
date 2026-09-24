@@ -12,7 +12,7 @@ export function useAppHotkeys(emitLogout) {
   const router = useRouter()
   const auth = useAuthStore()
   const { themes, currentTheme, applyTheme } = useTheme()
-  const { Escape, Alt_1, Alt_2, Alt_3, Alt_4, Alt_5, Alt_H, Alt_T, Alt_Slash, Alt_Shift_L, Enter } = useMagicKeys()
+  const { Escape, Alt_1, Alt_2, Alt_3, Alt_4, Alt_5, Alt_H, Alt_T, Alt_Q, Alt_Shift_L, Enter } = useMagicKeys()
 
   // Navigation
   watch(Alt_H, pressed => {
@@ -52,7 +52,7 @@ export function useAppHotkeys(emitLogout) {
   })
 
   // Toggle Cheat Sheet
-  watch(Alt_Slash, pressed => {
+  watch(Alt_Q, pressed => {
     if (pressed) {
       isCheatSheetOpen.value = !isCheatSheetOpen.value
     }

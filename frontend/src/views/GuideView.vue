@@ -14,8 +14,6 @@ const tabs = [
   { value: 'faq', label: 'FAQ', icon: 'fa-solid fa-circle-question' }
 ]
 
-
-
 const hotkeys = [
   { group: 'Navigasi Global', keys: ['Alt', '1 - 5'], desc: 'Pindah antar modul utama (WMS, Media, Absensi, dll).' },
   { group: 'Navigasi Global', keys: ['Alt', 'T'], desc: 'Mengubah tema secara bergiliran.' },
@@ -92,12 +90,12 @@ const faqCategories = [
         a: 'Tidak. Setiap perpindahan stok bersifat final dan tercatat di audit log. Jika terjadi kesalahan, lakukan perpindahan balik (reverse transfer) sebagai koreksi.'
       },
       {
-        q: 'Apa arti status pada Picking List (PENDING, PICKED, CANCELLED)?',
+        q: 'Apa arti status pada Fulfilment (PENDING, PICKED, CANCELLED)?',
         a: 'PENDING berarti pesanan belum diproses. PICKED berarti barang sudah diambil dari rak dan siap kirim. CANCELLED berarti pesanan dibatalkan (misalnya karena stok kosong atau permintaan pembeli).'
       },
       {
         q: 'File apa saja yang bisa diimpor ke sistem?',
-        a: 'Sistem mendukung impor file Excel (.xlsx) untuk tiga jenis data: Picking List (pesanan masuk), Stock Adjustment (koreksi stok massal), dan data Kehadiran (absensi karyawan).'
+        a: 'Sistem mendukung impor file Excel (.xlsx) untuk tiga jenis data: Fulfilment (pesanan masuk), Stock Adjustment (koreksi stok massal), dan data Kehadiran (absensi karyawan).'
       },
       {
         q: 'Bagaimana cara mengekspor data dari sistem?',
@@ -151,8 +149,6 @@ const faqCategories = [
       <div class="mb-8">
         <BaseTabs :tabs="tabs" v-model="activeTab" />
       </div>
-
-
 
       <!-- TAB CONTENT: PANDUAN -->
       <div v-show="activeTab === 'panduan'" class="animate-fade-in">
@@ -213,7 +209,7 @@ const faqCategories = [
                   v-if="
                     auth.hasPermission('stock_batch.move') ||
                     auth.hasPermission('stock_adjustment.manage') ||
-                    auth.hasPermission('picking_list.upload')
+                    auth.hasPermission('fulfilment_list.upload')
                   "
                 >
                   <h3 class="text-xs font-bold text-text/40 uppercase tracking-wider mt-6 mb-3 px-3">
@@ -256,7 +252,7 @@ const faqCategories = [
                     <font-awesome-icon icon="fa-solid fa-arrow-rotate-left" class="w-4 opacity-70" /> Retur Manual
                   </button>
                   <button
-                    v-if="auth.hasPermission('picking_list.upload')"
+                    v-if="auth.hasPermission('fulfilment_list.upload')"
                     @click="activeGuide = 'picking'"
                     class="w-full text-left px-3 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-3"
                     :class="
@@ -265,7 +261,7 @@ const faqCategories = [
                         : 'text-text/70 hover:bg-secondary/10 border border-transparent'
                     "
                   >
-                    <font-awesome-icon icon="fa-solid fa-clipboard-list" class="w-4 opacity-70" /> Picking List
+                    <font-awesome-icon icon="fa-solid fa-clipboard-list" class="w-4 opacity-70" /> Fulfilment
                   </button>
                 </template>
 
@@ -671,23 +667,23 @@ const faqCategories = [
               </div>
             </section>
 
-            <!-- Picking List Guide -->
+            <!-- Fulfilment Guide -->
             <section
-              v-if="activeGuide === 'picking' && auth.hasPermission('picking_list.upload')"
+              v-if="activeGuide === 'picking' && auth.hasPermission('fulfilment_list.upload')"
               class="bg-secondary/5 border border-secondary/20 rounded-2xl p-6 md:p-8 animate-fade-in shadow-sm"
             >
               <h2 class="text-2xl font-bold text-text mb-4 flex items-center gap-3 border-b border-secondary/10 pb-4">
                 <span class="bg-accent/10 text-accent w-10 h-10 rounded-xl flex items-center justify-center">
                   <font-awesome-icon icon="fa-solid fa-clipboard-list" />
                 </span>
-                <span>Pemenuhan Pesanan (Picking List)</span>
+                <span>Pemenuhan Pesanan (Fulfilment)</span>
               </h2>
 
               <div class="prose prose-sm max-w-none text-text/80 leading-relaxed">
                 <p class="mb-4">
-                  <strong>Picking List</strong> adalah daftar barang yang harus diambil oleh petugas gudang untuk
-                  memenuhi pesanan pelanggan (Order Fulfillment). Anda dapat mengunggah file pesanan harian dari
-                  e-Commerce/ERP untuk diproses massal.
+                  <strong>Fulfilment</strong> adalah daftar barang yang harus diambil oleh petugas gudang untuk memenuhi
+                  pesanan pelanggan (Order Fulfillment). Anda dapat mengunggah file pesanan harian dari e-Commerce/ERP
+                  untuk diproses massal.
                 </p>
                 <ul class="list-disc pl-5 space-y-3 text-sm">
                   <li>
@@ -709,7 +705,7 @@ const faqCategories = [
                   </h4>
                   <p class="text-sm">
                     Sistem akan memblokir proses pemenuhan jika kuantitas pesanan melebihi stok yang ada di gudang. Anda
-                    harus melakukan restock (inbound) terlebih dahulu sebelum dapat melanjutkan picking list pesanan
+                    harus melakukan restock (inbound) terlebih dahulu sebelum dapat melanjutkan fulfilment list pesanan
                     tersebut.
                   </p>
                 </div>
@@ -958,11 +954,17 @@ const faqCategories = [
                         berubah menjadi data asli saat dicetak:
                       </p>
                       <ul class="list-disc pl-5 space-y-1 text-sm text-text/70">
-                        <li><strong>Nama Produk:</strong> Menyisipkan <code v-pre>{{ produk }}</code>.</li>
-                        <li><strong>SKU Produk:</strong> Menyisipkan <code v-pre>{{ sku }}</code>.</li>
                         <li>
-                          <strong>Harga (Rp):</strong> Menyisipkan <code v-pre>{{ harga_rp }}</code> yang sudah diformat ke mata
-                          uang (misal: Rp 15.000).
+                          <strong>Nama Produk:</strong> Menyisipkan <code v-pre>{{ produk }}</code
+                          >.
+                        </li>
+                        <li>
+                          <strong>SKU Produk:</strong> Menyisipkan <code v-pre>{{ sku }}</code
+                          >.
+                        </li>
+                        <li>
+                          <strong>Harga (Rp):</strong> Menyisipkan <code v-pre>{{ harga_rp }}</code> yang sudah diformat
+                          ke mata uang (misal: Rp 15.000).
                         </li>
                         <li>
                           <strong>Tanggal Cetak:</strong> Menyisipkan <code v-pre>{{ tanggal }}</code> (waktu riil saat
@@ -1073,20 +1075,25 @@ const faqCategories = [
                   6. Panel Properti Objek (Sidebar Kiri)
                 </h3>
                 <p class="mb-4 text-sm text-text/80 leading-relaxed">
-                  Ketika Anda mengeklik (memilih) salah satu objek di dalam kanvas, panel <strong>PROPERTI OBJEK</strong> akan muncul di sebelah kiri layar. Panel ini memuat pengaturan detail, terbagi atas atribut umum (berlaku untuk semua objek) dan atribut eksklusif (khusus elemen tertentu):
+                  Ketika Anda mengeklik (memilih) salah satu objek di dalam kanvas, panel
+                  <strong>PROPERTI OBJEK</strong> akan muncul di sebelah kiri layar. Panel ini memuat pengaturan detail,
+                  terbagi atas atribut umum (berlaku untuk semua objek) dan atribut eksklusif (khusus elemen tertentu):
                 </p>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <!-- Transformasi -->
                   <div class="bg-background border border-secondary/10 p-5 rounded-xl shadow-sm">
                     <h4 class="font-bold text-text text-base mb-2 flex items-center gap-2">
-                      <div class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <div
+                        class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"
+                      >
                         <font-awesome-icon icon="fa-solid fa-arrows-up-down-left-right" />
                       </div>
                       Posisi & Transformasi (Umum)
                     </h4>
                     <p class="text-sm text-text/70 leading-relaxed mb-3">
-                      Gunakan input manual ini jika Anda membutuhkan akurasi piksel persis di luar batas <em>drag & drop</em> kanvas:
+                      Gunakan input manual ini jika Anda membutuhkan akurasi piksel persis di luar batas
+                      <em>drag & drop</em> kanvas:
                     </p>
                     <ul class="list-disc pl-5 space-y-1 text-sm text-text/70">
                       <li><strong>X & Y (Pos):</strong> Koordinat presisi letak objek terhadap sudut kiri atas.</li>
@@ -1099,42 +1106,64 @@ const faqCategories = [
                   <!-- Perataan Relatif -->
                   <div class="bg-background border border-secondary/10 p-5 rounded-xl shadow-sm">
                     <h4 class="font-bold text-text text-base mb-2 flex items-center gap-2">
-                      <div class="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0">
+                      <div
+                        class="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0"
+                      >
                         <font-awesome-icon icon="fa-solid fa-align-center" />
                       </div>
                       Perataan Relatif (Umum)
                     </h4>
                     <p class="text-sm text-text/70 leading-relaxed mb-3">
-                      Enam ikon tombol perataan otomatis yang akan langsung meletakkan objek relatif terhadap batas kertas kanvas, tanpa pusing menebak:
+                      Enam ikon tombol perataan otomatis yang akan langsung meletakkan objek relatif terhadap batas
+                      kertas kanvas, tanpa pusing menebak:
                     </p>
                     <ul class="list-disc pl-5 space-y-1 text-sm text-text/70">
-                      <li><strong>Perataan Horizontal:</strong> Rata Kiri Kertas, Persis di Tengah (Center H), dan Rata Kanan Kertas.</li>
-                      <li><strong>Perataan Vertikal:</strong> Rata Atas (Top), Persis di Tengah (Center V), dan Rata Bawah (Bottom).</li>
+                      <li>
+                        <strong>Perataan Horizontal:</strong> Rata Kiri Kertas, Persis di Tengah (Center H), dan Rata
+                        Kanan Kertas.
+                      </li>
+                      <li>
+                        <strong>Perataan Vertikal:</strong> Rata Atas (Top), Persis di Tengah (Center V), dan Rata Bawah
+                        (Bottom).
+                      </li>
                     </ul>
                   </div>
 
                   <!-- Tipografi -->
                   <div class="bg-background border border-secondary/10 p-5 rounded-xl shadow-sm">
                     <h4 class="font-bold text-text text-base mb-2 flex items-center gap-2">
-                      <div class="w-8 h-8 rounded-lg bg-success/10 text-success flex items-center justify-center shrink-0">
+                      <div
+                        class="w-8 h-8 rounded-lg bg-success/10 text-success flex items-center justify-center shrink-0"
+                      >
                         <font-awesome-icon icon="fa-solid fa-text-height" />
                       </div>
                       Tipografi & Styling (Eksklusif Teks)
                     </h4>
                     <p class="text-sm text-text/70 leading-relaxed mb-3">
-                      Kelompok <em>tools</em> ini <strong>hanya muncul</strong> apabila elemen yang sedang aktif adalah teks biasa atau variabel kurawal:
+                      Kelompok <em>tools</em> ini <strong>hanya muncul</strong> apabila elemen yang sedang aktif adalah
+                      teks biasa atau variabel kurawal:
                     </p>
                     <ul class="list-disc pl-5 space-y-1 text-sm text-text/70">
-                      <li><strong>Ukuran Font:</strong> <em>Slider</em> besaran huruf dalam satuan piksel (misal 40px).</li>
-                      <li><strong>Gaya Teks:</strong> Tombol interaktif untuk <b>Bold</b> (Tebal), <i>Italic</i> (Miring), <u>Underline</u> (Garis Bawah), dan <span class="line-through">Strikethrough</span> (Coretan).</li>
-                      <li><strong>Perataan Paragraf:</strong> Ikon rata kiri, tengah, dan kanan untuk teks dengan beberapa baris.</li>
+                      <li>
+                        <strong>Ukuran Font:</strong> <em>Slider</em> besaran huruf dalam satuan piksel (misal 40px).
+                      </li>
+                      <li>
+                        <strong>Gaya Teks:</strong> Tombol interaktif untuk <b>Bold</b> (Tebal), <i>Italic</i> (Miring),
+                        <u>Underline</u> (Garis Bawah), dan <span class="line-through">Strikethrough</span> (Coretan).
+                      </li>
+                      <li>
+                        <strong>Perataan Paragraf:</strong> Ikon rata kiri, tengah, dan kanan untuk teks dengan beberapa
+                        baris.
+                      </li>
                     </ul>
                   </div>
 
                   <!-- Warna & Garis -->
                   <div class="bg-background border border-secondary/10 p-5 rounded-xl shadow-sm">
                     <h4 class="font-bold text-text text-base mb-2 flex items-center gap-2">
-                      <div class="w-8 h-8 rounded-lg bg-warning/10 text-warning flex items-center justify-center shrink-0">
+                      <div
+                        class="w-8 h-8 rounded-lg bg-warning/10 text-warning flex items-center justify-center shrink-0"
+                      >
                         <font-awesome-icon icon="fa-solid fa-fill-drip" />
                       </div>
                       Warna & Penampilan (Umum)
@@ -1143,9 +1172,18 @@ const faqCategories = [
                       Pengendali visual utama objek untuk mencocokkan gaya desain:
                     </p>
                     <ul class="list-disc pl-5 space-y-1 text-sm text-text/70">
-                      <li><strong>Warna Utama (Fill):</strong> Warna isian. Bisa menggunakan palet (<em>color picker</em>) atau tempel kode HEX (misal: <code>#000000</code>).</li>
-                      <li><strong>Warna & Tebal Garis:</strong> Menambah <em>outline</em> atau garis pinggiran pada bentuk. Ketebalannya diatur dengan <em>slider</em> piksel.</li>
-                      <li><strong>Transparansi:</strong> Membuat elemen tembus pandang (<em>Opacity</em> 0-100%). Sangat ampuh untuk menempelkan logo perusahaan sebagai <em>watermark</em> redup.</li>
+                      <li>
+                        <strong>Warna Utama (Fill):</strong> Warna isian. Bisa menggunakan palet (<em>color picker</em>)
+                        atau tempel kode HEX (misal: <code>#000000</code>).
+                      </li>
+                      <li>
+                        <strong>Warna & Tebal Garis:</strong> Menambah <em>outline</em> atau garis pinggiran pada
+                        bentuk. Ketebalannya diatur dengan <em>slider</em> piksel.
+                      </li>
+                      <li>
+                        <strong>Transparansi:</strong> Membuat elemen tembus pandang (<em>Opacity</em> 0-100%). Sangat
+                        ampuh untuk menempelkan logo perusahaan sebagai <em>watermark</em> redup.
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -1156,7 +1194,9 @@ const faqCategories = [
                     <font-awesome-icon icon="fa-solid fa-trash" /> Menghapus Objek
                   </h4>
                   <p class="text-sm text-danger/80 leading-relaxed">
-                    Tombol merah berlabel <strong>Hapus Objek</strong> yang berada di urutan paling bawah ini berfungsi untuk melenyapkan elemen yang sedang aktif dari permukaan kanvas (Anda masih bisa menekan tombol <em>Undo</em> untuk membatalkannya).
+                    Tombol merah berlabel <strong>Hapus Objek</strong> yang berada di urutan paling bawah ini berfungsi
+                    untuk melenyapkan elemen yang sedang aktif dari permukaan kanvas (Anda masih bisa menekan tombol
+                    <em>Undo</em> untuk membatalkannya).
                   </p>
                 </div>
 
@@ -1164,36 +1204,56 @@ const faqCategories = [
                   7. Manajemen Layer & Navigator (Sidebar Kanan)
                 </h3>
                 <p class="mb-4 text-sm text-text/80 leading-relaxed">
-                  Di sebelah kanan layar, terdapat panel khusus untuk mengelola susunan objek yang bertumpuk (<strong>Daftar Layer</strong>) dan navigasi area kerja (<strong>Navigator</strong>).
+                  Di sebelah kanan layar, terdapat panel khusus untuk mengelola susunan objek yang bertumpuk (<strong
+                    >Daftar Layer</strong
+                  >) dan navigasi area kerja (<strong>Navigator</strong>).
                 </p>
 
                 <div class="grid grid-cols-1 gap-4">
                   <!-- Daftar Layer -->
                   <div class="bg-background border border-secondary/10 p-5 rounded-xl shadow-sm">
                     <h4 class="font-bold text-text text-base mb-2 flex items-center gap-2">
-                      <div class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <div
+                        class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"
+                      >
                         <font-awesome-icon icon="fa-solid fa-layer-group" />
                       </div>
                       Daftar Layer (Susunan Tumpukan)
                     </h4>
                     <p class="text-sm text-text/70 leading-relaxed mb-3">
-                      Sama seperti Photoshop, objek yang berada di posisi atas pada daftar ini akan menutupi objek yang berada di bawahnya. Anda dapat mengelola elemen desain dengan:
+                      Sama seperti Photoshop, objek yang berada di posisi atas pada daftar ini akan menutupi objek yang
+                      berada di bawahnya. Anda dapat mengelola elemen desain dengan:
                     </p>
                     <ul class="list-disc pl-5 space-y-2 text-sm text-text/70">
                       <li>
-                        <strong>Memilih Objek Terselubung:</strong> Jika sebuah teks tertutup oleh gambar berukuran besar, Anda bisa mengeklik namanya di daftar layer ini untuk menyeleksinya.
+                        <strong>Memilih Objek Terselubung:</strong> Jika sebuah teks tertutup oleh gambar berukuran
+                        besar, Anda bisa mengeklik namanya di daftar layer ini untuk menyeleksinya.
                       </li>
                       <li>
-                        <strong>Drag & Drop Susunan:</strong> Tahan ikon <font-awesome-icon icon="fa-solid fa-grip-vertical" class="text-text/50 mx-1" /> di sebelah angka urutan, lalu geser ke atas atau ke bawah untuk memindahkan objek tersebut ke depan atau ke belakang tumpukan.
+                        <strong>Drag & Drop Susunan:</strong> Tahan ikon
+                        <font-awesome-icon icon="fa-solid fa-grip-vertical" class="text-text/50 mx-1" /> di sebelah
+                        angka urutan, lalu geser ke atas atau ke bawah untuk memindahkan objek tersebut ke depan atau ke
+                        belakang tumpukan.
                       </li>
                       <li>
-                        <strong>Tombol Panah Naik/Turun:</strong> Alternatif untuk memajukan (<font-awesome-icon icon="fa-solid fa-chevron-up" class="mx-1" />) atau memundurkan (<font-awesome-icon icon="fa-solid fa-chevron-down" class="mx-1" />) posisi layer selangkah demi selangkah.
+                        <strong>Tombol Panah Naik/Turun:</strong> Alternatif untuk memajukan (<font-awesome-icon
+                          icon="fa-solid fa-chevron-up"
+                          class="mx-1"
+                        />) atau memundurkan (<font-awesome-icon icon="fa-solid fa-chevron-down" class="mx-1" />) posisi
+                        layer selangkah demi selangkah.
                       </li>
                       <li>
-                        <strong>Kunci Layer (Lock):</strong> Klik ikon gembok (<font-awesome-icon icon="fa-solid fa-unlock" class="mx-1" />) agar elemen tidak bisa digeser atau diubah secara tidak sengaja. Sangat disarankan untuk elemen <em>background</em> atau batas pemotong.
+                        <strong>Kunci Layer (Lock):</strong> Klik ikon gembok (<font-awesome-icon
+                          icon="fa-solid fa-unlock"
+                          class="mx-1"
+                        />) agar elemen tidak bisa digeser atau diubah secara tidak sengaja. Sangat disarankan untuk
+                        elemen <em>background</em> atau batas pemotong.
                       </li>
                       <li>
-                        <strong>Hapus Layer:</strong> Ikon tong sampah (<font-awesome-icon icon="fa-solid fa-trash" class="mx-1 text-danger/70" />) untuk langsung membuang objek.
+                        <strong>Hapus Layer:</strong> Ikon tong sampah (<font-awesome-icon
+                          icon="fa-solid fa-trash"
+                          class="mx-1 text-danger/70"
+                        />) untuk langsung membuang objek.
                       </li>
                     </ul>
                   </div>
@@ -1201,28 +1261,35 @@ const faqCategories = [
                   <!-- Navigator & Minimap -->
                   <div class="bg-background border border-secondary/10 p-5 rounded-xl shadow-sm">
                     <h4 class="font-bold text-text text-base mb-2 flex items-center gap-2">
-                      <div class="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0">
+                      <div
+                        class="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0"
+                      >
                         <font-awesome-icon icon="fa-solid fa-map" />
                       </div>
                       Navigator (Peta Kanvas)
                     </h4>
                     <p class="text-sm text-text/70 leading-relaxed mb-3">
-                      Panel mini di bagian pojok kanan bawah ini sangat berguna ketika Anda membuat label berukuran besar (misalnya stiker pengiriman A4) yang tidak muat dalam satu layar.
+                      Panel mini di bagian pojok kanan bawah ini sangat berguna ketika Anda membuat label berukuran
+                      besar (misalnya stiker pengiriman A4) yang tidak muat dalam satu layar.
                     </p>
                     <ul class="list-disc pl-5 space-y-2 text-sm text-text/70">
                       <li>
-                        <strong>Indikator Viewport:</strong> Kotak berpendar biru di dalam minimap menunjukkan area kanvas yang saat ini sedang Anda lihat di layar komputer.
+                        <strong>Indikator Viewport:</strong> Kotak berpendar biru di dalam minimap menunjukkan area
+                        kanvas yang saat ini sedang Anda lihat di layar komputer.
                       </li>
                       <li>
-                        <strong>Geser Kanvas Bebas:</strong> Tahan tombol <strong>Alt</strong> pada <em>keyboard</em>, kemudian <em>klik & geser (drag)</em> mouse Anda di area kanvas untuk memindahkan sudut pandang tanpa perlu menggeser *scrollbar*.
+                        <strong>Geser Kanvas Bebas:</strong> Tahan tombol <strong>Alt</strong> pada <em>keyboard</em>,
+                        kemudian <em>klik & geser (drag)</em> mouse Anda di area kanvas untuk memindahkan sudut pandang
+                        tanpa perlu menggeser *scrollbar*.
                       </li>
                       <li>
-                        <strong>Pusatkan Layar:</strong> Klik ikon <font-awesome-icon icon="fa-solid fa-compress" class="mx-1 text-primary" /> untuk secara otomatis mereset <em>zoom</em> ke 100% dan meletakkan stiker persis di tengah layar.
+                        <strong>Pusatkan Layar:</strong> Klik ikon
+                        <font-awesome-icon icon="fa-solid fa-compress" class="mx-1 text-primary" /> untuk secara
+                        otomatis mereset <em>zoom</em> ke 100% dan meletakkan stiker persis di tengah layar.
                       </li>
                     </ul>
                   </div>
                 </div>
-
               </div>
             </section>
 

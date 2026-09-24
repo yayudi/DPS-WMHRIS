@@ -105,7 +105,7 @@ type BatchTransferRequest struct {
 }
 
 type ValidateReturnRequest struct {
-	PickingListItemID  int `json:"pickingListItemId" binding:"required"`
+	FulfilmentListItemID  int `json:"fulfilmentListItemId" binding:"required"`
 	ReturnToLocationID int `json:"returnToLocationId" binding:"required"`
 }
 

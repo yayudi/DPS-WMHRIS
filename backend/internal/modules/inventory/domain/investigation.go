@@ -23,7 +23,7 @@ type DuplicateGroup struct {
 	BaseNote         string                     `json:"baseNote"`
 	MovementType     string                     `json:"movementType"`
 	ExtractedInvoice *string                    `json:"extractedInvoice"`
-	PickingList      *PickingListDetail         `json:"pickingList"`
+	FulfilmentList      *FulfilmentListDetail         `json:"fulfilmentList"`
 	TotalQuantity    int                        `json:"totalQuantity"`
 	TotalTransaction int                        `json:"totalTransaction"`
 	UniqueItemsCount int                        `json:"uniqueItemsCount"`
@@ -31,7 +31,7 @@ type DuplicateGroup struct {
 	Transactions     []DuplicateTransactionItem `json:"transactions"`
 }
 
-type PickingListDetail struct {
+type FulfilmentListDetail struct {
 	ID                int                     `json:"id"`
 	OriginalInvoiceID string                  `json:"originalInvoiceId"`
 	CustomerName      string                  `json:"customerName"`
@@ -40,10 +40,10 @@ type PickingListDetail struct {
 	Status            string                  `json:"status"`
 	MarketplaceStatus *string                 `json:"marketplaceStatus"`
 	ShopName          *string                 `json:"shopName"`
-	Items             []PickingListDetailItem `json:"items"`
+	Items             []FulfilmentListDetailItem `json:"items"`
 }
 
-type PickingListDetailItem struct {
+type FulfilmentListDetailItem struct {
 	ItemID      int     `json:"itemId"`
 	ProductID   int     `json:"productId"`
 	OriginalSKU string  `json:"originalSku"`

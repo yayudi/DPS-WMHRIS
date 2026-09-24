@@ -132,10 +132,11 @@ func buildDuplicateQueryHelper(req inventory_dto.GetDuplicateTransactionsRequest
 	}
 
 	revertStatusClause := ""
-	if req.RevertStatus == "REVERTED" {
-		revertStatusClause = "AND SUM(CASE WHEN notes LIKE '%[REVERTED]%' THEN 1 ELSE 0 END) > 0"
-	} else if req.RevertStatus == "NOT_REVERTED" {
-		revertStatusClause = "AND SUM(CASE WHEN notes LIKE '%[REVERTED]%' THEN 1 ELSE 0 END) = 0"
+	switch req.RevertStatus {
+		case "REVERTED":
+			revertStatusClause = "AND SUM(CASE WHEN notes LIKE '%[REVERTED]%' THEN 1 ELSE 0 END) > 0"
+		case "NOT_REVERTED":
+			revertStatusClause = "AND SUM(CASE WHEN notes LIKE '%[REVERTED]%' THEN 1 ELSE 0 END) = 0"
 	}
 
 	cte := fmt.Sprintf(`
@@ -272,13 +273,13 @@ func (r *investigationRepositoryImpl) CountDuplicateGroups(ctx context.Context, 
 	return total, err
 }
 
-func (r *investigationRepositoryImpl) FindPickingListDetailsByInvoices(ctx context.Context, invoiceIds []string) ([]map[string]interface{}, error) {
+func (r *investigationRepositoryImpl) FindFulfilmentListDetailsByInvoices(ctx context.Context, invoiceIds []string) ([]map[string]interface{}, error) {
 	if len(invoiceIds) == 0 {
 		return nil, nil
 	}
 	query, args, err := sqlx.In(`
 		SELECT 
-			pl.id as picking_list_id,
+			pl.id as fulfilment_list_id,
 			pl.original_invoice_id,
 			pl.customer_name,
 			pl.source,
@@ -293,8 +294,8 @@ func (r *investigationRepositoryImpl) FindPickingListDetailsByInvoices(ctx conte
 			pli.price,
 			pli.status as item_status,
 			p.name as product_name
-		FROM picking_lists pl
-		JOIN picking_list_items pli ON pl.id = pli.picking_list_id
+		FROM fulfilment_lists pl
+		JOIN fulfilment_list_items pli ON pl.id = pli.fulfilment_list_id
 		LEFT JOIN products p ON pli.product_id = p.id
 		WHERE pl.original_invoice_id IN (?)
 	`, invoiceIds)
@@ -325,13 +326,13 @@ func (r *investigationRepositoryImpl) FindPickingListDetailsByInvoices(ctx conte
 	return results, nil
 }
 
-func (r *investigationRepositoryImpl) FindPickingListDetailsByItemIds(ctx context.Context, itemIds []int) ([]map[string]interface{}, error) {
+func (r *investigationRepositoryImpl) FindFulfilmentListDetailsByItemIds(ctx context.Context, itemIds []int) ([]map[string]interface{}, error) {
 	if len(itemIds) == 0 {
 		return nil, nil
 	}
 	query, args, err := sqlx.In(`
 		SELECT 
-			pl.id as picking_list_id,
+			pl.id as fulfilment_list_id,
 			pl.original_invoice_id,
 			pl.customer_name,
 			pl.source,
@@ -346,11 +347,11 @@ func (r *investigationRepositoryImpl) FindPickingListDetailsByItemIds(ctx contex
 			pli.price,
 			pli.status as item_status,
 			p.name as product_name
-		FROM picking_lists pl
-		JOIN picking_list_items pli ON pl.id = pli.picking_list_id
+		FROM fulfilment_lists pl
+		JOIN fulfilment_list_items pli ON pl.id = pli.fulfilment_list_id
 		LEFT JOIN products p ON pli.product_id = p.id
 		WHERE pl.id IN (
-			SELECT picking_list_id FROM picking_list_items WHERE id IN (?)
+			SELECT fulfilment_list_id FROM fulfilment_list_items WHERE id IN (?)
 		)
 	`, itemIds)
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
 
 	"github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/eventbus"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/xuri/excelize/v2"
 )
@@ -28,17 +29,19 @@ type stockServiceImpl struct {
 	productRepo  catalog_port.ProductRepository
 	locationRepo inventory_port.LocationRepository
 	userRepo     iam_port.UserRepository
-	pickingRepo  inventory_port.PickingRepository
+	fulfilmentRepo  inventory_port.FulfilmentRepository
+	eventBus     eventbus.EventBus
 }
 
-func NewStockUseCase(txManager database.TransactionManager, stockRepo inventory_port.StockRepository, productRepo catalog_port.ProductRepository, locationRepo inventory_port.LocationRepository, userRepo iam_port.UserRepository, pickingRepo inventory_port.PickingRepository) inventory_port.StockUseCase {
+func NewStockUseCase(txManager database.TransactionManager, stockRepo inventory_port.StockRepository, productRepo catalog_port.ProductRepository, locationRepo inventory_port.LocationRepository, userRepo iam_port.UserRepository, fulfilmentRepo inventory_port.FulfilmentRepository, eventBus eventbus.EventBus) inventory_port.StockUseCase {
 	return &stockServiceImpl{
 		txManager:    txManager,
 		stockRepo:    stockRepo,
 		productRepo:  productRepo,
 		locationRepo: locationRepo,
 		userRepo:     userRepo,
-		pickingRepo:  pickingRepo,
+		fulfilmentRepo:  fulfilmentRepo,
+		eventBus:     eventBus,
 	}
 }
 
@@ -103,7 +106,7 @@ func (s *stockServiceImpl) MoveStock(ctx context.Context, userID int, req invent
 			Notes:          req.Notes,
 		}
 
-		if err := s.stockRepo.RecordMovement(ctx, movement); err != nil {
+		if err := s.recordMovementAndPublish(ctx, movement); err != nil {
 			return err
 		}
 
@@ -300,7 +303,7 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 					UserID:         userID,
 					Notes:          item.Notes,
 				}
-				if err := s.stockRepo.RecordMovement(ctx, mov); err != nil {
+				if err := s.recordMovementAndPublish(ctx, mov); err != nil {
 					return err
 				}
 
@@ -337,7 +340,7 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 					UserID:         userID,
 					Notes:          item.Notes,
 				}
-				if err := s.stockRepo.RecordMovement(ctx, mov); err != nil {
+				if err := s.recordMovementAndPublish(ctx, mov); err != nil {
 					return err
 				}
 
@@ -374,7 +377,7 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 					UserID:         userID,
 					Notes:          item.Notes,
 				}
-				if err := s.stockRepo.RecordMovement(ctx, mov); err != nil {
+				if err := s.recordMovementAndPublish(ctx, mov); err != nil {
 					return err
 				}
 
@@ -444,7 +447,7 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 					UserID:         userID,
 					Notes:          item.Notes,
 				}
-				if err := s.stockRepo.RecordMovement(ctx, mov); err != nil {
+				if err := s.recordMovementAndPublish(ctx, mov); err != nil {
 					return err
 				}
 
@@ -545,7 +548,7 @@ func (s *stockServiceImpl) GenerateInboundTemplate(ctx context.Context) (*exceli
 
 func (s *stockServiceImpl) ValidateReturn(ctx context.Context, req inventory_dto.ValidateReturnRequest, userID int) error {
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		items, err := s.pickingRepo.GetItemsByIDs(ctx, []int{req.PickingListItemID})
+		items, err := s.fulfilmentRepo.GetItemsByIDs(ctx, []int{req.FulfilmentListItemID})
 		if err != nil {
 			return err
 		}
@@ -562,8 +565,8 @@ func (s *stockServiceImpl) ValidateReturn(ctx context.Context, req inventory_dto
 			return err
 		}
 
-		notes := fmt.Sprintf("Validasi Retur Item ID: %d", req.PickingListItemID)
-		err = s.stockRepo.RecordMovement(ctx, &domain.StockMovement{
+		notes := fmt.Sprintf("Validasi Retur Item ID: %d", req.FulfilmentListItemID)
+		err = s.recordMovementAndPublish(ctx, &domain.StockMovement{
 			ProductID:    item.ProductID,
 			Quantity:     item.Quantity,
 			ToLocationID: &req.ReturnToLocationID,
@@ -575,7 +578,7 @@ func (s *stockServiceImpl) ValidateReturn(ctx context.Context, req inventory_dto
 			return err
 		}
 
-		return s.pickingRepo.UpdateItemStatus(ctx, item.ID, "COMPLETED_RETURN")
+		return s.fulfilmentRepo.UpdateItemStatus(ctx, item.ID, "COMPLETED_RETURN")
 	})
 }
 
@@ -754,7 +757,7 @@ func (s *stockServiceImpl) ProcessBatchOpname(ctx context.Context, movements []i
 			UserID:       userID,
 		}
 
-		if err := s.stockRepo.RecordMovement(ctx, history); err != nil {
+		if err := s.recordMovementAndPublish(ctx, history); err != nil {
 			return 0, err
 		}
 		processedCount++
@@ -892,4 +895,23 @@ func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID 
 	summary := fmt.Sprintf("Berhasil memproses %d baris inbound.", len(batchReq.Movements))
 	log.Printf("[ProcessImportBatchInbound] Selesai. %s", summary)
 	return summary, nil
+}
+
+func (s *stockServiceImpl) recordMovementAndPublish(ctx context.Context, mov *domain.StockMovement) error {
+	if err := s.stockRepo.RecordMovement(ctx, mov); err != nil {
+		return err
+	}
+	
+	if mov.ToLocationID != nil && mov.Quantity > 0 {
+		event := eventbus.NewEvent("inventory.stock.increased", map[string]interface{}{
+			"product_id": mov.ProductID,
+		}, mov.UserID)
+		
+		go func() {
+			if err := s.eventBus.Publish(context.Background(), event); err != nil {
+				log.Printf("[EventBus] Failed to publish inventory.stock.increased: %v", err)
+			}
+		}()
+	}
+	return nil
 }

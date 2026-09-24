@@ -2,12 +2,6 @@
   <div class="investigation-page p-6 bg-background min-h-screen text-text">
     <div class="w-full mx-auto">
       <!-- Header -->
-      <div class="mb-6">
-        <h1 class="text-2xl font-bold text-primary">Investigasi Stok (Double Transaction)</h1>
-        <p class="text-sm text-text/70 mt-1">
-          Lacak potensi transaksi ganda berdasarkan catatan (notes) pergerakan stok.
-        </p>
-      </div>
 
       <!-- Filter Card -->
       <div class="bg-secondary/35 rounded-xl shadow-sm border border-secondary/20 p-5 mb-6">
@@ -75,10 +69,10 @@
               </button>
               <button
                 type="button"
-                @click="filters.includeNotes = 'Picking List'"
+                @click="filters.includeNotes = 'Fulfilment'"
                 class="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded hover:bg-primary/20"
               >
-                Picking List
+                Fulfilment
               </button>
               <button
                 type="button"
@@ -409,14 +403,14 @@
 
               <div class="text-xs flex space-x-2">
                 <span
-                  v-if="group.pickingList"
+                  v-if="group.fulfilmentList"
                   class="px-2 py-1 bg-background rounded border border-secondary/30 text-text/80 text-sm font-medium"
-                  >{{ group.pickingList.source }}</span
+                  >{{ group.fulfilmentList.source }}</span
                 >
                 <span
-                  v-if="group.pickingList"
+                  v-if="group.fulfilmentList"
                   class="px-2 py-1 bg-background rounded border border-secondary/30 text-text/80 text-sm font-medium"
-                  >{{ group.pickingList.status }}</span
+                  >{{ group.fulfilmentList.status }}</span
                 >
                 <span
                   class="px-2 py-1 bg-background rounded border border-secondary/30 text-text/80 text-sm font-medium"
@@ -440,26 +434,26 @@
               v-show="openGroups.includes(idx)"
               class="bg-secondary/10 p-4 border-t border-secondary/20 inset-shadow"
             >
-              <!-- NEW: Detail Picking List at Group Level -->
+              <!-- NEW: Detail Fulfilment at Group Level -->
               <div
-                v-if="group.pickingList"
+                v-if="group.fulfilmentList"
                 class="mb-5 border border-primary/20 rounded-lg bg-background overflow-hidden shadow-sm"
               >
                 <div class="p-3 text-sm grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p>
                       <span class="text-text/60 inline-block w-24">Customer:</span>
-                      <strong class="text-text">{{ group.pickingList.customerName || '-' }}</strong>
+                      <strong class="text-text">{{ group.fulfilmentList.customerName || '-' }}</strong>
                     </p>
                     <p>
                       <span class="text-text/60 inline-block w-24">Shop:</span>
-                      <span class="text-text">{{ group.pickingList.shopName || '-' }}</span>
+                      <span class="text-text">{{ group.fulfilmentList.shopName || '-' }}</span>
                     </p>
                   </div>
                   <div>
                     <p>
                       <span class="text-text/60 inline-block w-24">Order Date:</span>
-                      <span class="text-text">{{ formatDate(group.pickingList.orderDate) }}</span>
+                      <span class="text-text">{{ formatDate(group.fulfilmentList.orderDate) }}</span>
                     </p>
                   </div>
                 </div>
@@ -478,7 +472,7 @@
                     </thead>
                     <tbody class="divide-y divide-secondary/10">
                       <tr
-                        v-for="item in group.pickingList.items"
+                        v-for="item in group.fulfilmentList.items"
                         :key="item.itemId"
                         class="hover:bg-secondary/10 text-text"
                       >
@@ -591,7 +585,7 @@
                           <div class="px-8 py-3 text-sm flex items-start justify-between border-l-2 border-primary/30">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
                               <div>
-                                <span class="text-xs text-text/50 block mb-1">Picking List Item ID</span>
+                                <span class="text-xs text-text/50 block mb-1">Fulfilment Item ID</span>
                                 <span
                                   class="font-mono text-primary font-medium bg-primary/10 border border-primary/20 px-2 py-0.5 rounded"
                                 >
@@ -738,7 +732,7 @@ const exportToCSV = () => {
     'Qty',
     'User',
     'ID Trx',
-    'Picking List Item ID',
+    'Fulfilment Item ID',
     'Catatan Asli'
   ]
   const rows = [headers]
@@ -748,9 +742,9 @@ const exportToCSV = () => {
       rows.push(
         [
           group.baseNote,
-          group.pickingList?.source || '-',
-          group.pickingList?.status || '-',
-          group.pickingList?.customerName || '-',
+          group.fulfilmentList?.source || '-',
+          group.fulfilmentList?.status || '-',
+          group.fulfilmentList?.customerName || '-',
           trx.sku,
           trx.productName,
           formatDate(trx.createdAt).replace(/,/g, ''),
@@ -801,3 +795,4 @@ onMounted(async () => {
   box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.03);
 }
 </style>
+
