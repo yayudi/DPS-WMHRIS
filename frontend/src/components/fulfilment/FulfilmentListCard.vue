@@ -18,7 +18,7 @@ const emit = defineEmits(['card-click'])
 
 const isOpen = ref(false)
 
-const { totalSKU, hasInsufficientStock, getMpStatusBadge, getStatusBadge } = useFulfilmentCardState(props, authStore)
+const { totalSKU, hasInsufficientStock, getMpStatusBadge, getStatusBadge, getThemeColorVar } = useFulfilmentCardState(props, authStore)
 
 function handleCardClick(e) {
   if (e.target.closest('.toggle-btn')) {
@@ -278,11 +278,9 @@ const sourceBgClass = computed(() => {
                   <span
                     class="px-2 py-0.5 rounded text-[10px] font-bold shadow-sm"
                     :style="{
-                      backgroundColor: log.status?.property_color
-                        ? `color-mix(in srgb, ${log.status.property_color} 15%, transparent)`
-                        : 'var(--color-secondary)',
-                      color: log.status?.property_color || 'var(--color-text)',
-                      border: `1px solid color-mix(in srgb, ${log.status?.property_color || 'gray'} 30%, transparent)`
+                      backgroundColor: `hsl(var(${getThemeColorVar(log.status?.property_color)}) / 0.15)`,
+                      color: `hsl(var(${getThemeColorVar(log.status?.property_color)}))`,
+                      border: `1px solid hsl(var(${getThemeColorVar(log.status?.property_color)}) / 0.3)`
                     }"
                   >
                     {{ log.status?.description || '-' }}

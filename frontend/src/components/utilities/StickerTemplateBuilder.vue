@@ -1,6 +1,6 @@
 <script setup>
 import { swalAlert } from '@/composables/useSweetAlert'
-import { ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import api from '@/api/axios'
 import MediaPickerModal from '@/components/shared/MediaPickerModal.vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
@@ -195,10 +195,11 @@ const fetchPaperSizes = async () => {
     console.error('Gagal memuat ukuran kertas', error)
   }
 }
-
-onMounted(() => {
-  fetchPaperSizes()
-})
+watch(() => props.show, (newVal) => {
+  if (newVal && paperSizes.value.length === 0) {
+    fetchPaperSizes()
+  }
+}, { immediate: true })
 
 const saveTemplate = async () => {
   if (!templateName.value.trim()) {

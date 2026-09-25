@@ -1,6 +1,6 @@
 <script setup>
 import { swalConfirm, swalAlert } from '@/composables/useSweetAlert'
-import { ref, computed, watch, onMounted, defineAsyncComponent } from 'vue'
+import { ref, computed, watch, defineAsyncComponent } from 'vue'
 import { useToast } from '@/composables/useToast.js'
 import { useDownload } from '@/composables/useDownload.js'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
@@ -196,11 +196,12 @@ watch(selectedPaperSize, newSize => {
     }
   }
 })
-
-onMounted(() => {
-  fetchTemplates()
-  fetchPaperSizes()
-})
+watch(() => props.show, (newVal) => {
+  if (newVal) {
+    if (templates.value.length === 0) fetchTemplates()
+    if (paperSizes.value.length === 0) fetchPaperSizes()
+  }
+}, { immediate: true })
 
 const handleProductSelected = (product, sticker, varName) => {
   if (!product) {

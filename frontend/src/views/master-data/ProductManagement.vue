@@ -20,8 +20,10 @@ import { useInlineSave } from '@/composables/useInlineSave.js'
 import TriStateSelect from '@/components/ui/TriStateSelect.vue'
 import ProductTable from '@/components/products/ProductTable.vue'
 import ProductImageModal from '@/components/products/ProductImageModal.vue'
-import StickerGeneratorModal from '@/components/utilities/StickerGeneratorModal.vue'
 import HistoryModal from '@/components/wms/shared/HistoryModal.vue'
+import { defineAsyncComponent } from 'vue'
+
+const StickerGeneratorModal = defineAsyncComponent(() => import('@/components/utilities/StickerGeneratorModal.vue'))
 import FilterToggle from '@/components/ui/FilterToggle.vue'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import BaseSwitch from '@/components/ui/BaseSwitch.vue'

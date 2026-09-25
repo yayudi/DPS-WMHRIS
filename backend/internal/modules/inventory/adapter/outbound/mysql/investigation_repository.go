@@ -174,12 +174,13 @@ func (r *investigationRepositoryImpl) GetDuplicateGroups(ctx context.Context, re
 	cte, havingClause, exactQuantityJoinClause, params, havingParams := buildDuplicateQueryHelper(req)
 
 	orderCol := "latest_created_at"
-	if req.SortBy == "OCCURRENCES" {
-		orderCol = "occurrences"
-	} else if req.SortBy == "TOTAL_SKU" {
-		orderCol = "total_sku"
-	} else if req.SortBy == "TOTAL_QTY" {
-		orderCol = "total_qty"
+	switch req.SortBy {
+		case "OCCURRENCES":
+			orderCol = "occurrences"
+		case "TOTAL_SKU":
+			orderCol = "total_sku"
+		case "TOTAL_QTY":
+			orderCol = "total_qty"
 	}
 
 	sortDir := "DESC"

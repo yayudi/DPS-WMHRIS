@@ -105,7 +105,7 @@ const hasBottomRow = computed(() => !!(slots.filters || slots['filter-actions'])
       <!-- TOP ROW (Search, Tabs, Main Actions) -->
       <div
         v-if="hasTopRow"
-        class="flex flex-col lg:flex-row flex-wrap justify-between items-start lg:items-center gap-2"
+        class="flex flex-col lg:flex-row flex-wrap justify-between items-start lg:items-end gap-2"
       >
         <slot name="search" v-if="$slots.search" />
         <slot name="tabs" v-if="$slots.tabs" />

@@ -1,14 +1,13 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import api from '@/api/axios'
 import { useToast } from '@/composables/useToast'
 import { swalConfirm, swalAlert } from '@/composables/useSweetAlert'
 
-defineProps({
+const props = defineProps({
   show: { type: Boolean, required: true }
 })
-
 const emit = defineEmits(['close', 'updated'])
 const { toast } = useToast()
 
@@ -45,10 +44,11 @@ const fetchPaperSizes = async () => {
     isLoading.value = false
   }
 }
-
-onMounted(() => {
-  fetchPaperSizes()
-})
+watch(() => props.show, (newVal) => {
+  if (newVal && paperSizes.value.length === 0) {
+    fetchPaperSizes()
+  }
+}, { immediate: true })
 
 const openAddForm = () => {
   formData.value = {

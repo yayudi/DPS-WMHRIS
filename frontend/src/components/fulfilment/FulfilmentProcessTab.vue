@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { swalConfirm } from '@/composables/useSweetAlert'
 import { useAuthStore } from '@/stores/auth'
@@ -26,9 +26,12 @@ onMounted(() => {
 })
 
 // Create a wrapper for the props-like object needed by useFulfilmentCardState
-const fakeProps = computed(() => ({ inv: inv.value || {} }))
+const fakeProps = reactive({
+  inv: computed(() => inv.value || {}),
+  mode: 'fulfilment'
+})
 
-const { totalSKU, canProcess, canCancel, canForceComplete, hasInsufficientStock, getMpStatusBadge } =
+const { totalSKU, canProcess, canCancel, canForceComplete, hasInsufficientStock, getMpStatusBadge, getThemeColorVar } =
   useFulfilmentCardState(fakeProps, authStore)
 
 const isLoading = ref(false)
@@ -272,12 +275,12 @@ const sourceBgClass = computed(() => {
 
               <div
                 v-if="isDropdownOpen && canForceComplete"
-                class="absolute right-0 top-full mt-1 z-10 w-48 origin-top-right rounded-md bg-surface border border-border shadow-lg focus:outline-none"
+                class="absolute right-0 top-full mt-1 z-10 w-48 origin-top-right rounded-md bg-background border border-secondary/20 shadow-lg focus:outline-none"
               >
                 <div class="py-1">
                   <button
                     @click.stop="onCompleteInvoice('force_complete')"
-                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-text font-semibold hover:bg-surface-elevated hover:text-primary transition-colors"
+                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-text font-semibold hover:bg-secondary/20 hover:text-primary transition-colors"
                   >
                     <font-awesome-icon icon="fa-solid fa-bolt" class="text-warning" />
                     Force Complete
@@ -383,9 +386,9 @@ const sourceBgClass = computed(() => {
                 <span
                   class="px-2 py-0.5 rounded-full text-[10px] font-bold"
                   :style="{
-                    backgroundColor: `color-mix(in srgb, ${log.status?.property_color || 'gray'} 10%, transparent)`,
-                    color: log.status?.property_color || 'gray',
-                    border: `1px solid color-mix(in srgb, ${log.status?.property_color || 'gray'} 30%, transparent)`
+                    backgroundColor: `hsl(var(${getThemeColorVar(log.status?.property_color)}) / 0.15)`,
+                    color: `hsl(var(${getThemeColorVar(log.status?.property_color)}))`,
+                    border: `1px solid hsl(var(${getThemeColorVar(log.status?.property_color)}) / 0.3)`
                   }"
                 >
                   {{ log.status?.description || '-' }}

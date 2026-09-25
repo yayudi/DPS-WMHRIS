@@ -30,7 +30,9 @@ const faviconPlugin = ({ command }) => ({
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const backendTarget = env.VITE_API_BASE_URL ? env.VITE_API_BASE_URL.replace(/\/api\/?$/, '') : 'http://localhost:3000'
+  const backendTarget = env.VITE_API_BASE_URL && env.VITE_API_BASE_URL !== '/api' 
+    ? env.VITE_API_BASE_URL.replace(/\/api\/?$/, '') 
+    : 'http://localhost:3000'
 
   return {
     base: '/',

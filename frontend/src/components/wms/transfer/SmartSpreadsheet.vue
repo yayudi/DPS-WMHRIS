@@ -425,7 +425,7 @@ defineExpose({ resetRows, handleSubmit })
 <template>
   <div class="animate-fade-in space-y-4 text-text h-full flex flex-col relative w-full overflow-hidden">
     <div
-      class="bg-surface rounded-xl overflow-hidden shadow-sm flex-1 jspreadsheet-container overflow-x-auto w-full pb-4"
+      class="bg-background rounded-xl overflow-hidden shadow-sm flex-1 jspreadsheet-container overflow-x-auto w-full pb-4"
     >
       <div id="wms-spreadsheet" ref="spreadsheetEl"></div>
     </div>

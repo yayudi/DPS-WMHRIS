@@ -417,8 +417,8 @@ func (r *fulfilmentRepository) GetPendingAndBackorderItems(ctx context.Context, 
 func (r *fulfilmentRepository) CreateFulfilmentListTx(ctx context.Context, header *domain.FulfilmentList) (int, error) {
 	ext := database.GetExt(ctx, r.db)
 	query := `
-		INSERT INTO fulfilment_lists (user_id, original_invoice_id, source, status, is_active, customer_name, order_date, marketplace_status, location_purpose, shop_name, invoice_no, courier, expedition_id, awb, kelja_histories)
-		VALUES (:user_id, :original_invoice_id, :source, :status, :is_active, :customer_name, :order_date, :marketplace_status, :location_purpose, :shop_name, :invoice_no, :courier, :expedition_id, :awb, :kelja_histories)
+		INSERT INTO fulfilment_lists (user_id, original_invoice_id, source, status, is_active, customer_name, order_date, marketplace_status, location_purpose, shop_name, invoice_no, courier, expedition_id, awb, kelja_histories, kelja_id)
+		VALUES (:user_id, :original_invoice_id, :source, :status, :is_active, :customer_name, :order_date, :marketplace_status, :location_purpose, :shop_name, :invoice_no, :courier, :expedition_id, :awb, :kelja_histories, :kelja_id)
 	`
 	res, err := ext.NamedExecContext(ctx, query, header)
 	if err != nil {
@@ -443,4 +443,30 @@ func (r *fulfilmentRepository) ExistsByInvoiceNo(ctx context.Context, invoiceNo 
 	var exists bool
 	err := r.db.GetContext(ctx, &exists, query, invoiceNo)
 	return exists, err
+}
+
+func (r *fulfilmentRepository) UpdateKeljaIDByInvoiceNo(ctx context.Context, invoiceNo string, keljaID int) error {
+	ext := database.GetExt(ctx, r.db)
+	query := `UPDATE fulfilment_lists SET kelja_id = ? WHERE invoice_no = ? AND kelja_id IS NULL`
+	_, err := ext.ExecContext(ctx, query, keljaID, invoiceNo)
+	return err
+}
+
+func (r *fulfilmentRepository) GetListIDByKeljaIDOrInvoiceNo(ctx context.Context, keljaID int, invoiceNo string) (*int, error) {
+	query := `SELECT id FROM fulfilment_lists WHERE kelja_id = ? OR invoice_no = ? LIMIT 1`
+	var id int
+	err := r.db.GetContext(ctx, &id, query, keljaID, invoiceNo)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &id, nil
+}
+
+func (r *fulfilmentRepository) UpdateKeljaHistories(ctx context.Context, listID int, histories string) error {
+	query := `UPDATE fulfilment_lists SET kelja_histories = ? WHERE id = ?`
+	_, err := r.db.ExecContext(ctx, query, histories, listID)
+	return err
 }

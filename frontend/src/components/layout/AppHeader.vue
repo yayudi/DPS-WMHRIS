@@ -103,7 +103,7 @@ onUnmounted(() => {
         <button
           v-if="auth.hasPermission('product_price.view')"
           @click="isSimulationModalOpen = true"
-          class="p-2 text-text/80 hover:text-success transition-colors rounded-lg hover:bg-success/10 hidden sm:block"
+          class="w-12 text-text/80 hover:text-primary transition-colors rounded-lg hidden sm:block"
           title="Simulasi Harga & Berat"
         >
           <font-awesome-icon icon="fa-solid fa-calculator" class="text-xl" />
@@ -111,7 +111,7 @@ onUnmounted(() => {
 
         <button
           @click="isStickerModalOpen = true"
-          class="p-2 text-text/80 hover:text-accent transition-colors rounded-lg hover:bg-accent/10 hidden sm:block"
+          class="w-12 text-text/80 hover:text-primary transition-colors rounded-lg hidden sm:block"
           title="Batch Sticker Generator"
         >
           <font-awesome-icon icon="fa-solid fa-print" class="text-xl" />
@@ -119,7 +119,7 @@ onUnmounted(() => {
 
         <button
           @click="isCheatSheetOpen = true"
-          class="p-2 text-text/80 hover:text-primary transition-colors rounded-lg hover:bg-secondary/10 hidden sm:block"
+          class="w-12 text-text/80 hover:text-primary transition-colors rounded-lg hidden sm:block"
           title="Keyboard Shortcuts (Alt + Q)"
         >
           <font-awesome-icon icon="fa-solid fa-keyboard" class="text-xl" />

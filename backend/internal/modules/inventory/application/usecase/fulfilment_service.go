@@ -463,13 +463,14 @@ func (s *fulfilmentService) CompleteFulfilmentItems(ctx context.Context, req inv
 			}
 
 			allowedStatuses := []string{"PENDING", "BACKORDER", "READY TO PICK"}
-			if req.Action == "pack" {
-				allowedStatuses = []string{"PICKED", "VALIDATED", "READY TO PACK"}
-			} else if req.Action == "ship" {
-				allowedStatuses = []string{"PACKED", "READY TO SHIP"}
-			} else if req.Action == "force_complete" {
-				allowedStatuses = []string{"PENDING", "BACKORDER", "READY TO PICK", "PICKED", "VALIDATED", "READY TO PACK", "PACKED", "READY TO SHIP"}
-			}
+			switch req.Action {
+				case "pack":
+					allowedStatuses = []string{"PICKED", "VALIDATED", "READY TO PACK"}
+				case "ship":
+					allowedStatuses = []string{"PACKED", "READY TO SHIP"}
+				case "force_complete":
+					allowedStatuses = []string{"PENDING", "BACKORDER", "READY TO PICK", "PICKED", "VALIDATED", "READY TO PACK", "PACKED", "READY TO SHIP"}
+				}
 
 			isValidStatus := false
 			for _, s := range allowedStatuses {
@@ -547,15 +548,16 @@ func (s *fulfilmentService) CompleteFulfilmentItems(ctx context.Context, req inv
 
 			targetItemStatus := "ON DELIVERY"
 			isFinalAction := true
-			if req.Action == "pick" {
-				targetItemStatus = "READY TO PACK"
-				isFinalAction = false
-			} else if req.Action == "pack" {
-				targetItemStatus = "READY TO SHIP"
-				isFinalAction = false
-			} else if req.Action == "ship" || req.Action == "force_complete" || req.Action == "" {
-				targetItemStatus = "ON DELIVERY"
-				isFinalAction = true
+			switch req.Action {
+				case "pick":
+					targetItemStatus = "READY TO PACK"
+					isFinalAction = false
+				case "pack":
+					targetItemStatus = "READY TO SHIP"
+					isFinalAction = false
+				case "ship", "force_complete", "":
+					targetItemStatus = "ON DELIVERY"
+					isFinalAction = true
 			}
 
 			if err := s.fulfilmentRepo.ValidateItem(ctx, plan.ItemID, plan.FinalLocID, targetItemStatus); err != nil {
@@ -587,10 +589,11 @@ func (s *fulfilmentService) CompleteFulfilmentItems(ctx context.Context, req inv
 
 		for listID := range affectedListIDs {
 			countStatuses := []string{"PENDING", "BACKORDER", "READY TO PICK"}
-			if req.Action == "pack" {
-				countStatuses = append(countStatuses, "PICKED", "VALIDATED", "READY TO PACK")
-			} else if req.Action == "ship" || req.Action == "force_complete" {
-				countStatuses = append(countStatuses, "PICKED", "VALIDATED", "READY TO PACK", "PACKED", "READY TO SHIP")
+			switch req.Action {
+				case "pack":
+					countStatuses = append(countStatuses, "PICKED", "VALIDATED", "READY TO PACK")
+				case "ship", "force_complete":
+					countStatuses = append(countStatuses, "PICKED", "VALIDATED", "READY TO PACK", "PACKED", "READY TO SHIP")
 			}
 
 			count, err := s.fulfilmentRepo.CountPendingItems(ctx, listID, countStatuses...)
@@ -598,23 +601,36 @@ func (s *fulfilmentService) CompleteFulfilmentItems(ctx context.Context, req inv
 				return err
 			}
 			targetHeaderStatus := "ON DELIVERY"
-			if req.Action == "pick" {
-				targetHeaderStatus = "READY TO PACK"
-			} else if req.Action == "pack" {
-				targetHeaderStatus = "READY TO SHIP"
+			switch req.Action {
+				case "pick":
+					targetHeaderStatus = "READY TO PACK"
+				case "pack":
+					targetHeaderStatus = "READY TO SHIP"
 			}
 
 			if count == 0 {
 				if err := s.fulfilmentRepo.ValidateHeader(ctx, listID, targetHeaderStatus); err != nil {
 					return err
 				}
-				if targetHeaderStatus == "ON DELIVERY" && s.eventBus != nil {
+				if s.eventBus != nil && (targetHeaderStatus == "READY TO PACK" || targetHeaderStatus == "READY TO SHIP" || targetHeaderStatus == "ON DELIVERY") {
 					header, err := s.fulfilmentRepo.GetHeaderByID(ctx, listID)
 					if err == nil && header != nil && header.OriginalInvoiceID != nil {
+						keljaAction := "checker"
+						switch targetHeaderStatus {
+							case "READY TO SHIP":
+								keljaAction = "packer"
+							case "ON DELIVERY":
+								keljaAction = "shipper"
+						}
+
 						payload := map[string]interface{}{
 							"list_id":             listID,
 							"original_invoice_id": *header.OriginalInvoiceID,
 							"source":              header.Source,
+							"kelja_action":        keljaAction,
+						}
+						if header.KeljaID != nil {
+							payload["kelja_id"] = *header.KeljaID
 						}
 						if header.ExpeditionID != nil {
 							payload["expedition_id"] = *header.ExpeditionID
@@ -622,8 +638,9 @@ func (s *fulfilmentService) CompleteFulfilmentItems(ctx context.Context, req inv
 						if header.AWB != nil {
 							payload["awb"] = *header.AWB
 						}
+						log.Printf("[EventBus] Publishing FulfillmentProgressed for ListID %d (KeljaID: %v, Action: %s)", listID, header.KeljaID, keljaAction)
 						s.eventBus.Publish(ctx, eventbus.Event{
-							Type:       "FulfillmentCompleted",
+							Type:       "FulfillmentProgressed",
 							Payload:    payload,
 							UserID:     userID,
 							OccurredAt: time.Now(),
@@ -684,31 +701,44 @@ func (s *fulfilmentService) ProcessKeljaSync(ctx context.Context, jobID int, use
 		
 		fStatusObj, _ := f["fulfillment_status"].(map[string]interface{})
 		fStatusDesc, _ := fStatusObj["description"].(string)
-		if fStatusDesc != "READY TO PICK" {
+
+		// 1. Cek apakah pesanan sudah ada di WMS berdasarkan KeljaID atau InvoiceNo
+		existingListID, err := s.fulfilmentRepo.GetListIDByKeljaIDOrInvoiceNo(ctx, keljaID, invoiceNo)
+		if err != nil {
+			log.Printf("[KeljaSync] Error checking dedup for %d/%s: %v", keljaID, invoiceNo, err)
+		}
+
+		if existingListID != nil {
+			// Jika SUDAH ADA di WMS:
+			// a. Backfill kelja_id (untuk berjaga-jaga jika invoice_no match tapi kelja_id WMS masih NULL)
+			if invoiceNo != "" {
+				s.fulfilmentRepo.UpdateKeljaIDByInvoiceNo(ctx, invoiceNo, keljaID)
+			}
+			
+			// b. Sinkronisasi pembatalan (CANCELLED)
+			if fStatusDesc == "CANCELLED" {
+				header, _ := s.fulfilmentRepo.GetHeaderByID(ctx, *existingListID)
+				if header != nil && header.Status != "VOID" && header.Status != "COMPLETED" {
+					log.Printf("[KeljaSync] Cancelling WMS Order %d because Kelja status is CANCELLED", *existingListID)
+					s.fulfilmentRepo.VoidHeader(ctx, *existingListID)
+					s.fulfilmentRepo.VoidItemsByListID(ctx, *existingListID)
+					logs = append(logs, logDetail{
+						KeljaID:   keljaID,
+						InvoiceNo: invoiceNo,
+						Status:    "VOIDED_IN_WMS",
+						Error:     "Cancelled in Kelja, updated WMS",
+					})
+					continue
+				}
+			}
+
 			logs = append(logs, logDetail{
 				KeljaID:   keljaID,
 				InvoiceNo: invoiceNo,
 				Status:    "SKIPPED",
-				Error:     fmt.Sprintf("Status is %s, not READY TO PICK", fStatusDesc),
+				Error:     "Already exists in WMS",
 			})
 			continue
-		}
-
-		// Dedup: check if invoice_no already exists in WMS
-		if invoiceNo != "" {
-			exists, err := s.fulfilmentRepo.ExistsByInvoiceNo(ctx, invoiceNo)
-			if err != nil {
-				log.Printf("[KeljaSync] Error checking dedup for %s: %v", invoiceNo, err)
-			}
-			if exists {
-				logs = append(logs, logDetail{
-					KeljaID:   keljaID,
-					InvoiceNo: invoiceNo,
-					Status:    "SKIPPED",
-					Error:     "Already exists in WMS",
-				})
-				continue
-			}
 		}
 
 		detail, err := s.keljaClient.FetchFulfillmentDetail(ctx, keljaID)
@@ -753,7 +783,29 @@ func (s *fulfilmentService) ProcessKeljaSync(ctx context.Context, jobID int, use
 				shopName = "Unknown"
 			}
 
-			status := "READY TO PICK"
+			// Mapping Kelja Status ke WMS Status
+			status := "READY TO PICK" // Default
+			switch fStatusDesc {
+			case "PENDING":
+				status = "PENDING"
+			case "READY TO PICK":
+				status = "READY TO PICK"
+			case "READY TO CHECK":
+				status = "READY TO PICK"
+			case "READY TO PACK":
+				status = "READY TO PACK"
+			case "READY TO SHIP":
+				status = "READY TO SHIP"
+			case "ON DELIVERY":
+				status = "ON DELIVERY"
+			case "COMPLETED":
+				status = "COMPLETED"
+			case "CANCELLED":
+				status = "VOID"
+			default:
+				status = fStatusDesc // Fallback
+			}
+
 			var marketplaceStatus *string
 
 			if isOnline == 1 {
@@ -831,6 +883,7 @@ func (s *fulfilmentService) ProcessKeljaSync(ctx context.Context, jobID int, use
 				ExpeditionID:      expeditionID,
 				AWB:               &awb,
 				KeljaHistories:    keljaHistoriesStr,
+				KeljaID:           &keljaID,
 			}
 
 			headerID, err := s.fulfilmentRepo.CreateFulfilmentListTx(txCtx, header)
@@ -940,4 +993,8 @@ func (s *fulfilmentService) ProcessKeljaSync(ctx context.Context, jobID int, use
 		s.jobService.UpdateImportJobStatusWithLog(ctx, jobID, "COMPLETED", summary, logStr)
 	}
 	return nil
+}
+
+func (s *fulfilmentService) UpdateKeljaHistories(ctx context.Context, listID int, histories string) error {
+	return s.fulfilmentRepo.UpdateKeljaHistories(ctx, listID, histories)
 }

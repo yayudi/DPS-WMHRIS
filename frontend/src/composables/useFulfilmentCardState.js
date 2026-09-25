@@ -126,6 +126,21 @@ export function useFulfilmentCardState(props, authStore) {
     )
   }
 
+  function getThemeColorVar(keljaColor) {
+    if (!keljaColor) return '--color-text'
+    const c = keljaColor.toLowerCase()
+    const map = {
+      green: '--color-success',
+      red: '--color-danger',
+      yellow: '--color-warning',
+      orange: '--color-warning',
+      blue: '--color-primary',
+      gray: '--color-secondary',
+      default: '--color-secondary'
+    }
+    return map[c] || '--color-secondary'
+  }
+
   return {
     totalSKU,
     hasStockIssue,
@@ -134,6 +149,7 @@ export function useFulfilmentCardState(props, authStore) {
     canForceComplete,
     hasInsufficientStock,
     getMpStatusBadge,
-    getStatusBadge
+    getStatusBadge,
+    getThemeColorVar
   }
 }

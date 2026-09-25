@@ -25,9 +25,9 @@ const handleBack = () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background flex flex-col md:max-w-md md:mx-auto border-x border-border/30 relative">
+  <div class="min-h-screen bg-background flex flex-col md:max-w-md md:mx-auto border-x border-secondary/30 relative">
     <!-- Header Mobile -->
-    <header class="sticky top-0 z-50 bg-surface/90 backdrop-blur-md border-b border-border/50 p-4 flex items-center gap-3">
+    <header class="sticky top-0 z-50 bg-background/90 backdrop-blur-md border-b border-secondary/50 p-4 flex items-center gap-3">
       <button 
         @click="handleBack" 
         class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary/20 transition-colors text-text"
@@ -56,13 +56,13 @@ const handleBack = () => {
         v-if="scanResult" 
         class="mt-auto pt-8 pb-4"
       >
-        <div class="bg-surface border border-primary/20 p-5 rounded-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
+        <div class="bg-background border border-primary/20 p-5 rounded-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
           <div class="flex items-center gap-3 text-green-500 mb-3">
             <i class="fa-solid fa-circle-check text-2xl"></i>
             <span class="font-bold text-lg">Berhasil Dipindai!</span>
           </div>
           
-          <div class="bg-background border border-border p-3 rounded-lg break-all font-mono text-base text-text mb-6">
+          <div class="bg-background border border-secondary/30 p-3 rounded-lg break-all font-mono text-base text-text mb-6">
             {{ scanResult }}
           </div>
           

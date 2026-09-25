@@ -2,16 +2,26 @@
 import { ref, computed, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { onClickOutside } from '@vueuse/core'
+import { useMobile } from '@/composables/useMobile.js'
 
 const route = useRoute()
 const auth = useAuthStore()
+const { isMobile } = useMobile()
+
+const sidebarRef = ref(null)
 
 const props = defineProps({
   isCollapsed: Boolean
 })
 const emit = defineEmits(['toggle'])
 
-// Determine which accordion should be open based on current URL
+onClickOutside(sidebarRef, () => {
+  if (!props.isCollapsed && isMobile.value) {
+    emit('toggle')
+  }
+})
+
 const activeAccordion = ref('')
 
 const updateActiveAccordion = () => {
@@ -24,7 +34,6 @@ const updateActiveAccordion = () => {
   else activeAccordion.value = ''
 }
 
-// Auto-open the correct accordion on mount and route change
 watch(() => route.path, updateActiveAccordion, { immediate: true })
 
 const toggleAccordion = id => {
@@ -32,7 +41,6 @@ const toggleAccordion = id => {
     activeAccordion.value = ''
   } else {
     activeAccordion.value = id
-    // If sidebar was collapsed, expand it when clicking an accordion
     if (props.isCollapsed) {
       emit('toggle')
     }
@@ -133,8 +141,8 @@ const menuConfig = computed(() => {
 
 <template>
   <aside
+    ref="sidebarRef"
     class="flex flex-col bg-background text-text border-r border-secondary/20 transition-all duration-300 shadow-xl overflow-hidden shrink-0"
-    :class="props.isCollapsed ? 'w-20' : 'w-64'"
   >
     <!-- Logo Area -->
     <button
@@ -144,7 +152,7 @@ const menuConfig = computed(() => {
       title="Toggle Sidebar"
     >
       <img
-        src="/public/android-chrome-512x512.png"
+        src="/android-chrome-512x512.png"
         alt="WMS Logo"
         class="h-8 object-contain transition-all duration-300"
         :class="props.isCollapsed ? 'w-8' : 'w-10'"
@@ -158,7 +166,7 @@ const menuConfig = computed(() => {
 
     <!-- Navigation Area -->
     <nav class="flex-1 overflow-y-auto custom-scrollbar py-4 flex flex-col gap-1">
-      <div v-for="menu in menuConfig" :key="menu.id" class="px-3">
+      <div v-for="menu in menuConfig" :key="menu.id" class="px-1 md:px-3">
         <!-- Accordion Header -->
         <button
           @click="toggleAccordion(menu.id)"

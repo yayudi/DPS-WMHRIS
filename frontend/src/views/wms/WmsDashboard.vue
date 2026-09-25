@@ -18,8 +18,10 @@ import WmsTransferModal from '@/components/wms/transfer/TransferModal.vue'
 import WmsHistoryModal from '@/components/wms/shared/HistoryModal.vue'
 import WmsProductFormModal from '@/components/wms/shared/ProductFormModal.vue'
 import ProductImageModal from '@/components/products/ProductImageModal.vue'
-import StickerGeneratorModal from '@/components/utilities/StickerGeneratorModal.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
+import { defineAsyncComponent } from 'vue'
+
+const StickerGeneratorModal = defineAsyncComponent(() => import('@/components/utilities/StickerGeneratorModal.vue'))
 
 const { isMobile } = useMobile()
 const {

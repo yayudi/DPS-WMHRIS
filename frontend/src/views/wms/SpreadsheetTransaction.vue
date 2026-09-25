@@ -114,7 +114,7 @@ const handleReset = async () => {
     <BaseTabs :tabs="tabs" v-model:model-value="transactionType" />
 
     <!-- Spreadsheet Component -->
-    <div class="flex-1 bg-surface border border-secondary/20 rounded-xl p-4 shadow-sm flex flex-col relative z-20">
+    <div class="flex-1 bg-background border border-secondary/20 rounded-xl p-4 shadow-sm flex flex-col relative z-20">
       <SmartSpreadsheet
         ref="spreadsheetRef"
         :mode="transactionType"

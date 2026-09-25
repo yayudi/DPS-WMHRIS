@@ -19,7 +19,7 @@ const { isMobile } = useMobile()
 
 const showHeader = computed(() => route.name && route.name !== 'Login' && auth.isAuthenticated)
 const showLayout = computed(() => showHeader.value && !route.meta.hideLayout)
-const isSidebarCollapsed = ref(false)
+const isSidebarCollapsed = ref(true)
 
 onMounted(() => {
   initTheme()

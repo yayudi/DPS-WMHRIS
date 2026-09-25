@@ -36,6 +36,7 @@ type FulfilmentUseCase interface {
 	AutoRecoverBackorderByProductID(ctx context.Context, productID int) error
 	ProcessSalesImport(ctx context.Context, jobID int, filePath string, source string, userID int, isDryRun bool, locationPurpose string, shopName string) error
 	ProcessKeljaSync(ctx context.Context, jobID int, userID int) error
+	UpdateKeljaHistories(ctx context.Context, listID int, histories string) error
 }
 
 type ReturnUseCase interface {

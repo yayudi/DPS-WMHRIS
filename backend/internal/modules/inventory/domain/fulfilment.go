@@ -22,6 +22,7 @@ type FulfilmentList struct {
 	ExpeditionID      *int       `db:"expedition_id"`
 	AWB               *string    `db:"awb"`
 	KeljaHistories    *string    `db:"kelja_histories"`
+	KeljaID           *int       `db:"kelja_id"`
 }
 
 // FulfilmentListItem represents the fulfilment_list_items table

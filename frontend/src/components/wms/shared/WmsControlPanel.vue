@@ -117,10 +117,10 @@ onClickOutside(
 </script>
 
 <template>
-  <BaseFilterPanel class="z-40" :collapse-breakpoint="1024">
+  <BaseFilterPanel class="z-30" :collapse-breakpoint="1024">
     <!-- Search Row -->
     <template #search>
-      <div class="relative flex-grow group w-full xl:w-[1vw] shadow-sm rounded-lg items-end mt-auto">
+      <div class="relative flex-grow group w-full xl:w-[1vw] shadow-sm rounded-lg">
         <span
           class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text/40 group-focus-within:text-primary transition-colors"
         >
@@ -256,46 +256,48 @@ onClickOutside(
           />
         </div>
 
-        <!-- Mode Tampilan Group -->
-        <div v-if="isMobile" class="flex flex-col gap-1 shrink-0 mt-auto mb-0.5 mx-auto lg:mx-0">
-          <label class="block text-xs font-semibold text-text/60 text-center mb-1">Mode Tampilan</label>
-          <div class="flex items-center justify-center lg:justify-start gap-2 h-[36px]">
-            <!-- View Mode (Scroll / Page) -->
-            <SegmentedControl
-              :model-value="viewMode"
-              @update:modelValue="emit('update:viewMode', $event)"
-              :options="[
-                { value: 'infinite', label: 'Scroll', icon: 'fa-solid fa-angles-down' },
-                { value: 'pagination', label: 'Halaman', icon: 'fa-solid fa-pager' }
-              ]"
-              class="shrink-0 min-w-[200px] !w-[200px]"
-            />
+        <div class="flex items-center justify-center lg:justify-start gap-2">
+          <!-- Mode Tampilan Group -->
+          <div v-if="isMobile" class="flex flex-col gap-1 shrink-0 mt-auto mb-0.5 w-full lg:w-auto">
+            <label class="block text-xs font-semibold text-text/60 text-center mb-1">Mode Tampilan</label>
+            <div class="flex items-center justify-center lg:justify-start gap-2 h-[36px] w-full">
+              <!-- View Mode (Scroll / Page) -->
+              <SegmentedControl
+                :model-value="viewMode"
+                @update:modelValue="emit('update:viewMode', $event)"
+                :options="[
+                  { value: 'infinite', label: 'Scroll', icon: 'fa-solid fa-angles-down' },
+                  { value: 'pagination', label: 'Halaman', icon: 'fa-solid fa-pager' }
+                ]"
+                class="flex-1 !w-auto min-w-0"
+              />
 
-            <!-- Mobile Layout Switcher -->
-            <SegmentedControl
-              :model-value="mobileLayout"
-              @update:modelValue="emit('update:mobileLayout', $event)"
-              :options="[
-                { value: 'card', icon: 'fa-solid fa-grip-vertical' },
-                { value: 'compact', icon: 'fa-solid fa-list' }
-              ]"
-              class="shrink-0 min-w-[100px] !w-[100px] md:hidden"
-            />
+              <!-- Mobile Layout Switcher -->
+              <SegmentedControl
+                :model-value="mobileLayout"
+                @update:modelValue="emit('update:mobileLayout', $event)"
+                :options="[
+                  { value: 'card', icon: 'fa-solid fa-grip-vertical' },
+                  { value: 'compact', icon: 'fa-solid fa-list' }
+                ]"
+                class="shrink-0 !w-auto md:hidden"
+              />
+            </div>
           </div>
-        </div>
 
-        <div class="flex flex-col gap-1 shrink-0 mt-auto mb-0.5 mx-auto lg:mx-0">
-          <!-- Column Visibility Selector -->
-          <button
-            ref="buttonRef"
-            @click.stop="toggleColumnMenu"
-            class="w-[36px] h-[36px] flex items-center justify-center rounded-lg border border-secondary/20 bg-background text-text/60 hover:text-primary transition-all shadow-sm shrink-0"
-            :class="{ 'bg-primary/10 text-primary border-primary': isColumnMenuOpen }"
-            title="Visibilitas Kolom"
-          >
-            <font-awesome-icon v-if="!isMobile" icon="fa-solid fa-sliders" />
-            <font-awesome-icon v-else icon="fa-solid fa-table-columns" />
-          </button>
+          <div class="flex flex-col gap-1 shrink-0 mt-auto mb-0.5 mx-auto lg:mx-0">
+            <!-- Column Visibility Selector -->
+            <button
+              ref="buttonRef"
+              @click.stop="toggleColumnMenu"
+              class="w-[36px] h-[36px] flex items-center justify-center rounded-lg border border-secondary/20 bg-background text-text/60 hover:text-primary transition-all shadow-sm shrink-0"
+              :class="{ 'bg-primary/10 text-primary border-primary': isColumnMenuOpen }"
+              title="Visibilitas Kolom"
+            >
+              <font-awesome-icon v-if="!isMobile" icon="fa-solid fa-sliders" />
+              <font-awesome-icon v-else icon="fa-solid fa-table-columns" />
+            </button>
+          </div>
         </div>
         <!-- Dropdown Menu -->
         <Teleport to="body">

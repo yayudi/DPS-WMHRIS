@@ -52,11 +52,14 @@ type FulfilmentRepository interface {
 	CreateFulfilmentListTx(ctx context.Context, header *domain.FulfilmentList) (int, error)
 	CreateFulfilmentListItemTx(ctx context.Context, item *domain.FulfilmentListItem) error
 	ExistsByInvoiceNo(ctx context.Context, invoiceNo string) (bool, error)
+	UpdateKeljaIDByInvoiceNo(ctx context.Context, invoiceNo string, keljaID int) error
+	GetListIDByKeljaIDOrInvoiceNo(ctx context.Context, keljaID int, invoiceNo string) (*int, error)
 
 	GetItemsToRestock(ctx context.Context, listID int) ([]domain.FulfilmentListItem, error)
 	GetUnfulfillableItems(ctx context.Context, listID int) ([]domain.FulfilmentListItem, error)
 	GetUnfulfillableItemsByProductID(ctx context.Context, productID int) ([]domain.FulfilmentListItem, error)
 	GetPendingAndBackorderItems(ctx context.Context, listIDs []int) ([]domain.FulfilmentListItem, error)
+	UpdateKeljaHistories(ctx context.Context, listID int, histories string) error
 }
 
 type ReturnRepository interface {

@@ -28,6 +28,7 @@ type keljaClient struct {
 	tokenExp   time.Time
 }
 
+
 func NewKeljaClient() port.KeljaERPClient {
 	log.Printf("Initializing Kelja Client with Username: %q", config.AppConfig.KeljaApiUsername)
 	return &keljaClient{
@@ -119,7 +120,39 @@ func (c *keljaClient) doRequest(ctx context.Context, method, path string, body i
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	return c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Retry once on 401 Unauthorized (token invalidated)
+	if resp.StatusCode == http.StatusUnauthorized {
+		resp.Body.Close()
+		log.Printf("[KeljaClient] 401 Unauthorized, clearing token cache and retrying...")
+		
+		c.tokenMutex.Lock()
+		c.token = ""
+		c.tokenMutex.Unlock()
+
+		newToken, err := c.getToken(ctx)
+		if err != nil {
+			return nil, err
+		}
+		
+		// Re-create request
+		req, err = http.NewRequestWithContext(ctx, method, fmt.Sprintf("%s%s", c.baseURL, path), body)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+newToken)
+		req.Header.Set("Accept", "application/json")
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		return c.httpClient.Do(req)
+	}
+
+	return resp, nil
 }
 
 func (c *keljaClient) FetchFulfillments(ctx context.Context, page int, perPage int) ([]map[string]interface{}, error) {
@@ -164,7 +197,10 @@ func (c *keljaClient) FetchAllFulfillments(ctx context.Context) ([]map[string]in
 			CurrentPage int                      `json:"current_page"`
 			LastPage    int                      `json:"last_page"`
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		
+		if err := json.Unmarshal(bodyBytes, &res); err != nil {
 			resp.Body.Close()
 			return nil, fmt.Errorf("decode page %d: %w", page, err)
 		}
@@ -212,10 +248,12 @@ func (c *keljaClient) SendCallbackDone(ctx context.Context, fulfillmentID int, e
 	}
 	path := fmt.Sprintf("/fulfillment/%d/%s", fulfillmentID, action)
 	
-	payload := map[string]interface{}{
-		"expedition_id": expeditionID,
-		"expedition_tracking": awb,
+	payload := map[string]interface{}{}
+	if action == "shipper" {
+		payload["expedition_id"] = expeditionID
+		payload["expedition_tracking"] = awb
 	}
+	
 	body, _ := json.Marshal(payload)
 
 	resp, err := c.doRequest(ctx, http.MethodPatch, path, bytes.NewBuffer(body))
@@ -224,12 +262,11 @@ func (c *keljaClient) SendCallbackDone(ctx context.Context, fulfillmentID int, e
 	}
 	defer resp.Body.Close()
 
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	
 	if resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		log.Printf("[KeljaClient] SendCallbackDone %s for ID %d FAILED: status %d, body: %s", action, fulfillmentID, resp.StatusCode, string(bodyBytes))
 		return fmt.Errorf("kelja api returned status %d on %s callback for %d: %s", resp.StatusCode, action, fulfillmentID, string(bodyBytes))
 	}
 
-	log.Printf("[KeljaClient] SendCallbackDone %s for ID %d OK", action, fulfillmentID)
 	return nil
 }

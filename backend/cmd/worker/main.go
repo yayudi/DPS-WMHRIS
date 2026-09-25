@@ -52,41 +52,66 @@ func main() {
 		log.Printf("Failed to register StockConsumer handlers: %v", err)
 	}
 
-	err = eventBus.Subscribe("FulfillmentCompleted", func(ctx context.Context, event eventbus.Event) error {
+	err = eventBus.Subscribe("FulfillmentProgressed", func(ctx context.Context, event eventbus.Event) error {
+		log.Printf("[Worker] Received FulfillmentProgressed: %+v", event.Payload)
 		payload, ok := event.Payload.(map[string]interface{})
 		if !ok {
-			log.Printf("FulfillmentCompleted payload is not a map")
+			log.Printf("FulfillmentProgressed payload is not a map")
 			return nil
 		}
 
-		source, _ := payload["source"].(*string)
-		if source != nil && *source == "Kelja ERP" {
-			origIDStr, ok := payload["original_invoice_id"].(string)
-			if ok {
-				var keljaID int
-				fmt.Sscanf(origIDStr, "%d", &keljaID)
-				if keljaID > 0 {
-					var expID int
-					if eFloat, ok := payload["expedition_id"].(float64); ok {
-						expID = int(eFloat)
-					} else if eInt, ok := payload["expedition_id"].(int); ok {
-						expID = eInt
-					}
-					var awb string
-					if awbStr, ok := payload["awb"].(string); ok {
-						awb = awbStr
-					}
+		var keljaID int
+		if kidFloat, ok := payload["kelja_id"].(float64); ok {
+			keljaID = int(kidFloat)
+		} else if kidInt, ok := payload["kelja_id"].(int); ok {
+			keljaID = kidInt
+		}
 
-					// We will trigger all 3 endpoints for now as they represent the physical fulfillment progression
-					actions := []string{"checker", "packer", "shipper"}
-					for _, action := range actions {
-						log.Printf("Sending Callback to Kelja for ID %d (action: %s)...", keljaID, action)
-						err := container.KeljaClient.SendCallbackDone(ctx, keljaID, expID, awb, action)
-						if err != nil {
-							log.Printf("Failed to send %s callback to Kelja: %v", action, err)
-							// Do not return here, try next actions anyway or maybe break?
+		if keljaID > 0 {
+			var expID int
+			if eFloat, ok := payload["expedition_id"].(float64); ok {
+				expID = int(eFloat)
+			} else if eInt, ok := payload["expedition_id"].(int); ok {
+				expID = eInt
+			}
+			var awb string
+			if awbStr, ok := payload["awb"].(string); ok {
+				awb = awbStr
+			}
+
+			keljaAction, _ := payload["kelja_action"].(string)
+			if keljaAction == "" {
+				keljaAction = "checker"
+			}
+
+			log.Printf("Sending Callback to Kelja for ID %d (action: %s)...", keljaID, keljaAction)
+			err := container.KeljaClient.SendCallbackDone(ctx, keljaID, expID, awb, keljaAction)
+			if err != nil {
+				log.Printf("Failed to send %s callback to Kelja: %v", keljaAction, err)
+			} else {
+				log.Printf("Successfully sent %s callback to Kelja for ID %d", keljaAction, keljaID)
+				
+				detail, fetchErr := container.KeljaClient.FetchFulfillmentDetail(ctx, keljaID)
+				if fetchErr != nil {
+					log.Printf("Failed to fetch detail for Kelja ID %d to update history: %v", keljaID, fetchErr)
+				} else {
+					if historiesRaw, ok := detail["fulfillment_histories"]; ok && historiesRaw != nil {
+						historiesJSON, _ := json.Marshal(historiesRaw)
+						var listID int
+						if lFloat, ok := payload["list_id"].(float64); ok {
+							listID = int(lFloat)
+						} else if lInt, ok := payload["list_id"].(int); ok {
+							listID = lInt
+						}
+						if listID > 0 {
+							errUpdate := container.FulfilmentService.UpdateKeljaHistories(ctx, listID, string(historiesJSON))
+							if errUpdate != nil {
+								log.Printf("Failed to update kelja_histories for ListID %d: %v", listID, errUpdate)
+							} else {
+								log.Printf("Successfully updated kelja_histories for ListID %d", listID)
+							}
 						} else {
-							log.Printf("Successfully sent %s callback to Kelja for ID %d", action, keljaID)
+							log.Printf("list_id not found in payload, cannot update kelja_histories")
 						}
 					}
 				}
@@ -95,7 +120,7 @@ func main() {
 		return nil
 	})
 	if err != nil {
-		log.Printf("Error subscribing to FulfillmentCompleted: %v", err)
+		log.Printf("Error subscribing to FulfillmentProgressed: %v", err)
 	}
 
 	jobService := container.JobService
