@@ -1,6 +1,6 @@
 <template>
   <div class="relative">
-    <button @click="togglePopover" class="relative flex items-center gap-2 text-text/80 hover:text-primary">
+    <button @click="togglePopover" class="w-12 relative flex items-center gap-2 text-text/80 hover:text-primary">
       <font-awesome-icon icon="fa-solid fa-bell" class="text-xl" />
       <span
         v-if="pendingCount > 0"
@@ -177,22 +177,18 @@ onUnmounted(() => {
   document.removeEventListener('click', closeOnOutsideClick)
 })
 
-useFirebaseSync(
-  currentUser.value?.permissions || [],
-  'REFRESH_NOTIFICATIONS',
-  () => {
-    // Silent fetch
-    api
-      .get('/notifications/recent?limit=5')
-      .then(res => {
-        if (res.data.success) {
-          notifications.value = res.data.data
-          pendingCount.value = notifications.value.length
-        }
-      })
-      .catch(err => console.error('Silent fetch failed:', err))
-  }
-)
+useFirebaseSync(currentUser.value?.permissions || [], 'REFRESH_NOTIFICATIONS', () => {
+  // Silent fetch
+  api
+    .get('/notifications/recent?limit=5')
+    .then(res => {
+      if (res.data.success) {
+        notifications.value = res.data.data
+        pendingCount.value = notifications.value.length
+      }
+    })
+    .catch(err => console.error('Silent fetch failed:', err))
+})
 
 const closeOnOutsideClick = e => {
   const el = document.querySelector('.fa-bell')?.closest('.relative')

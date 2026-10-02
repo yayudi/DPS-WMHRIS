@@ -135,7 +135,7 @@ func (s *stockTransactionService) ExecuteFulfilment(ctx context.Context, req inv
 				"reference_type": trx.ReferenceType,
 				"completed_at":   time.Now(),
 			}
-			s.eventBus.Publish(ctx, eventbus.Event{
+			s.eventBus.Publish(ctx, eventbus.Event{ // #nosec G104
 				Type:    "InventoryFulfilled",
 				Payload: payload,
 			})

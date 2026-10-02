@@ -68,13 +68,9 @@ onMounted(() => {
   loadHistory()
 })
 
-useFirebaseSync(
-  ['BACKGROUND_JOBS'],
-  ['EXPORT_COMPLETED', 'EXPORT_FAILED', 'EXPORT_STARTED'],
-  () => {
-    loadHistory()
-  }
-)
+useFirebaseSync(['BACKGROUND_JOBS'], ['EXPORT_COMPLETED', 'EXPORT_FAILED', 'EXPORT_STARTED'], () => {
+  loadHistory()
+})
 
 const purposeOptions = computed(() => {
   return (reportFilters.value?.purposes || []).map(p => ({ value: p, label: p }))
@@ -161,7 +157,9 @@ function formatJobType(type) {
 </script>
 
 <template>
-  <div class="bg-background rounded-xl shadow-md border border-secondary/20 p-6 relative overflow-visible animate-fade-in">
+  <div
+    class="bg-background rounded-xl shadow-md border border-secondary/20 p-6 relative overflow-visible animate-fade-in"
+  >
     <div class="mb-6 border-b border-secondary pb-4">
       <h3 class="text-lg font-bold text-text">Ekspor Laporan Stok</h3>
       <p class="text-sm text-text/50 mt-1">Filter dan unduh data stok gudang dalam format Excel.</p>
@@ -208,6 +206,7 @@ function formatJobType(type) {
                 label-variant="compact"
                 v-model="selectedFilters.isPackage"
                 :options="typeOptions"
+                class="w-full"
               />
 
               <SegmentedControl
@@ -215,6 +214,7 @@ function formatJobType(type) {
                 label-variant="compact"
                 v-model="selectedFilters.stockStatus"
                 :options="stockStatusOptions"
+                class="w-full"
               />
 
               <SegmentedControl
@@ -222,6 +222,7 @@ function formatJobType(type) {
                 label-variant="compact"
                 v-model="selectedFilters.format"
                 :options="formatOptions"
+                class="w-full"
               />
 
               <button
@@ -247,9 +248,7 @@ function formatJobType(type) {
           class="bg-background border border-secondary/20 rounded-xl overflow-hidden shadow-md overflow-x-auto overflow-y-auto relative custom-scrollbar max-h-[400px]"
         >
           <table class="w-full text-left text-sm min-w-[500px] border-collapse">
-            <thead
-              class="sticky top-0 z-50 bg-background/95 backdrop-blur-md shadow-sm ring-1 ring-secondary"
-            >
+            <thead class="sticky top-0 z-50 bg-background/95 backdrop-blur-md shadow-sm ring-1 ring-secondary">
               <tr>
                 <th
                   class="px-3 py-3 font-bold text-xs text-text/60 uppercase sticky left-0 z-10 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]"
@@ -266,9 +265,7 @@ function formatJobType(type) {
                 >
                   Tipe
                 </th>
-                <th class="px-3 py-3 font-bold text-xs text-text/60 uppercase border-b border-secondary/10">
-                  Status
-                </th>
+                <th class="px-3 py-3 font-bold text-xs text-text/60 uppercase border-b border-secondary/10">Status</th>
                 <th
                   class="px-3 py-3 font-bold text-xs text-text/60 uppercase text-right border-b border-secondary/10 sticky right-0 z-30 bg-background/95 backdrop-blur-md shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]"
                 >
@@ -278,17 +275,11 @@ function formatJobType(type) {
             </thead>
             <TransitionGroup tag="tbody" name="list" class="divide-y divide-secondary/5 relative">
               <template v-if="isHistoryLoading && jobHistory.length === 0">
-                <tr
-                  v-for="n in 3"
-                  :key="`skeleton-${n}`"
-                  class="border-b border-secondary/20 animate-pulse"
-                >
+                <tr v-for="n in 3" :key="`skeleton-${n}`" class="border-b border-secondary/20 animate-pulse">
                   <td v-for="i in 5" :key="i" class="px-6 py-4">
                     <BaseSkeleton
                       :shape="i === 5 ? 'rect' : 'text'"
-                      :className="
-                        i === 1 ? 'w-8 h-4 mx-auto' : i === 5 ? 'w-16 h-6 mx-auto rounded-md' : 'w-full h-4'
-                      "
+                      :className="i === 1 ? 'w-8 h-4 mx-auto' : i === 5 ? 'w-16 h-6 mx-auto rounded-md' : 'w-full h-4'"
                     />
                   </td>
                 </tr>
@@ -382,9 +373,7 @@ function formatJobType(type) {
                   >
                     Error
                   </span>
-                  <span v-else class="text-xs text-text/30 align-center justify-center italic">
-                    Menunggu...
-                  </span>
+                  <span v-else class="text-xs text-text/30 align-center justify-center italic"> Menunggu... </span>
                 </td>
               </tr>
             </TransitionGroup>

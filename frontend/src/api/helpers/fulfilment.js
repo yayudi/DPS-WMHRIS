@@ -23,6 +23,25 @@ export const validateParsedFulfilmentList = async payload => {
 }
 
 /**
+ * Mengunggah file CSV/Excel langsung ke server untuk diproses di background job
+ * Payload: FormData (files, source, dryRun, purpose, shopNames, notes)
+ */
+export const uploadAndValidateFulfilment = async formData => {
+  try {
+    const response = await api.post('/fulfilment/upload-and-validate', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    return response.data
+  } catch (error) {
+    console.error('Error uploading fulfilment files:', error)
+    throw error.response?.data || error
+  }
+}
+
+
+/**
  * Mengambil Detail Item per Fulfilment
  * Digunakan oleh FulfilmentListDetailsModal.vue
  */

@@ -16,6 +16,7 @@ require (
 	github.com/google/wire v0.7.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
+	github.com/rabbitmq/amqp091-go v1.15.0
 	github.com/xuri/excelize/v2 v2.11.0
 	golang.org/x/crypto v0.55.0
 	golang.org/x/time v0.15.0
@@ -88,7 +89,6 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.61.0 // indirect
-	github.com/rabbitmq/amqp091-go v1.15.0 // indirect
 	github.com/richardlehane/mscfb v1.0.7 // indirect
 	github.com/richardlehane/msoleps v1.0.6 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.6.0 // indirect

@@ -3,9 +3,12 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { syncKeljaFulfillment } from '@/api/helpers/fulfilment.js'
 import { useToast } from '@/composables/useToast.js'
+import FulfilmentUploadModal from '@/components/fulfilment/FulfilmentUploadModal.vue'
 
 const { toast } = useToast()
 const route = useRoute()
+
+const isUploadModalOpen = ref(false)
 
 const activeTab = computed(() => route.name)
 const isSyncing = ref(false)
@@ -21,6 +24,15 @@ async function handleSync() {
   } finally {
     isSyncing.value = false
   }
+}
+
+function openUploadModal() {
+  isUploadModalOpen.value = true
+}
+
+function handleUploadSuccess(jobIds) {
+  // Option: bisa trigger fetchPendingItems atau tampilkan notifikasi polling job
+  console.log('Upload success, job IDs:', jobIds)
 }
 
 const showTabs = computed(() => {
@@ -59,6 +71,13 @@ const showTabs = computed(() => {
         Riwayat Fulfilment
       </router-link>
       <button
+        @click="openUploadModal"
+        class="bg-secondary/20 text-text border border-secondary/30 h-10 w-10 hover:text-primary flex items-center justify-center transition-all duration-300 group disabled:opacity-50 ml-1 rounded-md"
+        title="Upload File Excel/CSV"
+      >
+        <font-awesome-icon icon="fa-solid fa-cloud-arrow-up" />
+      </button>
+      <button
         @click="handleSync"
         :disabled="isSyncing"
         class="bg-secondary/20 text-text border border-secondary/30 h-10 w-10 hover:text-primary flex items-center justify-center transition-all duration-300 group disabled:opacity-50 ml-1 rounded-md"
@@ -70,6 +89,12 @@ const showTabs = computed(() => {
         />
       </button>
     </div>
+
+    <FulfilmentUploadModal
+      :is-open="isUploadModalOpen"
+      @close="isUploadModalOpen = false"
+      @uploaded="handleUploadSuccess"
+    />
 
     <!-- Main Content Area -->
     <div class="min-h-[400px]">

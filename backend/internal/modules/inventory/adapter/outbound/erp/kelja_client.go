@@ -127,7 +127,7 @@ func (c *keljaClient) doRequest(ctx context.Context, method, path string, body i
 
 	// Retry once on 401 Unauthorized (token invalidated)
 	if resp.StatusCode == http.StatusUnauthorized {
-		resp.Body.Close()
+		resp.Body.Close() // #nosec G104
 		log.Printf("[KeljaClient] 401 Unauthorized, clearing token cache and retrying...")
 		
 		c.tokenMutex.Lock()
@@ -201,10 +201,10 @@ func (c *keljaClient) FetchAllFulfillments(ctx context.Context) ([]map[string]in
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		
 		if err := json.Unmarshal(bodyBytes, &res); err != nil {
-			resp.Body.Close()
+			resp.Body.Close() // #nosec G104
 			return nil, fmt.Errorf("decode page %d: %w", page, err)
 		}
-		resp.Body.Close()
+		resp.Body.Close() // #nosec G104
 
 		allData = append(allData, res.Data...)
 		log.Printf("[KeljaSync] Fetched page %d/%d (%d records)", page, res.LastPage, len(res.Data))

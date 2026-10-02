@@ -50,7 +50,7 @@ type FulfilmentRepository interface {
 	VoidItemsByListID(ctx context.Context, listID int) error
 
 	CreateFulfilmentListTx(ctx context.Context, header *domain.FulfilmentList) (int, error)
-	CreateFulfilmentListItemTx(ctx context.Context, item *domain.FulfilmentListItem) error
+	CreateFulfilmentListItemTx(ctx context.Context, item *domain.FulfilmentListItem) (int, error)
 	ExistsByInvoiceNo(ctx context.Context, invoiceNo string) (bool, error)
 	UpdateKeljaIDByInvoiceNo(ctx context.Context, invoiceNo string, keljaID int) error
 	GetListIDByKeljaIDOrInvoiceNo(ctx context.Context, keljaID int, invoiceNo string) (*int, error)

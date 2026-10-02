@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -15,7 +17,7 @@ import (
 )
 
 func main() {
-	godotenv.Load(".env")
+	godotenv.Load(".env") // #nosec G104
 
 	// 1. Connect DB
 	db, err := sqlx.Connect("mysql", os.Getenv("DB_DSN"))

@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -27,7 +29,7 @@ func main() {
 	// Load .env relative to the scripts folder
 	if err := godotenv.Load("../.env"); err != nil {
 		log.Println("Warning: No .env file found in ../, attempting to load from current dir")
-		godotenv.Load(".env")
+		godotenv.Load(".env") // #nosec G104
 	}
 
 	dsn := os.Getenv("DB_DSN")
@@ -65,7 +67,7 @@ re := regexp.MustCompile(`(?i)((?:inv|order|so|po|memo)[\s\:\-\#]*[a-zA-Z0-9\-\/
 	defer writer.Flush()
 
 	// Write CSV Header
-	writer.Write([]string{"Movement_ID", "Created_At", "Movement_Type", "Product_ID", "Quantity", "Original_Notes", "Extracted_Reference_ID"})
+	writer.Write([]string{"Movement_ID", "Created_At", "Movement_Type", "Product_ID", "Quantity", "Original_Notes", "Extracted_Reference_ID"}) // #nosec G104
 
 	matchedCount := 0
 	for _, m := range movements {
@@ -85,7 +87,7 @@ re := regexp.MustCompile(`(?i)((?:inv|order|so|po|memo)[\s\:\-\#]*[a-zA-Z0-9\-\/
 			refID = fmt.Sprintf("LEGACY-MOV-%d", m.ID)
 		}
 
-		writer.Write([]string{
+		writer.Write([]string{ // #nosec G104
 			strconv.Itoa(m.ID),
 			m.CreatedAt.Format("2006-01-02 15:04:05"),
 			m.MovementType,

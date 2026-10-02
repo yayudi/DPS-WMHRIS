@@ -428,14 +428,18 @@ func (r *fulfilmentRepository) CreateFulfilmentListTx(ctx context.Context, heade
 	return int(id), err
 }
 
-func (r *fulfilmentRepository) CreateFulfilmentListItemTx(ctx context.Context, item *domain.FulfilmentListItem) error {
+func (r *fulfilmentRepository) CreateFulfilmentListItemTx(ctx context.Context, item *domain.FulfilmentListItem) (int, error) {
 	ext := database.GetExt(ctx, r.db)
 	query := `
 		INSERT INTO fulfilment_list_items (fulfilment_list_id, product_id, quantity, status, original_sku, price, suggested_location_id)
 		VALUES (:fulfilment_list_id, :product_id, :quantity, :status, :original_sku, :price, :suggested_location_id)
 	`
-	_, err := ext.NamedExecContext(ctx, query, item)
-	return err
+	res, err := ext.NamedExecContext(ctx, query, item)
+	if err != nil {
+		return 0, err
+	}
+	id, err := res.LastInsertId()
+	return int(id), err
 }
 
 func (r *fulfilmentRepository) ExistsByInvoiceNo(ctx context.Context, invoiceNo string) (bool, error) {

@@ -1,0 +1,72 @@
+services:
+  # Backend Go API
+  backend-api:
+    image: alpine:latest
+    container_name: wms-service-dev-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3005:3000"
+    working_dir: /app
+    command: ["./api"]
+    env_file:
+      - ./.env
+    environment:
+      - DB_DSN=${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(10.10.0.9:3306)/${MYSQL_DATABASE}?parseTime=true
+      - FIREBASE_CREDENTIALS_PATH=/app/firebase/${FIREBASE_JSON_FILENAME}
+      - RABBITMQ_URL=${RABBITMQ_CONNECTION}://${RABBITMQ_USERNAME}:${RABBITMQ_PASSWORD}@${RABBITMQ_HOST}:${RABBITMQ_PORT}/${RABBITMQ_VHOST}
+      - RABBITMQ_EXCHANGE_NAME=${RABBITMQ_EXCHANGE_NAME}
+      - RABBITMQ_EXCHANGE_TYPE=${RABBITMQ_EXCHANGE_TYPE}
+      - RABBITMQ_PREFETCH_COUNT=${RABBITMQ_PREFETCH_COUNT}
+      - RABBITMQ_PREFETCH_SIZE=${RABBITMQ_PREFETCH_SIZE}
+    volumes:
+      - ./api:/app/api
+      - ./firebase:/app/firebase
+
+    networks:
+      - intra
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Backend Go Worker (Background CLI/Daemon)
+  backend-worker:
+    image: alpine:latest
+    container_name: wms-service-dev-worker
+    restart: unless-stopped
+    working_dir: /app
+    command: ["./worker"]
+    env_file:
+      - ./.env
+    environment:
+      - DB_DSN=${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(10.10.0.9:3306)/${MYSQL_DATABASE}?parseTime=true
+      - FIREBASE_CREDENTIALS_PATH=/app/firebase/${FIREBASE_JSON_FILENAME}
+      - RABBITMQ_URL=${RABBITMQ_CONNECTION}://${RABBITMQ_USERNAME}:${RABBITMQ_PASSWORD}@${RABBITMQ_HOST}:${RABBITMQ_PORT}/${RABBITMQ_VHOST}
+      - RABBITMQ_EXCHANGE_NAME=${RABBITMQ_EXCHANGE_NAME}
+      - RABBITMQ_EXCHANGE_TYPE=${RABBITMQ_EXCHANGE_TYPE}
+      - RABBITMQ_PREFETCH_COUNT=${RABBITMQ_PREFETCH_COUNT}
+      - RABBITMQ_PREFETCH_SIZE=${RABBITMQ_PREFETCH_SIZE}
+      - GOMEMLIMIT=${GOMEMLIMIT}
+      - GOGC=${GOGC}
+    volumes:
+      - ./worker:/app/worker
+      - ./firebase:/app/firebase
+
+    networks:
+      - intra
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1G
+        reservations:
+          memory: 512M
+
+
+
+networks:
+  intra:
+    external: true

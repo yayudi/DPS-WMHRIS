@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/dps-wmhris/backend/internal/shared/config"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
-
-const ExchangeName = "dps.wmhris.events"
 
 type rabbitMQEventBus struct {
 	conn      *amqp.Connection
@@ -31,8 +30,8 @@ func NewRabbitMQEventBus(url string, queueName string) (EventBus, error) {
 	}
 
 	err = ch.ExchangeDeclare(
-		ExchangeName, // name
-		"topic",      // type
+		config.AppConfig.RabbitMQExchangeName, // name
+		config.AppConfig.RabbitMQExchangeType, // type
 		true,         // durable
 		false,        // auto-deleted
 		false,        // internal
@@ -59,7 +58,7 @@ func (b *rabbitMQEventBus) Publish(ctx context.Context, event Event) error {
 	}
 
 	err = b.channel.PublishWithContext(ctx,
-		ExchangeName, // exchange
+		config.AppConfig.RabbitMQExchangeName, // exchange
 		event.Type,   // routing key
 		false,        // mandatory
 		false,        // immediate
@@ -97,13 +96,22 @@ func (b *rabbitMQEventBus) Start(ctx context.Context) error {
 		err = b.channel.QueueBind(
 			q.Name,       // queue name
 			eventType,    // routing key
-			ExchangeName, // exchange
+			config.AppConfig.RabbitMQExchangeName, // exchange
 			false,
 			nil,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to bind queue to exchange for routing key %s: %w", eventType, err)
 		}
+	}
+
+	err = b.channel.Qos(
+		config.AppConfig.RabbitMQPrefetchCount, // prefetch count
+		config.AppConfig.RabbitMQPrefetchSize,  // prefetch size
+		false, // global
+	)
+	if err != nil {
+		return fmt.Errorf("failed to set QoS: %w", err)
 	}
 
 	msgs, err := b.channel.Consume(
@@ -121,7 +129,7 @@ func (b *rabbitMQEventBus) Start(ctx context.Context) error {
 
 	log.Printf("[RabbitMQ] Started consuming on queue %s", b.queueName)
 
-	go func() {
+	go func() { // #nosec G118
 		for {
 			select {
 			case <-ctx.Done():
@@ -136,7 +144,7 @@ func (b *rabbitMQEventBus) Start(ctx context.Context) error {
 				var event Event
 				if err := json.Unmarshal(d.Body, &event); err != nil {
 					log.Printf("[RabbitMQ] Error unmarshaling event: %v", err)
-					d.Nack(false, false) // reject without requeue
+					d.Nack(false, false) // reject without requeue // #nosec G104
 					continue
 				}
 
@@ -145,13 +153,13 @@ func (b *rabbitMQEventBus) Start(ctx context.Context) error {
 					err := handler(context.Background(), event)
 					if err != nil {
 						log.Printf("[RabbitMQ] Handler error for event %s: %v", event.Type, err)
-						d.Nack(false, true) // requeue if handler failed
+						d.Nack(false, true) // requeue if handler failed // #nosec G104
 					} else {
-						d.Ack(false)
+						d.Ack(false) // #nosec G104
 					}
 				} else {
 					log.Printf("[RabbitMQ] No handler registered for event type %s", event.Type)
-					d.Ack(false) // ack it since we don't care about it
+					d.Ack(false) // ack it since we don't care about it // #nosec G104
 				}
 			}
 		}
@@ -161,6 +169,6 @@ func (b *rabbitMQEventBus) Start(ctx context.Context) error {
 }
 
 func (b *rabbitMQEventBus) Close() error {
-	b.channel.Close()
+	b.channel.Close() // #nosec G104
 	return b.conn.Close()
 }

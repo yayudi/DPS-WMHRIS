@@ -157,11 +157,12 @@ func main() {
 	log.Println("Worker started. Polling for jobs...")
 
 	// Auto-sync Kelja every 5 minutes
-	go func() {
-		// Initial delay to let the worker fully start
-		time.Sleep(10 * time.Second)
-		keljaTicker := time.NewTicker(5 * time.Minute)
-		defer keljaTicker.Stop()
+	if os.Getenv("ENABLE_KELJA_AUTO_SYNC") != "false" {
+		go func() {
+			// Initial delay to let the worker fully start
+			time.Sleep(10 * time.Second)
+			keljaTicker := time.NewTicker(5 * time.Minute)
+			defer keljaTicker.Stop()
 
 		createKeljaSyncJob := func() {
 			// Guard: don't create if there's already a PENDING or PROCESSING job
@@ -200,7 +201,10 @@ func main() {
 				createKeljaSyncJob()
 			}
 		}
-	}()
+		}()
+	} else {
+		log.Println("[KeljaAutoSync] Disabled via .env (ENABLE_KELJA_AUTO_SYNC=false)")
+	}
 
 	pollInterval := 5 * time.Second
 	ticker := time.NewTicker(pollInterval)
@@ -317,7 +321,7 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_m
 				sourceMap := map[string]string{
 					"IMPORT_SALES_TOKOPEDIA": "Tokopedia",
 					"IMPORT_SALES_SHOPEE":    "Shopee",
-					"IMPORT_SALES_TIKTOK":    "TikTok",
+					"IMPORT_SALES_TIKTOK":    "Tokopedia", // Merged TikTok into Tokopedia
 					"IMPORT_SALES_MANUAL":    "Offline",
 				}
 				source := sourceMap[job.JobType]
@@ -342,7 +346,7 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_m
 				sourceMap := map[string]string{
 					"IMPORT_SALES_TOKOPEDIA_DRY_RUN": "Tokopedia",
 					"IMPORT_SALES_SHOPEE_DRY_RUN":    "Shopee",
-					"IMPORT_SALES_TIKTOK_DRY_RUN":    "TikTok",
+					"IMPORT_SALES_TIKTOK_DRY_RUN":    "Tokopedia", // Merged TikTok into Tokopedia
 					"IMPORT_SALES_MANUAL_DRY_RUN":    "Offline",
 				}
 				source := sourceMap[job.JobType]

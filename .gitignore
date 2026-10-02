@@ -126,7 +126,6 @@ graphify-out
 # Docker
 docker-compose.override.yml
 docker-compose.local.yml
-docker-compose.yml
 
 # ===================================================================
 # FRONTEND SPECIFIC
@@ -165,6 +164,7 @@ id_rsa
 # Firebase Admin SDK Credentials
 *firebase-adminsdk*.json
 serviceAccountKey.json
+firebase/*.json
 
 # ===================================================================
 # BACKUPS & ARCHIVES

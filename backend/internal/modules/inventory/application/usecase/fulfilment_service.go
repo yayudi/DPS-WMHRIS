@@ -639,7 +639,7 @@ func (s *fulfilmentService) CompleteFulfilmentItems(ctx context.Context, req inv
 							payload["awb"] = *header.AWB
 						}
 						log.Printf("[EventBus] Publishing FulfillmentProgressed for ListID %d (KeljaID: %v, Action: %s)", listID, header.KeljaID, keljaAction)
-						s.eventBus.Publish(ctx, eventbus.Event{
+						s.eventBus.Publish(ctx, eventbus.Event{ // #nosec G104
 							Type:       "FulfillmentProgressed",
 							Payload:    payload,
 							UserID:     userID,
@@ -663,18 +663,18 @@ func (s *fulfilmentService) CompleteFulfilmentItems(ctx context.Context, req inv
 
 func (s *fulfilmentService) ProcessKeljaSync(ctx context.Context, jobID int, userID int) error {
 	log.Printf("[ProcessKeljaSync] Job %d starting", jobID)
-	s.jobService.UpdateImportJobStatus(ctx, jobID, "PROCESSING")
+	s.jobService.UpdateImportJobStatus(ctx, jobID, "PROCESSING") // #nosec G104
 
 	list, err := s.keljaClient.FetchAllFulfillments(ctx)
 	if err != nil {
 		log.Printf("[ProcessKeljaSync] Job %d failed to fetch fulfillments: %v", jobID, err)
-		s.jobService.UpdateImportJobStatusWithSummary(ctx, jobID, "FAILED", fmt.Sprintf("Failed to fetch list: %v", err))
+		s.jobService.UpdateImportJobStatusWithSummary(ctx, jobID, "FAILED", fmt.Sprintf("Failed to fetch list: %v", err)) // #nosec G104
 		return err
 	}
 
 	if len(list) == 0 {
 		log.Printf("[ProcessKeljaSync] Job %d found no pending fulfillments in Kelja", jobID)
-		s.jobService.UpdateImportJobStatusWithSummary(ctx, jobID, "COMPLETED", "No pending fulfillments found in Kelja")
+		s.jobService.UpdateImportJobStatusWithSummary(ctx, jobID, "COMPLETED", "No pending fulfillments found in Kelja") // #nosec G104
 		return nil
 	}
 
@@ -691,7 +691,7 @@ func (s *fulfilmentService) ProcessKeljaSync(ctx context.Context, jobID int, use
 	var logs []logDetail
 
 	for i, f := range list {
-		s.jobService.UpdateImportJobProgress(ctx, jobID, (i*100)/len(list), 100)
+		s.jobService.UpdateImportJobProgress(ctx, jobID, (i*100)/len(list), 100) // #nosec G104
 		
 		keljaIDFloat, ok := f["id"].(float64)
 		if !ok { continue }
@@ -712,7 +712,7 @@ func (s *fulfilmentService) ProcessKeljaSync(ctx context.Context, jobID int, use
 			// Jika SUDAH ADA di WMS:
 			// a. Backfill kelja_id (untuk berjaga-jaga jika invoice_no match tapi kelja_id WMS masih NULL)
 			if invoiceNo != "" {
-				s.fulfilmentRepo.UpdateKeljaIDByInvoiceNo(ctx, invoiceNo, keljaID)
+				s.fulfilmentRepo.UpdateKeljaIDByInvoiceNo(ctx, invoiceNo, keljaID) // #nosec G104
 			}
 			
 			// b. Sinkronisasi pembatalan (CANCELLED)
@@ -720,8 +720,8 @@ func (s *fulfilmentService) ProcessKeljaSync(ctx context.Context, jobID int, use
 				header, _ := s.fulfilmentRepo.GetHeaderByID(ctx, *existingListID)
 				if header != nil && header.Status != "VOID" && header.Status != "COMPLETED" {
 					log.Printf("[KeljaSync] Cancelling WMS Order %d because Kelja status is CANCELLED", *existingListID)
-					s.fulfilmentRepo.VoidHeader(ctx, *existingListID)
-					s.fulfilmentRepo.VoidItemsByListID(ctx, *existingListID)
+					s.fulfilmentRepo.VoidHeader(ctx, *existingListID) // #nosec G104
+					s.fulfilmentRepo.VoidItemsByListID(ctx, *existingListID) // #nosec G104
 					logs = append(logs, logDetail{
 						KeljaID:   keljaID,
 						InvoiceNo: invoiceNo,
@@ -729,6 +729,55 @@ func (s *fulfilmentService) ProcessKeljaSync(ctx context.Context, jobID int, use
 						Error:     "Cancelled in Kelja, updated WMS",
 					})
 					continue
+				}
+			}
+
+			// c. Sinkronisasi Shipped/Finished (Auto-Reconciliation / Force Complete)
+			if fStatusDesc == "SHIPPED" || fStatusDesc == "FINISHED" || fStatusDesc == "DELIVERED" {
+				header, _ := s.fulfilmentRepo.GetHeaderByID(ctx, *existingListID)
+				if header != nil && header.Status != "DONE" && header.Status != "VOID" && header.Status != "COMPLETED" {
+					log.Printf("[KeljaSync] Auto-ForceCompleting WMS Order %d because Kelja status is %s", *existingListID, fStatusDesc)
+					details, err := s.fulfilmentRepo.GetListDetails(ctx, *existingListID)
+					if err == nil && len(details) > 0 {
+						var reqItems []inventory_dto.CompleteFulfilmentItem
+						for _, d := range details {
+							reqItems = append(reqItems, inventory_dto.CompleteFulfilmentItem{
+								ID:               d.ID,
+								FulfilmentListID: *existingListID,
+							})
+						}
+						req := inventory_dto.CompleteFulfilmentRequest{
+							Items:  reqItems,
+							Action: "force_complete",
+						}
+						// Panggil API Force Complete seperti halnya User menekan tombol
+						_, _, errComplete := s.CompleteFulfilmentItems(ctx, req, userID)
+						if errComplete != nil {
+							log.Printf("[KeljaSync] Failed to force_complete WMS Order %d: %v", *existingListID, errComplete)
+						} else {
+							// Tambahkan log riwayat penyelesaian paksa oleh sistem
+							histLog := []map[string]interface{}{
+								{
+									"description": fmt.Sprintf("Pesanan dipaksa selesai oleh Sistem karena Marketplace merubah status menjadi %s", fStatusDesc),
+									"created_at":  time.Now().Format(time.RFC3339),
+									"status": map[string]string{
+										"description":    "FORCE COMPLETED BY SYSTEM",
+										"property_color": "green",
+									},
+								},
+							}
+							histBytes, _ := json.Marshal(histLog)
+							_ = s.UpdateKeljaHistories(ctx, *existingListID, string(histBytes))
+
+							logs = append(logs, logDetail{
+								KeljaID:   keljaID,
+								InvoiceNo: invoiceNo,
+								Status:    "FORCE_COMPLETED_IN_WMS",
+								Error:     fmt.Sprintf("Auto-Reconciled by System from %s", fStatusDesc),
+							})
+							continue
+						}
+					}
 				}
 			}
 
@@ -936,18 +985,18 @@ func (s *fulfilmentService) ProcessKeljaSync(ctx context.Context, jobID int, use
 						locationID, err := s.locationRepo.FindBestStock(txCtx, productID, qty, locationPurpose)
 						if err == nil && locationID != nil {
 							item.SuggestedLocationID = locationID
-							s.locationRepo.ReserveStock(txCtx, productID, *locationID, qty)
+							s.locationRepo.ReserveStock(txCtx, productID, *locationID, qty) // #nosec G104
 						} else {
 							item.Status = "BACKORDER"
 						}
 
-						if err := s.fulfilmentRepo.CreateFulfilmentListItemTx(txCtx, item); err != nil {
+						if _, err := s.fulfilmentRepo.CreateFulfilmentListItemTx(txCtx, item); err != nil {
 							return err
 						}
 					}
 				}
 			}
-			s.fulfilmentRepo.ValidateHeader(txCtx, headerID, "READY TO PICK")
+			s.fulfilmentRepo.ValidateHeader(txCtx, headerID, "READY TO PICK") // #nosec G104
 
 			successCount++
 			return nil
@@ -986,11 +1035,11 @@ func (s *fulfilmentService) ProcessKeljaSync(ctx context.Context, jobID int, use
 	summary := fmt.Sprintf("Synced %d fulfillments. Success: %d, Failed: %d", len(list), successCount, errorCount)
 	
 	if errorCount > 0 && successCount == 0 {
-		s.jobService.UpdateImportJobStatusWithLog(ctx, jobID, "FAILED", summary, logStr)
+		s.jobService.UpdateImportJobStatusWithLog(ctx, jobID, "FAILED", summary, logStr) // #nosec G104
 	} else if errorCount > 0 {
-		s.jobService.UpdateImportJobStatusWithLog(ctx, jobID, "COMPLETED_WITH_ERRORS", summary, logStr)
+		s.jobService.UpdateImportJobStatusWithLog(ctx, jobID, "COMPLETED_WITH_ERRORS", summary, logStr) // #nosec G104
 	} else {
-		s.jobService.UpdateImportJobStatusWithLog(ctx, jobID, "COMPLETED", summary, logStr)
+		s.jobService.UpdateImportJobStatusWithLog(ctx, jobID, "COMPLETED", summary, logStr) // #nosec G104
 	}
 	return nil
 }

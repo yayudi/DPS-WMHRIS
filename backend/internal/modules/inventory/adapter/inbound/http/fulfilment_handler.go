@@ -48,9 +48,17 @@ func (h *FulfilmentHandler) UploadAndValidate(c *gin.Context) {
 	}
 
 	userID := getUserID(c)
-	source := c.PostForm("source")
-	if source == "" {
-		source = "Tokopedia"
+	
+	// Legacy single source
+	singleSource := c.PostForm("source")
+	if singleSource == "" {
+		singleSource = "Tokopedia"
+	}
+
+	sourcesStr := c.PostForm("sources")
+	var sources []string
+	if sourcesStr != "" {
+		_ = json.Unmarshal([]byte(sourcesStr), &sources)
 	}
 
 	isDryRun := c.PostForm("dryRun") == "true"
@@ -65,20 +73,15 @@ func (h *FulfilmentHandler) UploadAndValidate(c *gin.Context) {
 		_ = json.Unmarshal([]byte(shopNamesStr), &shopNames)
 	}
 
-	baseJobType := "IMPORT_SALES_" + strings.ToUpper(source)
-	jobType := baseJobType
-	if isDryRun {
-		jobType += "_DRY_RUN"
-	}
-
 	modeText := "Import"
 	if isDryRun {
 		modeText = "Simulasi"
 	}
-	defaultNote := modeText + " " + source + " Sales"
+	
 	userNotes := c.PostForm("notes")
 
-	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "fulfilment") + string(filepath.Separator)
+	absStorage, _ := filepath.Abs(config.AppConfig.StoragePath)
+	uploadDir := filepath.Join(absStorage, "uploads", "fulfilment") + string(filepath.Separator)
 	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
 	var createdJobs []int
 
@@ -87,7 +90,19 @@ func (h *FulfilmentHandler) UploadAndValidate(c *gin.Context) {
 		if i < len(shopNames) {
 			shopName = shopNames[i]
 		}
+		
+		source := singleSource
+		if i < len(sources) {
+			source = sources[i]
+		}
 
+		baseJobType := "IMPORT_SALES_" + strings.ToUpper(source)
+		jobType := baseJobType
+		if isDryRun {
+			jobType += "_DRY_RUN"
+		}
+
+		defaultNote := modeText + " " + source + " Sales"
 		note := defaultNote
 		if userNotes != "" {
 			note += " | " + userNotes

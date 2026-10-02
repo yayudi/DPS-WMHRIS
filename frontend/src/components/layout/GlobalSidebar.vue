@@ -37,13 +37,16 @@ const updateActiveAccordion = () => {
 watch(() => route.path, updateActiveAccordion, { immediate: true })
 
 const toggleAccordion = id => {
+  if (props.isCollapsed) {
+    activeAccordion.value = id
+    emit('toggle')
+    return
+  }
+
   if (activeAccordion.value === id) {
     activeAccordion.value = ''
   } else {
     activeAccordion.value = id
-    if (props.isCollapsed) {
-      emit('toggle')
-    }
   }
 }
 
@@ -113,9 +116,9 @@ const menuConfig = computed(() => {
         { to: '/analytics/time-performance', label: 'Performa Waktu', icon: 'fa-stopwatch' },
         { to: '/analytics/package-analysis', label: 'Analisa Produk Paket', icon: 'fa-box-open' },
         { to: '/analytics/channel-performance', label: 'Penjualan Toko', icon: 'fa-shop' },
-        { to: '/analytics/export-stock', label: 'Ekspor Stok', icon: 'fa-file-export' },
         { to: '/analytics/stock-distribution', label: 'Sebaran Stok', icon: 'fa-map-location-dot' },
         { to: '/analytics/location-capacity', label: 'Statistik Kapasitas', icon: 'fa-chart-simple' },
+        { to: '/analytics/export-stock', label: 'Ekspor Stok', icon: 'fa-file-export' },
         { to: '/analytics/reports', label: 'Laporan Khusus', icon: 'fa-file-invoice' }
       ]
     })

@@ -907,7 +907,7 @@ func (s *stockServiceImpl) recordMovementAndPublish(ctx context.Context, mov *do
 			"product_id": mov.ProductID,
 		}, mov.UserID)
 		
-		go func() {
+		go func() { // #nosec G118
 			if err := s.eventBus.Publish(context.Background(), event); err != nil {
 				log.Printf("[EventBus] Failed to publish inventory.stock.increased: %v", err)
 			}

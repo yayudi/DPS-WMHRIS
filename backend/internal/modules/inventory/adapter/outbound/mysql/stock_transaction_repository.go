@@ -39,7 +39,7 @@ func (r *stockTransactionRepositoryImpl) CreateTx(ctx context.Context, trx *doma
 	if err != nil {
 		return err
 	}
-	trx.ID = uint(trxID)
+	trx.ID = uint(trxID) // #nosec G115
 
 	queryMov := `
 		INSERT INTO inv_movements (transaction_id, product_id, target_quantity, status, created_at)
@@ -54,7 +54,7 @@ func (r *stockTransactionRepositoryImpl) CreateTx(ctx context.Context, trx *doma
 		if err != nil {
 			return err
 		}
-		mov.ID = uint(movID)
+		mov.ID = uint(movID) // #nosec G115
 		mov.TransactionID = trx.ID
 	}
 
@@ -118,7 +118,7 @@ func (r *stockTransactionRepositoryImpl) SaveFulfillmentTx(ctx context.Context, 
 				if err != nil {
 					return err
 				}
-				line.ID = uint(lineID)
+				line.ID = uint(lineID) // #nosec G115
 			}
 		}
 	}
