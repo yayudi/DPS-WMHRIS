@@ -41,7 +41,6 @@ func NewJobRepository(db *sqlx.DB) JobRepository {
 }
 
 // --- Import Jobs ---
-
 func (r *jobRepositoryImpl) CreateImportJob(ctx context.Context, job *system_domain.ImportJob) (int, error) {
 	query := `
 		INSERT INTO import_jobs (user_id, job_type, original_filename, file_path, notes, options, status)

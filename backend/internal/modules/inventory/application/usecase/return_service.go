@@ -42,54 +42,7 @@ func (s *returnServiceImpl) GetManualReturnHistory(ctx context.Context, page, li
 }
 
 func (s *returnServiceImpl) ApproveReturn(ctx context.Context, userID int, req inventory_dto.ApproveReturnRequest) error {
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		item, err := s.returnRepo.GetFulfilmentItemById(ctx, req.ItemID)
-		if err != nil {
-			return errors.New("item fulfilment tidak ditemukan")
-		}
-
-		if item.Status != "RETURNED" {
-			return fmt.Errorf("item status bukan RETURNED (Status saat ini: %s). Tidak bisa divalidasi", item.Status)
-		}
-
-		if req.QtyAccepted <= 0 || req.QtyAccepted > item.Quantity {
-			return fmt.Errorf("jumlah diterima (%d) tidak valid. Maksimal: %d", req.QtyAccepted, item.Quantity)
-		}
-
-		if req.QtyAccepted == item.Quantity {
-			err = s.returnRepo.CompleteReturnItem(ctx, req.ItemID, req.Condition, req.Notes, req.LocationID)
-			if err != nil {
-				return err
-			}
-		} else {
-			err = s.returnRepo.DecreaseItemQty(ctx, req.ItemID, req.QtyAccepted)
-			if err != nil {
-				return err
-			}
-
-			_, err = s.returnRepo.CreateSplitReturnItem(ctx, item, req.QtyAccepted, req.Condition, req.Notes, req.LocationID)
-			if err != nil {
-				return err
-			}
-		}
-
-		err = s.locationRepo.IncrementStock(ctx, item.ProductID, req.LocationID, req.QtyAccepted)
-		if err != nil {
-			return err
-		}
-
-		notes := fmt.Sprintf("Validasi Retur #%d (%s): %s", req.ItemID, req.Condition, req.Notes)
-		movement := &domain.StockMovement{
-			ProductID:    item.ProductID,
-			Quantity:     req.QtyAccepted,
-			ToLocationID: &req.LocationID,
-			MovementType: "RETURN_INBOUND",
-			UserID:       userID,
-			Notes:        notes,
-		}
-
-		return s.stockRepo.RecordMovement(ctx, movement)
-	})
+	return errors.New("Fitur ApproveReturn sudah dinonaktifkan (Fulfilment Teardown)")
 }
 
 func (s *returnServiceImpl) CreateManualReturn(ctx context.Context, userID int, req inventory_dto.CreateManualReturnRequest) error {

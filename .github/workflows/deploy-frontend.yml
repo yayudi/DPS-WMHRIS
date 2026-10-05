@@ -1,0 +1,69 @@
+name: Deploy Frontend to Firebase
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Create Frontend Env File
+        working-directory: ./frontend
+        run: |
+          echo "${{ secrets.FRONTEND_ENV_BASE }}" > .env
+          
+          # Determine environment strictly based on branch name
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            ENV_TARGET="prod"
+          elif [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+            ENV_TARGET="dev"
+          else
+            echo "Error: Deployment is only allowed from the main or dev branches!"
+            exit 1
+          fi
+          
+          if [ "$ENV_TARGET" = "prod" ]; then
+            echo "${{ secrets.FRONTEND_ENV_PROD }}" > .env.production
+          else
+            echo "${{ secrets.FRONTEND_ENV_DEV }}" > .env.development
+          fi
+          
+          # Save ENV_TARGET to GitHub Actions env file to be accessed in subsequent steps
+          echo "ENV_TARGET=$ENV_TARGET" >> $GITHUB_ENV
+
+      - name: Build Frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          if [ "$ENV_TARGET" = "prod" ]; then
+            npx vite build --mode production
+          else
+            npx vite build --mode development
+          fi
+
+      - name: Deploy Frontend to Firebase Hosting
+        working-directory: ./frontend
+        env:
+          FIREBASE_SA_PROD: ${{ secrets.FIREBASE_TOKEN_PROD }}
+          FIREBASE_SA_DEV: ${{ secrets.FIREBASE_TOKEN_DEV }}
+        run: |
+          npm install -g firebase-tools
+          if [ "$ENV_TARGET" = "prod" ]; then
+            echo "$FIREBASE_SA_PROD" > firebase-sa.json
+            export GOOGLE_APPLICATION_CREDENTIALS="${PWD}/firebase-sa.json"
+            firebase deploy --only hosting --project wms-kelja
+          else
+            echo "$FIREBASE_SA_DEV" > firebase-sa.json
+            export GOOGLE_APPLICATION_CREDENTIALS="${PWD}/firebase-sa.json"
+            firebase deploy --only hosting --project dev-wms-kelja
+          fi

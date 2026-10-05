@@ -52,8 +52,6 @@ func (s *investigationServiceImpl) GetDuplicateTransactions(ctx context.Context,
 		return nil, err
 	}
 
-	invoiceSet := make(map[string]bool)
-	itemIdSet := make(map[int]bool)
 	invoiceRegex := regexp.MustCompile(`(?i)Sale Ref:\s+(.*?)\s+\(Item`)
 
 	grouped := make(map[string]*domain.DuplicateGroup)
@@ -80,7 +78,6 @@ func (s *investigationServiceImpl) GetDuplicateTransactions(ctx context.Context,
 				if len(matches) > 1 {
 					extracted := strings.TrimSpace(matches[1])
 					extractedInvoice = &extracted
-					invoiceSet[extracted] = true
 				}
 			}
 
@@ -110,90 +107,6 @@ func (s *investigationServiceImpl) GetDuplicateTransactions(ctx context.Context,
 		group.UniqueItemsCount = len(uniqueSkus)
 	}
 
-	var fulfilmentDetails []map[string]interface{}
-
-	if len(invoiceSet) > 0 {
-		var invoiceIds []string
-		for id := range invoiceSet {
-			invoiceIds = append(invoiceIds, id)
-		}
-		details, err := s.investigationRepo.FindFulfilmentListDetailsByInvoices(ctx, invoiceIds)
-		if err == nil {
-			fulfilmentDetails = append(fulfilmentDetails, details...)
-		}
-	}
-
-	if len(itemIdSet) > 0 {
-		var itemIds []int
-		for id := range itemIdSet {
-			itemIds = append(itemIds, id)
-		}
-		details, err := s.investigationRepo.FindFulfilmentListDetailsByItemIds(ctx, itemIds)
-		if err == nil {
-			fulfilmentDetails = append(fulfilmentDetails, details...)
-		}
-	}
-
-	if len(fulfilmentDetails) > 0 {
-		fulfilmentLists := make(map[int]*domain.FulfilmentListDetail)
-		fulfilmentByInvoice := make(map[string]*domain.FulfilmentListDetail)
-
-		for _, row := range fulfilmentDetails {
-			listIdInt64 := row["fulfilment_list_id"].(int64)
-			listId := int(listIdInt64)
-
-			if _, ok := fulfilmentLists[listId]; !ok {
-				var ms, sn *string
-				if v, ok := row["marketplace_status"].(string); ok {
-					ms = &v
-				}
-				if v, ok := row["shop_name"].(string); ok {
-					sn = &v
-				}
-
-				origInvoice := row["original_invoice_id"].(string)
-
-				// handle time parsing appropriately, skipping precise extraction for brevity if needed
-				var orderDate time.Time
-				if t, ok := row["order_date"].(time.Time); ok {
-					orderDate = t
-				} else if s, ok := row["order_date"].(string); ok {
-					orderDate, _ = time.Parse(time.RFC3339, s)
-				}
-
-				fulfilmentLists[listId] = &domain.FulfilmentListDetail{
-					ID:                listId,
-					OriginalInvoiceID: origInvoice,
-					CustomerName:      row["customer_name"].(string),
-					Source:            row["source"].(string),
-					OrderDate:         orderDate,
-					Status:            row["list_status"].(string),
-					MarketplaceStatus: ms,
-					ShopName:          sn,
-					Items:             []domain.FulfilmentListDetailItem{},
-				}
-				fulfilmentByInvoice[origInvoice] = fulfilmentLists[listId]
-			}
-
-			item := domain.FulfilmentListDetailItem{
-				ItemID:      int(row["item_id"].(int64)),
-				ProductID:   int(row["product_id"].(int64)),
-				OriginalSKU: row["original_sku"].(string),
-				ProductName: row["product_name"].(string),
-				Quantity:    int(row["quantity"].(int64)),
-				Status:      row["item_status"].(string),
-			}
-			fulfilmentLists[listId].Items = append(fulfilmentLists[listId].Items, item)
-		}
-
-		for _, group := range grouped {
-			if group.ExtractedInvoice != nil {
-				if pl, ok := fulfilmentByInvoice[*group.ExtractedInvoice]; ok {
-					group.FulfilmentList = pl
-				}
-			}
-		}
-	}
 
 	var finalGrouped []*domain.DuplicateGroup
 	for _, g := range grouped {

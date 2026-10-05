@@ -175,7 +175,7 @@ const parsedNotes = computed(() => {
   if (refMatch) {
     const fullMatch = refMatch[0];
     const refCode = refMatch[1] || fullMatch.replace(/(?:Ref:|Invoice:|PO:)\s*/i, '');
-    let cleanText = notes.replace(fullMatch, '').replace(/[\(\)]/g, '').trim();
+    let cleanText = notes.replace(fullMatch, '').replace(/[()]/g, '').trim();
     if (cleanText.toLowerCase() === 'sale') cleanText = 'Penjualan';
 
     return {

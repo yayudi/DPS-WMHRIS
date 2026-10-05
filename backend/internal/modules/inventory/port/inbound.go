@@ -23,22 +23,6 @@ type LocationUseCase interface {
 	GetStockSample(ctx context.Context, locationID int) ([]inventory_dto.StockSampleResponse, error)
 }
 
-type FulfilmentUseCase interface {
-	GetPendingItems(ctx context.Context, filter inventory_dto.PendingFulfilmentFilter) ([]inventory_dto.PendingFulfilmentItemResponse, int, error)
-	GetPendingFilterOptions(ctx context.Context) (inventory_dto.PendingFilterOptionsResponse, error)
-	GetHistoryItems(ctx context.Context, limit int) ([]inventory_dto.HistoryFulfilmentItemResponse, error)
-	GetFulfilmentDetail(ctx context.Context, fulfilmentListID int) ([]inventory_dto.FulfilmentListDetailResponse, error)
-
-	CompleteFulfilmentItems(ctx context.Context, req inventory_dto.CompleteFulfilmentRequest, userID int) (string, []string, error)
-	VoidFulfilmentList(ctx context.Context, fulfilmentListID int, userID int) error
-	RetryBackorders(ctx context.Context, fulfilmentListID int) (string, error)
-	RetryBackordersBatch(ctx context.Context, req inventory_dto.RetryBackordersBatchRequest) (string, error)
-	AutoRecoverBackorderByProductID(ctx context.Context, productID int) error
-	ProcessSalesImport(ctx context.Context, jobID int, filePath string, source string, userID int, isDryRun bool, locationPurpose string, shopName string) error
-	ProcessKeljaSync(ctx context.Context, jobID int, userID int) error
-	UpdateKeljaHistories(ctx context.Context, listID int, histories string) error
-}
-
 type ReturnUseCase interface {
 	GetPendingReturns(ctx context.Context, params map[string]interface{}) ([]map[string]interface{}, int, error)
 	GetMarketplaceReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[domain.MarketplaceReturnItem], error)
@@ -72,8 +56,8 @@ type StockUseCase interface {
 }
 
 type StockTransactionUseCase interface {
-	CreateFulfillment(ctx context.Context, req inventory_dto.CreateFulfillmentRequest) (*domain.StockTransaction, error)
-	ExecuteFulfilment(ctx context.Context, req inventory_dto.ExecuteFulfilmentRequest, userID uint) error
+	CreateTransaction(ctx context.Context, req inventory_dto.CreateTransactionRequest) (*domain.StockTransaction, error)
+	ExecuteTransaction(ctx context.Context, req inventory_dto.ExecuteTransactionRequest, userID uint) error
 }
 
 type StockQueryUseCase interface {

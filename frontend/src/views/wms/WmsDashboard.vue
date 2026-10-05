@@ -5,7 +5,7 @@ import axios from '@/api/axios.js'
 import { ref, watch, computed, onMounted } from 'vue'
 import { useToast } from '@/composables/useToast.js'
 import { useWms } from '@/composables/useWMS.js'
-import { useAuthStore } from '@/stores/auth.js'
+
 import { useMagicKeys } from '@vueuse/core'
 import { transferStock, adjustStock } from '@/api/helpers/stock.js'
 import { useMasterDataStore } from '@/stores/masterData.js'
@@ -59,7 +59,6 @@ const {
   changePageSize
 } = useWms()
 
-const auth = useAuthStore()
 const { toast } = useToast()
 const { copyToClipboard } = useClipboard()
 const isHistoryModalOpen = ref(false)

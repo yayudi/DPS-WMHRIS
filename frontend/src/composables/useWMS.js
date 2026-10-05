@@ -173,9 +173,6 @@ export function useWms() {
         displayedProducts.value.push(...transformed)
       } else if (mode === 'silent') {
         const incomingMap = new Map(transformed.map(p => [p.id, p]))
-        let patchCount = 0
-        let realChangesCount = 0
-
         displayedProducts.value.forEach(existingProduct => {
           const updatedData = incomingMap.get(existingProduct.id)
           if (updatedData) {
@@ -198,8 +195,6 @@ export function useWms() {
                 console.log(`   Pajangan: ${existingProduct.stockPajangan} -> ${updatedData.stockPajangan}`)
               if (isLocationCodeChanged)
                 console.log(`   Loc Codes: ${existingProduct.allLocationsCode} -> ${updatedData.allLocationsCode}`)
-
-              realChangesCount++
             }
 
             existingProduct.stock_locations = updatedData.stock_locations
@@ -214,8 +209,6 @@ export function useWms() {
             existingProduct.name = updatedData.name
             existingProduct.sku = updatedData.sku
             existingProduct.price = updatedData.price
-            existingProduct.weight = updatedData.weight
-            patchCount++
           }
         })
       }

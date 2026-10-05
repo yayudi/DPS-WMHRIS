@@ -13,8 +13,6 @@ import (
 type InvestigationRepository interface {
 	GetDuplicateGroups(ctx context.Context, req inventory_dto.GetDuplicateTransactionsRequest) ([]domain.DuplicateTransactionItem, error)
 	CountDuplicateGroups(ctx context.Context, req inventory_dto.GetDuplicateTransactionsRequest) (int, error)
-	FindFulfilmentListDetailsByInvoices(ctx context.Context, invoiceIds []string) ([]map[string]interface{}, error)
-	FindFulfilmentListDetailsByItemIds(ctx context.Context, itemIds []int) ([]map[string]interface{}, error)
 }
 
 type LocationRepository interface {
@@ -31,45 +29,11 @@ type LocationRepository interface {
 	ReleaseStock(ctx context.Context, productID int, locationID int, qty int) error
 }
 
-type FulfilmentRepository interface {
-	GetPendingItems(ctx context.Context, filter inventory_dto.PendingFulfilmentFilter) ([]inventory_dto.PendingFulfilmentItemResponse, int, error)
-	GetPendingFilterOptions(ctx context.Context) (inventory_dto.PendingFilterOptionsResponse, error)
-	GetHistoryItems(ctx context.Context, limit int) ([]inventory_dto.HistoryFulfilmentItemResponse, error)
-	GetListDetails(ctx context.Context, fulfilmentListID int) ([]inventory_dto.FulfilmentListDetailResponse, error)
-
-	GetHeaderByID(ctx context.Context, id int) (*domain.FulfilmentList, error)
-	GetItemsByIDs(ctx context.Context, itemIDs []int) ([]domain.FulfilmentListItem, error)
-	CountPendingItems(ctx context.Context, fulfilmentListID int, statuses ...string) (int, error)
-
-	UpdateSuggestedLocation(ctx context.Context, itemID int, locationID *int) error
-	UpdateItemStatus(ctx context.Context, itemID int, status string) error
-	ValidateItem(ctx context.Context, itemID int, locationID int, status string) error
-	ValidateHeader(ctx context.Context, listID int, status string) error
-
-	VoidHeader(ctx context.Context, listID int) (int64, error)
-	VoidItemsByListID(ctx context.Context, listID int) error
-
-	CreateFulfilmentListTx(ctx context.Context, header *domain.FulfilmentList) (int, error)
-	CreateFulfilmentListItemTx(ctx context.Context, item *domain.FulfilmentListItem) (int, error)
-	ExistsByInvoiceNo(ctx context.Context, invoiceNo string) (bool, error)
-	UpdateKeljaIDByInvoiceNo(ctx context.Context, invoiceNo string, keljaID int) error
-	GetListIDByKeljaIDOrInvoiceNo(ctx context.Context, keljaID int, invoiceNo string) (*int, error)
-
-	GetItemsToRestock(ctx context.Context, listID int) ([]domain.FulfilmentListItem, error)
-	GetUnfulfillableItems(ctx context.Context, listID int) ([]domain.FulfilmentListItem, error)
-	GetUnfulfillableItemsByProductID(ctx context.Context, productID int) ([]domain.FulfilmentListItem, error)
-	GetPendingAndBackorderItems(ctx context.Context, listIDs []int) ([]domain.FulfilmentListItem, error)
-	UpdateKeljaHistories(ctx context.Context, listID int, histories string) error
-}
 
 type ReturnRepository interface {
 	GetPendingReturns(ctx context.Context, params map[string]interface{}) ([]map[string]interface{}, int, error)
 	GetMarketplaceReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[domain.MarketplaceReturnItem], error)
 	GetManualReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[domain.ManualReturnItem], error)
-	GetFulfilmentItemById(ctx context.Context, id int) (*domain.FulfilmentListItem, error)
-	CompleteReturnItem(ctx context.Context, itemID int, condition string, notes string, locationID int) error
-	DecreaseItemQty(ctx context.Context, itemID int, qtyToDeduct int) error
-	CreateSplitReturnItem(ctx context.Context, originItem *domain.FulfilmentListItem, qtyReturn int, condition string, notes string, locationID int) (int, error)
 	CreateManualReturn(ctx context.Context, manualReturn *domain.ManualReturn) error
 }
 
@@ -104,10 +68,5 @@ type StockQueryRepository interface {
 	GetBalances(ctx context.Context, locationID *int, productID *int) ([]inventory_dto.StockBalanceResponse, error)
 }
 
-type KeljaERPClient interface {
-	FetchFulfillments(ctx context.Context, page int, perPage int) ([]map[string]interface{}, error)
-	FetchAllFulfillments(ctx context.Context) ([]map[string]interface{}, error)
-	FetchFulfillmentDetail(ctx context.Context, fulfillmentID int) (map[string]interface{}, error)
-	SendCallbackDone(ctx context.Context, fulfillmentID int, expeditionID int, awb string, action string) error
-}
+
 

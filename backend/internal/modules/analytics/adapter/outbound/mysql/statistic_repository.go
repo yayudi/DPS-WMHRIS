@@ -511,233 +511,33 @@ func buildShopFilters(filters analytics_dto.StatisticFilterRequest, queryParams 
 }
 
 func (r *statisticRepositoryImpl) GetShopPerformanceStats(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.ShopPerformanceSummary, error) {
-	queryParams := []interface{}{}
-	filterSql := buildShopFilters(filters, &queryParams)
-
-	query := fmt.Sprintf(`
-		SELECT
-			pl.source,
-			COALESCE(pl.shop_name, 'Toko Tidak Diketahui') as shop_name,
-			COUNT(DISTINCT pl.id) as total_orders,
-			SUM(pli.quantity) as total_items_sold,
-			SUM(pli.quantity * pli.price) as total_revenue
-		FROM fulfilment_lists pl
-		JOIN fulfilment_list_items pli ON pl.id = pli.fulfilment_list_id
-		WHERE pl.order_date >= ?
-			AND pl.order_date <= ?
-			AND pl.status NOT IN ('CANCEL', 'OBSOLETE')
-			AND pl.is_active = 1
-			%s
-		GROUP BY pl.source, pl.shop_name
-		ORDER BY total_revenue DESC
-	`, filterSql)
-
-	fullParams := append([]interface{}{filters.StartDate, filters.EndDate}, queryParams...)
-	var rows []analytics_dto.ShopPerformanceSummary
-	err := r.db.SelectContext(ctx, &rows, query, fullParams...)
-	return rows, err
+	// TODO: Disabled during Fulfilment Teardown (Moved to Sales/Order Domain)
+	return nil, nil
 }
 
 func (r *statisticRepositoryImpl) GetDailySalesTrend(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.DailySalesTrend, error) {
-	queryParams := []interface{}{}
-	filterSql := buildShopFilters(filters, &queryParams)
-
-	query := fmt.Sprintf(`
-		SELECT
-			DATE(pl.order_date) as date,
-			COUNT(DISTINCT pl.id) as total_orders,
-			SUM(pli.quantity) as total_items_sold,
-			SUM(pli.quantity * pli.price) as total_revenue
-		FROM fulfilment_lists pl
-		JOIN fulfilment_list_items pli ON pl.id = pli.fulfilment_list_id
-		WHERE pl.order_date >= ?
-			AND pl.order_date <= ?
-			AND pl.status NOT IN ('CANCEL', 'OBSOLETE')
-			AND pl.is_active = 1
-			%s
-		GROUP BY DATE(pl.order_date)
-		ORDER BY date ASC
-	`, filterSql)
-
-	fullParams := append([]interface{}{filters.StartDate, filters.EndDate}, queryParams...)
-	var rows []analytics_dto.DailySalesTrend
-	err := r.db.SelectContext(ctx, &rows, query, fullParams...)
-	return rows, err
+	// TODO: Disabled during Fulfilment Teardown (Moved to Sales/Order Domain)
+	return nil, nil
 }
 
 func (r *statisticRepositoryImpl) GetTopSellingProducts(ctx context.Context, filters analytics_dto.StatisticFilterRequest, limit int) ([]analytics_dto.TopSellingProduct, error) {
-	queryParams := []interface{}{}
-	filterSql := buildShopFilters(filters, &queryParams)
-
-	query := fmt.Sprintf(`
-		SELECT
-			pl.source,
-			COALESCE(pl.shop_name, 'Toko Tidak Diketahui') as shop_name,
-			p.sku,
-			p.name as product_name,
-			SUM(pli.quantity) as total_sold,
-			SUM(pli.quantity * pli.price) as revenue
-		FROM fulfilment_lists pl
-		JOIN fulfilment_list_items pli ON pl.id = pli.fulfilment_list_id
-		JOIN products p ON pli.product_id = p.id
-		WHERE pl.order_date >= ?
-			AND pl.order_date <= ?
-			AND pl.status NOT IN ('CANCEL', 'OBSOLETE')
-			AND pl.is_active = 1
-			%s
-		GROUP BY pl.source, pl.shop_name, p.id
-		ORDER BY total_sold DESC
-		LIMIT ?
-	`, filterSql)
-
-	fullParams := append([]interface{}{filters.StartDate, filters.EndDate}, queryParams...)
-	fullParams = append(fullParams, limit)
-	var rows []analytics_dto.TopSellingProduct
-	err := r.db.SelectContext(ctx, &rows, query, fullParams...)
-	return rows, err
+	// TODO: Disabled during Fulfilment Teardown (Moved to Sales/Order Domain)
+	return nil, nil
 }
 
 func (r *statisticRepositoryImpl) GetFulfillmentHealth(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.FulfillmentHealth, error) {
-	queryParams := []interface{}{}
-	filterSql := buildShopFilters(filters, &queryParams)
-
-	query := fmt.Sprintf(`
-		SELECT
-			pl.source,
-			COALESCE(pl.shop_name, 'Toko Tidak Diketahui') as shop_name,
-			COUNT(*) as total_orders,
-			SUM(CASE WHEN pl.status IN ('COMPLETED', 'SHIPPED', 'PACKED') THEN 1 ELSE 0 END) as completed_orders,
-			SUM(CASE WHEN pl.status = 'CANCEL' THEN 1 ELSE 0 END) as cancelled_orders,
-			SUM(CASE WHEN pl.status = 'RETURNED' THEN 1 ELSE 0 END) as returned_orders,
-			SUM(CASE WHEN pl.status = 'PENDING' THEN 1 ELSE 0 END) as pending_orders
-		FROM fulfilment_lists pl
-		WHERE pl.order_date >= ?
-			AND pl.order_date <= ?
-			AND pl.is_active = 1
-			%s
-		GROUP BY pl.source, pl.shop_name
-		ORDER BY total_orders DESC
-	`, filterSql)
-
-	fullParams := append([]interface{}{filters.StartDate, filters.EndDate}, queryParams...)
-	var rows []analytics_dto.FulfillmentHealth
-	err := r.db.SelectContext(ctx, &rows, query, fullParams...)
-	return rows, err
+	// TODO: Disabled during Fulfilment Teardown (Moved to Sales/Order Domain)
+	return nil, nil
 }
 
 func (r *statisticRepositoryImpl) GetPeriodComparison(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.PeriodComparison, error) {
-	queryParams := []interface{}{}
-	filterSql := buildShopFilters(filters, &queryParams)
-
-	query := fmt.Sprintf(`
-		SELECT
-			CASE
-				WHEN pl.order_date >= ? AND pl.order_date <= ? THEN 'current'
-				WHEN pl.order_date >= ? AND pl.order_date <= ? THEN 'previous'
-			END as period,
-			COUNT(DISTINCT pl.id) as total_orders,
-			SUM(pli.quantity) as total_items_sold,
-			SUM(pli.quantity * pli.price) as total_revenue
-		FROM fulfilment_lists pl
-		JOIN fulfilment_list_items pli ON pl.id = pli.fulfilment_list_id
-		WHERE (
-				(pl.order_date >= ? AND pl.order_date <= ?)
-				OR (pl.order_date >= ? AND pl.order_date <= ?)
-			)
-			AND pl.status NOT IN ('CANCEL', 'OBSOLETE')
-			AND pl.is_active = 1
-			%s
-		GROUP BY period
-	`, filterSql)
-
-	// Go translates row responses into a helper struct, we'll return two rows inside PeriodComparison (manually in service)
-	// But actually for simplicity, we map directly to an anonymous struct here and return
-	type row struct {
-		Period         string  `db:"period"`
-		TotalOrders    float64 `db:"total_orders"`
-		TotalItemsSold float64 `db:"total_items_sold"`
-		TotalRevenue   float64 `db:"total_revenue"`
-	}
-
-	fullParams := []interface{}{
-		filters.StartDate, filters.EndDate,
-		filters.PrevStartDate, filters.PrevEndDate,
-		filters.StartDate, filters.EndDate,
-		filters.PrevStartDate, filters.PrevEndDate,
-	}
-	fullParams = append(fullParams, queryParams...)
-
-	var rawRows []row
-	err := r.db.SelectContext(ctx, &rawRows, query, fullParams...)
-	if err != nil {
-		return nil, err
-	}
-
-	var comp analytics_dto.PeriodComparison
-	for _, r := range rawRows {
-		if r.Period == "current" {
-			comp.Current.TotalOrders = r.TotalOrders
-			comp.Current.TotalItemsSold = r.TotalItemsSold
-			comp.Current.TotalRevenue = r.TotalRevenue
-		} else if r.Period == "previous" {
-			comp.Previous.TotalOrders = r.TotalOrders
-			comp.Previous.TotalItemsSold = r.TotalItemsSold
-			comp.Previous.TotalRevenue = r.TotalRevenue
-		}
-	}
-	return []analytics_dto.PeriodComparison{comp}, nil // service expects one but we return as slice to match interface or simply return one
+	// TODO: Disabled during Fulfilment Teardown (Moved to Sales/Order Domain)
+	return nil, nil
 }
 
 func (r *statisticRepositoryImpl) GetPackageComponentAnalysis(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.PackageComponentDBRow, error) {
-	queryParams := []interface{}{filters.StartDate, filters.EndDate}
-	searchFilter := ""
-
-	if filters.SearchQuery != "" {
-		searchFilter = " AND (cp.sku LIKE ? OR cp.name LIKE ?)"
-		likeTerm := "%" + filters.SearchQuery + "%"
-		queryParams = append(queryParams, likeTerm, likeTerm)
-	}
-
-	cClauses := buildStatisticTriStateWhere("cp.category_id", filters.CategoryId, &queryParams)
-	if len(cClauses) > 0 {
-		searchFilter += " AND " + strings.Join(cClauses, " AND ")
-	}
-
-	query := fmt.Sprintf(`
-		SELECT
-			cp.id as component_product_id,
-			cp.sku as component_sku,
-			cp.name as component_name,
-			cp.category_id as component_category_id,
-			COALESCE((SELECT SUM(quantity) FROM stock_locations WHERE product_id = cp.id), 0) as current_stock,
-			pp.sku as package_sku,
-			pp.name as package_name,
-			pp.category_id as package_category_id,
-			COALESCE(s_mov.comp_needed, 0) / pc.quantity_per_package as sold,
-			pc.quantity_per_package as qty_per_package,
-			COALESCE(s_mov.comp_needed, 0) as subtotal_needed
-		FROM products cp
-		JOIN package_components pc ON cp.id = pc.component_product_id
-		JOIN products pp ON pc.package_product_id = pp.id
-		LEFT JOIN (
-				SELECT pli.original_sku, pli.product_id, SUM(pli.quantity) as comp_needed
-				FROM fulfilment_list_items pli
-				JOIN fulfilment_lists pl ON pli.fulfilment_list_id = pl.id
-				WHERE pl.status NOT IN ('CANCEL', 'OBSOLETE')
-					AND pl.is_active = 1
-					AND COALESCE(pl.order_date, pl.created_at) >= ?
-					AND COALESCE(pl.order_date, pl.created_at) <= CONCAT(?, ' 23:59:59')
-				GROUP BY pli.original_sku, pli.product_id
-		) s_mov ON pp.sku = s_mov.original_sku AND cp.id = s_mov.product_id
-		WHERE cp.is_package = 0 AND pp.is_active = 1
-		%s
-		HAVING subtotal_needed > 0
-		ORDER BY cp.id, subtotal_needed DESC
-	`, searchFilter)
-
-	var rows []analytics_dto.PackageComponentDBRow
-	err := r.db.SelectContext(ctx, &rows, query, queryParams...)
-	return rows, err
+	// TODO: Disabled during Fulfilment Teardown (Moved to Sales/Order Domain)
+	return nil, nil
 }
 
 func (r *statisticRepositoryImpl) GetLocationLoads(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.LocationLoad, error) {

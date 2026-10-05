@@ -46,14 +46,13 @@ type Container struct {
 	ReportHandler          *analytics_handler.ReportHandler
 	StatisticHandler       *analytics_handler.StatisticHandler
 	ShiftHandler           *hris_handler.ShiftHandler
-	FulfilmentHandler         *inventory_http.FulfilmentHandler
 	ScheduleHandler        *hris_handler.ScheduleHandler
 	AttendanceHandler      *hris_handler.AttendanceHandler
 }
 
 func NewContainer(systemLogHandler *system_handler.SystemLogHandler, roleHandler *iam_handler.RoleHandler, userHandler *iam_handler.UserHandler, adminUserHandler *iam_handler.AdminUserHandler, salesChannelHandler *inventory_http.SalesChannelHandler, paperSizeHandler *misc_handler.PaperSizeHandler, stickerTemplateHandler *misc_handler.StickerTemplateHandler, notificationHandler *system_handler.NotificationHandler, jobHandler *system_handler.JobHandler, uploadHandler *system_handler.UploadHandler, mediaHandler *system_handler.MediaHandler, categoryHandler *catalog_handler.CategoryHandler,
 	eventBus eventbus.EventBus,
-	logListener *system_event.LogListener, productHandler *catalog_handler.ProductHandler, locationHandler *inventory_http.LocationHandler, stockHandler *inventory_http.StockHandler, stockRequestHandler *inventory_http.StockRequestHandler, stockTransactionHandler *inventory_http.StockTransactionHandler, stockQueryHandler *inventory_http.StockQueryHandler, packageHandler *catalog_handler.PackageHandler, returnHandler *inventory_http.ReturnHandler, investigationHandler *inventory_http.InvestigationHandler, statsHandler *analytics_handler.StatsHandler, reportHandler *analytics_handler.ReportHandler, statisticHandler *analytics_handler.StatisticHandler, shiftHandler *hris_handler.ShiftHandler, fulfilmentHandler *inventory_http.FulfilmentHandler, scheduleHandler *hris_handler.ScheduleHandler, attendanceHandler *hris_handler.AttendanceHandler) *Container {
+	logListener *system_event.LogListener, productHandler *catalog_handler.ProductHandler, locationHandler *inventory_http.LocationHandler, stockHandler *inventory_http.StockHandler, stockRequestHandler *inventory_http.StockRequestHandler, stockTransactionHandler *inventory_http.StockTransactionHandler, stockQueryHandler *inventory_http.StockQueryHandler, packageHandler *catalog_handler.PackageHandler, returnHandler *inventory_http.ReturnHandler, investigationHandler *inventory_http.InvestigationHandler, statsHandler *analytics_handler.StatsHandler, reportHandler *analytics_handler.ReportHandler, statisticHandler *analytics_handler.StatisticHandler, shiftHandler *hris_handler.ShiftHandler, scheduleHandler *hris_handler.ScheduleHandler, attendanceHandler *hris_handler.AttendanceHandler) *Container {
 	return &Container{
 		SystemLogHandler:       systemLogHandler,
 		RoleHandler:            roleHandler,
@@ -82,7 +81,6 @@ func NewContainer(systemLogHandler *system_handler.SystemLogHandler, roleHandler
 		ReportHandler:          reportHandler,
 		StatisticHandler:       statisticHandler,
 		ShiftHandler:           shiftHandler,
-		FulfilmentHandler:         fulfilmentHandler,
 		ScheduleHandler:        scheduleHandler,
 		AttendanceHandler:      attendanceHandler,
 	}
@@ -99,11 +97,9 @@ type WorkerContainer struct {
 	MediaService      system_usecase.MediaService
 	AttendanceService hris_port.AttendanceUseCase
 	ScheduleService   hris_port.ScheduleUseCase
-	FulfilmentService    inventory_port.FulfilmentUseCase
 	StockService      inventory_port.StockUseCase
 	ProductService    catalog_port.ProductUseCase
 	StockTransactionService inventory_port.StockTransactionUseCase
-	KeljaClient       inventory_port.KeljaERPClient
 }
 
 func NewWorkerContainer(
@@ -116,11 +112,9 @@ func NewWorkerContainer(
 	mediaService system_usecase.MediaService,
 	attendanceService hris_port.AttendanceUseCase,
 	scheduleService hris_port.ScheduleUseCase,
-	fulfilmentService inventory_port.FulfilmentUseCase,
 	stockService inventory_port.StockUseCase,
 	productService catalog_port.ProductUseCase,
 	stockTransactionService inventory_port.StockTransactionUseCase,
-	keljaClient inventory_port.KeljaERPClient,
 ) *WorkerContainer {
 	return &WorkerContainer{
 		JobService:        jobService,
@@ -132,10 +126,8 @@ func NewWorkerContainer(
 		MediaService:      mediaService,
 		AttendanceService: attendanceService,
 		ScheduleService:   scheduleService,
-		FulfilmentService:    fulfilmentService,
 		StockService:      stockService,
 		ProductService:    productService,
 		StockTransactionService: stockTransactionService,
-		KeljaClient:       keljaClient,
 	}
 }

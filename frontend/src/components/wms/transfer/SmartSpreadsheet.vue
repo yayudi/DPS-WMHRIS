@@ -287,7 +287,7 @@ function setRowWarning(ws, y, isWarning) {
             td.style.color = ''
           }
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     }

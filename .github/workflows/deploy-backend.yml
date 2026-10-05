@@ -1,0 +1,83 @@
+name: Deploy Backend to VPS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+          cache-dependency-path: backend/go.sum
+
+      - name: Run Backend Tests
+        working-directory: ./backend
+        run: go test ./internal/...
+
+      - name: Determine Environment
+        id: env_check
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            ENV_TARGET="prod"
+          elif [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+            ENV_TARGET="dev"
+          else
+            echo "Error: Deployment is only allowed from the main or dev branches!"
+            exit 1
+          fi
+          echo "ENV_TARGET=$ENV_TARGET" >> $GITHUB_ENV
+
+      - name: Build Backend Binaries (Linux)
+        working-directory: ./backend
+        run: |
+          go mod tidy
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o api ./cmd/api
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o worker ./cmd/worker
+
+      - name: Deploy Backend Binaries to VPS via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ env.ENV_TARGET == 'prod' && secrets.VPS_IP || secrets.DEV_VPS_IP }}
+          username: ${{ env.ENV_TARGET == 'prod' && secrets.VPS_USERNAME || secrets.DEV_VPS_USERNAME }}
+          key: ${{ env.ENV_TARGET == 'prod' && secrets.SSH_PRIVATE_KEY || secrets.DEV_SSH_PRIVATE_KEY }}
+          source: "backend/api,backend/worker"
+          target: ${{ env.ENV_TARGET == 'prod' && 'wms-service-prod' || 'wms-service-dev' }}
+          strip_components: 1
+
+      - name: Deploy Config Files to VPS via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ env.ENV_TARGET == 'prod' && secrets.VPS_IP || secrets.DEV_VPS_IP }}
+          username: ${{ env.ENV_TARGET == 'prod' && secrets.VPS_USERNAME || secrets.DEV_VPS_USERNAME }}
+          key: ${{ env.ENV_TARGET == 'prod' && secrets.SSH_PRIVATE_KEY || secrets.DEV_SSH_PRIVATE_KEY }}
+          source: "docker-compose.yml"
+          target: ${{ env.ENV_TARGET == 'prod' && 'wms-service-prod' || 'wms-service-dev' }}
+
+      - name: Restart Backend Services via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.ENV_TARGET == 'prod' && secrets.VPS_IP || secrets.DEV_VPS_IP }}
+          username: ${{ env.ENV_TARGET == 'prod' && secrets.VPS_USERNAME || secrets.DEV_VPS_USERNAME }}
+          key: ${{ env.ENV_TARGET == 'prod' && secrets.SSH_PRIVATE_KEY || secrets.DEV_SSH_PRIVATE_KEY }}
+          script: |
+            if [ "${{ env.ENV_TARGET }}" = "prod" ]; then
+              cd wms-service-prod
+              if [ -n "${{ secrets.WMS_ENV_PROD }}" ]; then
+                echo "${{ secrets.WMS_ENV_PROD }}" > .env
+              fi
+            else
+              cd wms-service-dev
+              if [ -n "${{ secrets.WMS_ENV_DEV }}" ]; then
+                echo "${{ secrets.WMS_ENV_DEV }}" > .env
+              fi
+            fi
+
+            chmod +x api worker
+
+            docker compose up -d --remove-orphans

@@ -29,18 +29,16 @@ type stockServiceImpl struct {
 	productRepo  catalog_port.ProductRepository
 	locationRepo inventory_port.LocationRepository
 	userRepo     iam_port.UserRepository
-	fulfilmentRepo  inventory_port.FulfilmentRepository
 	eventBus     eventbus.EventBus
 }
 
-func NewStockUseCase(txManager database.TransactionManager, stockRepo inventory_port.StockRepository, productRepo catalog_port.ProductRepository, locationRepo inventory_port.LocationRepository, userRepo iam_port.UserRepository, fulfilmentRepo inventory_port.FulfilmentRepository, eventBus eventbus.EventBus) inventory_port.StockUseCase {
+func NewStockUseCase(txManager database.TransactionManager, stockRepo inventory_port.StockRepository, productRepo catalog_port.ProductRepository, locationRepo inventory_port.LocationRepository, userRepo iam_port.UserRepository, eventBus eventbus.EventBus) inventory_port.StockUseCase {
 	return &stockServiceImpl{
 		txManager:    txManager,
 		stockRepo:    stockRepo,
 		productRepo:  productRepo,
 		locationRepo: locationRepo,
 		userRepo:     userRepo,
-		fulfilmentRepo:  fulfilmentRepo,
 		eventBus:     eventBus,
 	}
 }
@@ -547,39 +545,7 @@ func (s *stockServiceImpl) GenerateInboundTemplate(ctx context.Context) (*exceli
 }
 
 func (s *stockServiceImpl) ValidateReturn(ctx context.Context, req inventory_dto.ValidateReturnRequest, userID int) error {
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		items, err := s.fulfilmentRepo.GetItemsByIDs(ctx, []int{req.FulfilmentListItemID})
-		if err != nil {
-			return err
-		}
-		if len(items) == 0 {
-			return errors.New("Item retur tidak ditemukan atau sudah diproses.")
-		}
-		item := items[0]
-		if item.Status != "RETURNED" {
-			return errors.New("Item retur tidak dalam status RETURNED.")
-		}
-
-		err = s.locationRepo.IncrementStock(ctx, item.ProductID, req.ReturnToLocationID, item.Quantity)
-		if err != nil {
-			return err
-		}
-
-		notes := fmt.Sprintf("Validasi Retur Item ID: %d", req.FulfilmentListItemID)
-		err = s.recordMovementAndPublish(ctx, &domain.StockMovement{
-			ProductID:    item.ProductID,
-			Quantity:     item.Quantity,
-			ToLocationID: &req.ReturnToLocationID,
-			MovementType: "RETURN",
-			UserID:       userID,
-			Notes:        notes,
-		})
-		if err != nil {
-			return err
-		}
-
-		return s.fulfilmentRepo.UpdateItemStatus(ctx, item.ID, "COMPLETED_RETURN")
-	})
+	return errors.New("Fitur ValidateReturn sudah dinonaktifkan (Fulfilment Teardown)")
 }
 
 func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) error {

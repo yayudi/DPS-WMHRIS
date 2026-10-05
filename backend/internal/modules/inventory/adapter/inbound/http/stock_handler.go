@@ -272,26 +272,6 @@ func (h *StockHandler) BatchTransfer(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "Batch transfer berhasil.", nil)
 }
 
-func (h *StockHandler) ValidateReturn(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[inventory_dto.ValidateReturnRequest](c)
-	if !ok {
-		return
-	}
-	req := *req_ptr
-	userID := getUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
-		return
-	}
-
-	err := h.stockService.ValidateReturn(c.Request.Context(), req, userID)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
-		return
-	}
-	utils.RawResponse(c, http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("Item (ID: %d) berhasil divalidasi.", req.FulfilmentListItemID)})
-}
-
 func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {
 	req_ptr, ok := utils.BindAndValidate[inventory_dto.BatchLogExportRequest](c)
 	if !ok {
