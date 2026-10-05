@@ -55,12 +55,12 @@ func main() {
 	reportHandler := container.ReportHandler
 	statisticHandler := container.StatisticHandler
 	shiftHandler := container.ShiftHandler
-	fulfilmentHandler := container.FulfilmentHandler
 	scheduleHandler := container.ScheduleHandler
 	attendanceHandler := container.AttendanceHandler
 
 	// Setup Router
 	r := gin.Default()
+	_ = r.SetTrustedProxies(nil) // Menonaktifkan peringatan "You trusted all proxies"
 	r.Static("/assets", "./assets")
 	r.Use(middleware.GlobalErrorHandler())
 
@@ -138,7 +138,7 @@ func main() {
 			wms := protected.Group("/wms")
 			{
 				wms.GET("/stock-balances", stockQueryHandler.GetBalances)
-				wms.POST("/transactions/fulfillment", stockTransactionHandler.CreateFulfillment)
+				wms.POST("/transactions/create", stockTransactionHandler.CreateTransaction)
 			}
 
 			// Stock Movements
@@ -156,7 +156,6 @@ func main() {
 
 				// New endpoints for Stock matching Node.js
 				stock.POST("/batch-transfer", middleware.RequireAnyPermission(db, "stock_batch.manage", "stock_batch.move"), stockHandler.BatchTransfer)
-				stock.POST("/validate-return", stockHandler.ValidateReturn)
 				stock.POST("/batch-log/export", stockHandler.RequestBatchLogExport)
 				stock.GET("/template/inbound", stockHandler.GetInboundTemplate)
 				stock.GET("/download-adjustment-template", stockHandler.DownloadAdjustmentTemplate)
@@ -238,20 +237,6 @@ func main() {
 				products.DELETE("/:id/images/:imageId", middleware.RequireAnyPermission(db, "product_image.upload", "product_image.delete"), productHandler.DeleteProductImage)
 			}
 
-			// Fulfilment
-			fulfilment := protected.Group("/fulfilment")
-			{
-				fulfilment.POST("/upload-and-validate", middleware.RequirePermission(db, "fulfilment_list.upload"), fulfilmentHandler.UploadAndValidate)
-				fulfilment.POST("/sync-kelja", middleware.RequirePermission(db, "fulfilment_list.upload"), fulfilmentHandler.SyncKelja)
-				fulfilment.GET("/pending-filter-options", fulfilmentHandler.GetPendingFilterOptions)
-				fulfilment.GET("/pending-items", fulfilmentHandler.GetPendingItems)
-				fulfilment.GET("/history-items", fulfilmentHandler.GetHistoryItems)
-				fulfilment.GET("/:id", fulfilmentHandler.GetFulfilmentDetail)
-				fulfilment.POST("/complete-items", middleware.RequirePermission(db, "fulfilment_list.confirm"), fulfilmentHandler.CompleteItems)
-				fulfilment.POST("/void/:id", middleware.RequirePermission(db, "fulfilment_list.void"), fulfilmentHandler.VoidFulfilmentList)
-				fulfilment.POST("/:id/retry-backorders", fulfilmentHandler.RetryBackorders)
-				fulfilment.POST("/retry-backorders-batch", fulfilmentHandler.RetryBackordersBatch)
-			}
 
 			// RBAC
 			roles := protected.Group("/admin/roles", middleware.RequirePermission(db, "role.manage"))

@@ -154,29 +154,6 @@ const routes = [
         meta: { requiresPermission: 'stock_batch.move' }
       },
       {
-        path: 'fulfilment',
-        component: () => import('../views/wms/FulfilmentList.vue'),
-        meta: { requiresPermission: 'fulfilment_list.upload' },
-        children: [
-          { path: '', redirect: { name: 'WMSFulfilmentTasks' } },
-          {
-            path: 'tasks',
-            name: 'WMSFulfilmentTasks',
-            component: () => import('../components/fulfilment/FulfilmentTaskTab.vue')
-          },
-          {
-            path: 'history',
-            name: 'WMSFulfilmentHistory',
-            component: () => import('../components/fulfilment/FulfilmentHistoryTab.vue')
-          },
-          {
-            path: 'process/:id',
-            name: 'WMSFulfilmentProcess',
-            component: () => import('../components/fulfilment/FulfilmentProcessTab.vue')
-          }
-        ]
-      },
-      {
         path: 'batch-log',
         name: 'WMSBatchLog',
         component: () => import('../views/wms/BatchLogs.vue'),

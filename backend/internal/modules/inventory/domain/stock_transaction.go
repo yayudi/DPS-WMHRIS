@@ -7,8 +7,8 @@ import (
 
 var (
 	ErrInvalidQuantity        = errors.New("invalid quantity")
-	ErrCrossBuildingFulfilment   = errors.New("cross building fulfilment is not allowed for this transaction")
-	ErrInvalidLocationPurpose = errors.New("location purpose is not allowed for fulfilment")
+	ErrCrossBuildingProcess   = errors.New("cross building process is not allowed for this transaction")
+	ErrInvalidLocationPurpose = errors.New("location purpose is not allowed for processing")
 )
 
 type TransactionMovementLine struct {
@@ -57,17 +57,17 @@ func (st *StockTransaction) AddDemand(productID uint, targetQty int) error {
 	return nil
 }
 
-func (st *StockTransaction) FulfillLine(movementID uint, scannedLoc *Location, qty int, scannedBy uint) error {
+func (st *StockTransaction) ProcessLine(movementID uint, scannedLoc *Location, qty int, scannedBy uint) error {
 	if qty <= 0 {
 		return ErrInvalidQuantity
 	}
 
-	// Guard Clause: Prevent cross building fulfilment
+	// Guard Clause: Prevent cross building process
 	if scannedLoc.Building != st.AssignedBuilding {
-		return ErrCrossBuildingFulfilment
+		return ErrCrossBuildingProcess
 	}
 
-	// Guard Clause: Only allow fulfilment from WAREHOUSE or DISPLAY
+	// Guard Clause: Only allow processing from WAREHOUSE or DISPLAY
 	if scannedLoc.Purpose != "WAREHOUSE" && scannedLoc.Purpose != "DISPLAY" {
 		return ErrInvalidLocationPurpose
 	}
@@ -94,18 +94,18 @@ func (st *StockTransaction) FulfillLine(movementID uint, scannedLoc *Location, q
 		CreatedAt:         time.Now(),
 	})
 
-	if targetMove.IsFullyFulfilled() {
+	if targetMove.IsCompleted() {
 		targetMove.Status = "COMPLETED"
 	}
 
-	if st.IsFullyFulfilled() {
+	if st.IsCompleted() {
 		st.Status = "COMPLETED"
 	}
 
 	return nil
 }
 
-func (tm *TransactionMovement) IsFullyFulfilled() bool {
+func (tm *TransactionMovement) IsCompleted() bool {
 	totalQtyDone := 0
 	for _, line := range tm.Lines {
 		totalQtyDone += line.QtyDone
@@ -113,9 +113,9 @@ func (tm *TransactionMovement) IsFullyFulfilled() bool {
 	return totalQtyDone >= tm.TargetQuantity
 }
 
-func (st *StockTransaction) IsFullyFulfilled() bool {
+func (st *StockTransaction) IsCompleted() bool {
 	for _, m := range st.Movements {
-		if !m.IsFullyFulfilled() {
+		if !m.IsCompleted() {
 			return false
 		}
 	}

@@ -67,13 +67,7 @@
               >
                 Sale Ref
               </button>
-              <button
-                type="button"
-                @click="filters.includeNotes = 'Fulfilment'"
-                class="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded hover:bg-primary/20"
-              >
-                Fulfilment
-              </button>
+
               <button
                 type="button"
                 @click="filters.includeNotes = 'Opname'"
@@ -403,16 +397,6 @@
 
               <div class="text-xs flex space-x-2">
                 <span
-                  v-if="group.fulfilmentList"
-                  class="px-2 py-1 bg-background rounded border border-secondary/30 text-text/80 text-sm font-medium"
-                  >{{ group.fulfilmentList.source }}</span
-                >
-                <span
-                  v-if="group.fulfilmentList"
-                  class="px-2 py-1 bg-background rounded border border-secondary/30 text-text/80 text-sm font-medium"
-                  >{{ group.fulfilmentList.status }}</span
-                >
-                <span
                   class="px-2 py-1 bg-background rounded border border-secondary/30 text-text/80 text-sm font-medium"
                 >
                   {{ group.movementType }}
@@ -434,66 +418,7 @@
               v-show="openGroups.includes(idx)"
               class="bg-secondary/10 p-4 border-t border-secondary/20 inset-shadow"
             >
-              <!-- NEW: Detail Fulfilment at Group Level -->
-              <div
-                v-if="group.fulfilmentList"
-                class="mb-5 border border-primary/20 rounded-lg bg-background overflow-hidden shadow-sm"
-              >
-                <div class="p-3 text-sm grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p>
-                      <span class="text-text/60 inline-block w-24">Customer:</span>
-                      <strong class="text-text">{{ group.fulfilmentList.customerName || '-' }}</strong>
-                    </p>
-                    <p>
-                      <span class="text-text/60 inline-block w-24">Shop:</span>
-                      <span class="text-text">{{ group.fulfilmentList.shopName || '-' }}</span>
-                    </p>
-                  </div>
-                  <div>
-                    <p>
-                      <span class="text-text/60 inline-block w-24">Order Date:</span>
-                      <span class="text-text">{{ formatDate(group.fulfilmentList.orderDate) }}</span>
-                    </p>
-                  </div>
-                </div>
 
-                <!-- Items -->
-                <div class="bg-secondary/5 border-t border-secondary/20 p-3">
-                  <h5 class="text-xs font-semibold text-text/70 uppercase mb-2">Item dalam Pesanan</h5>
-                  <table class="min-w-full divide-y divide-secondary/20 text-xs">
-                    <thead>
-                      <tr class="text-left text-text/60">
-                        <th class="pb-1">SKU Asli</th>
-                        <th class="pb-1">Produk (WMS)</th>
-                        <th class="pb-1 text-right">Qty</th>
-                        <th class="pb-1 pl-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-secondary/10">
-                      <tr
-                        v-for="item in group.fulfilmentList.items"
-                        :key="item.itemId"
-                        class="hover:bg-secondary/10 text-text"
-                      >
-                        <td class="py-1">{{ item.originalSku }}</td>
-                        <td class="py-1">{{ item.productName || '-' }}</td>
-                        <td class="py-1 text-right">{{ item.quantity }}</td>
-                        <td class="py-1 pl-3">
-                          <span
-                            class="px-1.5 py-0.5 rounded text-[10px]"
-                            :class="
-                              item.status === 'COMPLETED' ? 'bg-success/10 text-success' : 'bg-accent/10 text-accent'
-                            "
-                          >
-                            {{ item.status }}
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
 
               <h4 class="font-semibold text-text text-sm mb-3 border-b border-secondary/20 pb-2">
                 Riwayat Mutasi Stok (Duplikat)
@@ -584,19 +509,7 @@
                         <td colspan="5" class="p-0 border-t border-secondary/10 bg-secondary/20 inset-shadow">
                           <div class="px-8 py-3 text-sm flex items-start justify-between border-l-2 border-primary/30">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
-                              <div>
-                                <span class="text-xs text-text/50 block mb-1">Fulfilment Item ID</span>
-                                <span
-                                  class="font-mono text-primary font-medium bg-primary/10 border border-primary/20 px-2 py-0.5 rounded"
-                                >
-                                  <font-awesome-icon icon="fa-solid fa-tag" class="mr-1 text-xs" />
-                                  {{
-                                    extractItemId(trx.notes) !== '-'
-                                      ? '#' + extractItemId(trx.notes)
-                                      : 'Tidak Terdeteksi'
-                                  }}
-                                </span>
-                              </div>
+
                               <div>
                                 <span class="text-xs text-text/50 block mb-1">Catatan Sistem Asli</span>
                                 <span
@@ -686,7 +599,7 @@ const {
 } = useInvestigationFilters()
 
 // 2. Logic via Composable
-const { formatDate, extractItemId, groupTransactionsBySku } = useInvestigationLogic()
+const { formatDate, groupTransactionsBySku } = useInvestigationLogic()
 
 const confirmRevert = async trx => {
   if (trx.notes && (trx.notes.includes('Reversal') || trx.notes.includes('[REVERTED]'))) return
@@ -721,9 +634,7 @@ const exportToCSV = () => {
 
   const headers = [
     'Invoice / Group',
-    'Source',
-    'PL Status',
-    'Customer',
+
     'SKU',
     'Product Name',
     'Waktu Eksekusi',
@@ -732,7 +643,7 @@ const exportToCSV = () => {
     'Qty',
     'User',
     'ID Trx',
-    'Fulfilment Item ID',
+
     'Catatan Asli'
   ]
   const rows = [headers]
@@ -742,9 +653,7 @@ const exportToCSV = () => {
       rows.push(
         [
           group.baseNote,
-          group.fulfilmentList?.source || '-',
-          group.fulfilmentList?.status || '-',
-          group.fulfilmentList?.customerName || '-',
+
           trx.sku,
           trx.productName,
           formatDate(trx.createdAt).replace(/,/g, ''),
@@ -753,7 +662,7 @@ const exportToCSV = () => {
           trx.quantity,
           trx.username || `ID: ${trx.userId}`,
           trx.id,
-          extractItemId(trx.notes),
+
           trx.notes
         ].map(field => `"${String(field || '').replace(/"/g, '""')}"`)
       )

@@ -41,6 +41,8 @@ scratch_*
 /frontend/bundle-stats.html
 migrations/
 gosec*
+api
+worker
 
 # ===================================================================
 # IDE & EDITORS

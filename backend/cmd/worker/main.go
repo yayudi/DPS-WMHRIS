@@ -1,15 +1,7 @@
 package main
 
 import (
-	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
-
-	analytics_usecase "github.com/dps-wmhris/backend/internal/modules/analytics/application/usecase"
-	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
-	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
-	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
-
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -19,13 +11,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+
+	analytics_usecase "github.com/dps-wmhris/backend/internal/modules/analytics/application/usecase"
 	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
 	hris_port "github.com/dps-wmhris/backend/internal/modules/hris/port"
+	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/inbound/rabbitmq"
+	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
+	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
+	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
 	"github.com/dps-wmhris/backend/internal/shared/config"
 	"github.com/dps-wmhris/backend/internal/shared/database"
-	"github.com/dps-wmhris/backend/internal/shared/eventbus"
-	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/inbound/rabbitmq"
-	"github.com/jmoiron/sqlx"
 )
 
 func main() {
@@ -47,88 +44,18 @@ func main() {
 	eventBus := container.EventBus
 	
 	// Register StockConsumer
-	inventoryRabbitMQ := rabbitmq.NewStockConsumer(container.FulfilmentService)
+	inventoryRabbitMQ := rabbitmq.NewStockConsumer(container.StockService, db)
 	if err := inventoryRabbitMQ.RegisterHandlers(eventBus); err != nil {
 		log.Printf("Failed to register StockConsumer handlers: %v", err)
 	}
 
-	err = eventBus.Subscribe("FulfillmentProgressed", func(ctx context.Context, event eventbus.Event) error {
-		log.Printf("[Worker] Received FulfillmentProgressed: %+v", event.Payload)
-		payload, ok := event.Payload.(map[string]interface{})
-		if !ok {
-			log.Printf("FulfillmentProgressed payload is not a map")
-			return nil
-		}
 
-		var keljaID int
-		if kidFloat, ok := payload["kelja_id"].(float64); ok {
-			keljaID = int(kidFloat)
-		} else if kidInt, ok := payload["kelja_id"].(int); ok {
-			keljaID = kidInt
-		}
-
-		if keljaID > 0 {
-			var expID int
-			if eFloat, ok := payload["expedition_id"].(float64); ok {
-				expID = int(eFloat)
-			} else if eInt, ok := payload["expedition_id"].(int); ok {
-				expID = eInt
-			}
-			var awb string
-			if awbStr, ok := payload["awb"].(string); ok {
-				awb = awbStr
-			}
-
-			keljaAction, _ := payload["kelja_action"].(string)
-			if keljaAction == "" {
-				keljaAction = "checker"
-			}
-
-			log.Printf("Sending Callback to Kelja for ID %d (action: %s)...", keljaID, keljaAction)
-			err := container.KeljaClient.SendCallbackDone(ctx, keljaID, expID, awb, keljaAction)
-			if err != nil {
-				log.Printf("Failed to send %s callback to Kelja: %v", keljaAction, err)
-			} else {
-				log.Printf("Successfully sent %s callback to Kelja for ID %d", keljaAction, keljaID)
-				
-				detail, fetchErr := container.KeljaClient.FetchFulfillmentDetail(ctx, keljaID)
-				if fetchErr != nil {
-					log.Printf("Failed to fetch detail for Kelja ID %d to update history: %v", keljaID, fetchErr)
-				} else {
-					if historiesRaw, ok := detail["fulfillment_histories"]; ok && historiesRaw != nil {
-						historiesJSON, _ := json.Marshal(historiesRaw)
-						var listID int
-						if lFloat, ok := payload["list_id"].(float64); ok {
-							listID = int(lFloat)
-						} else if lInt, ok := payload["list_id"].(int); ok {
-							listID = lInt
-						}
-						if listID > 0 {
-							errUpdate := container.FulfilmentService.UpdateKeljaHistories(ctx, listID, string(historiesJSON))
-							if errUpdate != nil {
-								log.Printf("Failed to update kelja_histories for ListID %d: %v", listID, errUpdate)
-							} else {
-								log.Printf("Successfully updated kelja_histories for ListID %d", listID)
-							}
-						} else {
-							log.Printf("list_id not found in payload, cannot update kelja_histories")
-						}
-					}
-				}
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		log.Printf("Error subscribing to FulfillmentProgressed: %v", err)
-	}
 
 	jobService := container.JobService
 	_ = container.StatisticService
 	_ = container.StorageService
 	exportService := container.ExportService
 	attendanceService := container.AttendanceService
-	fulfilmentService := container.FulfilmentService
 	stockService := container.StockService
 	firebaseService := container.FirebaseService
 	scheduleService := container.ScheduleService
@@ -156,55 +83,7 @@ func main() {
 
 	log.Println("Worker started. Polling for jobs...")
 
-	// Auto-sync Kelja every 5 minutes
-	if os.Getenv("ENABLE_KELJA_AUTO_SYNC") != "false" {
-		go func() {
-			// Initial delay to let the worker fully start
-			time.Sleep(10 * time.Second)
-			keljaTicker := time.NewTicker(5 * time.Minute)
-			defer keljaTicker.Stop()
 
-		createKeljaSyncJob := func() {
-			// Guard: don't create if there's already a PENDING or PROCESSING job
-			var count int
-			err := db.GetContext(ctx, &count,
-				`SELECT COUNT(*) FROM import_jobs WHERE job_type = 'SYNC_API_KELJA' AND status IN ('PENDING', 'PROCESSING')`)
-			if err != nil {
-				log.Printf("[KeljaAutoSync] Error checking existing jobs: %v", err)
-				return
-			}
-			if count > 0 {
-				log.Printf("[KeljaAutoSync] Skipped: %d job(s) still pending/processing", count)
-				return
-			}
-
-			// systemUserID for automated tasks
-			const systemUserID = 2147483650
-			_, err = db.ExecContext(ctx,
-				`INSERT INTO import_jobs (user_id, job_type, original_filename, file_path, status) VALUES (?, 'SYNC_API_KELJA', 'API_KELJA', '', 'PENDING')`,
-				systemUserID)
-			if err != nil {
-				log.Printf("[KeljaAutoSync] Error creating job: %v", err)
-				return
-			}
-			log.Println("[KeljaAutoSync] Created SYNC_API_KELJA job")
-		}
-
-		// Run immediately on startup
-		createKeljaSyncJob()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-keljaTicker.C:
-				createKeljaSyncJob()
-			}
-		}
-		}()
-	} else {
-		log.Println("[KeljaAutoSync] Disabled via .env (ENABLE_KELJA_AUTO_SYNC=false)")
-	}
 
 	pollInterval := 5 * time.Second
 	ticker := time.NewTicker(pollInterval)
@@ -222,7 +101,7 @@ func main() {
 			if recovered, err := jobRepo.RecoverStuckExportJobs(ctx); err == nil && recovered > 0 {
 				log.Printf("Recovered %d stuck export jobs", recovered)
 			}
-			processPendingImportJobs(ctx, db, jobRepo, jobService, attendanceService, fulfilmentService, stockService, scheduleService, productService, firebaseService, mediaService)
+			processPendingImportJobs(ctx, db, jobRepo, jobService, attendanceService, stockService, scheduleService, productService, firebaseService, mediaService)
 			processPendingExportJobs(ctx, db, jobRepo, jobService, exportService, firebaseService)
 		}
 	}
@@ -230,7 +109,7 @@ func main() {
 
 const maxConcurrentJobs = 3
 
-func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_mysql.JobRepository, jobService system_usecase.JobService, attendanceService hris_port.AttendanceUseCase, fulfilmentService inventory_port.FulfilmentUseCase, stockService inventory_port.StockUseCase, scheduleService hris_port.ScheduleUseCase, productService catalog_port.ProductUseCase, firebaseService system_usecase.FirebaseSignalService, mediaService system_usecase.MediaService) {
+func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_mysql.JobRepository, jobService system_usecase.JobService, attendanceService hris_port.AttendanceUseCase, stockService inventory_port.StockUseCase, scheduleService hris_port.ScheduleUseCase, productService catalog_port.ProductUseCase, firebaseService system_usecase.FirebaseSignalService, mediaService system_usecase.MediaService) {
 	sem := make(chan struct{}, maxConcurrentJobs)
 	var wg sync.WaitGroup
 
@@ -316,64 +195,7 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_m
 			case "IMPORT_STOCK_INBOUND_DRY_RUN":
 				log.Printf("Processing %s: %s", job.JobType, job.FilePath)
 				logSummary, processErr = stockService.ProcessImportBatchInbound(ctx, job.ID, job.FilePath, job.UserID, true)
-			case "IMPORT_SALES_TOKOPEDIA", "IMPORT_SALES_SHOPEE", "IMPORT_SALES_TIKTOK", "IMPORT_SALES_MANUAL":
-				log.Printf("Processing %s: %s", job.JobType, job.FilePath)
-				sourceMap := map[string]string{
-					"IMPORT_SALES_TOKOPEDIA": "Tokopedia",
-					"IMPORT_SALES_SHOPEE":    "Shopee",
-					"IMPORT_SALES_TIKTOK":    "Tokopedia", // Merged TikTok into Tokopedia
-					"IMPORT_SALES_MANUAL":    "Offline",
-				}
-				source := sourceMap[job.JobType]
 
-				shopName := ""
-				locationPurpose := "DISPLAY"
-				if job.Options != nil {
-					var opts map[string]interface{}
-					if err := json.Unmarshal([]byte(*job.Options), &opts); err == nil {
-						if val, ok := opts["shopName"].(string); ok {
-							shopName = val
-						}
-						if val, ok := opts["purpose"].(string); ok {
-							locationPurpose = val
-						}
-					}
-				}
-
-				processErr = fulfilmentService.ProcessSalesImport(ctx, job.ID, job.FilePath, source, job.UserID, false, locationPurpose, shopName)
-			case "IMPORT_SALES_TOKOPEDIA_DRY_RUN", "IMPORT_SALES_SHOPEE_DRY_RUN", "IMPORT_SALES_TIKTOK_DRY_RUN", "IMPORT_SALES_MANUAL_DRY_RUN":
-				log.Printf("Processing %s (Dry Run): %s", job.JobType, job.FilePath)
-				sourceMap := map[string]string{
-					"IMPORT_SALES_TOKOPEDIA_DRY_RUN": "Tokopedia",
-					"IMPORT_SALES_SHOPEE_DRY_RUN":    "Shopee",
-					"IMPORT_SALES_TIKTOK_DRY_RUN":    "Tokopedia", // Merged TikTok into Tokopedia
-					"IMPORT_SALES_MANUAL_DRY_RUN":    "Offline",
-				}
-				source := sourceMap[job.JobType]
-
-				shopName := ""
-				locationPurpose := "DISPLAY"
-				if job.Options != nil {
-					var opts map[string]interface{}
-					if err := json.Unmarshal([]byte(*job.Options), &opts); err == nil {
-						if val, ok := opts["shopName"].(string); ok {
-							shopName = val
-						}
-						if val, ok := opts["purpose"].(string); ok {
-							locationPurpose = val
-						}
-					}
-				}
-
-				processErr = fulfilmentService.ProcessSalesImport(ctx, job.ID, job.FilePath, source, job.UserID, true, locationPurpose, shopName)
-			case "SYNC_API_KELJA":
-				log.Printf("[Worker] Processing SYNC_API_KELJA (Job #%d)", job.ID)
-				processErr = fulfilmentService.ProcessKeljaSync(ctx, job.ID, job.UserID)
-				if processErr != nil {
-					log.Printf("[Worker] SYNC_API_KELJA Job #%d FAILED: %v", job.ID, processErr)
-				} else {
-					log.Printf("[Worker] SYNC_API_KELJA Job #%d completed successfully", job.ID)
-				}
 			default:
 				log.Printf("Unknown job type: %s", job.JobType)
 				processErr = fmt.Errorf("unknown job type: %s", job.JobType)

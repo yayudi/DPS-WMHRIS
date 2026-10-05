@@ -15,7 +15,6 @@ import (
 	mysql5 "github.com/dps-wmhris/backend/internal/modules/hris/adapter/outbound/mysql"
 	usecase3 "github.com/dps-wmhris/backend/internal/modules/hris/application/usecase"
 	mysql6 "github.com/dps-wmhris/backend/internal/modules/iam/adapter/outbound/mysql"
-	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/erp"
 	mysql3 "github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/mysql"
 	usecase4 "github.com/dps-wmhris/backend/internal/modules/inventory/application/usecase"
 	"github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
@@ -52,15 +51,12 @@ func InitializeWorker(db *sqlx.DB) (*di.WorkerContainer, error) {
 	settingRepository := mysql.NewSettingRepository(db)
 	attendanceUseCase := usecase3.NewAttendanceUseCase(attendanceRepository, userRepository, shiftRepository, scheduleRepository, settingRepository)
 	scheduleUseCase := usecase3.NewScheduleUseCase(scheduleRepository, shiftRepository, userRepository)
-	fulfilmentRepository := mysql3.NewFulfilmentRepository(db)
 	locationRepository := mysql3.NewLocationRepository(db)
-	keljaERPClient := erp.NewKeljaClient()
-	fulfilmentUseCase := usecase4.NewFulfilmentUseCase(transactionManager, fulfilmentRepository, locationRepository, stockRepository, jobService, productRepository, keljaERPClient, eventBus)
-	stockUseCase := usecase4.NewStockUseCase(transactionManager, stockRepository, productRepository, locationRepository, userRepository, fulfilmentRepository, eventBus)
+	stockUseCase := usecase4.NewStockUseCase(transactionManager, stockRepository, productRepository, locationRepository, userRepository, eventBus)
 	productAuditRepository := mysql4.NewProductAuditRepository(db)
 	productUseCase := usecase5.NewProductUseCase(transactionManager, productRepository, productAuditRepository, categoryRepository)
 	stockTransactionRepository := mysql3.NewStockTransactionRepository(db)
 	stockTransactionUseCase := usecase4.NewStockTransactionService(transactionManager, stockTransactionRepository, locationRepository, eventBus)
-	workerContainer := di.NewWorkerContainer(jobService, statisticService, storageService, exportService, firebaseSignalService, eventBus, mediaService, attendanceUseCase, scheduleUseCase, fulfilmentUseCase, stockUseCase, productUseCase, stockTransactionUseCase, keljaERPClient)
+	workerContainer := di.NewWorkerContainer(jobService, statisticService, storageService, exportService, firebaseSignalService, eventBus, mediaService, attendanceUseCase, scheduleUseCase, stockUseCase, productUseCase, stockTransactionUseCase)
 	return workerContainer, nil
 }

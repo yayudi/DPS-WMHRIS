@@ -18,24 +18,24 @@ func NewStockTransactionHandler(trxService inventory_port.StockTransactionUseCas
 	return &StockTransactionHandler{trxService: trxService}
 }
 
-func (h *StockTransactionHandler) CreateFulfillment(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[inventory_dto.CreateFulfillmentRequest](c)
+func (h *StockTransactionHandler) CreateTransaction(c *gin.Context) {
+	req_ptr, ok := utils.BindAndValidate[inventory_dto.CreateTransactionRequest](c)
 	if !ok {
 		return
 	}
 	req := *req_ptr
 
-	trx, err := h.trxService.CreateFulfillment(c.Request.Context(), req)
+	trx, err := h.trxService.CreateTransaction(c.Request.Context(), req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "CREATE_FULFILLMENT_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "CREATE_TRANSACTION_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusCreated, "Berhasil membuat draft fulfillment", trx)
+	utils.SuccessResponse(c, http.StatusCreated, "Berhasil membuat draft transaksi", trx)
 }
 
-func (h *StockTransactionHandler) ExecuteFulfilment(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[inventory_dto.ExecuteFulfilmentRequest](c)
+func (h *StockTransactionHandler) ExecuteTransaction(c *gin.Context) {
+	req_ptr, ok := utils.BindAndValidate[inventory_dto.ExecuteTransactionRequest](c)
 	if !ok {
 		return
 	}
@@ -47,7 +47,7 @@ func (h *StockTransactionHandler) ExecuteFulfilment(c *gin.Context) {
 		return
 	}
 
-	err := h.trxService.ExecuteFulfilment(c.Request.Context(), req, uint(userID))
+	err := h.trxService.ExecuteTransaction(c.Request.Context(), req, uint(userID))
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "EXECUTE_PICKING_ERROR")
 		return

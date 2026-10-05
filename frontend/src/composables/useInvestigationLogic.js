@@ -12,13 +12,6 @@ export const formatDate = dateStr => {
   })
 }
 
-// Helper to extract Fulfilment Item ID from notes
-export const extractItemId = notes => {
-  if (!notes) return '-'
-  const match = notes.match(/Item\s*#(\d+)/i)
-  return match ? match[1] : '-'
-}
-
 // Helper to group transactions by SKU for the inner table
 export const groupTransactionsBySku = transactions => {
   if (!transactions) return []
@@ -37,25 +30,7 @@ export const groupTransactionsBySku = transactions => {
 
   // Calculate issue flags
   Object.values(grouped).forEach(group => {
-    const itemIds = new Set()
-    let hasValidItemIds = false
-    group.records.forEach(trx => {
-      const id = extractItemId(trx.notes)
-      if (id !== '-') {
-        itemIds.add(id)
-        hasValidItemIds = true
-      }
-    })
-
-    if (hasValidItemIds) {
-      if (itemIds.size === 1) {
-        group.issueFlag = 'WORKER_DOUBLE'
-      } else {
-        group.issueFlag = 'CART_BUG'
-      }
-    } else {
-      group.issueFlag = 'UNKNOWN'
-    }
+    group.issueFlag = 'UNKNOWN'
   })
 
   return Object.values(grouped)
@@ -64,7 +39,6 @@ export const groupTransactionsBySku = transactions => {
 export function useInvestigationLogic() {
   return {
     formatDate,
-    extractItemId,
     groupTransactionsBySku
   }
 }

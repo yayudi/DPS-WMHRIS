@@ -6,7 +6,7 @@ import (
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 )
 
-func TestStockTransaction_FulfillLine(t *testing.T) {
+func TestStockTransaction_ProcessLine(t *testing.T) {
 	st := &domain.StockTransaction{
 		AssignedBuilding: "BLD-A",
 	}
@@ -22,7 +22,7 @@ func TestStockTransaction_FulfillLine(t *testing.T) {
 			Building: "BLD-A",
 			Purpose:  "WAREHOUSE",
 		}
-		err := st.FulfillLine(movementID, loc, 5, 99)
+		err := st.ProcessLine(movementID, loc, 5, 99)
 		if err != nil {
 			t.Errorf("expected success, got %v", err)
 		}
@@ -33,9 +33,9 @@ func TestStockTransaction_FulfillLine(t *testing.T) {
 			Building: "BLD-B", // Different building
 			Purpose:  "WAREHOUSE",
 		}
-		err := st.FulfillLine(movementID, loc, 5, 99)
-		if err != domain.ErrCrossBuildingFulfilment {
-			t.Errorf("expected ErrCrossBuildingFulfilment, got %v", err)
+		err := st.ProcessLine(movementID, loc, 5, 99)
+		if err != domain.ErrCrossBuildingProcess {
+			t.Errorf("expected ErrCrossBuildingProcess, got %v", err)
 		}
 	})
 
@@ -44,7 +44,7 @@ func TestStockTransaction_FulfillLine(t *testing.T) {
 			Building: "BLD-A",
 			Purpose:  "QA", // Not WAREHOUSE or DISPLAY
 		}
-		err := st.FulfillLine(movementID, loc, 5, 99)
+		err := st.ProcessLine(movementID, loc, 5, 99)
 		if err != domain.ErrInvalidLocationPurpose {
 			t.Errorf("expected ErrInvalidLocationPurpose, got %v", err)
 		}

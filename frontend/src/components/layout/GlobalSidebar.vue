@@ -62,7 +62,6 @@ const menuConfig = computed(() => {
     route: '/wms',
     items: [
       { to: '/wms', label: 'Dashboard', icon: 'fa-chart-line' },
-      { to: '/wms/fulfilment', label: 'Daftar Pesanan', icon: 'fa-boxes-packing' },
       { to: '/wms/batch-movement', label: 'Pindah Lokasi', icon: 'fa-truck-ramp-box' },
       { to: '/wms/spreadsheet', label: 'Proses Excel', icon: 'fa-table-cells' },
       { to: '/wms/return', label: 'Retur Barang', icon: 'fa-rotate-left' },

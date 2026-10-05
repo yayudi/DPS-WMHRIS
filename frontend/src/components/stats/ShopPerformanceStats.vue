@@ -19,7 +19,6 @@ const showFilters = ref(false)
 const summaryData = ref([])
 const dailyTrendData = ref([])
 const topProductsData = ref([])
-const fulfillmentData = ref([])
 const comparisonData = ref({ current: {}, previous: {}, delta: {} })
 const shopOptions = ref([])
 
@@ -37,7 +36,6 @@ const tabs = [
   { id: 'summary', label: 'Ringkasan', icon: 'fa-solid fa-chart-pie' },
   { id: 'trend', label: 'Tren Harian', icon: 'fa-solid fa-chart-line' },
   { id: 'top-products', label: 'Produk Terlaris', icon: 'fa-solid fa-ranking-star' },
-  { id: 'fulfillment', label: 'Kesehatan Pemenuhan', icon: 'fa-solid fa-heart-pulse' },
   { id: 'comparison', label: 'Perbandingan Periode', icon: 'fa-solid fa-right-left' }
 ]
 
@@ -178,7 +176,6 @@ const fetchStatistics = async () => {
     summaryData.value = response.summary || []
     dailyTrendData.value = response.dailyTrend || []
     topProductsData.value = response.topProducts || []
-    fulfillmentData.value = response.fulfillment || []
     comparisonData.value = response.comparison || { current: {}, previous: {}, delta: {} }
   } catch (error) {
     console.error(error) // Auto-added to prevent unused var
@@ -450,7 +447,7 @@ const periodLabel = computed(() => {
       <font-awesome-icon icon="fa-solid fa-store-slash" class="text-4xl mb-4 text-text/30" />
       <h4 class="font-bold text-text text-lg">Tidak ada data penjualan toko</h4>
       <p class="text-text/60 mt-2 text-sm max-w-sm">
-        Pada rentang pencarian ini, belum ada data fulfilment list yang valid ter-record.
+        Pada rentang pencarian ini, belum ada data penjualan yang valid ter-record.
       </p>
     </main>
 
@@ -714,88 +711,7 @@ const periodLabel = computed(() => {
       </div>
     </template>
 
-    <!-- ====== TAB: KESEHATAN PEMENUHAN ====== -->
-    <template v-else-if="activeTab === 'fulfillment'">
-      <div
-        v-if="fulfillmentData.length === 0"
-        class="bg-background border border-secondary rounded-xl p-12 text-center shadow-sm animate-fade-in"
-      >
-        <font-awesome-icon icon="fa-solid fa-heart-pulse" class="text-3xl text-text/20 mb-3" />
-        <p class="text-text/50 text-sm">Tidak ada data pemenuhan untuk rentang waktu ini.</p>
-      </div>
-      <div v-else class="space-y-4 animate-fade-in">
-        <div
-          v-for="item in fulfillmentData"
-          :key="`${item.shopName}-${item.source}`"
-          class="bg-background border border-secondary rounded-xl p-5 shadow-sm"
-        >
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-3">
-              <h4 class="font-bold text-text">{{ item.shopName }}</h4>
-              <span class="px-2 py-0.5 rounded-md text-xs font-bold" :class="sourceBadgeClass(item.source)">{{
-                item.source
-              }}</span>
-            </div>
-            <span class="text-xs text-text/50">{{ formatNumber(item.totalOrders) }} order total</span>
-          </div>
-          <!-- Rate Bars -->
-          <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div class="p-3 bg-secondary/5 rounded-lg">
-              <p class="text-[10px] uppercase font-bold text-text/40 mb-1">Selesai</p>
-              <p class="text-lg font-bold text-success">{{ item.completionRate }}%</p>
-              <div class="w-full h-1.5 bg-secondary/20 rounded-full mt-2 overflow-hidden">
-                <div
-                  class="h-full bg-success rounded-full transition-all"
-                  :style="{ width: `${item.completionRate}%` }"
-                ></div>
-              </div>
-              <p class="text-[10px] text-text/40 mt-1">{{ formatNumber(item.completedOrders) }} order</p>
-            </div>
-            <div class="p-3 bg-secondary/5 rounded-lg">
-              <p class="text-[10px] uppercase font-bold text-text/40 mb-1">Dibatalkan</p>
-              <p class="text-lg font-bold text-danger">{{ item.cancellationRate }}%</p>
-              <div class="w-full h-1.5 bg-secondary/20 rounded-full mt-2 overflow-hidden">
-                <div
-                  class="h-full bg-danger rounded-full transition-all"
-                  :style="{ width: `${item.cancellationRate}%` }"
-                ></div>
-              </div>
-              <p class="text-[10px] text-text/40 mt-1">{{ formatNumber(item.cancelledOrders) }} order</p>
-            </div>
-            <div class="p-3 bg-secondary/5 rounded-lg">
-              <p class="text-[10px] uppercase font-bold text-text/40 mb-1">Diretur</p>
-              <p class="text-lg font-bold text-warning">{{ item.returnRate }}%</p>
-              <div class="w-full h-1.5 bg-secondary/20 rounded-full mt-2 overflow-hidden">
-                <div
-                  class="h-full bg-warning rounded-full transition-all"
-                  :style="{ width: `${item.returnRate}%` }"
-                ></div>
-              </div>
-              <p class="text-[10px] text-text/40 mt-1">{{ formatNumber(item.returnedOrders) }} order</p>
-            </div>
-            <div class="p-3 bg-secondary/5 rounded-lg">
-              <p class="text-[10px] uppercase font-bold text-text/40 mb-1">Pending</p>
-              <p class="text-lg font-bold text-text/60">
-                {{
-                  item.totalOrders > 0
-                    ? (100 - item.completionRate - item.cancellationRate - item.returnRate).toFixed(1)
-                    : 0
-                }}%
-              </p>
-              <div class="w-full h-1.5 bg-secondary/20 rounded-full mt-2 overflow-hidden">
-                <div
-                  class="h-full bg-text/30 rounded-full transition-all"
-                  :style="{
-                    width: `${item.totalOrders > 0 ? 100 - item.completionRate - item.cancellationRate - item.returnRate : 0}%`
-                  }"
-                ></div>
-              </div>
-              <p class="text-[10px] text-text/40 mt-1">{{ formatNumber(item.pendingOrders) }} order</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </template>
+
 
     <!-- ====== TAB: PERBANDINGAN PERIODE ====== -->
     <template v-else-if="activeTab === 'comparison'">

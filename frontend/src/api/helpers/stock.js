@@ -263,23 +263,6 @@ export async function voidImportJob(jobId) {
 }
 
 /**
- * [FASE 5b] Memvalidasi item retur dan mengembalikan stok ke lokasi spesifik.
- * @param {object} payload
- * @param {number} payload.fulfilmentListItemId - ID dari item di fulfilment_list_items
- * @param {number} payload.returnToLocationId - ID lokasi tujuan pengembalian stok
- * @returns {Promise<object>}
- */
-export async function validateStockReturn(payload) {
-  try {
-    const response = await axios.post('/stock/validate-return', payload)
-    return response.data
-  } catch (error) {
-    console.error('Error validating return:', error)
-    throw error.response?.data || error
-  }
-}
-
-/**
  * Mengambil daftar unik movement type
  * @returns {Promise<Array>} Array of string movement types
  */

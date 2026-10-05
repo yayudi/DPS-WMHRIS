@@ -34,7 +34,7 @@ func NewStockTransactionService(
 	}
 }
 
-func (s *stockTransactionService) CreateFulfillment(ctx context.Context, req inventory_dto.CreateFulfillmentRequest) (*domain.StockTransaction, error) {
+func (s *stockTransactionService) CreateTransaction(ctx context.Context, req inventory_dto.CreateTransactionRequest) (*domain.StockTransaction, error) {
 	trx := &domain.StockTransaction{
 		TransactionNo:    fmt.Sprintf("TRX-%d", time.Now().UnixNano()),
 		ReferenceType:    req.ReferenceType,
@@ -83,7 +83,7 @@ func (s *stockTransactionService) CreateFulfillment(ctx context.Context, req inv
 	return trx, nil
 }
 
-func (s *stockTransactionService) ExecuteFulfilment(ctx context.Context, req inventory_dto.ExecuteFulfilmentRequest, userID uint) error {
+func (s *stockTransactionService) ExecuteTransaction(ctx context.Context, req inventory_dto.ExecuteTransactionRequest, userID uint) error {
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
 		// 1. Muat (Load) Aggregate Root
 		trx, err := s.trxRepo.GetByID(ctx, req.TransactionID)
@@ -100,8 +100,8 @@ func (s *stockTransactionService) ExecuteFulfilment(ctx context.Context, req inv
 			return err
 		}
 
-		// 2. Lakukan validasi FulfillLine (termasuk Guard Clauses)
-		if err := trx.FulfillLine(req.MovementID, loc, req.QtyDone, userID); err != nil {
+		// 2. Lakukan validasi ProcessLine (termasuk Guard Clauses)
+		if err := trx.ProcessLine(req.MovementID, loc, req.QtyDone, userID); err != nil {
 			return err
 		}
 

@@ -1,7 +1,7 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import BaseTabs from '@/components/ui/BaseTabs.vue'
-import api from '@/api/axios'
+
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -90,12 +90,8 @@ const faqCategories = [
         a: 'Tidak. Setiap perpindahan stok bersifat final dan tercatat di audit log. Jika terjadi kesalahan, lakukan perpindahan balik (reverse transfer) sebagai koreksi.'
       },
       {
-        q: 'Apa arti status pada Fulfilment (PENDING, PICKED, CANCELLED)?',
-        a: 'PENDING berarti pesanan belum diproses. PICKED berarti barang sudah diambil dari rak dan siap kirim. CANCELLED berarti pesanan dibatalkan (misalnya karena stok kosong atau permintaan pembeli).'
-      },
-      {
         q: 'File apa saja yang bisa diimpor ke sistem?',
-        a: 'Sistem mendukung impor file Excel (.xlsx) untuk tiga jenis data: Fulfilment (pesanan masuk), Stock Adjustment (koreksi stok massal), dan data Kehadiran (absensi karyawan).'
+        a: 'Sistem mendukung impor file Excel (.xlsx) untuk dua jenis data: Stock Adjustment (koreksi stok massal), dan data Kehadiran (absensi karyawan).'
       },
       {
         q: 'Bagaimana cara mengekspor data dari sistem?',
@@ -117,11 +113,11 @@ const faqCategories = [
       },
       {
         q: 'Apa itu toleransi keterlambatan (flexible minutes) pada Shift?',
-        a: 'Setiap shift memiliki buffer waktu yang disebut \"flexible_minutes\". Jika diset 15 menit dan shift dimulai pukul 08:00, karyawan yang datang hingga 08:15 tetap dianggap \"Hadir\", bukan \"Terlambat\".'
+        a: 'Setiap shift memiliki buffer waktu yang disebut "flexible_minutes". Jika diset 15 menit dan shift dimulai pukul 08:00, karyawan yang datang hingga 08:15 tetap dianggap "Hadir", bukan "Terlambat".'
       },
       {
         q: 'Apakah hari libur nasional otomatis dikenali sistem?',
-        a: 'Ya, jika tanggal tersebut sudah dimasukkan ke tabel Hari Libur (holidays) oleh Admin. Karyawan yang tidak masuk pada hari libur terdaftar akan diberi status \"LIBUR\", bukan \"ALPHA\".'
+        a: 'Ya, jika tanggal tersebut sudah dimasukkan ke tabel Hari Libur (holidays) oleh Admin. Karyawan yang tidak masuk pada hari libur terdaftar akan diberi status "LIBUR", bukan "ALPHA".'
       }
     ]
   }
@@ -208,8 +204,7 @@ const faqCategories = [
                 <template
                   v-if="
                     auth.hasPermission('stock_batch.move') ||
-                    auth.hasPermission('stock_adjustment.manage') ||
-                    auth.hasPermission('fulfilment_list.upload')
+                    auth.hasPermission('stock_adjustment.manage')
                   "
                 >
                   <h3 class="text-xs font-bold text-text/40 uppercase tracking-wider mt-6 mb-3 px-3">
@@ -251,18 +246,7 @@ const faqCategories = [
                   >
                     <font-awesome-icon icon="fa-solid fa-arrow-rotate-left" class="w-4 opacity-70" /> Retur Manual
                   </button>
-                  <button
-                    v-if="auth.hasPermission('fulfilment_list.upload')"
-                    @click="activeGuide = 'picking'"
-                    class="w-full text-left px-3 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-3"
-                    :class="
-                      activeGuide === 'picking'
-                        ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
-                        : 'text-text/70 hover:bg-secondary/10 border border-transparent'
-                    "
-                  >
-                    <font-awesome-icon icon="fa-solid fa-clipboard-list" class="w-4 opacity-70" /> Fulfilment
-                  </button>
+
                 </template>
 
                 <!-- Media & Products Guides -->
@@ -667,50 +651,7 @@ const faqCategories = [
               </div>
             </section>
 
-            <!-- Fulfilment Guide -->
-            <section
-              v-if="activeGuide === 'picking' && auth.hasPermission('fulfilment_list.upload')"
-              class="bg-secondary/5 border border-secondary/20 rounded-2xl p-6 md:p-8 animate-fade-in shadow-sm"
-            >
-              <h2 class="text-2xl font-bold text-text mb-4 flex items-center gap-3 border-b border-secondary/10 pb-4">
-                <span class="bg-accent/10 text-accent w-10 h-10 rounded-xl flex items-center justify-center">
-                  <font-awesome-icon icon="fa-solid fa-clipboard-list" />
-                </span>
-                <span>Pemenuhan Pesanan (Fulfilment)</span>
-              </h2>
 
-              <div class="prose prose-sm max-w-none text-text/80 leading-relaxed">
-                <p class="mb-4">
-                  <strong>Fulfilment</strong> adalah daftar barang yang harus diambil oleh petugas gudang untuk memenuhi
-                  pesanan pelanggan (Order Fulfillment). Anda dapat mengunggah file pesanan harian dari e-Commerce/ERP
-                  untuk diproses massal.
-                </p>
-                <ul class="list-disc pl-5 space-y-3 text-sm">
-                  <li>
-                    <strong>Upload File:</strong> Gunakan file Excel/CSV dengan format <code>order_id</code>,
-                    <code>sku</code>, <code>quantity</code>.
-                  </li>
-                  <li>
-                    <strong>Validasi Sistem:</strong> Sistem otomatis akan mengecek apakah stok mencukupi untuk memenuhi
-                    pesanan tersebut.
-                  </li>
-                  <li>
-                    <strong>Eksekusi (Pengambilan):</strong> Setelah dieksekusi, stok secara sistem akan dipotong
-                    (berkurang) secara otomatis.
-                  </li>
-                </ul>
-                <div class="bg-warning/5 border border-warning/20 p-4 rounded-xl mt-6">
-                  <h4 class="font-bold text-warning mb-2">
-                    <font-awesome-icon icon="fa-solid fa-triangle-exclamation" /> Peringatan Stok Tidak Cukup
-                  </h4>
-                  <p class="text-sm">
-                    Sistem akan memblokir proses pemenuhan jika kuantitas pesanan melebihi stok yang ada di gudang. Anda
-                    harus melakukan restock (inbound) terlebih dahulu sebelum dapat melanjutkan fulfilment list pesanan
-                    tersebut.
-                  </p>
-                </div>
-              </div>
-            </section>
 
             <!-- Package Management Guide -->
             <section
