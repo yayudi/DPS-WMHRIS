@@ -24,7 +24,8 @@ services:
       - ./api:/app/api
       - ./firebase:/app/firebase
     networks:
-      - intra
+      intra:
+        ipv4_address: ${API_IPV4:-10.10.0.10}
     deploy:
       resources:
         limits:
@@ -58,7 +59,8 @@ services:
       - ./worker:/app/worker
       - ./firebase:/app/firebase
     networks:
-      - intra
+      intra:
+        ipv4_address: ${WORKER_IPV4:-10.10.0.11}
     deploy:
       resources:
         limits:
