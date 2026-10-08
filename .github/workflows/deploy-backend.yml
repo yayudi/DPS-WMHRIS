@@ -1,23 +1,7 @@
 name: Deploy Backend to VPS
 
 on:
-  push:
-    branches:
-      - main
-      - dev
-    paths:
-      - 'backend/**'
-      - 'docker-compose.yml'
   workflow_dispatch:
-    inputs:
-      target_env:
-        description: "Pilih Lingkungan (Environment) untuk Rilis"
-        required: true
-        type: choice
-        options:
-          - dev
-          - prod
-        default: "dev"
 
 jobs:
   deploy-backend:
@@ -39,11 +23,13 @@ jobs:
       - name: Determine Environment
         id: env_check
         run: |
-          ENV_TARGET="dev"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            ENV_TARGET="${{ github.event.inputs.target_env }}"
-          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             ENV_TARGET="prod"
+          elif [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+            ENV_TARGET="dev"
+          else
+            echo "Error: Deployment is only allowed from the main or dev branches!"
+            exit 1
           fi
           echo "ENV_TARGET=$ENV_TARGET" >> $GITHUB_ENV
 
@@ -92,8 +78,6 @@ jobs:
               fi
             fi
 
-            # Pastikan binary bisa dieksekusi
             chmod +x api worker
 
-            # Gunakan Docker Compose V2 (standar baru), jika gagal fallback ke V1
-            docker compose up -d --remove-orphans || docker-compose up -d --remove-orphans
+            docker compose up -d --remove-orphans

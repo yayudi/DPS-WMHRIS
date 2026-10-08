@@ -1,22 +1,7 @@
 name: Deploy Frontend to Firebase
 
 on:
-  push:
-    branches:
-      - main
-      - dev
-    paths:
-      - 'frontend/**'
   workflow_dispatch:
-    inputs:
-      target_env:
-        description: "Pilih Lingkungan (Environment) untuk Rilis"
-        required: true
-        type: choice
-        options:
-          - dev
-          - prod
-        default: "dev"
 
 jobs:
   deploy-frontend:
@@ -37,12 +22,14 @@ jobs:
         run: |
           echo "${{ secrets.FRONTEND_ENV_BASE }}" > .env
           
-          # Tentukan environment dari branch, atau override dari manual dispatch
-          ENV_TARGET="dev"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            ENV_TARGET="${{ github.event.inputs.target_env }}"
-          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          # Determine environment strictly based on branch name
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             ENV_TARGET="prod"
+          elif [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+            ENV_TARGET="dev"
+          else
+            echo "Error: Deployment is only allowed from the main or dev branches!"
+            exit 1
           fi
           
           if [ "$ENV_TARGET" = "prod" ]; then
@@ -51,7 +38,7 @@ jobs:
             echo "${{ secrets.FRONTEND_ENV_DEV }}" > .env.development
           fi
           
-          # Simpan ENV_TARGET ke file env GitHub Action agar bisa dibaca di step berikutnya
+          # Save ENV_TARGET to GitHub Actions env file to be accessed in subsequent steps
           echo "ENV_TARGET=$ENV_TARGET" >> $GITHUB_ENV
 
       - name: Build Frontend
