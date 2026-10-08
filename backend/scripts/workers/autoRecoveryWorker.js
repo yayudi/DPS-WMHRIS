@@ -1,116 +1,107 @@
 // backend/scripts/workers/autoRecoveryWorker.js
 import db from "../../config/db.js";
 import Logger from "../../utils/logger.js";
-import * as locationRepo from "../../repositories/locationRepository.js";
-import * as pickingRepo from "../../repositories/pickingRepository.js";
+import {
+  completePickingItemsService,
+  retryBackordersBatchService,
+} from "../../services/pickingDataService.js";
 
 export const runAutoRecovery = async () => {
   let connection;
   try {
     connection = await db.getConnection();
 
-    // Ambil semua item BACKORDER / PENDING tanpa lokasi
-    const [unfulfillableRows] = await connection.query(`
-      SELECT
-        pli.id,
-        pli.product_id,
-        pli.quantity,
-        pli.original_sku,
-        pl.location_purpose
-      FROM picking_list_items pli
-      JOIN picking_lists pl ON pli.picking_list_id = pl.id
-      WHERE (pli.status = 'BACKORDER' OR (pli.status = 'PENDING' AND pli.suggested_location_id IS NULL))
-        AND pl.status IN ('PENDING', 'VALIDATED')
+    // Ambil maksimal 50 Picking List yang belum selesai (PENDING/VALIDATED)
+    const [activeLists] = await connection.query(`
+      SELECT DISTINCT pl.id, pl.original_invoice_id
+      FROM picking_lists pl
+      JOIN picking_list_items pli ON pl.id = pli.picking_list_id
+      WHERE pl.status IN ('PENDING', 'VALIDATED')
         AND pl.is_active = 1
-        AND (pli.last_recovery_attempt IS NULL OR pli.last_recovery_attempt < NOW() - INTERVAL 3 HOUR)
-      ORDER BY pli.id ASC
-      LIMIT 100
+        AND (pli.last_recovery_attempt IS NULL OR pli.last_recovery_attempt < NOW() - INTERVAL 1 HOUR)
+      ORDER BY pl.order_date ASC
+      LIMIT 50
     `);
 
-    if (unfulfillableRows.length === 0) {
-      return; // Tidak ada yang perlu di-recovery
+    if (activeLists.length === 0) {
+      return;
     }
 
     Logger.info(
-      `Mengecek ulang ketersediaan stok untuk ${unfulfillableRows.length} item BACKORDER...`,
-      "AUTO_RECOVERY",
+      `Mengevaluasi ${activeLists.length} pesanan aktif untuk pemulihan dan auto-fulfillment...`,
+      "AUTO_WORKER",
     );
+    const SYSTEM_USER_ID = 1; // Asumsi ID 1 adalah Admin/System
 
-    let recoveredCount = 0;
-    const delay = (ms) => new Promise((res) => setTimeout(res, ms)); // Helper untuk throttling
+    let successCount = 0;
+    const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-    for (const item of unfulfillableRows) {
-      const locationPurpose = item.location_purpose || "DISPLAY";
-      let isSuccess = false;
+    for (const list of activeLists) {
+      try {
+        // TAHAP A: SINKRONISASI ALOKASI STOK
+        await retryBackordersBatchService([list.id]);
 
-      // Coba cari lokasi baru
-      const newBestLocId = await locationRepo.findBestStock(
-        connection,
-        item.product_id,
-        item.quantity,
-        locationPurpose,
-      );
+        // TAHAP B: EVALUASI ANTI-PARSIAL
+        const [unfulfillable] = await connection.query(
+          `
+          SELECT id FROM picking_list_items
+          WHERE picking_list_id = ?
+            AND (status = 'BACKORDER' OR (status = 'PENDING' AND suggested_location_id IS NULL))
+        `,
+          [list.id],
+        );
 
-      if (newBestLocId) {
-        // Validasi ulang dengan locking
-        await connection.beginTransaction();
-        try {
-          const newStock = await locationRepo.getStockAtLocation(
-            connection,
-            item.product_id,
-            newBestLocId,
-            true,
+        // TAHAP C: EKSEKUSI (DEDUCT STOCK)
+        if (unfulfillable.length === 0) {
+          const [items] = await connection.query(
+            `
+            SELECT id, picking_list_id
+            FROM picking_list_items
+            WHERE picking_list_id = ? AND status = 'PENDING'
+          `,
+            [list.id],
           );
-          if (newStock >= item.quantity) {
-            // Berhasil! Stok sudah direstock. Update DB.
-            await pickingRepo.updateSuggestedLocation(connection, item.id, newBestLocId);
 
-            // Reset last_recovery_attempt ke NULL karena sudah berhasil
-            await connection.query(
-              `UPDATE picking_list_items SET status = 'PENDING', last_recovery_attempt = NULL WHERE id = ?`,
-              [item.id],
-            );
-
+          if (items.length > 0) {
+            await completePickingItemsService(items, SYSTEM_USER_ID);
             Logger.info(
-              `🔄 Auto-Recovery Berhasil: Item ${item.original_sku} mendapatkan stok di lokasi ID ${newBestLocId}`,
-              "AUTO_RECOVERY",
+              `✅ Auto-Fulfillment Berhasil: Invoice ${list.original_invoice_id}`,
+              "AUTO_WORKER",
             );
-            recoveredCount++;
-            isSuccess = true;
-            await connection.commit();
-          } else {
-            await connection.rollback();
+            successCount++;
           }
-        } catch (innerErr) {
-          await connection.rollback();
-          Logger.error(
-            `Gagal memproses Auto-Recovery untuk item ${item.id}`,
-            innerErr,
-            "AUTO_RECOVERY",
+        } else {
+          // CEGAH STARVATION: Tandai waktu percobaan agar pesanan ini tidak memblokir antrean di cron berikutnya
+          await connection.query(
+            `UPDATE picking_list_items SET last_recovery_attempt = NOW() WHERE picking_list_id = ?`,
+            [list.id],
           );
         }
-      }
-
-      // Jika gagal divalidasi (tidak ada stok / error), update timestamp percobaan terakhir
-      if (!isSuccess) {
+      } catch (innerErr) {
+        // Jika gagal karena Race Condition atau error lainnya, beri stempel waktu dan abaikan
         await connection.query(
-          `UPDATE picking_list_items SET last_recovery_attempt = NOW() WHERE id = ?`,
-          [item.id],
+          `UPDATE picking_list_items SET last_recovery_attempt = NOW() WHERE picking_list_id = ?`,
+          [list.id],
+        );
+        Logger.error(
+          `⚠️ Gagal memproses Invoice ${list.original_invoice_id}`,
+          innerErr,
+          "AUTO_WORKER",
         );
       }
 
-      // Throttling: Beri jeda 50ms per item agar CPU Shared Hosting bisa "bernapas" (menghindari spike CPU 100%)
-      await delay(50);
+      // Throttling: Beri jeda agar CPU Shared Hosting aman
+      await delay(100);
     }
 
-    if (recoveredCount > 0) {
+    if (successCount > 0) {
       Logger.info(
-        `Auto-Recovery Selesai: Berhasil memulihkan ${recoveredCount} item.`,
-        "AUTO_RECOVERY",
+        `Auto-Worker Selesai: Berhasil memenuhi ${successCount} pesanan secara otomatis.`,
+        "AUTO_WORKER",
       );
     }
   } catch (error) {
-    Logger.error("Auto Recovery Worker Error", error, "AUTO_RECOVERY");
+    Logger.error("Auto Worker Error", error, "AUTO_WORKER");
   } finally {
     if (connection) connection.release();
   }
