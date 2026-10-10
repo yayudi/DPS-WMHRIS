@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, toRef } from 'vue'
 import { FlexRender, stockFeatures } from '@tanstack/vue-table'
-import { useSortIcon } from '@/composables/useSortIcon.js'
+import { useSortIcon } from '@/composables/useSortIcon'
 import { resolveProductImageUrl } from '@/composables/useImageUrl'
 import ProductThumbnail from '@/components/common/ProductThumbnail.vue'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
@@ -9,7 +9,7 @@ import BaseSelect from '@/components/ui/BaseSelect.vue'
 import BaseContextMenu from '@/components/ui/BaseContextMenu.vue'
 import { useSmartGrid } from '@/composables/useSmartGrid'
 import { useProductContextMenu } from '@/composables/useProductContextMenu'
-import { useMobile } from '@/composables/useMobile.js'
+import { useMobile } from '@/composables/useMobile'
 
 const props = defineProps({
   products: { type: Array, required: true, default: () => [] },
@@ -82,7 +82,7 @@ const getVirtualStock = product => {
 }
 
 const getCurrentStock = product => {
-  let physicalStock = product.total_stock !== undefined ? product.total_stock : product.stock || 0
+  const physicalStock = product.total_stock !== undefined ? product.total_stock : product.stock || 0
   if (product.is_package) {
     return physicalStock !== 0 ? physicalStock : getVirtualStock(product)
   }

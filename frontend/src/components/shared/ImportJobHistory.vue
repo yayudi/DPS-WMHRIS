@@ -1,4 +1,3 @@
-<!-- frontend/src/components/shared/ImportJobHistory.vue -->
 <template>
   <div class="h-full flex flex-col">
     <!-- Header -->
@@ -87,8 +86,8 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import dayjs from 'dayjs'
-import { useUploadStore } from '@/stores/uploadStore.js'
-import { useFirebaseSync } from '@/composables/useFirebaseSync.js'
+import { useUploadStore } from '@/stores/uploadStore'
+import { useFirebaseSync } from '@/composables/useFirebaseSync'
 
 const props = defineProps({
   // Array of Job Types to filter. If empty, shows all.

@@ -454,15 +454,15 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { useToast } from '@/composables/useToast.js'
-import { useDownload } from '@/composables/useDownload.js'
-import { useUpload } from '@/composables/useUpload.js'
-import { useMobile } from '@/composables/useMobile.js'
-import axios from '@/api/axios.js'
-import { processBatchMovement } from '@/api/helpers/stock.js'
+import { useToast } from '@/composables/useToast'
+import { useDownload } from '@/composables/useDownload'
+import { useUpload } from '@/composables/useUpload'
+import { useMobile } from '@/composables/useMobile'
+import axios from '@/core/infrastructure/http.client'
+import { stockApi } from '@/modules/wms/infrastructure/stock.api'
 import ImportJobHistory from '@/components/shared/ImportJobHistory.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
-import ProductFormModal from '@/components/wms/shared/ProductFormModal.vue'
+import ProductFormModal from '@/modules/wms/presentation/components/shared/ProductFormModal.vue'
 import { useMasterDataStore } from '@/stores/masterData'
 
 // Dynamic worker import for client side PDF parsing
@@ -794,7 +794,7 @@ const submitBatchJSON = async () => {
       }))
     }
 
-    const res = await processBatchMovement(payload)
+    const res = await stockApi.processBatchMovement(payload)
     if (res.success) {
       toast(res.message || 'Inbound stok berhasil diproses', 'success')
       emit('success')

@@ -1,4 +1,3 @@
-<!-- frontend\src\components\ui\FloatingTooltip.vue -->
 <script setup>
 import { ref, toRef } from 'vue'
 import { useFloating, offset, flip, shift, arrow, autoUpdate } from '@floating-ui/vue'
@@ -6,7 +5,7 @@ import { useFloating, offset, flip, shift, arrow, autoUpdate } from '@floating-u
 defineOptions({
   inheritAttrs: false
 })
-import { useMobile } from '@/composables/useMobile.js'
+import { useMobile } from '@/composables/useMobile'
 
 const { isMobile } = useMobile()
 
@@ -48,8 +47,8 @@ const {
         class="fixed z-[9999] max-w-xs rounded-lg shadow-xl backdrop-blur-md"
         :class="[
           !interactive ? 'pointer-events-none' : '',
-          variant === 'compact' 
-            ? 'px-2 py-1 bg-text text-background text-[11px] font-medium border border-transparent' 
+          variant === 'compact'
+            ? 'px-2 py-1 bg-text text-background text-[11px] font-medium border border-transparent'
             : 'min-w-[150px] p-3 bg-background text-text text-xs border border-secondary/50'
         ]">
         <div v-if="title"
@@ -65,7 +64,7 @@ const {
 
         <!-- Arrow -->
         <div v-if="showArrow" ref="floatingArrow"
-          class="absolute w-2.5 h-2.5 rotate-45 pointer-events-none z-[-1]" 
+          class="absolute w-2.5 h-2.5 rotate-45 pointer-events-none z-[-1]"
           :class="variant === 'compact' ? 'bg-text' : 'bg-background'"
           :style="{
             left: middlewareData.arrow?.x != null ? `${middlewareData.arrow.x}px` : '',

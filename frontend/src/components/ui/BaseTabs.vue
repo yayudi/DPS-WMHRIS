@@ -1,4 +1,3 @@
-<!-- frontend\src\components\ui\Tabs.vue -->
 <script setup>
 defineProps({
   tabs: {

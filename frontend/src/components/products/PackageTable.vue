@@ -2,12 +2,12 @@
 import { computed, ref, toRef } from 'vue'
 import { FlexRender } from '@tanstack/vue-table'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
-import { useMobile } from '@/composables/useMobile.js'
-import { useSortIcon } from '@/composables/useSortIcon.js'
-import { useSmartGrid } from '@/composables/useSmartGrid.js'
+import { useMobile } from '@/composables/useMobile'
+import { useSortIcon } from '@/composables/useSortIcon'
+import { useSmartGrid } from '@/composables/useSmartGrid'
 import BaseContextMenu from '@/components/ui/BaseContextMenu.vue'
 import { useProductContextMenu } from '@/composables/useProductContextMenu'
-import axios from '@/api/axios.js'
+import axios from '@/core/infrastructure/http.client'
 
 const { isMobile } = useMobile()
 

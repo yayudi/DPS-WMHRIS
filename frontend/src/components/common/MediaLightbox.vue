@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, onUnmounted } from 'vue';
-import { formatBytes } from '@/utils/formatBytes.js';
+import { formatBytes } from '@/utils/formatBytes';
 import { resolveUrl } from '@/composables/useImageUrl';
 
 const props = defineProps({

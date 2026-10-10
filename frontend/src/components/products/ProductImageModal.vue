@@ -1,23 +1,22 @@
-<!-- frontend/src/components/products/ProductImageModal.vue -->
 <script setup>
 import { swalConfirm } from '@/composables/useSweetAlert'
 import { ref, computed, watch, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
-import { useToast } from '@/composables/useToast.js'
-import { useAuthStore } from '@/stores/auth.js'
-import axios from '@/api/axios.js'
-import { uploadMediaToR2 } from '@/utils/mediaUploader.js'
-import apiClient from '@/api/axios'
-import { fetchProductById } from '@/api/helpers/products.js'
+import { useToast } from '@/composables/useToast'
+import { useAuthStore } from '@/modules/auth/application/auth.store'
+import axios from '@/core/infrastructure/http.client'
+import { uploadMediaToR2 } from '@/utils/mediaUploader'
+import apiClient from '@/core/infrastructure/http.client'
+import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { resolveUrl } from '@/composables/useImageUrl'
 import MediaCard from '@/components/common/MediaCard.vue'
 import MediaActionBar from '@/components/common/MediaActionBar.vue'
 import MediaLightbox from '@/components/common/MediaLightbox.vue'
-import { autoCropCenter } from '@/utils/imageCropper.js'
+import { autoCropCenter } from '@/utils/imageCropper'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import { isGenericTitle, stripExtension } from '@/utils/mediaUtils'
-import { useFirebaseSync } from '@/composables/useFirebaseSync.js'
+import { useFirebaseSync } from '@/composables/useFirebaseSync'
 import MediaPickerModal from '@/components/shared/MediaPickerModal.vue'
-const ImageCropperModal = defineAsyncComponent(() => import('@/views/master-data/ImageCropperModal.vue'))
+const ImageCropperModal = defineAsyncComponent(() => import('@/modules/master_data/presentation/components/ImageCropperModal.vue'))
 
 const props = defineProps({
   show: Boolean,
@@ -73,7 +72,7 @@ async function fetchImages() {
   if (!props.productData?.id) return
   fetching.value = true
   try {
-    const fullData = await fetchProductById(props.productData.id)
+    const fullData = await productApi.fetchProductById(props.productData.id)
     if (fullData && fullData.images) {
       existingImages.value = fullData.images
     } else {

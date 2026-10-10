@@ -4,8 +4,8 @@ import dayjs from 'dayjs'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseTabs from '@/components/ui/BaseTabs.vue'
 import ImportJobHistory from '@/components/shared/ImportJobHistory.vue'
-import { useDownloadStore } from '@/stores/downloadStore.js'
-import { useDownload } from '@/composables/useDownload.js'
+import { useDownloadStore } from '@/stores/downloadStore'
+import { useDownload } from '@/composables/useDownload'
 
 const { openDownloadUrl } = useDownload()
 

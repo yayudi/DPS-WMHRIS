@@ -1,7 +1,7 @@
 <script setup>
 import { swalAlert } from '@/composables/useSweetAlert'
 import { ref, watch } from 'vue'
-import api from '@/api/axios'
+import api from '@/core/infrastructure/http.client'
 import MediaPickerModal from '@/components/shared/MediaPickerModal.vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { useStickerFabric } from '@/composables/sticker-builder/useStickerFabric'

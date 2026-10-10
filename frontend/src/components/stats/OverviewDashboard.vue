@@ -1,8 +1,8 @@
 <!-- src/components/stats/OverviewDashboard.vue -->
 <script setup>
 import { computed } from 'vue'
-import { useAuthStore } from '@/stores/auth.js'
-import { formatNumber, formatCurrency } from '@/utils/formatters.js'
+import { useAuthStore } from '@/modules/auth/application/auth.store'
+import { formatNumber, formatCurrency } from '@/utils/formatters'
 import CombinedAnalyticsDashboard from '@/views/analytics/CombinedAnalyticsDashboard.vue'
 
 const auth = useAuthStore()

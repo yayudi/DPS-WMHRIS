@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useMasterDataStore } from '@/stores/masterData'
-import { useProductSearch } from '@/composables/useProductSearch.js'
+import { useProductSearch } from '@/modules/wms/application/useProductSearch'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import BaseFilterPanel from '@/components/ui/BaseFilterPanel.vue'
 import StockTimelineSlider from './StockTimelineSlider.vue'

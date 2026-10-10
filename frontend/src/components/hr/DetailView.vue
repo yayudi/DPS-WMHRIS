@@ -1,11 +1,11 @@
 <!-- components\DetailView.vue -->
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { formatJamMenit } from '@/api/helpers/time.js'
+import { formatJamMenit } from '@/api/helpers/time'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import AttendanceEditModal from '@/components/hr/AttendanceEditModal.vue'
-import { usePagination } from '@/composables/usePagination.js'
+import { usePagination } from '@/composables/usePagination'
 
 const props = defineProps({
   user: { type: Object, default: null }, // For single user mode { id, nama, logs[] }

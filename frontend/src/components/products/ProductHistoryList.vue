@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
-import axios from '@/api/axios.js'
-import { formatCurrency } from '@/utils/formatters.js'
+import axios from '@/core/infrastructure/http.client'
+import { formatCurrency } from '@/utils/formatters'
 
 const props = defineProps({
   productId: { type: Number, required: true },

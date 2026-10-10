@@ -1,6 +1,6 @@
 <script setup>
 import { useBrokenImages } from '@/composables/useImageUrl'
-import { useMobile } from '@/composables/useMobile.js'
+import { useMobile } from '@/composables/useMobile'
 
 const { isMobile } = useMobile()
 

@@ -1,18 +1,17 @@
-<!-- frontend\src\components\layout\AppHeader.vue -->
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import ThemeSwitcher from '../ui/ThemeSwitcher.vue'
 import NotificationQuickView from '../notifications/NotificationQuickView.vue'
-import { useAuthStore } from '../../stores/auth.js'
-import { usePwaInstall } from '@/composables/usePwaInstall.js'
-import { useAppHotkeys, isCheatSheetOpen } from '@/composables/useAppHotkeys.js'
+import { useAuthStore } from '@/modules/auth/application/auth.store'
+import { usePwaInstall } from '@/composables/usePwaInstall'
+import { useAppHotkeys, isCheatSheetOpen } from '@/composables/useAppHotkeys'
 import HotkeyCheatSheet from '../ui/HotkeyCheatSheet.vue'
 import { defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
 
 const StickerGeneratorModal = defineAsyncComponent(() => import('@/components/utilities/StickerGeneratorModal.vue'))
-const SalesSimulationModal = defineAsyncComponent(() => import('@/components/wms/shared/SalesSimulationModal.vue'))
+const SalesSimulationModal = defineAsyncComponent(() => import('@/modules/wms/presentation/components/shared/SalesSimulationModal.vue'))
 
 const route = useRoute()
 

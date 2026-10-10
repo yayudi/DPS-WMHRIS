@@ -1,21 +1,17 @@
-<!-- frontend/src/components/shared/GlobalJobManager.vue -->
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useDownloadStore } from '@/stores/downloadStore.js'
-import { useUploadStore } from '@/stores/uploadStore.js'
-import { useFirebaseSync } from '@/composables/useFirebaseSync.js'
-import { formatFileName } from '@/utils/formatters.js'
+import { useDownloadStore } from '@/stores/downloadStore'
+import { useUploadStore } from '@/stores/uploadStore'
+import { useFirebaseSync } from '@/composables/useFirebaseSync'
+import { formatFileName } from '@/utils/formatters'
 import dayjs from 'dayjs'
-import { useDownload } from '@/composables/useDownload.js'
+import { useDownload } from '@/composables/useDownload'
 
 const downloadStore = useDownloadStore()
 const uploadStore = useUploadStore()
 const { openDownloadUrl } = useDownload()
-
 const activeTab = ref('download') // 'download' | 'upload'
-
 const isExpanded = computed(() => downloadStore.isExpanded || uploadStore.isExpanded)
-
 const pendingCount = computed(() => downloadStore.pendingCount + uploadStore.pendingCount)
 
 const toggleWidget = () => {

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, useSlots } from 'vue'
-import { useMobile } from '@/composables/useMobile.js'
+import { useMobile } from '@/composables/useMobile'
 
 const props = defineProps({
   title: { type: String, default: '' },

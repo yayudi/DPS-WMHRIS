@@ -1,4 +1,3 @@
-<!-- frontend/src/components/ui/HotkeyCheatSheet.vue -->
 <script setup>
 import { isCheatSheetOpen } from '@/composables/useAppHotkeys'
 import BaseModal from '@/components/ui/BaseModal.vue'

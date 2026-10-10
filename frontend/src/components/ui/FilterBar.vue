@@ -1,4 +1,3 @@
-<!-- frontend\src\components\ui\FilterBar.vue -->
 <script setup>
 import { reactive, watch } from 'vue'
 import BaseFilterPanel from '@/components/ui/BaseFilterPanel.vue'

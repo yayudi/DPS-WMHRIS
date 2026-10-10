@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useFloating, autoUpdate, offset, flip, shift, size } from '@floating-ui/vue'
-import { useListNavigation } from '@/composables/useListNavigation.js'
+import { useListNavigation } from '@/composables/useListNavigation'
 
 const props = defineProps({
   modelValue: {

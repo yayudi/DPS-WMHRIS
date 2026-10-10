@@ -1,9 +1,9 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { onClickOutside } from '@vueuse/core'
-import { useMobile } from '@/composables/useMobile.js'
+import { useMobile } from '@/composables/useMobile'
 
 const route = useRoute()
 const auth = useAuthStore()

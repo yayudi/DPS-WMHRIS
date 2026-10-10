@@ -1,11 +1,11 @@
 <script setup>
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
-import { dayjs } from '@/api/helpers/time.js'
-import { useTheme } from '@/composables/useTheme.js'
+import { dayjs } from '@/api/helpers/time'
+import { useTheme } from '@/composables/useTheme'
 import DateRangeFilter from '@/components/ui/DateRangeFilter.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
-import { getStockMovementStatistics } from '@/api/helpers/statistics.js'
+import { getStockMovementStatistics } from '@/api/helpers/statistics'
 import { useMasterDataStore } from '@/stores/masterData'
 
 const masterData = useMasterDataStore()

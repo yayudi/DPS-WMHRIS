@@ -1,12 +1,9 @@
-<!-- frontend\src\components\ui\ThemeSwitcher.vue -->
 <script setup>
 import { computed } from 'vue'
 import { useTheme } from '@/composables/useTheme'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 
 const { themes, currentTheme, applyTheme } = useTheme()
-
-// Format options pattern untuk BaseSelect
 const themeOptions = computed(() => {
   return themes.map(theme => ({
     id: theme,

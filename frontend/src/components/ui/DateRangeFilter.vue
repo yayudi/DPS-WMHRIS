@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, nextTick } from 'vue'
-import { dayjs } from '@/api/helpers/time.js'
+import { dayjs } from '@/api/helpers/time'
 
 const props = defineProps({
   startDate: { type: String, default: null },

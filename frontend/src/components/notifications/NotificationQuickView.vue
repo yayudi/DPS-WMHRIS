@@ -80,9 +80,9 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '@/api/axios'
-import { useAuthStore } from '@/stores/auth.js'
-import { useFirebaseSync } from '@/composables/useFirebaseSync.js'
+import api from '@/core/infrastructure/http.client'
+import { useAuthStore } from '@/modules/auth/application/auth.store'
+import { useFirebaseSync } from '@/composables/useFirebaseSync'
 
 const router = useRouter()
 const authStore = useAuthStore()

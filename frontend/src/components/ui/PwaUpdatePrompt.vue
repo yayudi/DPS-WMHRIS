@@ -1,7 +1,5 @@
-<!-- frontend/src/components/ui/PwaUpdatePrompt.vue -->
 <script setup>
-import { usePwaUpdate } from '@/composables/usePwaUpdate.js'
-
+import { usePwaUpdate } from '@/composables/usePwaUpdate'
 const { needRefresh, updateServiceWorker, dismissUpdate } = usePwaUpdate()
 </script>
 

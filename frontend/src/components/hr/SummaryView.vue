@@ -1,13 +1,12 @@
-<!-- frontend\src\components\SummaryView.vue -->
 <script setup>
 import { ref } from 'vue'
-import { useSummary } from '@/composables/useSummary.js'
-import { formatJamMenit } from '@/api/helpers/time.js'
+import { useSummary } from '@/composables/useSummary'
+import { formatJamMenit } from '@/api/helpers/time'
 import SummaryDetailModal from './SummaryDetailModal.vue'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
-import { useAuthStore } from '@/stores/auth.js'
-import { usePagination } from '@/composables/usePagination.js'
+import { useAuthStore } from '@/modules/auth/application/auth.store'
+import { usePagination } from '@/composables/usePagination'
 
 const props = defineProps({
   users: {

@@ -197,10 +197,10 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
-import { useUploadStore } from '@/stores/uploadStore.js'
-import { useToast } from '@/composables/useToast.js'
-import { useDownload } from '@/composables/useDownload.js'
-import { useUpload } from '@/composables/useUpload.js'
+import { useUploadStore } from '@/stores/uploadStore'
+import { useToast } from '@/composables/useToast'
+import { useDownload } from '@/composables/useDownload'
+import { useUpload } from '@/composables/useUpload'
 
 const props = defineProps({
   isOpen: Boolean,

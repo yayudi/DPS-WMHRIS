@@ -1,25 +1,21 @@
-<!-- frontend/src/components/hr/AttendanceUploadTab.vue -->
 <script setup>
 import { ref } from 'vue'
-import { useToast } from '@/composables/useToast.js'
-import { useJobHistory } from '@/composables/useJobHistory.js'
-import { uploadAbsensiFile } from '@/api/helpers/attendance.js'
+import { useToast } from '@/composables/useToast'
+import { useJobHistory } from '@/composables/useJobHistory'
+import { useAttendance } from '@/modules/hr/application/useAttendance'
 import UploadForm from '@/components/ui/UploadForm.vue'
 
 const { toast } = useToast()
 const emit = defineEmits(['view-errors', 'switch-tab'])
-
-// --- STATE HISTORY TABLE ---
 const { importJobHistory, isHistoryLoading, fetchJobHistory, handleVoidJob, getProgress } =
   useJobHistory('IMPORT_ATTENDANCE')
-
-// --- UPLOAD HANDLER ---
 const isUploading = ref(false)
+
 async function handleUpload(formData) {
   isUploading.value = true
   toast('Mengupload file...', 'info')
   try {
-    const response = await uploadAbsensiFile(formData)
+    const response = await useAttendance().uploadAbsensiFile(formData)
 
     if (response.success) {
       // Trigger refresh segera setelah upload

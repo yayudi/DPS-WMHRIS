@@ -1,8 +1,7 @@
-<!-- frontend\src\components\Modal.vue -->
 <script setup>
 import { watch } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
-import { useMobile } from '@/composables/useMobile.js'
+import { useMobile } from '@/composables/useMobile'
 
 const { isMobile } = useMobile()
 

@@ -2,9 +2,9 @@
 import { ref, watch } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
 import BaseModal from '@/components/ui/BaseModal.vue'
-import { fetchUserLocationIds, updateUserLocations } from '@/api/helpers/admin.js'
+import { userApi } from '@/modules/settings/infrastructure/user.api'
 import { useMasterDataStore } from '@/stores/masterData'
-import { useToast } from '@/composables/useToast.js'
+import { useToast } from '@/composables/useToast'
 
 const masterData = useMasterDataStore()
 
@@ -29,7 +29,7 @@ watch(
         // Ambil semua data yang dibutuhkan secara paralel untuk efisiensi
         const [allLocs, userLocIds] = await Promise.all([
           masterData.getLocations(),
-          fetchUserLocationIds(newUser.id),
+          userApi.fetchUserLocationIds(newUser.id),
         ])
         allLocations.value = allLocs
         selectedLocationIds.value = userLocIds
@@ -47,7 +47,7 @@ async function handleSave() {
   if (!props.user) return
   isLoading.value = true
   try {
-    await updateUserLocations(props.user.id, selectedLocationIds.value)
+    await userApi.updateUserLocations(props.user.id, selectedLocationIds.value)
     toast('Izin lokasi berhasil diperbarui.', 'success')
     emit('updated') // Beri tahu komponen induk bahwa data telah berubah
     emit('close')

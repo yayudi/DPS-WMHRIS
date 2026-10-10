@@ -1,13 +1,13 @@
 <script setup>
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
-import { dayjs } from '@/api/helpers/time.js'
-import { useTheme } from '@/composables/useTheme.js'
+import { dayjs } from '@/api/helpers/time'
+import { useTheme } from '@/composables/useTheme'
 import FilterBar from '@/components/ui/FilterBar.vue'
 import FilterToggle from '@/components/ui/FilterToggle.vue'
-import { fetchShopPerformance } from '@/api/helpers/stats.js'
-import api from '@/api/axios'
+import { fetchShopPerformance } from '@/api/helpers/stats'
+import api from '@/core/infrastructure/http.client'
 const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
-import { formatNumber, formatCurrency } from '@/utils/formatters.js'
+import { formatNumber, formatCurrency } from '@/utils/formatters'
 
 // const { toast } = useToast()
 const { themeColors, isDarkTheme, isThemeChanging } = useTheme()

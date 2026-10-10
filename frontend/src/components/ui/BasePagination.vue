@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
-import { useMobile } from '@/composables/useMobile.js'
+import { useMobile } from '@/composables/useMobile'
 
 const { isMobile } = useMobile()
 

@@ -1,18 +1,18 @@
 <script setup>
 import { swalConfirm, swalAlert } from '@/composables/useSweetAlert'
 import { ref, computed, watch, defineAsyncComponent } from 'vue'
-import { useToast } from '@/composables/useToast.js'
-import { useDownload } from '@/composables/useDownload.js'
+import { useToast } from '@/composables/useToast'
+import { useDownload } from '@/composables/useDownload'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import DpvStickerTemplate from './DpvStickerTemplate.vue'
 const DynamicStickerRenderer = defineAsyncComponent(() => import('./DynamicStickerRenderer.vue'))
 const StickerTemplateBuilder = defineAsyncComponent(() => import('./StickerTemplateBuilder.vue'))
 const PaperSizeManagerModal = defineAsyncComponent(() => import('./PaperSizeManagerModal.vue'))
-import ProductSearchSelector from '@/components/wms/transfer/ProductSearchSelector.vue'
+import ProductSearchSelector from '@/modules/wms/presentation/components/transfer/ProductSearchSelector.vue'
 import ScannerToggle from '@/components/utilities/ScannerToggle.vue'
-import { useAuthStore } from '@/stores/auth'
-import { formatCurrency } from '@/utils/formatters.js'
-import api from '@/api/axios'
+import { useAuthStore } from '@/modules/auth/application/auth.store'
+import { formatCurrency } from '@/utils/formatters'
+import api from '@/core/infrastructure/http.client'
 const props = defineProps({
   show: { type: Boolean, required: true },
   initialProduct: { type: Object, default: null },

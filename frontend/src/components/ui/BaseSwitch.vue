@@ -1,4 +1,3 @@
-<!-- frontend/src/components/ui/BaseSwitch.vue -->
 <script setup>
 defineProps({
   modelValue: {

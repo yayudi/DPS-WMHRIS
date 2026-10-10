@@ -1,9 +1,12 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
-import { useToast } from '@/composables/useToast.js'
+import { useToast } from '@/composables/useToast'
 import BaseModal from '@/components/ui/BaseModal.vue'
-import axios from '@/api/axios'
+import { useShift } from '@/modules/hr/application/useShift'
+import { shiftSchema } from '@/modules/hr/domain/shift.validator'
+
+const { createShift, updateShift } = useShift()
 
 const props = defineProps({
   show: Boolean,
@@ -64,18 +67,21 @@ watch(() => props.shift, (newShift) => {
 async function handleSave() {
   form.value.work_days = selectedDays.value.join(',')
 
-  if (!form.value.name || !form.value.start_time || !form.value.end_time) {
-    toast('Nama dan Jam Kerja wajib diisi', 'warning')
+  // Validate using Zod
+  const result = shiftSchema.safeParse(form.value)
+  if (!result.success) {
+    const errorMessages = result.error.errors.map(e => e.message).join('\n')
+    toast(errorMessages, 'warning')
     return
   }
 
   isLoading.value = true
   try {
     if (props.shift) {
-      await axios.put(`/shifts/${props.shift.id}`, form.value)
+      await updateShift(props.shift.id, form.value)
       toast('Shift berhasil diperbarui', 'success')
     } else {
-      await axios.post('/shifts', form.value)
+      await createShift(form.value)
       toast('Shift berhasil dibuat', 'success')
     }
     emit('updated')

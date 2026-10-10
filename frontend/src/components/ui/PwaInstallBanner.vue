@@ -1,9 +1,6 @@
-<!-- frontend/src/components/ui/PwaInstallBanner.vue -->
 <script setup>
-import { usePwaInstall } from '@/composables/usePwaInstall.js'
-
+import { usePwaInstall } from '@/composables/usePwaInstall'
 const { isInstallable, isBannerDismissed, isIos, installPwa, dismissPrompt } = usePwaInstall()
-
 </script>
 
 <template>

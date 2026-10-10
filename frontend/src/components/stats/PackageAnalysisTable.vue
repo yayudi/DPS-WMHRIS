@@ -1,14 +1,13 @@
-<!-- frontend\src\components\stats\PackageAnalysisTable.vue -->
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { dayjs } from '@/api/helpers/time.js'
+import { dayjs } from '@/api/helpers/time'
 import FilterBar from '@/components/ui/FilterBar.vue'
 import FilterToggle from '@/components/ui/FilterToggle.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
-import { usePagination } from '@/composables/usePagination.js'
-import { fetchPackageAnalysis } from '@/api/helpers/stats.js'
-import { formatNumber } from '@/utils/formatters.js'
-import { useMasterDataStore } from '@/stores/masterData.js'
+import { usePagination } from '@/composables/usePagination'
+import { fetchPackageAnalysis } from '@/api/helpers/stats'
+import { formatNumber } from '@/utils/formatters'
+import { useMasterDataStore } from '@/stores/masterData'
 
 const masterStore = useMasterDataStore()
 const isDataLoading = ref(false)

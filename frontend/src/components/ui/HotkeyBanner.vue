@@ -1,17 +1,15 @@
-<!-- frontend/src/components/ui/HotkeyBanner.vue -->
 <script setup>
 import { ref, onMounted } from 'vue'
-import { usePwaInstall } from '@/composables/usePwaInstall.js'
+import { usePwaInstall } from '@/composables/usePwaInstall'
 
 const { isInstallable, isBannerDismissed } = usePwaInstall()
-
 const isHotkeyBannerDismissed = ref(true)
 
 onMounted(() => {
   const dismissedAt = localStorage.getItem('hotkey_banner_dismissed')
   if (!dismissedAt) {
     isHotkeyBannerDismissed.value = false
-    
+
     // Auto-close timeout (10 seconds)
     setTimeout(() => {
       dismissHotkeyBanner()

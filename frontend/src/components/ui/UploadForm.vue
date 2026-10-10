@@ -1,8 +1,6 @@
-<!-- frontend/src/components/ui/UploadForm.vue -->
 <script setup>
 import { ref } from 'vue'
 
-// Menerima 'loading' sebagai prop dari parent
 const props = defineProps({
   accept: {
     type: String,
@@ -31,7 +29,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['submit'])
-
 const fileInputRef = ref(null)
 const files = ref([])
 const isDragging = ref(false)

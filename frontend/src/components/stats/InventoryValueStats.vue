@@ -2,19 +2,19 @@
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import BaseTabs from '@/components/ui/BaseTabs.vue'
-import { useTheme } from '@/composables/useTheme.js'
-import { getInventoryValueStatistics, getStockBuildingBreakdown } from '@/api/helpers/statistics.js'
-import { dayjs } from '@/api/helpers/time.js'
+import { useTheme } from '@/composables/useTheme'
+import { getInventoryValueStatistics, getStockBuildingBreakdown } from '@/api/helpers/statistics'
+import { dayjs } from '@/api/helpers/time'
 import StockTimelineModal from '@/components/stats/StockTimelineModal.vue'
 const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
-import { formatCurrency, formatNumber } from '@/utils/formatters.js'
-import { useStatsTable } from '@/composables/useStatsTable.js'
+import { formatCurrency, formatNumber } from '@/utils/formatters'
+import { useStatsTable } from '@/composables/useStatsTable'
 import { useMasterDataStore } from '@/stores/masterData'
 import StatsChartCard from './shared/StatsChartCard.vue'
 import FilterBar from '@/components/ui/FilterBar.vue'
 import FilterToggle from '@/components/ui/FilterToggle.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
-import { usePagination } from '@/composables/usePagination.js'
+import { usePagination } from '@/composables/usePagination'
 
 const masterData = useMasterDataStore()
 const isDataLoading = ref(false)

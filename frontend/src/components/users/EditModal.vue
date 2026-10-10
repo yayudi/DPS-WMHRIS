@@ -1,9 +1,9 @@
-<!-- frontend\src\components\UserEditModal.vue -->
+\src\components\UserEditModal.vue -->
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
-import { useToast } from '@/composables/useToast.js'
-import { updateUser } from '@/api/helpers/admin.js'
+import { useToast } from '@/composables/useToast'
+import { userApi } from '@/modules/settings/infrastructure/user.api'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 
@@ -16,7 +16,6 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'updated'])
 const { toast } = useToast()
-
 const editableUser = ref({})
 const isLoading = ref(false)
 
@@ -50,7 +49,7 @@ watch(
 async function handleSave() {
   isLoading.value = true
   try {
-    await updateUser(props.user.id, editableUser.value)
+    await userApi.updateUser(props.user.id, editableUser.value)
     toast('Data pengguna berhasil diperbarui.', 'success')
     emit('updated')
     emit('close')

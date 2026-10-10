@@ -1,24 +1,24 @@
 <script setup>
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
-import { dayjs } from '@/api/helpers/time.js'
-import { useAuthStore } from '@/stores/auth'
-import { useToast } from '@/composables/useToast.js'
-import { useTheme } from '@/composables/useTheme.js'
-import { getStockMovementStatistics, getStockBuildingBreakdown } from '@/api/helpers/statistics.js'
-import { requestStatisticExport } from '@/api/helpers/exportStats.js'
+import { dayjs } from '@/api/helpers/time'
+import { useAuthStore } from '@/modules/auth/application/auth.store'
+import { useToast } from '@/composables/useToast'
+import { useTheme } from '@/composables/useTheme'
+import { getStockMovementStatistics, getStockBuildingBreakdown } from '@/api/helpers/statistics'
+import { requestStatisticExport } from '@/api/helpers/exportStats'
 import { useMasterDataStore } from '@/stores/masterData'
 import BaseTabs from '@/components/ui/BaseTabs.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
-import { useStatsTable } from '@/composables/useStatsTable.js'
+import { useStatsTable } from '@/composables/useStatsTable'
 import StatsChartCard from './shared/StatsChartCard.vue'
 import FilterBar from '@/components/ui/FilterBar.vue'
 import StockTimelineModal from '@/components/stats/StockTimelineModal.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import ExportDropdown from '@/components/ui/ExportDropdown.vue'
 import FilterToggle from '@/components/ui/FilterToggle.vue'
-import { formatNumber, generateDynamicExportName } from '@/utils/formatters.js'
-import { usePagination } from '@/composables/usePagination.js'
+import { formatNumber, generateDynamicExportName } from '@/utils/formatters'
+import { usePagination } from '@/composables/usePagination'
 
 const authStore = useAuthStore()
 const masterData = useMasterDataStore()

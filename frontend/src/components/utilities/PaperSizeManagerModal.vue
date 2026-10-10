@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import api from '@/api/axios'
+import api from '@/core/infrastructure/http.client'
 import { useToast } from '@/composables/useToast'
 import { swalConfirm, swalAlert } from '@/composables/useSweetAlert'
 

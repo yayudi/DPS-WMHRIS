@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
-import axios from '@/api/axios'
+import axios from '@/core/infrastructure/http.client'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 

@@ -1,7 +1,7 @@
 <!-- components\SummaryDetailModal.vue -->
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { formatJamMenit } from "@/api/helpers/time.js";
+import { formatJamMenit } from "@/api/helpers/time";
 import BaseModal from '@/components/ui/BaseModal.vue';
 
 const props = defineProps({

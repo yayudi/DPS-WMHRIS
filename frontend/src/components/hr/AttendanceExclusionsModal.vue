@@ -1,12 +1,10 @@
-<!-- frontend/src/components/hr/AttendanceExclusionsModal.vue -->
 <script setup>
 import { ref, watch, computed } from 'vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import { useMasterDataStore } from '@/stores/masterData'
-
+import api from '@/core/infrastructure/http.client'
+import { useToast } from '@/composables/useToast'
 const masterData = useMasterDataStore()
-import api from '@/api/axios.js'
-import { useToast } from '@/composables/useToast.js'
 
 const props = defineProps({
   isOpen: {

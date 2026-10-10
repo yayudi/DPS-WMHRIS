@@ -181,3 +181,5 @@ firebase/*.json
 *.sql.gz
 /*dump*.sql
 /*backup*.sql
+docs/
+documents/

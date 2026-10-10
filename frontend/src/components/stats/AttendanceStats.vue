@@ -1,9 +1,9 @@
 <script setup>
 import { ref, computed, defineAsyncComponent } from 'vue'
 const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
-import { calculateSummaryForUser } from '@/api/helpers/summary.js'
-import { useAuthStore } from '@/stores/auth.js'
-import { formatJamMenit } from '@/api/helpers/time.js'
+import { calculateSummaryForUser } from '@/api/helpers/summary'
+import { useAuthStore } from '@/modules/auth/application/auth.store'
+import { formatJamMenit } from '@/api/helpers/time'
 import BaseModal from '@/components/ui/BaseModal.vue'
 
 const props = defineProps({
