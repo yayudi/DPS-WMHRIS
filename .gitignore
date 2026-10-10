@@ -17,8 +17,6 @@ lerna-debug.log*
 # DEPENDENCIES
 # ===================================================================
 node_modules/
-/frontend/node_modules/
-/backend/node_modules/
 .npm
 .pnp
 .pnp.js
@@ -28,17 +26,14 @@ node_modules/
 # BUILD & COVERAGE
 # ===================================================================
 dist/
-/frontend/dist/
-/frontend/dev-dist
+dev-dist
 coverage/
-/frontend/coverage/
-/backend/coverage/
 .nyc_output/
 build/
 .cache/
 scratch/
 scratch_*
-/frontend/bundle-stats.html
+bundle-stats.*
 migrations/
 gosec*
 api
@@ -181,3 +176,5 @@ firebase/*.json
 *.sql.gz
 /*dump*.sql
 /*backup*.sql
+docs/
+documents/

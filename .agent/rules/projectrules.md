@@ -184,3 +184,15 @@ The project uses the standard Go `testing` package.
     2. **Transactions:** Never use `tx.Begin()` directly. Always inject `TransactionManager` into UseCases and use `WithTransaction(ctx, ...)`.
     3. **HTTP Context:** The `gin.Context` object MUST NOT leave the `adapter/inbound/http` layer. Use standard `context.Context` everywhere else.
     4. **Database Models:** Repository models (e.g., `Filter` structs with SQL tags) MUST NOT be imported into Handlers. Handlers must parse input into Application DTOs (`application/dto`).
+
+---
+
+## 11. AGENT WORKFLOW & EXPERIMENTATION (VIBECODER GUIDELINES)
+**Context:** To keep the repository clean from temporary scripts, unused logic, and misplaced files generated during AI pair programming.
+
+* **Rule 1: Scratchpad for Experiments (Explicit Pathing)** 
+  NEVER generate temporary scripts, regex sandbox files, or throwaway experiments in the project root (`./`) or source directories. ALWAYS specify the path explicitly and place temporary files ONLY inside `scratch/`.
+* **Rule 2: Test-Driven Utility Creation** 
+  When creating complex logic (like Regex, Data Parsing, etc.) intended for permanent use, do NOT create standalone script files to test them. Use a Test-Driven approach: implement the function in the correct package (e.g., `pkg/utils/regex.go`) and immediately create its corresponding unit test (e.g., `pkg/utils/regex_test.go`).
+* **Rule 3: Explicit Paths for Permanent Scripts** 
+  If a permanent utility or worker script must be created, do not guess the location. Place it in explicit designated folders (e.g., `scripts/` for bash/python/node utilities, or `cmd/worker/` for Go workers).
