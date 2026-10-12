@@ -1,22 +1,20 @@
-<!-- frontend\src\App.vue -->
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
-import { useAuthStore } from './stores/auth'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import GlobalSidebar from '@/components/layout/GlobalSidebar.vue'
-import { useTheme } from '@/composables/useTheme'
-import PwaUpdatePrompt from '@/components/ui/PwaUpdatePrompt.vue'
-import PwaInstallBanner from '@/components/ui/PwaInstallBanner.vue'
-import JobManager from '@/components/shared/JobManager.vue'
-import { useMobile } from '@/composables/useMobile.js'
+import { useAuthStore } from '@/modules/auth/application/auth.store'
+import AppHeader from '@/app/layouts/components/AppHeader.vue'
+import GlobalSidebar from '@/app/layouts/components/GlobalSidebar.vue'
+import { useTheme } from '@/core/presentation/composables/useTheme'
+import PwaUpdatePrompt from '@/core/presentation/components/ui/PwaUpdatePrompt.vue'
+import PwaInstallBanner from '@/core/presentation/components/ui/PwaInstallBanner.vue'
+import JobManager from '@/core/presentation/components/shared/JobManager.vue'
+import { useMobile } from '@/core/presentation/composables/useMobile'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const { initTheme } = useTheme()
 const { isMobile } = useMobile()
-
 const showHeader = computed(() => route.name && route.name !== 'Login' && auth.isAuthenticated)
 const showLayout = computed(() => showHeader.value && !route.meta.hideLayout)
 const isSidebarCollapsed = ref(true)
