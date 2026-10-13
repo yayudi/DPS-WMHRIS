@@ -1,10 +1,9 @@
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
-import VueApexCharts from 'vue3-apexcharts'
+import { ref, onMounted, watch, computed, defineAsyncComponent } from 'vue'
+const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
 import {
   getStockMovementStatistics,
-  getInventoryValueStatistics,
-  fetchLocationAnalysis
+  getInventoryValueStatistics
 } from '@/api/helpers/statistics.js'
 import { fetchShopPerformance, fetchPackageAnalysis } from '@/api/helpers/stats.js'
 import { useMasterDataStore } from '@/stores/masterData'

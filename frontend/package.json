@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "lint": "eslint . --fix",
     "format": "prettier --write src/",
-    "test:unit": "vitest"
+    "test:unit": "vitest",
+    "deploy:prod": "vite build --mode production && firebase deploy --only hosting"
   },
   "dependencies": {
     "@floating-ui/vue": "^1.1.11",

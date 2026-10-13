@@ -1,7 +1,7 @@
 <!-- frontend/src/views/admin/ProductManagement.vue -->
 <script setup>
 import { swalConfirm } from '@/composables/useSweetAlert'
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, defineAsyncComponent } from 'vue'
 import { useFirebaseSync } from '@/composables/useFirebaseSync'
 import { useMagicKeys } from '@vueuse/core'
 import { useToast } from '@/composables/useToast.js'
@@ -19,7 +19,7 @@ import TriStateSelect from '@/components/ui/TriStateSelect.vue'
 import WmsActionHeader from '@/components/wms/shared/WmsActionHeader.vue'
 import ProductTable from '@/components/products/ProductTable.vue'
 import ProductImageModal from '@/components/products/ProductImageModal.vue'
-import StickerGeneratorModal from '@/components/utilities/StickerGeneratorModal.vue'
+const StickerGeneratorModal = defineAsyncComponent(() => import('@/components/utilities/StickerGeneratorModal.vue'))
 
 const { toast } = useToast()
 const masterStore = useMasterDataStore()
@@ -650,7 +650,7 @@ watch(Slash, pressed => {
     />
 
     <!-- Sticker Generator Modal -->
-    <StickerGeneratorModal :show="showStickerModal" @close="showStickerModal = false" :initial-batch="printBatchList" />
+    <StickerGeneratorModal v-if="showStickerModal" :show="showStickerModal" @close="showStickerModal = false" :initial-batch="printBatchList" />
   </div>
 
   <!-- GLOBAL COMPONENTS -->

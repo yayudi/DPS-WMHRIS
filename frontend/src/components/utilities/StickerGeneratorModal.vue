@@ -714,6 +714,7 @@ const printStickerHeight = computed(() => {
   </Teleport>
 
   <StickerTemplateBuilder
+    v-if="showBuilder"
     :show="showBuilder"
     :initialTemplate="editTemplateData"
     @close="showBuilder = false"
@@ -721,6 +722,7 @@ const printStickerHeight = computed(() => {
   />
 
   <PaperSizeManagerModal
+    v-if="showPaperSizeManager"
     :show="showPaperSizeManager"
     @close="showPaperSizeManager = false"
     @updated="fetchPaperSizes"

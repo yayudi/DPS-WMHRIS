@@ -6,9 +6,16 @@ import { triggerPwaUpdate, isPwaUpdateAvailable } from '@/composables/usePwaUpda
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(JSON.parse(localStorage.getItem('authUser')))
+  const token = ref(localStorage.getItem('token'))
   const isLoadingUser = ref(false)
 
-  function setToken() {
+  function setToken(newToken) {
+    token.value = newToken || null
+    if (newToken) {
+      localStorage.setItem('token', newToken)
+    } else {
+      localStorage.removeItem('token')
+    }
     if (isPwaUpdateAvailable && triggerPwaUpdate) {
       triggerPwaUpdate(true)
     }
@@ -25,7 +32,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   function clearToken() {
     localStorage.removeItem('authUser')
+    localStorage.removeItem('token')
     user.value = null
+    token.value = null
   }
 
   function logout() {
@@ -35,7 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const isAuthenticated = computed(() => !!user.value)
+  const isAuthenticated = computed(() => !!user.value || !!token.value)
   const isAdmin = computed(() => user.value?.role_id === 1)
   const isSales = computed(() => user.value?.role_id === 2)
   const isGudang = computed(() => user.value?.role_id === 3)
@@ -71,6 +80,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user,
+    token,
     isLoadingUser,
     setToken,
     setUser,

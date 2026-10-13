@@ -12,7 +12,7 @@ import BatchMovementHeader from '@/components/wms/transfer/BatchMovementHeader.v
 import ProductSearchAddForm from '@/components/wms/transfer/ProductSearchAddForm.vue'
 import BatchItemList from '@/components/wms/transfer/BatchItemList.vue'
 import MultiLocationTransferTab from '@/components/wms/transfer/MultiLocationTransferTab.vue'
-import BatchInboundModal from '@/components/stock/BatchInboundModal.vue'
+const BatchInboundModal = defineAsyncComponent(() => import('@/components/stock/BatchInboundModal.vue'))
 
 const masterData = useMasterDataStore()
 const { copyBatchToClipboard } = useBatchClipboard()
@@ -320,10 +320,11 @@ async function submitBatch() {
   </div>
 
   <BatchInboundModal
+    v-if="isBatchInboundModalOpen"
     :isOpen="isBatchInboundModalOpen"
     @close="isBatchInboundModalOpen = false"
     @success="() => toast('Batch Inbound diproses!', 'success')"
   />
 
-  <StickerGeneratorModal :show="isStickerModalOpen" @close="isStickerModalOpen = false" :initial-batch="batchList" />
+  <StickerGeneratorModal v-if="isStickerModalOpen" :show="isStickerModalOpen" @close="isStickerModalOpen = false" :initial-batch="batchList" />
 </template>

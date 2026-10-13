@@ -10,13 +10,21 @@ const __dirname = path.dirname(__filename);
 
 const backendRoot = path.resolve(__dirname, '../');
 
-let serviceAccountPath = path.resolve(backendRoot, 'serviceAccountKey.json');
+let serviceAccountPath = process.env.FIREBASE_CREDENTIALS_PATH
+  ? path.resolve(process.env.FIREBASE_CREDENTIALS_PATH)
+  : path.resolve(backendRoot, 'serviceAccountKey.json');
 
 if (!fs.existsSync(serviceAccountPath)) {
-  const files = fs.readdirSync(backendRoot);
-  const adminSdkFile = files.find(file => file.includes('firebase-adminsdk') && file.endsWith('.json'));
-  if (adminSdkFile) {
-    serviceAccountPath = path.resolve(backendRoot, adminSdkFile);
+  const searchDirs = [backendRoot, path.resolve(backendRoot, '..')];
+  for (const dir of searchDirs) {
+    if (fs.existsSync(dir)) {
+      const files = fs.readdirSync(dir);
+      const adminSdkFile = files.find(file => file.includes('firebase-adminsdk') && file.endsWith('.json'));
+      if (adminSdkFile) {
+        serviceAccountPath = path.resolve(dir, adminSdkFile);
+        break;
+      }
+    }
   }
 }
 
@@ -29,7 +37,7 @@ if (fs.existsSync(serviceAccountPath)) {
     
     initializeApp({
       credential: cert(serviceAccount),
-      databaseURL: "https://wmhrisdps-default-rtdb.asia-southeast1.firebasedatabase.app"
+      databaseURL: process.env.FIREBASE_DB_URL || "https://wmhrisdps-default-rtdb.asia-southeast1.firebasedatabase.app"
     });
     
     db = getDatabase();

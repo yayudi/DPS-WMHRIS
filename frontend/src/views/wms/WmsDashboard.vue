@@ -2,7 +2,7 @@
 <script setup>
 import { swalConfirm } from '@/composables/useSweetAlert'
 import axios from '@/api/axios.js'
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, defineAsyncComponent } from 'vue'
 import { useToast } from '@/composables/useToast.js'
 import { useWms } from '@/composables/useWms.js'
 import { useAuthStore } from '@/stores/auth.js'
@@ -20,7 +20,7 @@ import WmsHistoryModal from '@/components/wms/shared/HistoryModal.vue'
 import WmsProductFormModal from '@/components/wms/shared/ProductFormModal.vue'
 import SalesSimulationModal from '@/components/wms/shared/SalesSimulationModal.vue'
 import ProductImageModal from '@/components/products/ProductImageModal.vue'
-import StickerGeneratorModal from '@/components/utilities/StickerGeneratorModal.vue'
+const StickerGeneratorModal = defineAsyncComponent(() => import('@/components/utilities/StickerGeneratorModal.vue'))
 import BasePagination from '@/components/ui/BasePagination.vue'
 
 const { isMobile } = useMobile()
@@ -434,7 +434,7 @@ watch(Escape, pressed => {
     @refresh="resetAndRefetch"
   />
 
-  <StickerGeneratorModal :show="isStickerModalOpen" :initialProduct="selectedStickerProduct" @close="closeModal" />
+  <StickerGeneratorModal v-if="isStickerModalOpen" :show="isStickerModalOpen" :initialProduct="selectedStickerProduct" @close="closeModal" />
 </template>
 
 <style scoped>

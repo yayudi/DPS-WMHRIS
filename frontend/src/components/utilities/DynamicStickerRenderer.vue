@@ -1,8 +1,25 @@
 <script setup>
 import { ref, watch, onMounted, nextTick } from 'vue'
 import * as fabric from 'fabric'
-import JsBarcode from 'jsbarcode'
-import QRCode from 'qrcode'
+
+let jsBarcodeModule = null
+let qrCodeModule = null
+
+const getJsBarcode = async () => {
+  if (!jsBarcodeModule) {
+    const mod = await import('jsbarcode')
+    jsBarcodeModule = mod.default || mod
+  }
+  return jsBarcodeModule
+}
+
+const getQRCode = async () => {
+  if (!qrCodeModule) {
+    const mod = await import('qrcode')
+    qrCodeModule = mod.default || mod
+  }
+  return qrCodeModule
+}
 
 const props = defineProps({
   config: {
@@ -118,8 +135,10 @@ const performRender = async () => {
                     try {
                       let dataUrl = ''
                       if (obj.barcodeType === 'qrcode') {
+                        const QRCode = await getQRCode()
                         dataUrl = await QRCode.toDataURL(barcodeVal || ' ', { errorCorrectionLevel: 'M', margin: 2 })
                       } else {
+                        const JsBarcode = await getJsBarcode()
                         const canvas = document.createElement('canvas')
                         JsBarcode(canvas, barcodeVal || ' ', {
                           format: 'CODE128',

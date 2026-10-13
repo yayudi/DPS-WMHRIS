@@ -9,17 +9,5 @@
   },
   "editor.formatOnSave": true,
   "typescript.validate.enable": false,
-  "todo-tree.tree.disableCompactFolders": true,
-  "workbench.colorCustomizations": {
-    "editor.wordHighlightBackground": "#1a456b90",
-    "editor.wordHighlightBorder": "#00000000",
-    "editor.wordHighlightStrongBackground": "#1a456b90",
-    "editor.wordHighlightStrongBorder": "#00000000",
-    "activityBar.background": "#42b883",
-    "statusBar.background": "#42b883",
-    "statusBar.noFolderBackground": "#42b883",
-    "activityBar.foreground": "#000000",
-    "activityBar.inactiveForeground": "#000000",
-    "statusBar.foreground": "#000000"
-  }
+  "todo-tree.tree.disableCompactFolders": true
 }

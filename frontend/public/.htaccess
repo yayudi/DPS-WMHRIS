@@ -7,9 +7,7 @@
   RewriteRule . /index.html [L]
 </IfModule>
 
-# Cache-Control Strategy untuk Mencegah Cache Usang di Shared Hosting
 <IfModule mod_headers.c>
-  # 1. Static assets ber-hash aman di-cache lama (1 tahun)
   <FilesMatch "\.(css|webp|png|jpg|jpeg|svg|woff2|woff|ttf|ico)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
@@ -18,7 +16,6 @@
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
 
-  # 2. JANGAN PERNAH cache index.html, sw.js, dan manifest
   <FilesMatch "(index\.html|sw\.js|site\.webmanifest|manifest\.webmanifest)$">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"

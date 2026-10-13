@@ -22,6 +22,12 @@ instance.interceptors.request.use(
 
     loadingStore.startLoading()
 
+    // Sisipkan Bearer token otomatis (menghindari pemblokiran cookie cross-site di browser)
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+
     // --- AUTO TIMEOUT OVERRIDE ---
     // Jika payload adalah FormData (Upload File) atau response diharapkan Blob (Download File)
     // Perpanjang timeout menjadi 60 detik (60000 ms) agar tidak putus di tengah jalan.
