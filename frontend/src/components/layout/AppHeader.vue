@@ -26,11 +26,11 @@ const isAdminActive = computed(() => route.path.startsWith('/admin'))
 useAppHotkeys(handleLogout)
 
 const displayName = computed(() => {
-  if (auth.user && auth.user.nickname) {
-    const nickname = auth.user.nickname
-    console.log(auth.user)
-    console.log(nickname)
-    return nickname.charAt(0).toUpperCase() + nickname.slice(1)
+  if (auth.user) {
+    const name = auth.user.nickname || auth.user.username
+    if (name) {
+      return name.charAt(0).toUpperCase() + name.slice(1)
+    }
   }
   return 'Akun Saya'
 })
@@ -91,6 +91,9 @@ function handleClickOutside(event) {
 
 onMounted(() => {
   document.addEventListener('mousedown', handleClickOutside)
+  if (auth.isAuthenticated && (!auth.user || auth.user.nickname === undefined)) {
+    auth.fetchUser()
+  }
 })
 
 onUnmounted(() => {
@@ -178,7 +181,7 @@ onUnmounted(() => {
             class="flex items-center gap-2 px-3 text-text/80 hover:text-primary transition-colors"
           >
             <font-awesome-icon icon="fa-solid fa-user-circle" class="text-xl" />
-            <span class="hidden sm:inline text-sm font-medium">{{ displayName }}</span>
+            <span class="hidden sm:inline text-sm font-medium">Hi, {{ displayName }}!</span>
             <font-awesome-icon
               icon="fa-solid fa-chevron-down"
               class="text-xs transition-transform duration-200"
@@ -196,7 +199,7 @@ onUnmounted(() => {
               class="w-full text-left px-4 py-2 text-sm text-text/90 hover:bg-secondary/20 flex items-center gap-3"
             >
               <font-awesome-icon icon="fa-solid fa-user-cog" class="w-4" />
-              <span>Hi, {{ displayName }}!</span>
+              <span>{{ displayName }}</span>
             </RouterLink>
 
             <RouterLink

@@ -1,5 +1,5 @@
 import catchAsync from "../utils/catchAsync.js";
-// backend/controllers/pickingController.js
+import AppError from "../utils/AppError.js";
 import fs from "fs";
 
 // --- SERVICES ---
@@ -159,3 +159,20 @@ export const retryBackordersBatch = catchAsync(async (req, res, next) => {
   const result = await pickingService.retryBackordersBatchService(pickingListIds);
   res.json(result);
 });
+
+/**
+ * Update items (product and quantity) for a picking list.
+ */
+export const updatePickingItems = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const { items } = req.body;
+  const userId = req.user?.id || 1;
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    throw new AppError("Daftar item tidak boleh kosong.", 400);
+  }
+
+  const result = await pickingService.updatePickingListItemsService(id, items, userId);
+  res.json(result);
+});
+

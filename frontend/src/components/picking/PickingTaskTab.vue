@@ -548,6 +548,7 @@ defineExpose({
               @toggle-invoice="handleToggleInvoice"
               @void-invoice="handleVoidInvoice"
               @retry-backorder="handleRetryBackorder"
+              @items-updated="fetchPendingItems"
               mode="picking"
             />
           </template>
@@ -564,6 +565,7 @@ defineExpose({
             @toggle-invoice="handleToggleInvoice"
             @void-invoice="handleVoidInvoice"
             @retry-backorder="handleRetryBackorder"
+            @items-updated="fetchPendingItems"
             mode="picking"
           />
         </div>

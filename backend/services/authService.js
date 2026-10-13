@@ -38,6 +38,7 @@ export const loginService = async (username, password, ip, userAgent) => {
   const payload = {
     id: user.id,
     username: user.username,
+    nickname: user.nickname || null,
     role: role,
     role_id: user.role_id,
     permissions: permissions,

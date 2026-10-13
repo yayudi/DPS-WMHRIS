@@ -57,6 +57,7 @@ router.post(
   pickingController.completeItems,
 );
 router.post("/void/:id", canAccess("void-picking-list"), pickingController.voidPickingList);
+router.put("/:id/items", canAccess("confirm-picking-list"), pickingController.updatePickingItems);
 router.post("/retry-backorders-batch", pickingController.retryBackordersBatch);
 router.post("/:id/retry-backorders", pickingController.retryBackorders);
 

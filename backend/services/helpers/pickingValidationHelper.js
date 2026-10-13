@@ -14,9 +14,9 @@ function logTrace(stage, message, data = null) {
 }
 
 /**
- * HELPER INTERNAL: Restock item yang sudah VALIDATED (karena batal atau revisi)
+ * HELPER: Restock item yang sudah VALIDATED (karena batal atau revisi)
  */
-async function restockValidatedItems(connection, listId, userId, reason) {
+export async function restockValidatedItems(connection, listId, userId, reason) {
   const [itemsToRestock] = await connection.query(
     `SELECT product_id, quantity, confirmed_location_id
       FROM picking_list_items

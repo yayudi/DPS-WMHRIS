@@ -73,11 +73,14 @@ export const runAutoRecovery = async () => {
 
     // Jika antrean kosong, berikan log diagnostik agar penyebabnya terlihat jelas di log
     if (activeLists.length === 0) {
-      writeRecoveryLog("INFO", "⚠️ Antrean kosong: Tidak ada picking list yang memenuhi kriteria seleksi saat ini.");
+      writeRecoveryLog(
+        "INFO",
+        "⚠️ Antrean kosong: Tidak ada picking list yang memenuhi kriteria seleksi saat ini.",
+      );
 
       // Diagnosa status picking list aktif secara keseluruhan
       const [[diagSummary]] = await connection.query(`
-        SELECT 
+        SELECT
           COUNT(DISTINCT pl.id) as total_active_status,
           SUM(CASE WHEN pl.is_active = 0 THEN 1 ELSE 0 END) as inactive_flag_count
         FROM picking_lists pl
@@ -110,7 +113,10 @@ export const runAutoRecovery = async () => {
       });
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-      writeRecoveryLog("INFO", `🏁 [AUTO-RECOVERY RUN FINISHED] Selesai tanpa aksi dalam ${duration} detik.`);
+      writeRecoveryLog(
+        "INFO",
+        `🏁 [AUTO-RECOVERY RUN FINISHED] Selesai tanpa aksi dalam ${duration} detik.`,
+      );
       return;
     }
 
@@ -156,7 +162,10 @@ export const runAutoRecovery = async () => {
         }
 
         // TAHAP A: SINKRONISASI ALOKASI STOK
-        writeRecoveryLog("DEBUG", `[${list.original_invoice_id}] TAHAP A: Menjalankan sinkronisasi alokasi stok (retryBackordersBatchService)...`);
+        writeRecoveryLog(
+          "DEBUG",
+          `[${list.original_invoice_id}] TAHAP A: Menjalankan sinkronisasi alokasi stok (retryBackordersBatchService)...`,
+        );
         await retryBackordersBatchService([list.id]);
 
         // Cek rincian item terkini
@@ -213,7 +222,8 @@ export const runAutoRecovery = async () => {
 
         // TAHAP B2: EVALUASI ANTI-PARSIAL
         const unfulfillable = allItems.filter(
-          (it) => it.status === "BACKORDER" || (it.status === "PENDING" && !it.suggested_location_id),
+          (it) =>
+            it.status === "BACKORDER" || (it.status === "PENDING" && !it.suggested_location_id),
         );
 
         // TAHAP C: EKSEKUSI (DEDUCT STOCK)
@@ -262,7 +272,8 @@ export const runAutoRecovery = async () => {
               sku: u.original_sku,
               qty: u.quantity,
               status: u.status,
-              reason: u.status === "BACKORDER" ? "Stok habis / Backorder" : "Lokasi belum disarankan",
+              reason:
+                u.status === "BACKORDER" ? "Stok habis / Backorder" : "Lokasi belum disarankan",
             })),
           );
           skippedCount++;

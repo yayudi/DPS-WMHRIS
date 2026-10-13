@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import logoTokopedia from '@/assets/img/tokopedia.svg'
 import logoShopee from '@/assets/img/shopee.svg'
 import { usePickingCardState } from '@/composables/usePickingCardState'
+import PickingEditModal from '@/components/picking/PickingEditModal.vue'
 
 const props = defineProps({
   inv: { type: Object, required: true },
@@ -17,10 +18,11 @@ const props = defineProps({
 })
 
 const authStore = useAuthStore()
-const emit = defineEmits(['toggle-invoice', 'void-invoice', 'retry-backorder'])
+const emit = defineEmits(['toggle-invoice', 'void-invoice', 'retry-backorder', 'items-updated'])
 
 const isOpen = ref(false)
 const isLoading = ref(false)
+const isEditModalOpen = ref(false)
 
 const {
   totalSKU,
@@ -170,10 +172,20 @@ const sourceBgClass = computed(() => {
 
         <div class="flex items-center gap-1 mt-0.5">
           <button
+            v-if="mode === 'picking' && inv.status !== 'VOID'"
+            @click.stop="isEditModalOpen = true"
+            :disabled="isLoading"
+            class="group flex items-center gap-1 rounded border border-primary/30 bg-primary/10 p-2 text-[10px] font-bold text-primary/50 transition-colors hover:text-primary hover:border-primary disabled:opacity-50"
+            title="Ubah Produk & Kuantitas"
+          >
+            <font-awesome-icon icon="fa-solid fa-pen-to-square" />
+          </button>
+
+          <button
             v-if="mode === 'picking' && hasStockIssue"
             @click.stop="onRetryBackorder"
             :disabled="isLoading"
-            class="group flex items-center gap-1 rounded border border-warning bg-warning/10 px-2 py-1 text-[10px] font-bold text-warning/70 transition-colors hover:text-warning disabled:opacity-50"
+            class="group flex items-center gap-1 rounded border border-warning/30 bg-warning/10 p-2 text-[10px] font-bold text-warning/50 transition-colors hover:text-warning hover:border-warning disabled:opacity-50"
             title="Cek ulang stok (Targeted Refresh)"
           >
             <font-awesome-icon
@@ -186,7 +198,7 @@ const sourceBgClass = computed(() => {
             v-if="canCancel && inv.status !== 'VOID'"
             @click.stop="onVoidInvoice"
             :disabled="isLoading"
-            class="group flex items-center gap-1 rounded border border-danger bg-danger/10 px-2 py-1 text-[10px] font-bold text-danger/50 transition-colors hover:text-danger disabled:opacity-50"
+            class="group flex items-center gap-1 rounded border border-danger/30 bg-danger/10 p-2 text-[10px] font-bold text-danger/50 transition-colors hover:text-danger hover:border-danger disabled:opacity-50"
             title="Void"
           >
             <font-awesome-icon :icon="isLoading ? 'fa-solid fa-spinner' : 'fa-solid fa-ban'" :spin="isLoading" />
@@ -327,5 +339,13 @@ const sourceBgClass = computed(() => {
         </div>
       </div>
     </transition>
+
+    <!-- EDIT MODAL -->
+    <PickingEditModal
+      :show="isEditModalOpen"
+      :inv="inv"
+      @close="isEditModalOpen = false"
+      @saved="emit('items-updated', inv.id)"
+    />
   </div>
 </template>

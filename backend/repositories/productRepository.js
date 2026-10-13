@@ -579,7 +579,8 @@ export const searchProducts = async (
              LIMIT ? OFFSET ?`;
     queryParams.push(locationId, ...keywordParams, limit, offset);
   } else {
-    query = `SELECT p.id, p.sku, p.name, p.price, p.weight
+    query = `SELECT p.id, p.sku, p.name, p.price, p.weight,
+                    CAST(COALESCE((SELECT SUM(sl.quantity) FROM stock_locations sl WHERE sl.product_id = p.id), 0) AS SIGNED) AS current_stock
              FROM products p
              WHERE p.is_active = 1 AND p.deleted_at IS NULL ${keywordSql} ${inStockSql}
              ORDER BY p.name ASC

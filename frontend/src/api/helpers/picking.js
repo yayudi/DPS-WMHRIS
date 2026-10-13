@@ -148,3 +148,19 @@ export const retryBackordersBatch = async (pickingListIds) => {
     throw error.response?.data || error
   }
 }
+
+/**
+ * Memperbarui produk dan kuantitas item dalam picking list secara manual
+ * @param {number|string} pickingListId
+ * @param {Array<{ productId: number, sku: string, quantity: number, price?: number }>} items
+ */
+export const updatePickingItems = async (pickingListId, items) => {
+  try {
+    const response = await api.put(`/picking/${pickingListId}/items`, { items })
+    return response.data
+  } catch (error) {
+    console.error(`Error updating items for picking list #${pickingListId}:`, error)
+    throw error.response?.data || error
+  }
+}
+

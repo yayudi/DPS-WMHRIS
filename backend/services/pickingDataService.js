@@ -6,6 +6,7 @@ import * as pickingRepo from "../repositories/pickingRepository.js";
 import * as locationRepo from "../repositories/locationRepository.js";
 import * as stockRepo from "../repositories/stockMovementRepository.js";
 import { emitSharedTaskSignal } from "./firebaseSignalService.js";
+import { restockValidatedItems } from "./helpers/pickingValidationHelper.js";
 
 const fileLog = (msg) => {
   Logger.warn(msg, "PICKING_DATA_SERVICE");
@@ -624,3 +625,82 @@ export const completePickingItemsService = async (payloadItems, userId) => {
     connection.release();
   }
 };
+
+/**
+ * Update produk dan kuantitas item dalam sebuah Picking List secara manual.
+ * @param {number|string} pickingListId
+ * @param {Array<{ productId: number, sku: string, quantity: number, price?: number }>} newItems
+ * @param {number|string} userId
+ * @returns {Promise<{ success: boolean, message: string }>}
+ */
+export const updatePickingListItemsService = async (pickingListId, newItems, userId) => {
+  if (!Array.isArray(newItems) || newItems.length === 0) {
+    throw new AppError("Pesanan harus memiliki minimal 1 produk.", 400);
+  }
+
+  const connection = await db.getConnection();
+  await connection.beginTransaction();
+
+  try {
+    const header = await pickingRepo.getHeaderById(connection, pickingListId);
+    if (!header || !header.is_active) {
+      throw new AppError("Picking list tidak ditemukan atau sudah tidak aktif.", 404);
+    }
+    if (header.status !== "PENDING" && header.status !== "VALIDATED") {
+      throw new AppError(`Pesanan dengan status ${header.status} tidak dapat diubah.`, 400);
+    }
+
+    // Kembalikan alokasi jika sempat ada item VALIDATED
+    await restockValidatedItems(connection, pickingListId, userId, "Edit Item Pesanan");
+
+    // Hapus item lama
+    await connection.query("DELETE FROM picking_list_items WHERE picking_list_id = ?", [pickingListId]);
+
+    // Evaluasi lokasi stok untuk item baru
+    const rowsToInsert = [];
+    for (const item of newItems) {
+      const qty = parseInt(item.quantity, 10);
+      if (isNaN(qty) || qty <= 0) {
+        throw new AppError(`Kuantitas untuk SKU ${item.sku} harus lebih besar dari 0.`, 400);
+      }
+
+      const { locationId } = await ensureStockLocation(
+        connection,
+        item.productId,
+        qty,
+        null,
+        header.location_purpose || "DISPLAY"
+      );
+
+      const status = locationId ? "PENDING" : "BACKORDER";
+      const price = item.price || 0;
+      rowsToInsert.push([pickingListId, item.productId, item.sku, price, qty, status, locationId]);
+    }
+
+    await pickingRepo.createItemsBulk(connection, rowsToInsert);
+
+    // Reset header ke PENDING
+    await pickingRepo.updateHeaderStatus(connection, pickingListId, "PENDING", 1);
+
+    await connection.commit();
+
+    emitSharedTaskSignal("PICKING_LIST", "REFRESH_PICKING").catch((e) =>
+      Logger.error("Signal Error", e, "PICKING_DATA_SERVICE")
+    );
+    emitSharedTaskSignal("WMS_DASHBOARD", "REFRESH_STOCK").catch((e) =>
+      Logger.error("Signal Error", e, "PICKING_DATA_SERVICE")
+    );
+
+    return {
+      success: true,
+      message: `Berhasil memperbarui item pesanan #${header.original_invoice_id || pickingListId}.`,
+    };
+  } catch (error) {
+    await connection.rollback();
+    Logger.error("Update Picking Items Failed", error, "PICKING_DATA_SERVICE");
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
