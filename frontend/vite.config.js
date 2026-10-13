@@ -88,17 +88,11 @@ export default defineConfig(({ command, mode }) => {
         ]
       },
       workbox: {
+        cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 },
-              networkTimeoutSeconds: 10
-            }
-          },
+          // Catatan: JANGAN cache /api/ karena data WMS/HRIS bersifat dinamis & real-time.
+          // Hanya cache gambar/media statis dari /uploads/
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/uploads/'),
             handler: 'CacheFirst',

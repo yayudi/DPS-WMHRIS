@@ -16,21 +16,20 @@ const checkConnection = async () => {
   // 2. Backend Health Check
   if (isOnline.value) {
     try {
-      // Menggunakan endpoint ringan (misal: OPTIONS /auth/me atau endpoint khusus health check jika ada)
-      // Disini kita coba ping root api atau endpoint yang pasti ada
-      await axios.get('/products', { params: { limit: 1 } })
+      // Menggunakan endpoint /health yang sangat ringan (tanpa query DB)
+      await axios.get('/health')
       isBackendReachable.value = true
     } catch (error) {
-    console.error(error) // Auto-added to prevent unused var
-       // Jika status 401/403 berarti connect tapi auth fail -> itu TERSAMBUNG
+      console.error(error) // Auto-added to prevent unused var
+      // Jika status 401/403 berarti connect tapi auth fail -> itu TERSAMBUNG
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-          isBackendReachable.value = true
+        isBackendReachable.value = true
       } else {
-          isBackendReachable.value = false
+        isBackendReachable.value = false
       }
     }
   } else {
-      isBackendReachable.value = false
+    isBackendReachable.value = false
   }
 
   lastCheck.value = new Date()
@@ -38,8 +37,8 @@ const checkConnection = async () => {
 
 onMounted(() => {
   checkConnection()
-  // Check every 30 seconds
-  intervalId = setInterval(checkConnection, 30000)
+  // Check every 60 seconds to save shared hosting entry processes
+  intervalId = setInterval(checkConnection, 60000)
 
   window.addEventListener('online', checkConnection)
   window.addEventListener('offline', checkConnection)

@@ -129,6 +129,20 @@ app.use(
   }),
 );
 
+// Global Process Error Guards to prevent silent crashes in Shared Hosting (Passenger)
+process.on("unhandledRejection", (reason) => {
+  Logger.error("Unhandled Rejection detected", reason instanceof Error ? reason : new Error(String(reason)), "PROCESS");
+});
+
+process.on("uncaughtException", (error) => {
+  Logger.error("Uncaught Exception detected", error, "PROCESS");
+});
+
+// Lightweight Health Check (Zero-DB overhead, bypasses database pool)
+app.get(["/api/health", "/health"], (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: Date.now() });
+});
+
 // Routing API Utama
 app.use(cookieParser());
 app.use("/api", apiRouter);

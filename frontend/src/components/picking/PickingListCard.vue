@@ -180,7 +180,6 @@ const sourceBgClass = computed(() => {
               :icon="isLoading ? 'fa-solid fa-spinner' : 'fa-solid fa-rotate-right'"
               :spin="isLoading"
             />
-            <span>Cek Stok</span>
           </button>
 
           <button
@@ -191,7 +190,6 @@ const sourceBgClass = computed(() => {
             title="Void"
           >
             <font-awesome-icon :icon="isLoading ? 'fa-solid fa-spinner' : 'fa-solid fa-ban'" :spin="isLoading" />
-            <span>Void</span>
           </button>
         </div>
 

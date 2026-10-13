@@ -9,6 +9,11 @@ export default mergeConfig(
       environment: 'jsdom',
       exclude: [...configDefaults.exclude, 'e2e/*'],
       root: fileURLToPath(new URL('./', import.meta.url))
+    },
+    resolve: {
+      alias: {
+        'virtual:pwa-register/vue': fileURLToPath(new URL('./src/tests/mocks/pwa-register.js', import.meta.url))
+      }
     }
   })
 )

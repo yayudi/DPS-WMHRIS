@@ -13,6 +13,7 @@ import { useFirebaseListener } from '@/composables/useFirebaseListener'
 export function useFirebaseSync(permissions, actionNames, callback) {
   const authStore = useAuthStore()
   let firebaseListener = null
+  let jitterTimeout = null
 
   // Normalisasi input
   const permsArray = Array.isArray(permissions) ? permissions : [permissions]
@@ -32,7 +33,20 @@ export function useFirebaseSync(permissions, actionNames, callback) {
         permsArray,
         (data) => {
           if (!actionsArray || actionsArray.includes(data.action)) {
-            callback(data)
+            // Mitigasi Thundering Herd: sebar request antar pengguna dengan jeda acak (jitter)
+            const isTest = import.meta.env?.MODE === 'test'
+            if (isTest) {
+              callback(data)
+              return
+            }
+
+            if (jitterTimeout) {
+              clearTimeout(jitterTimeout)
+            }
+            const jitterDelay = Math.floor(Math.random() * 1100) + 100 // 100ms - 1200ms
+            jitterTimeout = setTimeout(() => {
+              callback(data)
+            }, jitterDelay)
           }
         }
       )
@@ -41,6 +55,10 @@ export function useFirebaseSync(permissions, actionNames, callback) {
   })
 
   onUnmounted(() => {
+    if (jitterTimeout) {
+      clearTimeout(jitterTimeout)
+      jitterTimeout = null
+    }
     if (firebaseListener) {
       firebaseListener.stopListening()
     }

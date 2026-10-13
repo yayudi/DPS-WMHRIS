@@ -33,6 +33,26 @@ const displayName = computed(() => {
   return 'Akun Saya'
 })
 
+const isClearingCache = ref(false)
+
+async function handleHardResetCache() {
+  isClearingCache.value = true
+  try {
+    if ('caches' in window) {
+      const cacheNames = await caches.keys()
+      await Promise.all(cacheNames.map(name => caches.delete(name)))
+    }
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(registrations.map(r => r.unregister()))
+    }
+    window.location.reload()
+  } catch (error) {
+    console.error('Gagal membersihkan cache:', error)
+    window.location.reload()
+  }
+}
+
 function handleLogout() {
   isDropdownOpen.value = false
   isMobileMenuOpen.value = false
@@ -199,10 +219,19 @@ onUnmounted(() => {
               <ThemeSwitcher />
             </div>
 
-            <div class="border-t border-secondary/20 mt-2 pt-2">
+            <div class="border-t border-secondary/20 mt-2 pt-2 space-y-1">
+              <button
+                @click="handleHardResetCache"
+                :disabled="isClearingCache"
+                class="w-full text-left px-4 py-2 text-sm text-text/80 hover:bg-secondary/10 rounded-md flex items-center gap-3 transition-colors"
+                title="Hapus cache offline browser & muat ulang versi terbaru"
+              >
+                <font-awesome-icon icon="fa-solid fa-rotate" class="w-4 text-primary" :class="{ 'animate-spin': isClearingCache }" />
+                <span>Bersihkan Cache</span>
+              </button>
               <button
                 @click="handleLogout"
-                class="w-full text-left px-4 py-2 text-sm text-accent hover:bg-accent/10 flex items-center gap-3"
+                class="w-full text-left px-4 py-2 text-sm text-accent hover:bg-accent/10 rounded-md flex items-center gap-3 transition-colors"
               >
                 <font-awesome-icon icon="fa-solid fa-sign-out-alt" class="w-4" />
                 <span>Logout</span>
