@@ -15,6 +15,12 @@ const isExpanded = computed(() => downloadStore.isExpanded || uploadStore.isExpa
 
 const pendingCount = computed(() => downloadStore.pendingCount + uploadStore.pendingCount)
 
+const hasJobs = computed(() => {
+  const downloadCount = downloadStore.jobs?.length || 0
+  const uploadCount = uploadStore.jobs?.length || 0
+  return downloadCount > 0 || uploadCount > 0 || isExpanded.value
+})
+
 const toggleWidget = () => {
   if (isExpanded.value) {
     downloadStore.isExpanded = false
@@ -112,7 +118,18 @@ const getErrorUrl = job => {
 </script>
 
 <template>
-  <div class="fixed bottom-6 right-6 z-[6000] flex flex-col items-end pointer-events-none">
+  <transition
+    enter-active-class="transition ease-out duration-300 transform"
+    enter-from-class="opacity-0 translate-y-4 scale-95"
+    enter-to-class="opacity-100 translate-y-0 scale-100"
+    leave-active-class="transition ease-in duration-200 transform"
+    leave-from-class="opacity-100 translate-y-0 scale-100"
+    leave-to-class="opacity-0 translate-y-4 scale-95"
+  >
+    <div
+      v-if="hasJobs"
+      class="fixed bottom-6 right-6 z-[6000] flex flex-col items-end pointer-events-none"
+    >
     <!-- Expanded Panel -->
     <transition
       enter-active-class="transition ease-out duration-300 transform origin-bottom-right"
@@ -342,4 +359,5 @@ const getErrorUrl = job => {
       </div>
     </button>
   </div>
+  </transition>
 </template>

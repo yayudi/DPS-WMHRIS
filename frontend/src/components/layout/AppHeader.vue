@@ -28,6 +28,8 @@ useAppHotkeys(handleLogout)
 const displayName = computed(() => {
   if (auth.user && auth.user.nickname) {
     const nickname = auth.user.nickname
+    console.log(auth.user)
+    console.log(nickname)
     return nickname.charAt(0).toUpperCase() + nickname.slice(1)
   }
   return 'Akun Saya'
@@ -194,7 +196,7 @@ onUnmounted(() => {
               class="w-full text-left px-4 py-2 text-sm text-text/90 hover:bg-secondary/20 flex items-center gap-3"
             >
               <font-awesome-icon icon="fa-solid fa-user-cog" class="w-4" />
-              <span>Akun Saya</span>
+              <span>Hi, {{ displayName }}!</span>
             </RouterLink>
 
             <RouterLink
@@ -226,7 +228,11 @@ onUnmounted(() => {
                 class="w-full text-left px-4 py-2 text-sm text-text/80 hover:bg-secondary/10 rounded-md flex items-center gap-3 transition-colors"
                 title="Hapus cache offline browser & muat ulang versi terbaru"
               >
-                <font-awesome-icon icon="fa-solid fa-rotate" class="w-4 text-primary" :class="{ 'animate-spin': isClearingCache }" />
+                <font-awesome-icon
+                  icon="fa-solid fa-rotate"
+                  class="w-4 text-primary"
+                  :class="{ 'animate-spin': isClearingCache }"
+                />
                 <span>Bersihkan Cache</span>
               </button>
               <button

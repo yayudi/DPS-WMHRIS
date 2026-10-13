@@ -19,8 +19,8 @@ router.post(
   requestStockReport
 );
 
-// Endpoint untuk melihat status pekerjaan dan link unduh
-router.get("/my-jobs", authenticateToken, canAccess("view-reports"), getUserExportJobs);
+// Endpoint untuk melihat status pekerjaan dan link unduh (hanya perlu login, filter by user_id)
+router.get("/my-jobs", authenticateToken, getUserExportJobs);
 
 // [TETAP ADA] Rute untuk mengambil data filter (UI tetap perlu ini)
 router.get("/filters", authenticateToken, canAccess("view-reports"), fetchReportFilters);
