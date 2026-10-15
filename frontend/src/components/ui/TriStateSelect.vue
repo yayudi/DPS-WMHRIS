@@ -217,38 +217,6 @@ function clearAll(event) {
   emit('update:modelValue', { include: [], exclude: [] })
 }
 
-function includeFiltered() {
-  const currentInclude = [...safeModelValue.value.include]
-  const currentExclude = [...safeModelValue.value.exclude]
-
-  filteredOptions.value.forEach(opt => {
-    const val = getOptionValue(opt)
-    const excIdx = currentExclude.indexOf(val)
-    if (excIdx > -1) currentExclude.splice(excIdx, 1)
-    if (!currentInclude.includes(val)) {
-      currentInclude.push(val)
-    }
-  })
-
-  emit('update:modelValue', { include: currentInclude, exclude: currentExclude })
-}
-
-function excludeFiltered() {
-  const currentInclude = [...safeModelValue.value.include]
-  const currentExclude = [...safeModelValue.value.exclude]
-
-  filteredOptions.value.forEach(opt => {
-    const val = getOptionValue(opt)
-    const incIdx = currentInclude.indexOf(val)
-    if (incIdx > -1) currentInclude.splice(incIdx, 1)
-    if (!currentExclude.includes(val)) {
-      currentExclude.push(val)
-    }
-  })
-
-  emit('update:modelValue', { include: currentInclude, exclude: currentExclude })
-}
-
 // Click Outside
 const handleClickOutside = event => {
   const isClickInsideContainer = containerRef.value && containerRef.value.contains(event.target)
@@ -326,6 +294,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
         >
           <!-- HEADER -->
           <div
+            v-if="searchable || !isPlaceholderState"
             class="bg-secondary/5 border-b border-secondary/10 flex flex-col gap-2 p-2 text-xs font-bold text-text/60"
           >
             <div v-if="searchable" class="w-full relative">
@@ -343,50 +312,16 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
                 placeholder="Cari opsi..."
               />
             </div>
-            <!-- Quick Actions for Search Results -->
-            <div
-              v-if="searchable && searchQuery && filteredOptions.length > 0"
-              class="w-full flex items-center justify-between px-1 py-1.5 text-[10px] text-text/60 border-t border-secondary/10 mt-1"
+
+            <button
+              v-if="!isPlaceholderState"
+              type="button"
+              @click="clearAll"
+              class="w-full py-1.5 bg-danger/10 text-danger hover:text-white hover:bg-danger rounded-md transition-colors font-medium text-xs flex items-center justify-center gap-1.5"
             >
-              <span>Hasil: {{ filteredOptions.length }}</span>
-              <div class="flex gap-2">
-                <button
-                  type="button"
-                  @click.stop="includeFiltered"
-                  class="text-primary hover:underline font-bold transition-colors"
-                  :disabled="excludeCount > 0"
-                  :class="{ 'opacity-50 cursor-not-allowed': excludeCount > 0 }"
-                  :title="excludeCount > 0 ? 'Tidak bisa include saat ada exclude aktif' : 'Include Semua'"
-                >
-                  + Include Semua
-                </button>
-                <span class="text-secondary/40">|</span>
-                <button
-                  type="button"
-                  @click.stop="excludeFiltered"
-                  class="text-danger hover:underline font-bold transition-colors"
-                  :disabled="includeCount > 0"
-                  :class="{ 'opacity-50 cursor-not-allowed': includeCount > 0 }"
-                  :title="includeCount > 0 ? 'Tidak bisa exclude saat ada include aktif' : 'Exclude Semua'"
-                >
-                  - Exclude Semua
-                </button>
-              </div>
-            </div>
-            <div class="flex gap-2 w-full">
-              <button
-                @click="includeFiltered"
-                class="flex-1 py-1.5 bg-primary/5 text-primary hover:text-secondary hover:bg-primary rounded-lg transition-colors font-medium text-xs"
-              >
-                Pilih Semua
-              </button>
-              <button
-                @click="clearAll"
-                class="flex-1 py-1.5 bg-danger/5 text-danger hover:text-secondary hover:bg-danger rounded-lg transition-colors font-medium text-xs"
-              >
-                Reset
-              </button>
-            </div>
+              <font-awesome-icon icon="fa-solid fa-rotate-right" class="text-[10px]" />
+              <span>Reset Pilihan</span>
+            </button>
           </div>
 
           <!-- OPTIONS LIST -->

@@ -19,8 +19,11 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD || process.env.MYSQL_PASSWORD || "",
   database: process.env.DB_NAME || process.env.MYSQL_DATABASE || "db_wms_dev",
   waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
+  connectionLimit: 8,
+  queueLimit: 15,
+  connectTimeout: 10000,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000,
   timezone: '+07:00',
   dateStrings: ['DATE', 'DATETIME'],
 });

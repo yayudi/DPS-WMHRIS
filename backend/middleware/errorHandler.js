@@ -6,6 +6,10 @@ import Logger from "../utils/logger.js";
  * Menangkap semua error yang dilempar oleh `next(err)` dari Controller/Service.
  */
 const errorHandler = (err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
   let { statusCode, message, errorCode } = err;
   const { isOperational } = err;
 

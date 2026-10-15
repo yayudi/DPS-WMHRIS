@@ -50,8 +50,8 @@ export const getUserExportJobs = catchAsync(async (req, res, next) => {
     let exportType = "STOCK_REPORT"; // Default
     try {
       if (job.filters) {
-        const parsed = JSON.parse(job.filters);
-        if (parsed.exportType) exportType = parsed.exportType;
+        const parsed = typeof job.filters === "string" ? JSON.parse(job.filters) : job.filters;
+        if (parsed?.exportType) exportType = parsed.exportType;
       }
     } catch (error) {
       // Log error tanpa menghentikan proses map

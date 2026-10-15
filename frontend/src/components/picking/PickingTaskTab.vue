@@ -104,7 +104,7 @@ const shopOptions = computed(() => {
     })
   }
 
-  const options = [{ id: 'ALL', label: 'Semua Channel/Toko' }]
+  const options = []
   Array.from(shops)
     .sort()
     .forEach(shop => {

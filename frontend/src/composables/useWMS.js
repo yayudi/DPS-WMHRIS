@@ -81,15 +81,6 @@ export function useWms() {
 
   const masterData = useMasterDataStore()
 
-  // Ambil data lokasi sekali saja saat composable digunakan
-  onMounted(async () => {
-    try {
-      allLocations.value = await masterData.getLocations()
-    } catch (error) {
-      console.error('Failed to fetch locations in useWMS', error)
-    }
-  })
-
   let observer = null
 
   function toggleAutoRefetch() {
@@ -97,12 +88,12 @@ export function useWms() {
   }
 
   async function fetchInitialData() {
-    await Promise.all([
-      fetchProducts('init'),
-      masterData.getLocations().then(data => {
-        allLocations.value = data
-      })
-    ])
+    try {
+      allLocations.value = await masterData.getLocations()
+    } catch (err) {
+      console.error('Failed to fetch locations in useWMS', err)
+    }
+    await fetchProducts('init')
   }
 
   /**

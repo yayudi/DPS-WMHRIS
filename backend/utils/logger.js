@@ -10,21 +10,50 @@ const __dirname = path.dirname(__filename);
 const logDir = path.join(__dirname, "../logs");
 
 // Ensure logs directory exists
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir, { recursive: true });
+try {
+  if (typeof fs.existsSync === "function" && !fs.existsSync(logDir)) {
+    if (typeof fs.mkdirSync === "function") fs.mkdirSync(logDir, { recursive: true });
+  }
+} catch {
+  // Ignore in mock/test environment
 }
 
 // Cek env, jika production matikan debug log
 const IS_PROD = process.env.NODE_ENV === "production";
 
 /**
- * Standardized Central Logger untuk Backend
+ * Standardized Central Logger untuk Backend.
+ * Menggunakan Buffered Write Strategy untuk meminimalkan disk I/O di shared hosting.
+ * Log dikumpulkan di in-memory buffer dan di-flush ke disk secara periodik.
  */
 class Logger {
+  // ====================================================================
+  // Buffer Configuration
+  // ====================================================================
+  /** @type {string[]} In-memory buffer untuk app log */
+  static #appBuffer = [];
+  /** @type {string[]} In-memory buffer untuk error log (subset dari app) */
+  static #errorBuffer = [];
+  /** Flush ke disk setiap N milidetik */
+  static #FLUSH_INTERVAL_MS = 5000;
+  /** Atau flush saat buffer mencapai N entries */
+  static #MAX_BUFFER_SIZE = 50;
+  /** @type {ReturnType<typeof setInterval>|null} */
+  static #flushTimer = null;
+  /** Guard untuk mencegah concurrent flush */
+  static #isFlushing = false;
+  /** Apakah warn/error juga ditulis ke file error/ terpisah (configurable via ENV) */
+  static #separateErrorFile = process.env.LOG_SEPARATE_ERROR !== "false";
+  /** @type {boolean} Flag untuk mencegah dir check berulang */
+  static #appDirReady = false;
+  /** @type {boolean} */
+  static #errorDirReady = false;
+
   /**
    * @param {string} level
    * @param {string} context
    * @param {string} message
+   * @returns {string}
    */
   static #formatMessage(level, context, message) {
     const timestamp = dayjs().format("YYYY-MM-DD HH:mm:ss");
@@ -32,16 +61,106 @@ class Logger {
     return `[${timestamp}] [${level}] ${ctxString} ${message}`;
   }
 
-  static #writeToFile(folder, fileName, content) {
-    try {
-      const targetDir = path.join(logDir, folder);
-      if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true });
-      }
-      fs.appendFileSync(path.join(targetDir, fileName), content + "\n\n");
-    } catch (err) {
-      console.error("Logger Failed to write to file:", err);
+  // ====================================================================
+  // Buffered Write System (menggantikan #writeToFile per-call)
+  // ====================================================================
+
+  /**
+   * Menambahkan log ke in-memory buffer, bukan langsung ke disk.
+   * Buffer di-flush secara periodik atau saat penuh.
+   * @param {'app'|'error'} target - 'app' untuk info, 'error' untuk warn/error
+   * @param {string} content - Formatted log string
+   */
+  static #bufferLog(target, content) {
+    // Semua log masuk ke app buffer
+    this.#appBuffer.push(content);
+
+    // Warn/Error juga masuk ke error buffer (jika fitur error file terpisah aktif)
+    if (target === "error" && this.#separateErrorFile) {
+      this.#errorBuffer.push(content);
     }
+
+    // Auto-flush jika buffer penuh
+    if (this.#appBuffer.length >= this.#MAX_BUFFER_SIZE) {
+      this.#flushBuffers();
+    }
+  }
+
+  /**
+   * Flush semua buffer ke disk dalam 1 operasi write per file.
+   * Menggabungkan N log entries menjadi 1 appendFile call.
+   * @returns {Promise<void>}
+   */
+  static async #flushBuffers() {
+    if (this.#isFlushing) return;
+    this.#isFlushing = true;
+
+    try {
+      const today = dayjs().format("YYYY-MM-DD");
+
+      // Flush app buffer
+      if (this.#appBuffer.length > 0) {
+        const batch = this.#appBuffer.splice(0);
+        const appDir = path.join(logDir, "app");
+        if (!this.#appDirReady) {
+          if (typeof fs.existsSync === "function" && !fs.existsSync(appDir)) {
+            if (typeof fs.mkdirSync === "function") fs.mkdirSync(appDir, { recursive: true });
+          }
+          this.#appDirReady = true;
+        }
+        if (fs.promises?.appendFile) {
+          await fs.promises.appendFile(
+            path.join(appDir, `app-${today}.log`),
+            batch.join("\n") + "\n",
+          );
+        }
+      }
+
+      // Flush error buffer (jika ada)
+      if (this.#errorBuffer.length > 0) {
+        const batch = this.#errorBuffer.splice(0);
+        const errDir = path.join(logDir, "error");
+        if (!this.#errorDirReady) {
+          if (typeof fs.existsSync === "function" && !fs.existsSync(errDir)) {
+            if (typeof fs.mkdirSync === "function") fs.mkdirSync(errDir, { recursive: true });
+          }
+          this.#errorDirReady = true;
+        }
+        if (fs.promises?.appendFile) {
+          await fs.promises.appendFile(
+            path.join(errDir, `error-${today}.log`),
+            batch.join("\n") + "\n",
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Logger flush failed:", err);
+    } finally {
+      this.#isFlushing = false;
+    }
+  }
+
+  /**
+   * Memulai periodic flush timer. Panggil sekali saat server/worker start.
+   * Timer menggunakan .unref() agar tidak memblokir process exit.
+   */
+  static startFlushTimer() {
+    if (this.#flushTimer) return;
+    this.#flushTimer = setInterval(() => this.#flushBuffers(), this.#FLUSH_INTERVAL_MS);
+    this.#flushTimer.unref();
+  }
+
+  /**
+   * Flush semua buffer dan hentikan timer.
+   * Panggil sebelum process.exit() untuk mencegah kehilangan log.
+   * @returns {Promise<void>}
+   */
+  static async shutdown() {
+    if (this.#flushTimer) {
+      clearInterval(this.#flushTimer);
+      this.#flushTimer = null;
+    }
+    await this.#flushBuffers();
   }
 
   /**
@@ -99,36 +218,41 @@ class Logger {
   }
 
   /**
-   * Pruning otomatis file log yang sudah melewati masa retensi (daysToKeep)
-   * Berguna untuk mencegah habisnya inode/disk space di shared hosting.
-   * @param {number} daysToKeep
+   * Pruning otomatis file log yang sudah melewati masa retensi.
+   * Fully async untuk menghindari blocking I/O di shared hosting.
+   * @param {number} [daysToKeep=30]
+   * @returns {Promise<void>}
    */
-  static pruneOldLogs(daysToKeep = 60) {
+  static async pruneOldLogs(daysToKeep = 30) {
     try {
       const now = Date.now();
       const cutoffTime = now - daysToKeep * 24 * 60 * 60 * 1000;
-      const folders = ["app", "error"];
+      // Termasuk auto_recovery/ untuk backward compat (cleanup log lama)
+      const folders = ["app", "error", "auto_recovery"];
 
       let deletedCount = 0;
 
-      folders.forEach((folder) => {
+      for (const folder of folders) {
         const targetDir = path.join(logDir, folder);
-        if (!fs.existsSync(targetDir)) return;
+        try {
+          if (!fs.promises?.readdir) continue;
+          const files = await fs.promises.readdir(targetDir);
+          for (const file of files) {
+            if (!file.endsWith(".log")) continue;
 
-        const files = fs.readdirSync(targetDir);
-        files.forEach((file) => {
-          if (!file.endsWith(".log")) return;
+            const filePath = path.join(targetDir, file);
+            const stats = await fs.promises.stat(filePath);
 
-          const filePath = path.join(targetDir, file);
-          const stats = fs.statSync(filePath);
-
-          // Hapus jika file lebih tua dari cutoff
-          if (stats.mtimeMs < cutoffTime) {
-            fs.unlinkSync(filePath);
-            deletedCount++;
+            // Hapus jika file lebih tua dari cutoff
+            if (stats.mtimeMs < cutoffTime) {
+              await fs.promises.unlink(filePath);
+              deletedCount++;
+            }
           }
-        });
-      });
+        } catch {
+          // Folder tidak ada, skip silently
+        }
+      }
 
       if (deletedCount > 0) {
         this.info(`Berhasil menghapus ${deletedCount} file log lama (> ${daysToKeep} hari)`, "LOGGER_SYSTEM");
@@ -136,10 +260,6 @@ class Logger {
     } catch (err) {
       console.error("Logger Failed to prune old logs:", err);
     }
-  }
-
-  static #getDailyFileName(prefix) {
-    return `${prefix}-${dayjs().format("YYYY-MM-DD")}.log`;
   }
 
   /**
@@ -155,7 +275,7 @@ class Logger {
     console.log(`\x1b[36m%s\x1b[0m`, msg); // Cyan
     if (cleanData) console.dir(cleanData, { depth: 2, colors: true });
 
-    this.#writeToFile("app", this.#getDailyFileName("app"), fullMsg);
+    this.#bufferLog("app", fullMsg);
   }
 
   /**
@@ -171,8 +291,7 @@ class Logger {
     console.warn(`\x1b[33m%s\x1b[0m`, msg); // Yellow
     if (cleanData) console.dir(cleanData, { depth: 2, colors: true });
 
-    this.#writeToFile("app", this.#getDailyFileName("app"), fullMsg);
-    this.#writeToFile("error", this.#getDailyFileName("error"), fullMsg);
+    this.#bufferLog("error", fullMsg); // Masuk ke app buffer + error buffer (jika aktif)
   }
 
   /**
@@ -192,8 +311,7 @@ class Logger {
     console.error(`\x1b[31m%s\x1b[0m`, msg); // Red
     if (cleanError) console.error(cleanError);
 
-    this.#writeToFile("app", this.#getDailyFileName("app"), fullMsg);
-    this.#writeToFile("error", this.#getDailyFileName("error"), fullMsg);
+    this.#bufferLog("error", fullMsg); // Masuk ke app buffer + error buffer (jika aktif)
   }
 
   /**
@@ -222,7 +340,9 @@ export const logDebug = (message, data = null) => {
 // Eksekusi pruning secara background 10 detik setelah logger di-load (agar tidak memblokir startup)
 // Retensi diatur default ke 30 hari untuk hemat disk space di shared hosting
 setTimeout(() => {
-  Logger.pruneOldLogs(30);
+  Logger.pruneOldLogs(30).catch((err) => {
+    console.error("Logger auto-prune failed:", err);
+  });
 }, 10000);
 
 export default Logger;

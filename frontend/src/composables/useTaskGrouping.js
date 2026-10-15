@@ -116,8 +116,8 @@ export function useTaskGrouping(itemsRef, filterStateRef) {
 
     const sortKey = filter.sortBy
     result.sort((a, b) => {
-      const dateA = new Date(a.created_at)
-      const dateB = new Date(b.created_at)
+      const dateA = new Date(a.created_at).getTime() || 0
+      const dateB = new Date(b.created_at).getTime() || 0
 
       if (sortKey === 'oldest') return dateA - dateB
       return dateB - dateA

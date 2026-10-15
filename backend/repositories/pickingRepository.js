@@ -182,6 +182,348 @@ export const getExistingItemSkus = async (connection, listId) => {
   return new Set(rows.map((i) => i.original_sku));
 };
 
+/**
+ * Mengambil daftar sumber marketplace yang tersedia pada picking list aktif
+ * @param {import('mysql2/promise').Connection} connection
+ * @returns {Promise<Array<string>>}
+ */
+export const getStockRequirementSources = async (connection) => {
+  const query = `
+    SELECT DISTINCT pl.source
+    FROM picking_list_items pli
+    JOIN picking_lists pl ON pli.picking_list_id = pl.id
+    WHERE pl.status IN (?, ?)
+      AND pl.is_active = 1
+      AND pli.status IN (?, 'BACKORDER')
+      AND pl.source IS NOT NULL AND pl.source != ''
+    ORDER BY pl.source ASC
+  `;
+  const [rows] = await connection.query(query, [
+    WMS_STATUS.PENDING,
+    WMS_STATUS.VALIDATED,
+    WMS_STATUS.PENDING,
+  ]);
+  return rows.map((r) => r.source);
+};
+
+/**
+ * Mengambil daftar location_purpose yang tersedia pada picking list aktif
+ * @param {import('mysql2/promise').Connection} connection
+ * @returns {Promise<Array<string>>}
+ */
+export const getStockRequirementLocationPurposes = async (connection) => {
+  const query = `
+    SELECT DISTINCT pl.location_purpose
+    FROM picking_list_items pli
+    JOIN picking_lists pl ON pli.picking_list_id = pl.id
+    WHERE pl.status IN (?, ?)
+      AND pl.is_active = 1
+      AND pli.status IN (?, 'BACKORDER')
+      AND pl.location_purpose IS NOT NULL AND pl.location_purpose != ''
+    ORDER BY pl.location_purpose ASC
+  `;
+  const [rows] = await connection.query(query, [
+    WMS_STATUS.PENDING,
+    WMS_STATUS.VALIDATED,
+    WMS_STATUS.PENDING,
+  ]);
+  return rows.map((r) => r.location_purpose);
+};
+
+/**
+ * Mengambil rekap agregat kebutuhan stok terpaginasi & terfilter untuk item picking aktif
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {{ search?: string, status?: string, source?: string, locationPurpose?: string, sortBy?: string, sortOrder?: string, page?: number, limit?: number }} options
+ * @returns {Promise<{ summary: Object, items: Array<Object>, total: number }>}
+ */
+/**
+ * Helper to build TriState WHERE clauses for SQL queries.
+ * Supports { include: [], exclude: [] }, JSON string, array, or single string.
+ * @param {string} field
+ * @param {any} filter
+ * @param {Array} queryParams
+ * @returns {Array<string>}
+ */
+const buildTriStateWhere = (field, filter, queryParams) => {
+  const clauses = [];
+  if (!filter) return clauses;
+
+  let parsed = filter;
+  if (typeof filter === 'string' && (filter.startsWith('{') || filter.startsWith('['))) {
+    try {
+      parsed = JSON.parse(filter);
+    } catch {
+      // Keep as string
+    }
+  }
+
+  if (Array.isArray(parsed) && parsed.length > 0) {
+    clauses.push(`${field} IN (?)`);
+    queryParams.push(parsed);
+  } else if (typeof parsed === 'object' && parsed !== null) {
+    const inc = Array.isArray(parsed.include) ? parsed.include : [];
+    if (inc.length > 0) {
+      clauses.push(`${field} IN (?)`);
+      queryParams.push(inc);
+    }
+    const exc = Array.isArray(parsed.exclude) ? parsed.exclude : [];
+    if (exc.length > 0) {
+      clauses.push(`${field} NOT IN (?)`);
+      queryParams.push(exc);
+    }
+  } else if (typeof parsed === 'string' && parsed.toLowerCase() !== 'all' && parsed.trim() !== '') {
+    clauses.push(`${field} = ?`);
+    queryParams.push(parsed.trim());
+  }
+
+  return clauses;
+};
+
+export const getStockRequirementsList = async (
+  connection,
+  {
+    search = '',
+    status = 'ALL',
+    source = 'ALL',
+    locationPurpose = 'ALL',
+    sortBy = 'deficit',
+    sortOrder = 'asc',
+    page = 1,
+    limit = 20,
+  } = {}
+) => {
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const limitNum = Math.max(1, parseInt(limit, 10) || 20);
+  const offset = (pageNum - 1) * limitNum;
+
+  const sourceParams = [];
+  const sourceClauses = buildTriStateWhere('pl.source', source, sourceParams);
+  const sourceFilterSql = sourceClauses.length > 0 ? ` AND ${sourceClauses.join(' AND ')}` : '';
+
+  const purposeParams = [];
+  const purposeClauses = buildTriStateWhere('pl.location_purpose', locationPurpose, purposeParams);
+  const purposeFilterSql = purposeClauses.length > 0 ? ` AND ${purposeClauses.join(' AND ')}` : '';
+
+  const baseSql = `
+    SELECT
+      pli.original_sku as sku,
+      MAX(p.id) as product_id,
+      COALESCE(MAX(p.name), pli.original_sku) as product_name,
+      CAST(SUM(pli.quantity) AS SIGNED) as total_required,
+      COUNT(DISTINCT pl.id) as order_count,
+      COUNT(pli.id) as item_count,
+      GROUP_CONCAT(DISTINCT COALESCE(loc_picked.code, loc_suggested.code) ORDER BY COALESCE(loc_picked.code, loc_suggested.code) SEPARATOR ', ') as suggested_locations,
+      CAST(COALESCE((
+        SELECT SUM(sl.quantity)
+        FROM stock_locations sl
+        WHERE sl.product_id = MAX(p.id)
+      ), 0) AS SIGNED) as total_stock
+    FROM picking_list_items pli
+    JOIN picking_lists pl ON pli.picking_list_id = pl.id
+    LEFT JOIN products p ON pli.product_id = p.id
+    LEFT JOIN locations loc_suggested ON pli.suggested_location_id = loc_suggested.id
+    LEFT JOIN locations loc_picked ON pli.picked_from_location_id = loc_picked.id
+    WHERE pl.status IN (?, ?)
+      AND pl.is_active = 1
+      AND pli.status IN (?, 'BACKORDER')
+      ${sourceFilterSql}
+      ${purposeFilterSql}
+    GROUP BY pli.original_sku
+  `;
+
+  const baseParams = [
+    WMS_STATUS.PENDING,
+    WMS_STATUS.VALIDATED,
+    WMS_STATUS.PENDING,
+    ...sourceParams,
+    ...purposeParams,
+  ];
+
+  const whereConditions = [];
+  const filterParams = [];
+
+  if (search && search.trim()) {
+    whereConditions.push('(t.sku LIKE ? OR t.product_name LIKE ?)');
+    const term = `%${search.trim()}%`;
+    filterParams.push(term, term);
+  }
+
+  if (status === 'DEFICIT') {
+    whereConditions.push('(t.total_stock - t.total_required) < 0');
+  } else if (status === 'SUFFICIENT') {
+    whereConditions.push('(t.total_stock - t.total_required) >= 0');
+  }
+
+  const whereSql = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+  const sortFieldMap = {
+    deficit: '(t.total_stock - t.total_required)',
+    totalRequired: 't.total_required',
+    totalStock: 't.total_stock',
+    sku: 't.sku',
+    orderCount: 't.order_count',
+  };
+  const orderCol = sortFieldMap[sortBy] || '(t.total_stock - t.total_required)';
+  const orderDir = String(sortOrder).toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+  const orderSql = `ORDER BY ${orderCol} ${orderDir}, t.sku ASC`;
+
+  // 1. Summary & Total Count
+  const summaryQuery = `
+    SELECT
+      COUNT(*) as total_count,
+      CAST(COALESCE(SUM(t.total_required), 0) AS SIGNED) as total_required_qty,
+      CAST(COALESCE(SUM(t.total_stock), 0) AS SIGNED) as total_stock_qty,
+      CAST(COALESCE(SUM(CASE WHEN (t.total_stock - t.total_required) < 0 THEN 1 ELSE 0 END), 0) AS SIGNED) as total_deficit_skus,
+      CAST(COALESCE(SUM(CASE WHEN (t.total_stock - t.total_required) >= 0 THEN 1 ELSE 0 END), 0) AS SIGNED) as total_sufficient_skus
+    FROM (${baseSql}) t ${whereSql}
+  `;
+  const [summaryRows] = await connection.query(summaryQuery, [...baseParams, ...filterParams]);
+  const summary = summaryRows[0] || {
+    total_count: 0,
+    total_required_qty: 0,
+    total_stock_qty: 0,
+    total_deficit_skus: 0,
+    total_sufficient_skus: 0,
+  };
+
+  // 2. Paginated Items
+  const itemsQuery = `
+    SELECT
+      t.*,
+      CAST((t.total_stock - t.total_required) AS SIGNED) as deficit,
+      CASE WHEN (t.total_stock - t.total_required) < 0 THEN 'DEFICIT' ELSE 'SUFFICIENT' END as status
+    FROM (${baseSql}) t
+    ${whereSql}
+    ${orderSql}
+    LIMIT ? OFFSET ?
+  `;
+  const [items] = await connection.query(itemsQuery, [
+    ...baseParams,
+    ...filterParams,
+    limitNum,
+    offset,
+  ]);
+
+  return {
+    summary: {
+      totalSkus: Number(summary.total_count) || 0,
+      totalRequiredQty: Number(summary.total_required_qty) || 0,
+      totalStockQty: Number(summary.total_stock_qty) || 0,
+      totalDeficitSkus: Number(summary.total_deficit_skus) || 0,
+      totalSufficientSkus: Number(summary.total_sufficient_skus) || 0,
+    },
+    total: Number(summary.total_count) || 0,
+    items,
+  };
+};
+
+/**
+ * Mengambil rincian lokasi stok fisik berdasarkan array product_id
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {Array<number>} productIds
+ * @returns {Promise<Array<Object>>}
+ */
+export const getStockLocationsByProductIds = async (connection, productIds) => {
+  if (!productIds || productIds.length === 0) return [];
+  const query = `
+    SELECT
+      sl.product_id,
+      l.id as location_id,
+      l.code as location_code,
+      l.name as location_name,
+      sl.quantity
+    FROM stock_locations sl
+    JOIN locations l ON sl.location_id = l.id
+    WHERE sl.product_id IN (?) AND sl.quantity > 0
+    ORDER BY l.code ASC
+  `;
+  const [rows] = await connection.query(query, [productIds]);
+  return rows;
+};
+
+/**
+ * Mengambil rincian pesanan (invoices) untuk satu SKU spesifik dengan pagination & sorting
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {string} sku
+ * @param {{ page?: number, limit?: number, sortBy?: string, sortOrder?: string }} options
+ * @returns {Promise<{ rows: Array<Object>, total: number }>}
+ */
+export const getStockRequirementOrdersBySku = async (
+  connection,
+  sku,
+  { page = 1, limit = 10, sortBy = 'orderDate', sortOrder = 'desc' } = {}
+) => {
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+  const offset = (pageNum - 1) * limitNum;
+
+  const countQuery = `
+    SELECT COUNT(*) as total
+    FROM picking_list_items pli
+    JOIN picking_lists pl ON pli.picking_list_id = pl.id
+    WHERE pl.status IN (?, ?)
+      AND pl.is_active = 1
+      AND pli.status IN (?, 'BACKORDER')
+      AND pli.original_sku = ?
+  `;
+  const [countRows] = await connection.query(countQuery, [
+    WMS_STATUS.PENDING,
+    WMS_STATUS.VALIDATED,
+    WMS_STATUS.PENDING,
+    sku,
+  ]);
+  const total = Number(countRows[0]?.total) || 0;
+
+  const sortMap = {
+    invoiceId: 'pl.original_invoice_id',
+    source: 'pl.source',
+    shopName: 'pl.shop_name',
+    customerName: 'pl.customer_name',
+    quantity: 'pli.quantity',
+    itemStatus: 'pli.status',
+    orderDate: 'pl.order_date',
+    suggestedLocationCode: 'COALESCE(loc_picked.code, loc_suggested.code)',
+  };
+  const orderCol = sortMap[sortBy] || 'pl.order_date';
+  const orderDir = String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+  const rowsQuery = `
+    SELECT
+      pli.id as item_id,
+      pli.original_sku as sku,
+      pli.quantity,
+      pli.status as item_status,
+      pl.id as picking_list_id,
+      pl.original_invoice_id as invoice_id,
+      pl.source,
+      pl.shop_name,
+      pl.customer_name,
+      pl.order_date,
+      COALESCE(loc_picked.code, loc_suggested.code) as suggested_location_code
+    FROM picking_list_items pli
+    JOIN picking_lists pl ON pli.picking_list_id = pl.id
+    LEFT JOIN locations loc_suggested ON pli.suggested_location_id = loc_suggested.id
+    LEFT JOIN locations loc_picked ON pli.picked_from_location_id = loc_picked.id
+    WHERE pl.status IN (?, ?)
+      AND pl.is_active = 1
+      AND pli.status IN (?, 'BACKORDER')
+      AND pli.original_sku = ?
+    ORDER BY ${orderCol} ${orderDir}, pli.id ASC
+    LIMIT ? OFFSET ?
+  `;
+
+  const [rows] = await connection.query(rowsQuery, [
+    WMS_STATUS.PENDING,
+    WMS_STATUS.VALIDATED,
+    WMS_STATUS.PENDING,
+    sku,
+    limitNum,
+    offset,
+  ]);
+
+  return { rows, total };
+};
+
 // ============================================================================
 // WRITE OPERATIONS (UPDATE)
 // ============================================================================

@@ -123,6 +123,151 @@ export const fetchPickingListDetails = async (pickingListId) => {
   }
 };
 
+/**
+ * Service untuk mengambil ringkasan kebutuhan stok picking list aktif (PENDING & BACKORDER).
+ * Mengagregasi total kebutuhan per SKU, total stok gudang, defisit/surplus secara terpaginasi (tanpa rincian pesanan).
+ * @param {Object} options
+ * @returns {Promise<{ summary: Object, pagination: Object, items: Array<Object>, availableSources: Array<string>, availableLocationPurposes: Array<string> }>}
+ */
+export const getStockRequirementsService = async (options = {}) => {
+  const connection = await db.getConnection();
+  try {
+    const [listResult, availableSources, availableLocationPurposes] = await Promise.all([
+      pickingRepo.getStockRequirementsList(connection, options),
+      pickingRepo.getStockRequirementSources(connection),
+      pickingRepo.getStockRequirementLocationPurposes(connection),
+    ]);
+
+    const { summary, items: rawItems, total } = listResult;
+
+    if (!rawItems || rawItems.length === 0) {
+      return {
+        summary,
+        pagination: {
+          page: Number(options.page) || 1,
+          limit: Number(options.limit) || 20,
+          total: 0,
+          totalPages: 1,
+        },
+        items: [],
+        availableSources,
+        availableLocationPurposes,
+      };
+    }
+
+    const validProductIds = rawItems
+      .map((r) => r.product_id)
+      .filter((id) => id !== null && id !== undefined && id > 0);
+
+    const locationRows =
+      validProductIds.length > 0
+        ? await pickingRepo.getStockLocationsByProductIds(connection, validProductIds)
+        : [];
+
+    // Map lokasi stok per product_id
+    const locationMap = new Map();
+    locationRows.forEach((loc) => {
+      if (!locationMap.has(loc.product_id)) {
+        locationMap.set(loc.product_id, []);
+      }
+      locationMap.get(loc.product_id).push({
+        locationId: loc.location_id,
+        locationCode: loc.location_code,
+        locationName: loc.location_name,
+        quantity: Number(loc.quantity),
+      });
+    });
+
+    const items = rawItems.map((r) => {
+      const required = Number(r.total_required) || 0;
+      const stock = Number(r.total_stock) || 0;
+      const deficit = Number(r.deficit) || 0;
+
+      return {
+        sku: r.sku,
+        productId: r.product_id,
+        productName: r.product_name,
+        totalRequired: required,
+        totalStock: stock,
+        deficit,
+        status: r.status || (deficit < 0 ? "DEFICIT" : "SUFFICIENT"),
+        orderCount: Number(r.order_count) || 0,
+        itemCount: Number(r.item_count) || 0,
+        suggestedLocations: r.suggested_locations || "-",
+        locations: locationMap.get(r.product_id) || [],
+      };
+    });
+
+    const limit = Math.max(1, parseInt(options.limit, 10) || 20);
+    const page = Math.max(1, parseInt(options.page, 10) || 1);
+
+    return {
+      summary,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+      items,
+      availableSources,
+      availableLocationPurposes,
+    };
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * Service untuk mengambil rincian pesanan (invoices) untuk satu SKU spesifik secara terpaginasi.
+ * @param {string} sku
+ * @param {Object} options
+ * @returns {Promise<{ sku: string, pagination: Object, orders: Array<Object> }>}
+ */
+export const getStockRequirementOrdersService = async (sku, options = {}) => {
+  if (!sku || typeof sku !== "string") {
+    throw new AppError("SKU wajib diisi.", 400);
+  }
+
+  const connection = await db.getConnection();
+  try {
+    const { rows, total } = await pickingRepo.getStockRequirementOrdersBySku(
+      connection,
+      sku,
+      options
+    );
+
+    const orders = rows.map((ord) => ({
+      itemId: ord.item_id,
+      pickingListId: ord.picking_list_id,
+      invoiceId: ord.invoice_id,
+      source: ord.source,
+      shopName: ord.shop_name,
+      customerName: ord.customer_name,
+      quantity: Number(ord.quantity),
+      itemStatus: ord.item_status,
+      orderDate: ord.order_date,
+      suggestedLocationCode: ord.suggested_location_code,
+    }));
+
+    const limit = Math.max(1, parseInt(options.limit, 10) || 10);
+    const page = Math.max(1, parseInt(options.page, 10) || 1);
+
+    return {
+      sku,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+      orders,
+    };
+  } finally {
+    connection.release();
+  }
+};
+
 // ==============================================================================
 // WRITE OPERATIONS (TRANSACTIONS)
 // ==============================================================================

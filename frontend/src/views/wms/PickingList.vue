@@ -2,6 +2,7 @@
 <script setup>
 import { ref, computed, nextTick } from 'vue'
 import PickingTaskTab from '@/components/picking/PickingTaskTab.vue'
+import PickingStockRequirementsTab from '@/components/picking/PickingStockRequirementsTab.vue'
 import PickingHistoryTab from '@/components/picking/PickingHistoryTab.vue'
 import PickingUploadTab from '@/components/picking/PickingUploadTab.vue'
 import JobErrorModal from '@/components/picking/JobErrorModal.vue'
@@ -13,6 +14,7 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || ''
 // --- REFS KE CHILD COMPONENTS ---
 // Kita butuh ini untuk memanggil fungsi refresh/fetch di dalam child
 const taskTabRef = ref(null)
+const requirementsTabRef = ref(null)
 const historyTabRef = ref(null)
 
 // --- MODAL LOGIC ---
@@ -29,6 +31,8 @@ function handleViewErrors(job) {
 function refreshActiveTab() {
   if (activeTab.value === 'pickingList' && taskTabRef.value) {
     taskTabRef.value.fetchPendingItems()
+  } else if (activeTab.value === 'requirements' && requirementsTabRef.value) {
+    requirementsTabRef.value.refetchRequirements()
   } else if (activeTab.value === 'history' && historyTabRef.value) {
     historyTabRef.value.fetchHistoryItems()
   }
@@ -38,15 +42,18 @@ function refreshActiveTab() {
 async function handleSwitchTab(targetTab) {
   activeTab.value = targetTab
 
-  // Tunggu DOM update agar ref 'taskTabRef' tersedia (karena v-if)
+  // Tunggu DOM update agar ref 'taskTabRef' / 'requirementsTabRef' tersedia (karena v-if)
   await nextTick()
 
   if (targetTab === 'pickingList' && taskTabRef.value) {
     taskTabRef.value.fetchPendingItems() // Refresh daftar tugas
+  } else if (targetTab === 'requirements' && requirementsTabRef.value) {
+    requirementsTabRef.value.refetchRequirements()
   }
 }
 
 const pendingCount = computed(() => taskTabRef.value?.pendingCount || 0)
+const deficitCount = computed(() => requirementsTabRef.value?.deficitCount || 0)
 </script>
 
 <template>
@@ -62,6 +69,13 @@ const pendingCount = computed(() => taskTabRef.value?.pendingCount || 0)
             label: 'Daftar Tugas',
             icon: 'fa-boxes-packing',
             count: pendingCount
+          },
+          {
+            id: 'requirements',
+            label: 'Kebutuhan Stok',
+            icon: 'fa-cubes-stacked',
+            count: deficitCount,
+            badgeClass: deficitCount > 0 ? 'bg-danger text-white' : ''
           },
           { id: 'history', label: 'Riwayat Picking', icon: 'fa-clock-rotate-left' },
           { id: 'upload', label: 'Unggah Laporan', icon: 'fa-cloud-upload-alt' }
@@ -79,7 +93,8 @@ const pendingCount = computed(() => taskTabRef.value?.pendingCount || 0)
         {{ tab.label }}
         <span
           v-if="tab.count"
-          class="bg-secondary text-accent text-[10px] font-bold px-2 py-0.5 rounded-full ml-1 shadow-sm"
+          class="text-[10px] font-bold px-2 py-0.5 rounded-full ml-1 shadow-sm"
+          :class="tab.badgeClass || 'bg-secondary text-accent'"
           >{{ tab.count }}</span
         >
       </button>
@@ -99,10 +114,13 @@ const pendingCount = computed(() => taskTabRef.value?.pendingCount || 0)
       <!-- Tab 1: Picking List -->
       <PickingTaskTab v-if="activeTab === 'pickingList'" ref="taskTabRef" />
 
-      <!-- Tab 2: History -->
+      <!-- Tab 2: Kebutuhan Stok -->
+      <PickingStockRequirementsTab v-if="activeTab === 'requirements'" ref="requirementsTabRef" />
+
+      <!-- Tab 3: History -->
       <PickingHistoryTab v-if="activeTab === 'history'" ref="historyTabRef" />
 
-      <!-- Tab 3: Upload (Emit event saat tombol error diklik) -->
+      <!-- Tab 4: Upload (Emit event saat tombol error diklik) -->
       <PickingUploadTab v-if="activeTab === 'upload'" @view-errors="handleViewErrors" @switch-tab="handleSwitchTab" />
     </div>
 

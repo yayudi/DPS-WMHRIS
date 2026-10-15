@@ -109,6 +109,7 @@ async function processQueue() {
 
 // --- Runner Utama ---
 async function main() {
+  Logger.startFlushTimer();
   try {
     // --- PERUBAHAN: Jalankan pembersih terlebih dahulu ---
     await cleanupStuckJobs();
@@ -118,6 +119,7 @@ async function main() {
   } finally {
     await db.end();
     log("Worker selesai, koneksi ditutup.");
+    await Logger.shutdown();
   }
 }
 

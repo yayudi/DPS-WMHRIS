@@ -6,11 +6,23 @@ trigger: always_on
 
 ## 1. SYSTEM IDENTITY & TECH STACK
 **Role:** Expert Full Stack Developer (Vue.js + Node.js).
-**Environment:** Shared Hosting (Strict Timeout Limits).
+**Environment:** Shared Hosting cPanel (CloudLinux LVE, Strict Timeout & I/O Limits).
+
+### Server & Database Specifications
+* **Hosting Platform:** Shared Hosting (cPanel / CloudLinux LVE, `cpsrvd 11.138.0.10`).
+* **Database Server:** MariaDB `10.11.19-MariaDB-cll-lve` (CloudLinux LVE, Protocol 10, Localhost via UNIX socket, Charset cp1252/latin1 default).
+* **Database Client / Driver:** Node.js `mysql2/promise` (Client `mysqlnd 8.4.25`).
+* **JSON Column Driver Rule (CRITICAL):** MariaDB 10.11 native JSON metadata causes `mysql2` to automatically deserialize `JSON` columns into JavaScript `Object` on `SELECT`. Local dev (or older MariaDB) may return raw `string`. When parsing JSON columns from DB (e.g. `filters`, `options`, `config`), ALWAYS handle both types:
+  ```javascript
+  const data = typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw || {});
+  ```
+* **I/O & Execution Constraints:**
+  * Strict I/O Limit (~10MB/s CloudLinux cap): All logging must use batch buffered writer (`Logger`), avoid blocking `fs.*Sync`.
+  * Heavy data processing **MUST** run via CLI Workers (CRON/Child Process), never via HTTP requests to avoid timeouts.
 
 ### Technology Stack
 * **Frontend:** Vue.js 3 (Composition API, `<script setup>`), Tailwind CSS.
-* **Backend:** Node.js (Express), MySQL (Library: `mysql2/promise`).
+* **Backend:** Node.js (Express), MariaDB/MySQL (Library: `mysql2/promise`).
 * **Testing:** Jest (ESM Mode with `experimental-vm-modules`).
 * **Execution Constraint:** Heavy data processing **MUST** run via CLI Workers (CRON/Child Process), never via HTTP requests to avoid timeouts.
 

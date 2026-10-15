@@ -39,6 +39,8 @@ const uploadSales = multer({
 // READ DATA (Frontend Tabs)
 router.get("/pending-items", pickingController.getPendingItems);
 router.get("/history-items", pickingController.getHistoryItems);
+router.get("/stock-requirements", pickingController.getStockRequirements);
+router.get("/stock-requirements/:sku/orders", pickingController.getStockRequirementOrders);
 router.get("/:id", pickingController.getPickingDetail); // Detail Modal
 
 // UPLOAD & PROCESS (Core Logic)

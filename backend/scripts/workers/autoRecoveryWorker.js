@@ -1,8 +1,5 @@
 // backend/scripts/workers/autoRecoveryWorker.js
-import fs from "fs";
-import path from "path";
 import { fileURLToPath } from "url";
-import dayjs from "dayjs";
 import db from "../../config/db.js";
 import Logger from "../../utils/logger.js";
 import {
@@ -10,72 +7,52 @@ import {
   retryBackordersBatchService,
 } from "../../services/pickingDataService.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const RECOVERY_LOG_DIR = path.resolve(__dirname, "../../logs/auto_recovery");
-
 /**
- * Menulis log komprehensif ke file harian di backend/logs/auto_recovery/
- * @param {'INFO'|'WARN'|'ERROR'|'DEBUG'} level
- * @param {string} message
- * @param {any} [data=null]
+ * Menjalankan proses auto-recovery pemenuhan picking list yang tertunda/backorder.
+ * @returns {Promise<void>}
  */
-const writeRecoveryLog = (level, message, data = null) => {
-  try {
-    if (!fs.existsSync(RECOVERY_LOG_DIR)) {
-      fs.mkdirSync(RECOVERY_LOG_DIR, { recursive: true });
-    }
-    const today = dayjs().format("YYYY-MM-DD");
-    const filePath = path.resolve(RECOVERY_LOG_DIR, `auto-recovery-${today}.log`);
-    const timestamp = dayjs().format("YYYY-MM-DD HH:mm:ss.SSS");
-    let line = `[${timestamp}] [${level}] ${message}`;
-
-    if (data) {
-      if (data instanceof Error) {
-        line += `\n  Error: ${data.message}\n  Stack: ${data.stack}`;
-      } else {
-        try {
-          line += `\n  Details: ${JSON.stringify(data, null, 2)}`;
-        } catch {
-          line += `\n  Details: [Unserializable]`;
-        }
-      }
-    }
-
-    fs.appendFileSync(filePath, line + "\n");
-  } catch (err) {
-    console.error("Gagal menulis auto-recovery log:", err);
-  }
-};
-
 export const runAutoRecovery = async () => {
+  Logger.startFlushTimer();
   const startTime = Date.now();
   let connection;
 
-  writeRecoveryLog("INFO", "============================================================");
-  writeRecoveryLog("INFO", "🚀 [AUTO-RECOVERY RUN STARTED]");
+  Logger.info("🚀 [AUTO-RECOVERY RUN STARTED]", "AUTO_RECOVERY");
 
   try {
     connection = await db.getConnection();
 
-    // Ambil maksimal 250 Picking List yang belum selesai (memiliki item PENDING atau BACKORDER)
+    // Ambil maksimal 50 Picking List yang belum selesai (memiliki item PENDING atau BACKORDER)
+    // Prioritaskan pesanan yang belum pernah dievaluasi (last_recovery_attempt IS NULL) terlebih dahulu
     const [activeLists] = await connection.query(`
-      SELECT DISTINCT pl.id, pl.original_invoice_id, pl.user_id, pl.order_date
+      SELECT
+        pl.id,
+        pl.original_invoice_id,
+        pl.user_id,
+        pl.order_date
       FROM picking_lists pl
       JOIN picking_list_items pli ON pl.id = pli.picking_list_id
       WHERE pl.status IN ('PENDING', 'VALIDATED')
         AND pl.is_active = 1
         AND pli.status IN ('PENDING', 'BACKORDER')
         AND (pli.last_recovery_attempt IS NULL OR pli.last_recovery_attempt < NOW() - INTERVAL 4 HOUR)
-      ORDER BY COALESCE(pl.order_date, pl.created_at) ASC, pl.id ASC
-      LIMIT 250
+      GROUP BY
+        pl.id,
+        pl.original_invoice_id,
+        pl.user_id,
+        pl.order_date,
+        pl.created_at
+      ORDER BY
+        CASE WHEN MAX(pli.last_recovery_attempt) IS NULL THEN 0 ELSE 1 END ASC,
+        COALESCE(pl.order_date, pl.created_at) ASC,
+        pl.id ASC
+      LIMIT 75
     `);
 
     // Jika antrean kosong, berikan log diagnostik agar penyebabnya terlihat jelas di log
     if (activeLists.length === 0) {
-      writeRecoveryLog(
-        "INFO",
+      Logger.info(
         "⚠️ Antrean kosong: Tidak ada picking list yang memenuhi kriteria seleksi saat ini.",
+        "AUTO_RECOVERY",
       );
 
       // Diagnosa status picking list aktif secara keseluruhan
@@ -98,10 +75,10 @@ export const runAutoRecovery = async () => {
           AND pli.status IN ('PENDING', 'BACKORDER')
           AND pli.last_recovery_attempt >= NOW() - INTERVAL 4 HOUR
         GROUP BY pl.id, pl.original_invoice_id
-        LIMIT 10
+        LIMIT 75
       `);
 
-      writeRecoveryLog("INFO", "📊 Diagnosa Database:", {
+      Logger.info("📊 Diagnosa Database:", "AUTO_RECOVERY", {
         pesananPendingAtauValidated: diagSummary?.total_active_status || 0,
         terfilterInactiveFlag: diagSummary?.inactive_flag_count || 0,
         jumlahPesananDalamMasaCooldown4Jam: coolingDown.length,
@@ -113,16 +90,16 @@ export const runAutoRecovery = async () => {
       });
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-      writeRecoveryLog(
-        "INFO",
+      Logger.info(
         `🏁 [AUTO-RECOVERY RUN FINISHED] Selesai tanpa aksi dalam ${duration} detik.`,
+        "AUTO_RECOVERY",
       );
       return;
     }
 
-    writeRecoveryLog(
-      "INFO",
+    Logger.info(
       `📋 Ditemukan ${activeLists.length} pesanan yang siap dievaluasi:`,
+      "AUTO_RECOVERY",
       activeLists.map((l) => ({ id: l.id, invoice: l.original_invoice_id, userId: l.user_id })),
     );
 
@@ -151,9 +128,9 @@ export const runAutoRecovery = async () => {
     for (let i = 0; i < activeLists.length; i++) {
       const list = activeLists[i];
       const executorUserId = list.user_id || systemUserId;
-      writeRecoveryLog(
-        "INFO",
+      Logger.info(
         `▶️ [${i + 1}/${activeLists.length}] Memproses Invoice: ${list.original_invoice_id} (List ID: ${list.id}, User ID: ${executorUserId})`,
+        "AUTO_RECOVERY",
       );
 
       try {
@@ -162,9 +139,9 @@ export const runAutoRecovery = async () => {
         }
 
         // TAHAP A: SINKRONISASI ALOKASI STOK
-        writeRecoveryLog(
-          "DEBUG",
+        Logger.debug(
           `[${list.original_invoice_id}] TAHAP A: Menjalankan sinkronisasi alokasi stok (retryBackordersBatchService)...`,
+          "AUTO_RECOVERY",
         );
         await retryBackordersBatchService([list.id]);
 
@@ -179,9 +156,9 @@ export const runAutoRecovery = async () => {
           [list.id],
         );
 
-        writeRecoveryLog(
-          "DEBUG",
+        Logger.debug(
           `[${list.original_invoice_id}] Rincian item setelah alokasi stok:`,
+          "AUTO_RECOVERY",
           allItems.map((it) => ({
             itemId: it.id,
             sku: it.original_sku,
@@ -205,9 +182,9 @@ export const runAutoRecovery = async () => {
             [list.id],
           );
 
-          writeRecoveryLog(
-            "INFO",
+          Logger.info(
             `⏸️ [${list.original_invoice_id}] BERHENTI (Exclude LTC): Terdapat ${ltcItems.length} item di lokasi LTC. Ketersediaan stok telah dicek, dilewati dari auto-fulfillment.`,
+            "AUTO_RECOVERY",
             ltcItems.map((u) => ({
               sku: u.original_sku,
               qty: u.quantity,
@@ -216,7 +193,7 @@ export const runAutoRecovery = async () => {
             })),
           );
           skippedCount++;
-          await delay(100);
+          await delay(1000);
           continue;
         }
 
@@ -236,26 +213,22 @@ export const runAutoRecovery = async () => {
             }));
 
           if (itemsToDeduct.length > 0) {
-            writeRecoveryLog(
-              "INFO",
+            Logger.info(
               `[${list.original_invoice_id}] TAHAP C: Semua ${itemsToDeduct.length} item siap. Memulai pemotongan stok & pencatatan log...`,
+              "AUTO_RECOVERY",
             );
 
             await completePickingItemsService(itemsToDeduct, executorUserId);
 
-            writeRecoveryLog(
-              "INFO",
-              `✅ [${list.original_invoice_id}] Auto-Fulfillment Berhasil! Stok telah dipotong dan dicatat ke Batch Log.`,
-            );
             Logger.info(
-              `✅ Auto-Fulfillment Berhasil: Invoice ${list.original_invoice_id}`,
-              "AUTO_WORKER",
+              `✅ [${list.original_invoice_id}] Auto-Fulfillment Berhasil! Stok telah dipotong dan dicatat ke Batch Log.`,
+              "AUTO_RECOVERY",
             );
             successCount++;
           } else {
-            writeRecoveryLog(
-              "WARN",
+            Logger.warn(
               `[${list.original_invoice_id}] Tidak ada item berstatus PENDING untuk dipotong (mungkin sudah selesai).`,
+              "AUTO_RECOVERY",
             );
           }
         } else {
@@ -265,9 +238,9 @@ export const runAutoRecovery = async () => {
             [list.id],
           );
 
-          writeRecoveryLog(
-            "WARN",
+          Logger.warn(
             `⏸️ [${list.original_invoice_id}] DILEWATI (Anti-Partial Guard): Ada ${unfulfillable.length} item yang belum tersedia stoknya. Cooldown disetel ke NOW().`,
+            "AUTO_RECOVERY",
             unfulfillable.map((u) => ({
               sku: u.original_sku,
               qty: u.quantity,
@@ -285,39 +258,25 @@ export const runAutoRecovery = async () => {
           [list.id],
         );
 
-        writeRecoveryLog(
-          "ERROR",
+        Logger.error(
           `❌ [${list.original_invoice_id}] Gagal memproses pesanan: ${innerErr.message}`,
           innerErr,
-        );
-        Logger.error(
-          `⚠️ Gagal memproses Invoice ${list.original_invoice_id}`,
-          innerErr,
-          "AUTO_WORKER",
+          "AUTO_RECOVERY",
         );
         skippedCount++;
       }
 
-      // Throttling: Beri jeda 100ms agar CPU Shared Hosting aman
-      await delay(100);
+      // Throttling: Beri jeda 1000ms agar disk I/O dan CPU Shared Hosting aman
+      await delay(1000);
     }
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    writeRecoveryLog(
-      "INFO",
+    Logger.info(
       `🏁 [AUTO-RECOVERY RUN FINISHED] Durasi: ${duration}s | Diproses: ${activeLists.length} | Berhasil: ${successCount} | Dilewati/Gagal: ${skippedCount}`,
+      "AUTO_RECOVERY",
     );
-    writeRecoveryLog("INFO", "============================================================\n");
-
-    if (successCount > 0) {
-      Logger.info(
-        `Auto-Worker Selesai: Berhasil memenuhi ${successCount} pesanan secara otomatis.`,
-        "AUTO_WORKER",
-      );
-    }
   } catch (error) {
-    writeRecoveryLog("ERROR", "🔥 Fatal Worker Error:", error);
-    Logger.error("Auto Worker Error", error, "AUTO_WORKER");
+    Logger.error("🔥 Fatal Worker Error", error, "AUTO_RECOVERY");
   } finally {
     if (connection) connection.release();
   }
@@ -325,6 +284,13 @@ export const runAutoRecovery = async () => {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   runAutoRecovery()
-    .then(() => process.exit(0))
-    .catch(() => process.exit(1));
+    .then(async () => {
+      await Logger.shutdown();
+      process.exit(0);
+    })
+    .catch(async (err) => {
+      Logger.error("Worker fatal error:", err, "AUTO_RECOVERY");
+      await Logger.shutdown();
+      process.exit(1);
+    });
 }

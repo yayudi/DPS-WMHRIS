@@ -47,6 +47,19 @@ export function useHistoryGrouping(itemsRef, filterStateRef) {
         return true
       })
     }
+
+    if (hasTriState(filter.stockStatus)) {
+      filtered = filtered.filter((i) => {
+        const val = (i.status || '').toUpperCase()
+        if (filter.stockStatus.exclude.some((ex) => ex.toUpperCase() === val)) return false
+        if (
+          filter.stockStatus.include.length > 0 &&
+          !filter.stockStatus.include.some((inc) => inc.toUpperCase() === val)
+        )
+          return false
+        return true
+      })
+    }
     if (filter.startDate || filter.endDate) {
       const start = filter.startDate
         ? new Date(filter.startDate + 'T00:00:00')
@@ -117,9 +130,10 @@ export function useHistoryGrouping(itemsRef, filterStateRef) {
 
     const sortKey = filter.sortBy
     return finalCards.sort((a, b) => {
-      if (sortKey === 'oldest') return a.id - b.id
-      if (sortKey === 'invoice_asc') return a.invoice.localeCompare(b.invoice)
-      return b.id - a.id
+      const dateA = new Date(a.created_at).getTime() || a.id
+      const dateB = new Date(b.created_at).getTime() || b.id
+      if (sortKey === 'oldest') return dateA - dateB
+      return dateB - dateA
     })
   })
 

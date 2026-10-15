@@ -99,4 +99,31 @@ describe('TriStateSelect.vue', () => {
     expect(wrapper.text()).not.toContain('Kategori A')
     expect(wrapper.text()).toContain('Kategori B')
   })
+
+  it('tidak menampilkan tombol Pilih Semua dan menyembunyikan tombol Reset saat kondisi netral', async () => {
+    const wrapper = mount(TriStateSelect, mountOptions)
+    await wrapper.find('div.cursor-pointer').trigger('click')
+
+    expect(wrapper.text()).not.toContain('Pilih Semua')
+    expect(wrapper.text()).not.toContain('Reset Pilihan')
+  })
+
+  it('menampilkan tombol Reset hanya ketika ada opsi yang dipilih dan membersihkan seleksi saat diklik', async () => {
+    const wrapper = mount(TriStateSelect, {
+      ...mountOptions,
+      props: {
+        ...mountOptions.props,
+        modelValue: { include: [1], exclude: [] }
+      }
+    })
+    await wrapper.find('div.cursor-pointer').trigger('click')
+
+    expect(wrapper.text()).toContain('Reset Pilihan')
+    const resetBtn = wrapper.findAll('button').find(b => b.text().includes('Reset Pilihan'))
+    expect(resetBtn).toBeDefined()
+
+    await resetBtn.trigger('click')
+    const emitted = wrapper.emitted('update:modelValue')
+    expect(emitted[0][0]).toEqual({ include: [], exclude: [] })
+  })
 })

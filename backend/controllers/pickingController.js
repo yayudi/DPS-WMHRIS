@@ -39,6 +39,66 @@ export const getPickingDetail = catchAsync(async (req, res, next) => {
   res.json({ success: true, data: items });
 });
 
+/**
+ * Get aggregated stock requirements for pending picking items.
+ */
+export const getStockRequirements = catchAsync(async (req, res, next) => {
+  const { page, limit, search, status, source, sortBy, sortOrder, locationPurpose } = req.query;
+
+  let parsedSource = source;
+  if (typeof source === 'string' && (source.startsWith('{') || source.startsWith('['))) {
+    try {
+      parsedSource = JSON.parse(source);
+    } catch {
+      // keep as string
+    }
+  }
+
+  let parsedLocationPurpose = locationPurpose;
+  if (typeof locationPurpose === 'string' && (locationPurpose.startsWith('{') || locationPurpose.startsWith('['))) {
+    try {
+      parsedLocationPurpose = JSON.parse(locationPurpose);
+    } catch {
+      // keep as string
+    }
+  }
+
+  const result = await pickingService.getStockRequirementsService({
+    page: parseInt(page, 10) || 1,
+    limit: parseInt(limit, 10) || 20,
+    search: search ? String(search).trim() : '',
+    status: status ? String(status).trim() : 'ALL',
+    source: parsedSource || 'ALL',
+    locationPurpose: parsedLocationPurpose || 'ALL',
+    sortBy: sortBy ? String(sortBy).trim() : 'deficit',
+    sortOrder: sortOrder ? String(sortOrder).trim() : 'asc',
+  });
+  res.json({
+    success: true,
+    message: "Data kebutuhan stok berhasil diambil",
+    data: result,
+  });
+});
+
+/**
+ * Get orders breakdown for a specific SKU in pending picking items.
+ */
+export const getStockRequirementOrders = catchAsync(async (req, res, next) => {
+  const { sku } = req.params;
+  const { page, limit, sortBy, sortOrder } = req.query;
+  const result = await pickingService.getStockRequirementOrdersService(sku, {
+    page: parseInt(page, 10) || 1,
+    limit: parseInt(limit, 10) || 10,
+    sortBy: sortBy ? String(sortBy).trim() : 'orderDate',
+    sortOrder: sortOrder ? String(sortOrder).trim() : 'desc',
+  });
+  res.json({
+    success: true,
+    message: `Data pesanan untuk SKU ${sku} berhasil diambil`,
+    data: result,
+  });
+});
+
 // ============================================================================
 //                             WRITE OPERATIONS
 // ============================================================================

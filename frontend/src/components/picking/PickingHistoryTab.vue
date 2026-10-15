@@ -48,7 +48,7 @@ const shopOptions = computed(() => {
     if (item.shop_name) shops.add(item.shop_name)
   })
 
-  const options = [{ id: 'ALL', label: 'Semua Channel/Toko' }]
+  const options = []
   Array.from(shops)
     .sort()
     .forEach(shop => {
@@ -77,7 +77,7 @@ async function fetchHistoryItems() {
 // --- HANDLERS ---
 
 async function handleVoidItem(itemId) {
-  if (!await swalConfirm('Apakah Anda yakin ingin me-void arsip ini? (Hanya admin)')) return
+  if (!(await swalConfirm('Apakah Anda yakin ingin me-void arsip ini? (Hanya admin)'))) return
   try {
     await voidPickingList(itemId)
     toast('Berhasil divoid', 'success')
@@ -99,7 +99,7 @@ onMounted(() => {
   <div class="space-y-6 animate-fade-in pb-32">
     <!-- Filter Bar (Search, Date, Sort, View Mode) -->
     <div class="bg-secondary/50 p-4 rounded-xl border border-dashed border-secondary/20">
-      <PickingFilterBar v-model="historyFilterState" :shop-options="shopOptions" class="w-full" />
+      <PickingFilterBar v-model="historyFilterState" :shop-options="shopOptions" mode="history" class="w-full" />
     </div>
 
     <!-- Info Banner -->
@@ -136,12 +136,7 @@ onMounted(() => {
         :gap="16"
       >
         <template #default="{ item: inv }">
-          <PickingListCard
-            :inv="inv"
-            mode="history"
-            :historyLogs="inv.historyLogs"
-            @void-invoice="handleVoidItem"
-          />
+          <PickingListCard :inv="inv" mode="history" :historyLogs="inv.historyLogs" @void-invoice="handleVoidItem" />
         </template>
       </MasonryWall>
 

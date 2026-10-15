@@ -29,8 +29,7 @@ await jest.unstable_mockModule("fs", () => ({
 // Mock Repositories
 const mockJobRepo = {
   timeoutStuckExportJobs: jest.fn(),
-  getPendingExportJob: jest.fn(),
-  lockExportJob: jest.fn(),
+  getAndLockPendingExportJob: jest.fn(),
   completeExportJob: jest.fn(),
   failExportJob: jest.fn(),
 };
@@ -53,43 +52,60 @@ describe("Worker: exportQueue", () => {
   });
 
   test("Should do nothing if no pending job found", async () => {
-    mockJobRepo.getPendingExportJob.mockResolvedValue(null);
+    mockJobRepo.getAndLockPendingExportJob.mockResolvedValue(null);
 
     await processQueue();
 
     expect(mockDb.getConnection).toHaveBeenCalled();
-    expect(mockJobRepo.getPendingExportJob).toHaveBeenCalled();
+    expect(mockJobRepo.getAndLockPendingExportJob).toHaveBeenCalled();
     expect(mockConnection.release).toHaveBeenCalled();
-    expect(mockJobRepo.lockExportJob).not.toHaveBeenCalled();
   });
 
-  test("Should process PRODUCT_MASTER export successfully", async () => {
+  test("Should process PRODUCT_MASTER export successfully when filters is JSON string", async () => {
     // Setup Data
     const mockJob = {
       id: 123,
       filters: JSON.stringify({ exportType: "PRODUCT_MASTER", format: "xlsx" }),
     };
-    mockJobRepo.getPendingExportJob.mockResolvedValue(mockJob);
-    mockExportService.generateProductExportStreaming.mockResolvedValue(true); // Simulasi sukses
+    mockJobRepo.getAndLockPendingExportJob.mockResolvedValue(mockJob);
+    mockExportService.generateProductExportStreaming.mockResolvedValue(true);
 
     // Action
     await processQueue();
 
-    // Assertions
-    expect(mockJobRepo.lockExportJob).toHaveBeenCalledWith(mockConnection, 123);
-
     expect(mockExportService.generateProductExportStreaming).toHaveBeenCalled();
-    // Verify arguments passed to service - check filename extension
     const serviceCallArgs = mockExportService.generateProductExportStreaming.mock.calls[0];
     expect(serviceCallArgs[0]).toEqual({ exportType: "PRODUCT_MASTER", format: "xlsx" });
-    // Expect filepath to end in .xlsx (based on current code logic)
     expect(serviceCallArgs[1]).toMatch(/\.xlsx$/);
 
     // Should complete job
     expect(mockJobRepo.completeExportJob).toHaveBeenCalledWith(
-        expect.anything(), // connection
+        expect.anything(),
         123,
         expect.stringMatching(/Master_Produk_.*\.xlsx/)
+    );
+  });
+
+  test("Should process export successfully when filters is already an Object (Shared Hosting MySQL 8.0)", async () => {
+    // Setup Data as Pre-parsed Object
+    const mockJob = {
+      id: 789,
+      filters: { exportType: "STOCK_REPORT", format: "csv" },
+    };
+    mockJobRepo.getAndLockPendingExportJob.mockResolvedValue(mockJob);
+    mockExportService.generateStockReportStreaming.mockResolvedValue(true);
+
+    await processQueue();
+
+    expect(mockExportService.generateStockReportStreaming).toHaveBeenCalled();
+    const serviceCallArgs = mockExportService.generateStockReportStreaming.mock.calls[0];
+    expect(serviceCallArgs[0]).toEqual({ exportType: "STOCK_REPORT", format: "csv" });
+    expect(serviceCallArgs[1]).toMatch(/\.csv$/);
+
+    expect(mockJobRepo.completeExportJob).toHaveBeenCalledWith(
+        expect.anything(),
+        789,
+        expect.stringMatching(/Laporan_Stok_.*\.csv/)
     );
   });
 
@@ -99,7 +115,7 @@ describe("Worker: exportQueue", () => {
         id: 456,
         filters: JSON.stringify({ exportType: "STOCK_REPORT" }),
       };
-      mockJobRepo.getPendingExportJob.mockResolvedValue(mockJob);
+      mockJobRepo.getAndLockPendingExportJob.mockResolvedValue(mockJob);
       mockExportService.generateStockReportStreaming.mockResolvedValue(true);
 
       // Action
@@ -119,7 +135,7 @@ describe("Worker: exportQueue", () => {
       id: 999,
       filters: JSON.stringify({ exportType: "PRODUCT_MASTER" }),
     };
-    mockJobRepo.getPendingExportJob.mockResolvedValue(mockJob);
+    mockJobRepo.getAndLockPendingExportJob.mockResolvedValue(mockJob);
     mockExportService.generateProductExportStreaming.mockRejectedValue(new Error("Service Crash"));
 
     await processQueue();

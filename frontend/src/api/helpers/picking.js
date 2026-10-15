@@ -67,6 +67,37 @@ export const getPendingPickingItems = async () => {
 }
 
 /**
+ * Mengambil ringkasan kebutuhan stok untuk item picking aktif (PENDING dan BACKORDER)
+ * @param {Object} [params] - Query params: page, limit, search, status, source, sortBy, sortOrder
+ * @returns {Promise<{ summary: Object, pagination: Object, items: Array<Object>, availableSources: Array<string> }>}
+ */
+export const getStockRequirements = async (params = {}) => {
+  try {
+    const response = await api.get('/picking/stock-requirements', { params })
+    return response.data.data
+  } catch (error) {
+    console.error('Error fetching stock requirements:', error)
+    throw error.response?.data || error
+  }
+}
+
+/**
+ * Mengambil rincian pesanan untuk satu SKU spesifik secara terpaginasi
+ * @param {string} sku
+ * @param {Object} [params] - Query params: page, limit, sortBy, sortOrder
+ * @returns {Promise<{ sku: string, pagination: Object, orders: Array<Object> }>}
+ */
+export const getStockRequirementOrders = async (sku, params = {}) => {
+  try {
+    const response = await api.get(`/picking/stock-requirements/${encodeURIComponent(sku)}/orders`, { params })
+    return response.data.data
+  } catch (error) {
+    console.error(`Error fetching orders for SKU ${sku}:`, error)
+    throw error.response?.data || error
+  }
+}
+
+/**
  * Mengambil riwayat item yang SUDAH selesai atau diretur
  * Digunakan untuk tab "Riwayat Picking"
  */

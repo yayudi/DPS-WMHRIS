@@ -65,6 +65,25 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions)); // Handle Preflight (OPTIONS) requests
 app.use(express.json({ limit: "10mb" }));
 
+// HTTP Request Timeout Guard (25 detik untuk mencegah koneksi menggantung di cPanel Shared Hosting)
+app.use((req, res, next) => {
+  if (req.path.startsWith("/uploads")) {
+    return next();
+  }
+
+  res.setTimeout(25000, () => {
+    if (!res.headersSent) {
+      Logger.warn(`Request timeout pada URL: ${req.originalUrl}`, "REQUEST_TIMEOUT");
+      res.status(504).json({
+        success: false,
+        message: "Permintaan memakan waktu terlalu lama (Gateway Timeout). Silakan coba lagi.",
+        error_code: "REQUEST_TIMEOUT",
+      });
+    }
+  });
+  next();
+});
+
 // ==================================================================
 // Middleware Logger untuk Download
 // ==================================================================
@@ -169,6 +188,18 @@ app.listen(PORT, () => {
   Logger.info(`Serving static uploads from: ${path.join(__dirname, "uploads")}`, "SERVER");
   Logger.info("CORS Policy: Permissive (All Origins Allowed)", "SERVER");
 
+  // Aktifkan periodic flush untuk buffered logger
+  Logger.startFlushTimer();
+
   // Inisialisasi Firebase Cache Listener untuk multi-instance sync
   initFirebaseCacheListener();
 });
+
+// Graceful shutdown: flush log buffer sebelum exit
+const gracefulShutdown = async (signal) => {
+  Logger.info(`${signal} received, shutting down...`, "SERVER");
+  await Logger.shutdown();
+  process.exit(0);
+};
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));

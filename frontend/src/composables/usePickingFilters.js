@@ -39,6 +39,17 @@ export function usePickingFilters(initialState = {}, emitChangeFn = null) {
     shopName: 'Toko'
   }
 
+  const valueMap = {
+    stockStatus: {
+      READY: 'Siap Pick',
+      ISSUE: 'Bermasalah',
+      EMPTY: 'Stok Kosong',
+      VALIDATED: 'Selesai',
+      VOID: 'Batal',
+      RETURNED: 'Retur'
+    }
+  }
+
   const hasTriStateFilter = (field) => {
     return filterState[field]?.include?.length > 0 || filterState[field]?.exclude?.length > 0
   }
@@ -58,13 +69,21 @@ export function usePickingFilters(initialState = {}, emitChangeFn = null) {
   const activeFilterBadges = computed(() => {
     const badges = []
 
+    if (filterState.search) {
+      badges.push({
+        key: 'search',
+        label: `Cari: "${filterState.search}"`
+      })
+    }
+
     // Iterate specific keys to show as badges
     const triStateKeys = ['source', 'locationPurpose', 'stockStatus', 'shopName']
     triStateKeys.forEach(key => {
       if (hasTriStateFilter(key)) {
         let parts = []
-        if (filterState[key].include.length > 0) parts.push(`+${filterState[key].include.join(', ')}`)
-        if (filterState[key].exclude.length > 0) parts.push(`-${filterState[key].exclude.join(', ')}`)
+        const mapper = val => valueMap[key]?.[val] || val
+        if (filterState[key].include.length > 0) parts.push(`+${filterState[key].include.map(mapper).join(', ')}`)
+        if (filterState[key].exclude.length > 0) parts.push(`-${filterState[key].exclude.map(mapper).join(', ')}`)
         
         badges.push({
           key: key,
@@ -84,7 +103,9 @@ export function usePickingFilters(initialState = {}, emitChangeFn = null) {
   })
 
   function removeFilter(key) {
-    if (key === 'date') {
+    if (key === 'search') {
+      filterState.search = ''
+    } else if (key === 'date') {
       filterState.startDate = ''
       filterState.endDate = ''
     } else {
@@ -130,16 +151,6 @@ export function usePickingFilters(initialState = {}, emitChangeFn = null) {
     if (emitChangeFn) emitChangeFn({ ...filterState })
   }
 
-  function applyPreset(presetName) {
-    clearFilters()
-    if (presetName === 'issue') {
-      filterState.stockStatus = { include: ['ISSUE'], exclude: [] }
-    } else if (presetName === 'empty') {
-      filterState.stockStatus = { include: ['EMPTY'], exclude: [] }
-    }
-    if (emitChangeFn) emitChangeFn({ ...filterState })
-  }
-
   // Watch specifically for date changes since they are mutated directly via v-model
   watch(
     () => [filterState.startDate, filterState.endDate],
@@ -156,7 +167,6 @@ export function usePickingFilters(initialState = {}, emitChangeFn = null) {
     clearFilters,
     removeFilter,
     onSearchInput,
-    onSelectChange,
-    applyPreset
+    onSelectChange
   }
 }

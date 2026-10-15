@@ -48,8 +48,19 @@ export const processQueue = async () => {
     Logger.info(`Memulai Job ID: ${jobId}`, "EXPORT_WORKER");
     connection.release();
 
-    // Parse Filters & Determine Type
-    const filters = JSON.parse(job.filters || "{}");
+    // Parse Filters & Determine Type (Mendukung tipe String maupun Object ter-parse dari MySQL)
+    let filters = {};
+    if (typeof job.filters === "string") {
+      try {
+        filters = JSON.parse(job.filters || "{}");
+      } catch (err) {
+        Logger.warn("Gagal parse job.filters string, fallback ke {}", "EXPORT_WORKER", err);
+        filters = {};
+      }
+    } else if (job.filters && typeof job.filters === "object") {
+      filters = job.filters;
+    }
+
     const exportType = filters.exportType || "STOCK_REPORT";
     const dateStr = getFormattedDateTime();
     const ext = filters.format === "csv" ? ".csv" : ".xlsx";

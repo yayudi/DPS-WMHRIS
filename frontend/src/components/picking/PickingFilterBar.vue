@@ -1,13 +1,11 @@
 <!-- frontend\src\components\picking\PickingFilterBar.vue -->
 <script setup>
-import { watch, ref } from 'vue'
+import { computed, watch } from 'vue'
 import BaseFilterPanel from '@/components/ui/BaseFilterPanel.vue'
 import DateRangeFilter from '@/components/ui/DateRangeFilter.vue'
-import BaseSelect from '@/components/ui/BaseSelect.vue'
+import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import TriStateSelect from '@/components/ui/TriStateSelect.vue'
 import { usePickingFilters } from '@/composables/usePickingFilters.js'
-
-const isAdvancedFilterOpen = ref(false)
 
 const sourceOptions = [
   { id: 'Tokopedia', label: 'Tokopedia' },
@@ -26,11 +24,21 @@ const stockStatusOptions = [
   { id: 'EMPTY', label: 'Stok Kosong' }
 ]
 
+const historyStatusOptions = [
+  { id: 'VALIDATED', label: 'Selesai' },
+  { id: 'VOID', label: 'Batal' },
+  { id: 'RETURNED', label: 'Retur' }
+]
+
 const sortOptions = [
-  { id: 'newest', label: 'Terbaru' },
-  { id: 'oldest', label: 'Terlama' },
-  { id: 'invoice_asc', label: 'A-Z' },
-  { id: 'invoice_desc', label: 'Z-A' }
+  { label: 'Terbaru', value: 'newest', icon: 'fa-solid fa-arrow-down-wide-short' },
+  { label: 'Terlama', value: 'oldest', icon: 'fa-solid fa-arrow-up-wide-short' }
+]
+
+const viewModeOptions = [
+  { value: 'grid', label: 'Grid', icon: 'fa-solid fa-border-all' },
+  { value: 'compact', label: 'Compact', icon: 'fa-solid fa-table-cells' },
+  { value: 'list', label: 'List', icon: 'fa-solid fa-list' }
 ]
 
 const props = defineProps({
@@ -43,21 +51,28 @@ const props = defineProps({
   shopOptions: {
     type: Array,
     default: () => []
+  },
+  mode: {
+    type: String,
+    default: 'task' // 'task' | 'history'
   }
 })
+
+const statusLabel = computed(() => (props.mode === 'history' ? 'Status Picking' : 'Status Stok'))
+const currentStatusOptions = computed(() =>
+  props.mode === 'history' ? historyStatusOptions : stockStatusOptions
+)
 
 const emit = defineEmits(['update:modelValue'])
 
 const {
   filterState: localValues,
-  hasActiveFilters,
   activeFilterBadges,
   isSearching,
   clearFilters,
   removeFilter,
   onSearchInput,
-  onSelectChange,
-  applyPreset
+  onSelectChange
 } = usePickingFilters(props.modelValue, newVal => emit('update:modelValue', newVal))
 
 // Sync from parent to local
@@ -73,168 +88,67 @@ watch(
 <template>
   <div class="sticky top-[72px] z-10 -mx-4 px-4 sm:mx-0 sm:px-0 sm:shadow-none sm:bg-transparent">
     <BaseFilterPanel :border="false" :activeFilterCount="activeFilterBadges.length">
-      <!-- TOP ROW: Search & Presets -->
+      <!-- TOP ROW: Search -->
       <template #search>
-        <div class="flex flex-wrap w-full lg:max-w-[50vw] items-center gap-2 flex-1 md:flex-none">
-          <!-- Search -->
-          <div class="w-[80%] lg:w-full relative group shrink-0 rounded-md ring-1 ring-secondary bg-background flex-1">
-            <input
-              :value="localValues.search"
-              @input="onSearchInput"
-              type="text"
-              placeholder="Cari Invoice, SKU"
-              class="w-full pl-9 pr-10 py-2 rounded-lg bg-secondary/5 border border-transparent hover:border-secondary/20 focus:bg-background focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm font-medium h-[42px]"
-              :class="{ '!bg-primary/5 !border-primary/30': localValues.search }"
-            />
-            <font-awesome-icon
-              icon="fa-solid fa-search"
-              class="absolute left-3 top-3 text-text/40 text-sm transition-colors group-focus-within:text-primary"
-            />
-
-            <!-- Loading Spinner or Clear -->
-            <div class="absolute right-2 top-2 h-6 flex items-center justify-center mt-0.5">
-              <font-awesome-icon v-if="isSearching" icon="fa-solid fa-spinner" class="fa-spin text-primary text-sm" />
-              <button
-                v-else-if="localValues.search"
-                @click="onSearchInput({ target: { value: '' } })"
-                class="h-6 w-6 flex items-center justify-center rounded-full hover:bg-secondary/20 text-text/40 hover:text-danger transition-all"
-                title="Hapus pencarian"
-              >
-                <font-awesome-icon icon="fa-solid fa-times" class="text-xs" />
-              </button>
-            </div>
-          </div>
-
-          <!-- Presets -->
-          <div class="hidden sm:flex items-center gap-2">
-            <button
-              @click="applyPreset('issue')"
-              class="px-3 py-1.5 text-xs font-medium rounded-full bg-warning/10 text-warning hover:bg-warning/20 transition-colors border border-warning/20"
-            >
-              <font-awesome-icon icon="fa-solid fa-triangle-exclamation" class="text-warning" /> Ada Masalah
-            </button>
-            <button
-              @click="applyPreset('empty')"
-              class="px-3 py-1.5 text-xs font-medium rounded-full bg-danger/10 text-danger hover:bg-danger/20 transition-colors border border-danger/20"
-            >
-              <font-awesome-icon icon="fa-solid fa-box-open" class="text-danger" /> Stok Kosong
-            </button>
-          </div>
-        </div>
-      </template>
-
-      <!-- TOP ROW: Actions (View Mode & Clear) -->
-      <template #actions>
-        <div class="flex items-center gap-2 w-full md:w-auto">
-          <!-- Mode View -->
-          <div class="flex bg-secondary p-1 h-[42px] rounded-lg ring-1 ring-secondary shrink-0">
-            <button
-              @click="onSelectChange('viewMode', 'grid')"
-              class="px-3 rounded-md text-sm transition-all flex items-center justify-center min-w-[40px]"
-              :class="
-                localValues.viewMode === 'grid'
-                  ? 'bg-background text-primary shadow-sm font-bold'
-                  : 'text-text/50 hover:text-text'
-              "
-              title="Tampilan Grid"
-            >
-              <font-awesome-icon icon="fa-solid fa-border-all" />
-            </button>
-            <button
-              @click="onSelectChange('viewMode', 'compact')"
-              class="px-3 rounded-md text-sm transition-all flex items-center justify-center min-w-[40px]"
-              :class="
-                localValues.viewMode === 'compact'
-                  ? 'bg-background text-primary shadow-sm font-bold'
-                  : 'text-text/50 hover:text-text'
-              "
-              title="Tampilan Compact"
-            >
-              <font-awesome-icon icon="fa-solid fa-table-cells" />
-            </button>
-            <button
-              @click="onSelectChange('viewMode', 'list')"
-              class="px-3 rounded-md text-sm transition-all flex items-center justify-center min-w-[40px]"
-              :class="
-                localValues.viewMode === 'list'
-                  ? 'bg-background text-primary shadow-sm font-bold'
-                  : 'text-text/50 hover:text-text'
-              "
-              title="Tampilan List"
-            >
-              <font-awesome-icon icon="fa-solid fa-list" />
-            </button>
-          </div>
-
-          <!-- Clear Filters -->
-          <transition name="fade">
-            <button
-              v-if="hasActiveFilters"
-              @click="clearFilters"
-              class="h-[42px] px-3 flex items-center justify-center gap-2 border border-danger/30 rounded-lg text-sm font-semibold text-danger hover:bg-danger/10 transition-all bg-danger/5 active:scale-[0.98]"
-              title="Reset Filter"
-            >
-              <font-awesome-icon icon="fa-solid fa-rotate-right" />
-              <span class="hidden lg:inline">Reset</span>
-            </button>
-          </transition>
-        </div>
-      </template>
-
-      <!-- Toggle Advanced Filters -->
-      <template #filter-actions>
-        <button
-          @click="isAdvancedFilterOpen = !isAdvancedFilterOpen"
-          class="h-[42px] px-4 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all shrink-0 flex-1 md:flex-none border"
-          :class="
-            isAdvancedFilterOpen
-              ? 'bg-primary text-white border-primary'
-              : 'bg-background text-text border-secondary hover:bg-secondary/10'
-          "
-        >
-          <font-awesome-icon icon="fa-solid fa-sliders" />
-          <span class="md:hidden lg:inline">Filter Lanjutan</span>
-          <font-awesome-icon
-            :icon="isAdvancedFilterOpen ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'"
-            class="text-xs ml-1"
-          />
-        </button>
-      </template>
-
-      <!-- Active Filter Badges -->
-      <template #filters v-if="activeFilterBadges.length > 0">
-        <div class="flex flex-wrap items-center gap-2 py-2">
-          <span class="text-xs text-text/60 font-medium mr-1">Filter Aktif:</span>
-          <div
-            v-for="badge in activeFilterBadges"
-            :key="badge.key"
-            class="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full text-xs font-medium"
-          >
-            <span>{{ badge.label }}</span>
-            <button
-              @click="removeFilter(badge.key)"
-              class="hover:bg-primary/20 rounded-full w-4 h-4 flex items-center justify-center transition-colors"
-            >
-              <font-awesome-icon icon="fa-solid fa-times" class="text-[10px]" />
-            </button>
-          </div>
-          <button
-            v-if="activeFilterBadges.length > 1"
-            @click="clearFilters"
-            class="text-xs text-danger hover:underline ml-1 font-medium"
-          >
-            Hapus Semua
-          </button>
-        </div>
-      </template>
-
-      <!-- Advanced Grid Filters -->
-      <template #advanced v-if="isAdvancedFilterOpen">
         <div
-          class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full pt-4 mt-2 border-t border-secondary/20 animate-fade-in"
+          class="w-full lg:max-w-[360px] xl:max-w-[420px] relative group rounded-md ring-1 ring-secondary bg-background flex-1"
         >
+          <input
+            :value="localValues.search"
+            @input="onSearchInput"
+            type="text"
+            placeholder="Cari Invoice, SKU"
+            class="w-full pl-9 pr-10 py-2 rounded-lg bg-secondary/5 border border-transparent hover:border-secondary/20 focus:bg-background focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm font-medium h-[42px]"
+            :class="{ '!bg-primary/5 !border-primary/30': localValues.search }"
+          />
+          <font-awesome-icon
+            icon="fa-solid fa-search"
+            class="absolute left-3 top-3 text-text/40 text-sm transition-colors group-focus-within:text-primary"
+          />
+
+          <!-- Loading Spinner or Clear -->
+          <div class="absolute right-2 top-2 h-6 flex items-center justify-center mt-0.5">
+            <font-awesome-icon v-if="isSearching" icon="fa-solid fa-spinner" class="fa-spin text-primary text-sm" />
+            <button
+              v-else-if="localValues.search"
+              @click="onSearchInput({ target: { value: '' } })"
+              class="h-6 w-6 flex items-center justify-center rounded-full hover:bg-secondary/20 text-text/40 hover:text-danger transition-all"
+              title="Hapus pencarian"
+            >
+              <font-awesome-icon icon="fa-solid fa-times" class="text-xs" />
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <!-- TOP ROW: Actions (Sort, View Mode) -->
+      <template #actions>
+        <div class="flex items-center gap-2 w-full lg:w-auto flex-wrap sm:flex-nowrap justify-end">
+          <!-- Sort Tabs -->
+          <div class="w-full sm:w-auto shrink-0 min-w-[180px]">
+            <SegmentedControl
+              :model-value="localValues.sortBy"
+              @update:model-value="v => onSelectChange('sortBy', v)"
+              :options="sortOptions"
+            />
+          </div>
+
+          <!-- Mode View -->
+          <div class="w-full sm:w-auto sm:min-w-[290px] shrink-0">
+            <SegmentedControl
+              :model-value="localValues.viewMode"
+              @update:model-value="v => onSelectChange('viewMode', v)"
+              :options="viewModeOptions"
+            />
+          </div>
+        </div>
+      </template>
+
+      <!-- Main Filters Grid (Tampil Langsung) -->
+      <template #filters>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full pt-1">
           <!-- Date Range -->
-          <div class="flex flex-col gap-1.5 w-full">
+          <div class="flex flex-col gap-1 w-full">
             <label class="text-[10px] font-bold text-text/50 uppercase tracking-wide">Rentang Tanggal</label>
             <DateRangeFilter
               v-model:startDate="localValues.startDate"
@@ -243,23 +157,8 @@ watch(
             />
           </div>
 
-          <!-- Sorting -->
-          <div class="flex flex-col gap-1.5 w-full">
-            <label class="text-[10px] font-bold text-text/50 uppercase tracking-wide">Urutkan</label>
-            <BaseSelect
-              :model-value="localValues.sortBy"
-              @update:model-value="v => onSelectChange('sortBy', v)"
-              :options="sortOptions"
-              label="label"
-              track-by="id"
-              :searchable="false"
-              emit-value
-              class="w-full"
-            />
-          </div>
-
           <!-- Source -->
-          <div class="flex flex-col gap-1.5 w-full">
+          <div class="flex flex-col gap-1 w-full">
             <label class="text-[10px] font-bold text-text/50 uppercase tracking-wide">Sumber</label>
             <TriStateSelect
               :model-value="localValues.source"
@@ -272,10 +171,38 @@ watch(
             />
           </div>
 
-          <!-- Location Purpose (Conditional) -->
+          <!-- Shop Name -->
+          <div v-if="shopOptions && shopOptions.length > 0" class="flex flex-col gap-1 w-full">
+            <label class="text-[10px] font-bold text-text/50 uppercase tracking-wide">Toko / Saluran</label>
+            <TriStateSelect
+              :model-value="localValues.shopName"
+              @update:model-value="v => onSelectChange('shopName', v)"
+              :options="shopOptions"
+              label="label"
+              track-by="id"
+              placeholder="Semua Toko"
+              class="w-full"
+            />
+          </div>
+
+          <!-- Stock / Picking Status -->
+          <div class="flex flex-col gap-1 w-full">
+            <label class="text-[10px] font-bold text-text/50 uppercase tracking-wide">{{ statusLabel }}</label>
+            <TriStateSelect
+              :model-value="localValues.stockStatus"
+              @update:model-value="v => onSelectChange('stockStatus', v)"
+              :options="currentStatusOptions"
+              label="label"
+              track-by="id"
+              placeholder="Semua Status"
+              class="w-full"
+            />
+          </div>
+
+          <!-- Location Purpose (Conditional if Offline included) -->
           <div
             v-if="localValues.source?.include?.includes('Offline')"
-            class="flex flex-col gap-1.5 w-full animate-fade-in"
+            class="flex flex-col gap-1 w-full animate-fade-in sm:col-span-2 lg:col-span-4 border-t border-secondary/10"
           >
             <label class="text-[10px] font-bold text-text/50 uppercase tracking-wide">Tujuan Lokasi</label>
             <TriStateSelect
@@ -288,34 +215,42 @@ watch(
               class="w-full"
             />
           </div>
+        </div>
+      </template>
 
-          <!-- Stock Status -->
-          <div class="flex flex-col gap-1.5 w-full">
-            <label class="text-[10px] font-bold text-text/50 uppercase tracking-wide">Status Stok</label>
-            <TriStateSelect
-              :model-value="localValues.stockStatus"
-              @update:model-value="v => onSelectChange('stockStatus', v)"
-              :options="stockStatusOptions"
-              label="label"
-              track-by="id"
-              placeholder="Semua Status"
-              class="w-full"
-            />
+      <!-- Active Filter Badges & Reset Bar (Di Bawah) -->
+      <template #advanced v-if="activeFilterBadges.length > 0">
+        <div
+          class="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 mt-0.5 border-t border-secondary/20 animate-fade-in"
+        >
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-semibold text-text/60 mr-1">Filter Aktif:</span>
+
+            <div
+              v-for="badge in activeFilterBadges"
+              :key="badge.key"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded-lg text-xs font-medium transition-colors hover:bg-primary/15"
+            >
+              <span>{{ badge.label }}</span>
+              <button
+                @click="removeFilter(badge.key)"
+                class="hover:bg-primary/20 hover:text-danger rounded-full w-4 h-4 flex items-center justify-center transition-colors"
+                :title="`Hapus ${badge.label}`"
+              >
+                <font-awesome-icon icon="fa-solid fa-times" class="text-[10px]" />
+              </button>
+            </div>
           </div>
 
-          <!-- Shop Name -->
-          <div v-if="shopOptions && shopOptions.length > 0" class="flex flex-col gap-1.5 w-full">
-            <label class="text-[10px] font-bold text-text/50 uppercase tracking-wide">Toko / Saluran</label>
-            <TriStateSelect
-              :model-value="localValues.shopName"
-              @update:model-value="v => onSelectChange('shopName', v)"
-              :options="shopOptions"
-              label="label"
-              track-by="id"
-              placeholder="Semua Toko"
-              class="w-full"
-            />
-          </div>
+          <!-- Reset Filter Button -->
+          <button
+            @click="clearFilters"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-danger hover:bg-danger/10 border border-danger/20 rounded-lg transition-all active:scale-[0.98] bg-danger/5 cursor-pointer"
+            title="Reset semua filter"
+          >
+            <font-awesome-icon icon="fa-solid fa-rotate-right" class="text-[10px]" />
+            <span>Reset Filter</span>
+          </button>
         </div>
       </template>
     </BaseFilterPanel>

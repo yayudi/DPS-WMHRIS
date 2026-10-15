@@ -13,6 +13,7 @@ export const useMasterDataStore = defineStore('masterData', {
     reportFilters: null,
     _usersPromise: null,
     _locationsPromise: null,
+    _categoriesPromise: null,
     _filtersPromise: null
   }),
 
@@ -114,7 +115,12 @@ export const useMasterDataStore = defineStore('masterData', {
     clearCache() {
       this.users = []
       this.locations = []
+      this.categories = []
       this.reportFilters = null
+      this._usersPromise = null
+      this._locationsPromise = null
+      this._categoriesPromise = null
+      this._filtersPromise = null
     }
   }
 })
