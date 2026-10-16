@@ -6,7 +6,6 @@ import { getStockRequirements, getStockRequirementOrders } from '@/api/helpers/p
 import { useFirebaseSync } from '@/composables/useFirebaseSync.js'
 import { useToast } from '@/composables/useToast.js'
 import BasePagination from '@/components/ui/BasePagination.vue'
-import PickingStockActionModal from './PickingStockActionModal.vue'
 import TriStateSelect from '@/components/ui/TriStateSelect.vue'
 import debounce from 'lodash/debounce'
 import dayjs from 'dayjs'
@@ -314,11 +313,8 @@ async function exportToExcel() {
   }
 }
 
-// --- STOCK ACTION MODAL & DROPDOWN STATE ---
-const isActionModalOpen = ref(false)
-const selectedActionType = ref('TRANSFER') // 'TRANSFER' | 'REQUEST'
-const activeActionItem = ref(null)
-const activeActionOrder = ref(null)
+// --- ACTION DROPDOWN & UTILITIES STATE ---
+const emit = defineEmits(['navigateToTask'])
 const activeActionDropdown = ref(null) // 'parent-SKU' | 'child-itemId'
 
 function toggleActionDropdown(id, event) {
@@ -338,19 +334,66 @@ onUnmounted(() => {
   window.removeEventListener('click', closeActionDropdown)
 })
 
-function openActionModal(item, type, order = null) {
-  activeActionDropdown.value = null
-  selectedActionType.value = type
-  activeActionItem.value = item
-  activeActionOrder.value = order
-  isActionModalOpen.value = true
+/**
+ * Salin teks ke clipboard sistem
+ * @param {string} text
+ * @param {string} successMsg
+ */
+async function copyToClipboard(text, successMsg = 'Berhasil disalin!') {
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    toast.success(successMsg)
+  } catch (err) {
+    console.error('Failed to copy to clipboard:', err)
+    toast.error('Gagal menyalin ke clipboard.')
+  }
 }
 
-async function handleActionSuccess({ sku }) {
-  refetchRequirements()
-  if (sku && expandedSkus.value.has(sku)) {
-    fetchSkuOrders(sku, true)
-  }
+/**
+ * Trigger navigasi ke tab Picking Task dengan filter pencarian
+ * @param {string} query
+ */
+function handleNavigateToTask(query) {
+  activeActionDropdown.value = null
+  emit('navigateToTask', query)
+}
+
+/**
+ * Salin format ringkasan kebutuhan stok SKU untuk keperluan koordinasi
+ * @param {Object} item
+ */
+function copyRequirementInfo(item) {
+  activeActionDropdown.value = null
+  const statusText =
+    item.status === 'DEFICIT'
+      ? `DEFISIT (-${Math.abs(item.deficit)} Unit)`
+      : `CUKUP (+${item.deficit} Unit)`
+  const locationsText =
+    item.locations?.length > 0
+      ? item.locations.map(l => `${l.locationCode} (${l.quantity})`).join(', ')
+      : item.suggestedLocations || '-'
+
+  const text = `[KEBUTUHAN STOK PICKING]\nSKU: ${item.sku}\nProduk: ${item.productName || item.sku}\nTotal Kebutuhan: ${item.totalRequired} Unit\nStok Gudang: ${item.totalStock} Unit\nStatus: ${statusText}\nLokasi: ${locationsText}\nJumlah Pesanan: ${item.orderCount} Transaksi`
+
+  copyToClipboard(text, `Info kebutuhan ${item.sku} disalin!`)
+}
+
+/**
+ * Salin nomor invoice ke clipboard
+ * @param {string} invoiceId
+ */
+function copyInvoiceId(invoiceId) {
+  activeActionDropdown.value = null
+  copyToClipboard(invoiceId, `Invoice ${invoiceId} disalin!`)
 }
 
 // Expose refetch method for parent component
@@ -815,19 +858,19 @@ defineExpose({
                     >
                       <button
                         type="button"
-                        @click="openActionModal(item, 'TRANSFER')"
+                        @click="handleNavigateToTask(item.sku)"
                         class="w-full px-3 py-2 text-xs font-medium text-text hover:bg-primary/10 hover:text-primary flex items-center gap-2.5 transition-colors"
                       >
-                        <font-awesome-icon icon="fa-solid fa-bolt" class="text-primary w-4" />
-                        <span>Transfer Cepat ke Display</span>
+                        <font-awesome-icon icon="fa-solid fa-boxes-packing" class="text-primary w-4" />
+                        <span>Lihat di Daftar Tugas</span>
                       </button>
                       <button
                         type="button"
-                        @click="openActionModal(item, 'REQUEST')"
-                        class="w-full px-3 py-2 text-xs font-medium text-text hover:bg-warning/10 hover:text-warning flex items-center gap-2.5 transition-colors border-t border-secondary/10"
+                        @click="copyRequirementInfo(item)"
+                        class="w-full px-3 py-2 text-xs font-medium text-text hover:bg-secondary/20 flex items-center gap-2.5 transition-colors border-t border-secondary/10"
                       >
-                        <font-awesome-icon icon="fa-solid fa-clipboard-list" class="text-warning w-4" />
-                        <span>Buat Permintaan Stok</span>
+                        <font-awesome-icon icon="fa-solid fa-copy" class="text-text/70 w-4" />
+                        <span>Salin Info Kebutuhan</span>
                       </button>
                     </div>
                   </div>
@@ -1102,19 +1145,19 @@ defineExpose({
                                     >
                                       <button
                                         type="button"
-                                        @click="openActionModal(item, 'TRANSFER', ord)"
+                                        @click="handleNavigateToTask(ord.invoiceId)"
                                         class="w-full px-2.5 py-1.5 text-[11px] font-medium text-text hover:bg-primary/10 hover:text-primary flex items-center gap-2 transition-colors"
                                       >
-                                        <font-awesome-icon icon="fa-solid fa-bolt" class="text-primary w-3.5" />
-                                        <span>Transfer ({{ ord.quantity }} pcs)</span>
+                                        <font-awesome-icon icon="fa-solid fa-boxes-packing" class="text-primary w-3.5" />
+                                        <span>Lihat di Tugas</span>
                                       </button>
                                       <button
                                         type="button"
-                                        @click="openActionModal(item, 'REQUEST', ord)"
-                                        class="w-full px-2.5 py-1.5 text-[11px] font-medium text-text hover:bg-warning/10 hover:text-warning flex items-center gap-2 transition-colors border-t border-secondary/10"
+                                        @click="copyInvoiceId(ord.invoiceId)"
+                                        class="w-full px-2.5 py-1.5 text-[11px] font-medium text-text hover:bg-secondary/20 flex items-center gap-2 transition-colors border-t border-secondary/10"
                                       >
-                                        <font-awesome-icon icon="fa-solid fa-clipboard-list" class="text-warning w-3.5" />
-                                        <span>Minta ({{ ord.quantity }} pcs)</span>
+                                        <font-awesome-icon icon="fa-solid fa-copy" class="text-text/70 w-3.5" />
+                                        <span>Salin No. Invoice</span>
                                       </button>
                                     </div>
                                   </div>
@@ -1159,14 +1202,5 @@ defineExpose({
       </div>
     </div>
 
-    <!-- Picking Stock Action Modal -->
-    <PickingStockActionModal
-      :is-open="isActionModalOpen"
-      :action-type="selectedActionType"
-      :item-data="activeActionItem"
-      :order-data="activeActionOrder"
-      @close="isActionModalOpen = false"
-      @success="handleActionSuccess"
-    />
   </div>
 </template>

@@ -203,6 +203,17 @@ export const completeItems = catchAsync(async (req, res, next) => {
 });
 
 /**
+ * Force finish picking items with auto-adjustment for deficits.
+ */
+export const forceFinishItems = catchAsync(async (req, res, next) => {
+  const { items } = req.body;
+  const userId = req.user?.id || 1;
+
+  const result = await pickingService.forceFinishPickingItemsService(items, userId);
+  res.json(result);
+});
+
+/**
  * Retry backorders for a specific Picking List.
  */
 export const retryBackorders = catchAsync(async (req, res, next) => {

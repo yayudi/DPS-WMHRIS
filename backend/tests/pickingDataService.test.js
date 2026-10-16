@@ -26,6 +26,12 @@ jest.unstable_mockModule("mysql2/promise", () => ({
   },
 }));
 
+// Mock Firebase Signal Service to prevent hanging open sockets
+jest.unstable_mockModule("../services/firebaseSignalService.js", () => ({
+  emitSharedTaskSignal: jest.fn().mockResolvedValue(),
+  emitUserSignal: jest.fn().mockResolvedValue(),
+}));
+
 // Mock Repositories
 jest.unstable_mockModule("../repositories/pickingRepository.js", () => ({
   getHeaderById: jest.fn(),
@@ -273,4 +279,68 @@ describe("PickingDataService - Complete Items Logic", () => {
     // Pastikan TIDAK ada log yang dibuat karena validasi dilakukan di awal (batch validation)
     expect(stockRepo.createLog).not.toHaveBeenCalled();
   });
+
+  describe("forceFinishPickingItemsService", () => {
+    it("should auto-adjust deficit at Rak Display Utama (A12 - 1, ID: 2) even with negative stock and complete successfully", async () => {
+      // Setup header
+      pickingRepo.getHeaderById.mockResolvedValue({
+        id: 10,
+        original_invoice_id: "INV-FORCE-001",
+        status: "PENDING",
+      });
+
+      // Setup payload: item with shortage
+      const payloadItems = [
+        { id: 101, picking_list_id: 10, product_id: 55, quantity: 5, location_id: null },
+      ];
+
+      // Setup DB item (status BACKORDER)
+      pickingRepo.getItemsByIds.mockResolvedValue([
+        {
+          id: 101,
+          picking_list_id: 10,
+          product_id: 55,
+          quantity: 5,
+          suggested_location_id: null,
+          original_sku: "SKU-MINUS-STOCK",
+          status: "BACKORDER",
+        },
+      ]);
+
+      // Mock DB query for FOR UPDATE stock lock: current stock at ID 2 is -10 (negative stock case!)
+      mockConnection.query.mockImplementation((sql, _) => {
+        if (typeof sql === "string" && sql.includes("FOR UPDATE")) {
+          return Promise.resolve([
+            [{ product_id: 55, location_id: 2, quantity: -10 }],
+          ]);
+        }
+        return Promise.resolve([{ affectedRows: 1 }]);
+      });
+
+      pickingRepo.countPendingItems.mockResolvedValue(0);
+
+      // EXECUTE
+      const result = await pickingService.forceFinishPickingItemsService(payloadItems, 999);
+
+      // ASSERT
+      expect(result.success).toBe(true);
+      expect(result.data.processedCount).toBe(1);
+      // Deficit formula: Math.max(0, 5 - (-10)) = 15!
+      expect(result.data.adjustedQty).toBe(15);
+
+      // Verify incrementStock was called with 15 for location 2
+      expect(locationRepo.incrementStock).toHaveBeenCalledWith(mockConnection, 55, 2, 15);
+
+      // Verify deductStock was called with 5 for location 2
+      expect(locationRepo.deductStock).toHaveBeenCalledWith(mockConnection, 55, 2, 5);
+
+      // Verify validateItem was called
+      expect(pickingRepo.validateItem).toHaveBeenCalledWith(mockConnection, 101, 2);
+
+      // Verify header was validated since remaining pending items = 0
+      expect(pickingRepo.validateHeader).toHaveBeenCalledWith(mockConnection, 10);
+      expect(mockConnection.commit).toHaveBeenCalled();
+    });
+  });
 });
+

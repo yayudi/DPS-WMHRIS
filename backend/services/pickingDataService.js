@@ -353,7 +353,9 @@ export const retryBackordersService = async (pickingListId) => {
       `
       SELECT
         pli.id,
+        pli.picking_list_id,
         pli.product_id,
+        pli.price,
         pli.quantity,
         pli.original_sku,
         pl.location_purpose
@@ -386,6 +388,62 @@ export const retryBackordersService = async (pickingListId) => {
         await pickingRepo.updateSuggestedLocation(connection, item.id, bestLocation.location_id);
         await pickingRepo.updateItemStatus(connection, item.id, "PENDING");
         recoveredCount++;
+      } else {
+        // Multi-location sweep jika stok terbagi di beberapa lantai display
+        const availableLocs = await locationRepo.getLocationsByProductIds(
+          connection,
+          [item.product_id],
+          item.location_purpose || "DISPLAY",
+        );
+        const withStock = availableLocs.filter((l) => Number(l.quantity) > 0);
+        const totalAvailable = withStock.reduce((acc, l) => acc + Number(l.quantity), 0);
+
+        if (totalAvailable > 0) {
+          let remaining = item.quantity;
+          let isFirst = true;
+
+          for (const loc of withStock) {
+            if (remaining <= 0) break;
+            const take = Math.min(Number(loc.quantity), remaining);
+
+            if (isFirst) {
+              await connection.query(
+                "UPDATE picking_list_items SET quantity = ?, suggested_location_id = ?, status = 'PENDING' WHERE id = ?",
+                [take, loc.location_id, item.id],
+              );
+              isFirst = false;
+            } else {
+              await connection.query(
+                "INSERT INTO picking_list_items (picking_list_id, product_id, original_sku, price, quantity, status, suggested_location_id) VALUES (?, ?, ?, ?, ?, 'PENDING', ?)",
+                [
+                  item.picking_list_id,
+                  item.product_id,
+                  item.original_sku,
+                  item.price || 0,
+                  take,
+                  loc.location_id,
+                ],
+              );
+            }
+
+            loc.quantity = Number(loc.quantity) - take;
+            remaining -= take;
+            recoveredCount++;
+          }
+
+          if (remaining > 0) {
+            await connection.query(
+              "INSERT INTO picking_list_items (picking_list_id, product_id, original_sku, price, quantity, status, suggested_location_id) VALUES (?, ?, ?, ?, ?, 'BACKORDER', NULL)",
+              [
+                item.picking_list_id,
+                item.product_id,
+                item.original_sku,
+                item.price || 0,
+                remaining,
+              ],
+            );
+          }
+        }
       }
     }
 
@@ -843,6 +901,203 @@ export const updatePickingListItemsService = async (pickingListId, newItems, use
   } catch (error) {
     await connection.rollback();
     Logger.error("Update Picking Items Failed", error, "PICKING_DATA_SERVICE");
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * Menyelesaikan item picking secara paksa dengan auto-adjustment defisit stok ke Rak Display Utama (A12 - 1, ID: 2).
+ * @param {Array<{ id: number, picking_list_id: number, product_id?: number, quantity: number, location_id?: number }>} payloadItems
+ * @param {number|string} userId
+ * @returns {Promise<{ success: boolean, message: string, data?: { processedCount: number, adjustedQty: number } }>}
+ */
+export const forceFinishPickingItemsService = async (payloadItems, userId) => {
+  const connection = await db.getConnection();
+  await connection.beginTransaction();
+
+  try {
+    if (!payloadItems || !Array.isArray(payloadItems) || payloadItems.length === 0) {
+      throw new AppError("Daftar item tidak boleh kosong.", 400);
+    }
+
+    const PRIMARY_DISPLAY_LOCATION_ID = 2; // A12 - 1 (Pajangan Lantai 1)
+
+    // 1. Verifikasi Header Picking Lists
+    const uniqueListIds = [...new Set(payloadItems.map((i) => i.picking_list_id))];
+    const invoiceMap = new Map();
+
+    for (const listId of uniqueListIds) {
+      const header = await pickingRepo.getHeaderById(connection, listId);
+      if (!header) {
+        throw new AppError(`Picking list #${listId} tidak ditemukan.`, 404);
+      }
+      if (header.status === "VOID" || header.status === "CANCELLED" || header.status === "CANCEL") {
+        throw new AppError(
+          `Order #${listId} (${header.original_invoice_id}) telah dibatalkan (VOID/CANCELLED). Tidak dapat diproses.`,
+          400,
+          "VOID_ORDER",
+        );
+      }
+      invoiceMap.set(listId, header.original_invoice_id);
+    }
+
+    // 2. Ambil Item Riil dari DB
+    const itemIds = payloadItems.map((i) => i.id);
+    const dbItems = await pickingRepo.getItemsByIds(connection, itemIds);
+    if (dbItems.length === 0) {
+      throw new AppError("Item tidak ditemukan di database.", 404);
+    }
+
+    // 3. Locking Stok Terurut Berdasarkan product_id ASC (Pencegahan Deadlock Batch)
+    const uniqueProductIds = [...new Set(dbItems.map((item) => item.product_id))].sort((a, b) => a - b);
+    const stockMap = new Map(); // key: `${productId}_${locationId}` -> number
+
+    if (uniqueProductIds.length > 0) {
+      const [stocks] = await connection.query(
+        `SELECT product_id, location_id, quantity
+         FROM stock_locations
+         WHERE product_id IN (?)
+         FOR UPDATE`,
+        [uniqueProductIds],
+      );
+      for (const s of stocks) {
+        stockMap.set(`${s.product_id}_${s.location_id}`, Number(s.quantity));
+      }
+    }
+
+    // 4. Rencanakan Alokasi Item & Hitung Kebutuhan di Rak Display Utama
+    const neededAtPrimary = new Map(); // productId -> number (total quantity)
+    const executionPlan = [];
+
+    for (const itemData of dbItems) {
+      const {
+        id: itemId,
+        product_id: prodId,
+        quantity: rawQty,
+        suggested_location_id: initialLocId,
+        picking_list_id,
+        status,
+      } = itemData;
+      const qty = Number(rawQty);
+
+      if (status !== "PENDING" && status !== "BACKORDER") {
+        continue; // Lewati item yang sudah selesai atau diretur
+      }
+
+      let finalLocationId = initialLocId;
+      const currentStockKey = `${prodId}_${initialLocId}`;
+      const currentLocStock = initialLocId ? stockMap.get(currentStockKey) || 0 : 0;
+
+      // Jika lokasi awal valid, bukan primary, dan stok fisiknya mencukupi -> tetap potong di lokasi fisik tersebut
+      if (initialLocId && initialLocId !== PRIMARY_DISPLAY_LOCATION_ID && currentLocStock >= qty) {
+        finalLocationId = initialLocId;
+        stockMap.set(currentStockKey, currentLocStock - qty);
+      } else {
+        // Alihkan ke Rak Display Utama (A12 - 1)
+        finalLocationId = PRIMARY_DISPLAY_LOCATION_ID;
+        neededAtPrimary.set(prodId, (neededAtPrimary.get(prodId) || 0) + qty);
+      }
+
+      executionPlan.push({
+        itemId,
+        prodId,
+        qty,
+        finalLocationId,
+        picking_list_id,
+      });
+    }
+
+    // 5. Hitung Defisit Stok & Jalankan Auto-Adjustment pada Rak Display Utama (A12 - 1)
+    let totalAdjustedQty = 0;
+    for (const [prodId, totalNeeded] of neededAtPrimary.entries()) {
+      const primaryKey = `${prodId}_${PRIMARY_DISPLAY_LOCATION_ID}`;
+      const currentPrimaryStock = stockMap.has(primaryKey) ? stockMap.get(primaryKey) : 0;
+
+      // Rumus Penanganan Defisit Termasuk Stok Minus:
+      // Misal currentPrimaryStock = -10, totalNeeded = 5 -> deficit = Math.max(0, 5 - (-10)) = 15.
+      // -10 + 15 = 5 (cukup untuk dipotong 5 tanpa gagal validasi stok)
+      const deficit = Math.max(0, totalNeeded - currentPrimaryStock);
+
+      if (deficit > 0) {
+        await locationRepo.incrementStock(connection, prodId, PRIMARY_DISPLAY_LOCATION_ID, deficit);
+        await stockRepo.createLog(connection, {
+          productId: prodId,
+          quantity: deficit,
+          toLocationId: PRIMARY_DISPLAY_LOCATION_ID,
+          type: "ADJUSTMENT",
+          userId,
+          notes: `Auto-Adjustment Force Finish (Defisit: ${deficit} pcs)`,
+        });
+        stockMap.set(primaryKey, currentPrimaryStock + deficit);
+        totalAdjustedQty += deficit;
+      }
+    }
+
+    // 6. Eksekusi Pemotongan Stok (SALE) & Update Status Item
+    const affectedListIds = new Set();
+    let processedCount = 0;
+
+    for (const plan of executionPlan) {
+      const { itemId, prodId, qty, finalLocationId, picking_list_id } = plan;
+
+      // Pastikan suggested_location_id terisi
+      await pickingRepo.updateSuggestedLocation(connection, itemId, finalLocationId);
+
+      // Update status item -> VALIDATED
+      await pickingRepo.validateItem(connection, itemId, finalLocationId);
+
+      // Potong stok fisik
+      await locationRepo.deductStock(connection, prodId, finalLocationId, qty);
+
+      // Catat log pergerakan barang (SALE)
+      const invRef = invoiceMap.get(picking_list_id) || `List #${picking_list_id}`;
+      await stockRepo.createLog(connection, {
+        productId: prodId,
+        quantity: qty,
+        fromLocationId: finalLocationId,
+        type: "SALE",
+        userId,
+        notes: `Sale Ref: ${invRef} (Item #${itemId} - Force Finish)`,
+      });
+
+      affectedListIds.add(picking_list_id);
+      processedCount++;
+    }
+
+    // 7. Update Header Status Jika Semua Item di Picking List Selesai
+    for (const listId of affectedListIds) {
+      const remainingCount = await pickingRepo.countPendingItems(connection, listId);
+      if (remainingCount === 0) {
+        await pickingRepo.validateHeader(connection, listId);
+      }
+    }
+
+    await connection.commit();
+
+    emitSharedTaskSignal("PICKING_LIST", "REFRESH_PICKING").catch((e) =>
+      Logger.error("Signal Error", e, "PICKING_DATA_SERVICE"),
+    );
+    emitSharedTaskSignal("WMS_DASHBOARD", "REFRESH_STOCK").catch((e) =>
+      Logger.error("Signal Error", e, "PICKING_DATA_SERVICE"),
+    );
+
+    return {
+      success: true,
+      message: `Sukses Force Finish! ${processedCount} item berhasil diselesaikan${
+        totalAdjustedQty > 0
+          ? ` (Auto-adjustment ${totalAdjustedQty} pcs dilakukan di Rak Display Utama A12 - 1).`
+          : "."
+      }`,
+      data: {
+        processedCount,
+        adjustedQty: totalAdjustedQty,
+      },
+    };
+  } catch (error) {
+    await connection.rollback();
+    Logger.error("Force Finish Transaction Failed", error, "PICKING_DATA_SERVICE");
     throw error;
   } finally {
     connection.release();

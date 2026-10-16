@@ -1,63 +1,52 @@
+<!-- frontend/src/components/picking/PickingListCardCompact.vue -->
 <script setup>
-import { swalConfirm } from '@/composables/useSweetAlert'
-import { computed, ref } from 'vue'
 import { formatDate } from '@/api/helpers/time.js'
 import { useAuthStore } from '@/stores/auth'
 import logoTokopedia from '@/assets/img/tokopedia.svg'
 import logoShopee from '@/assets/img/shopee.svg'
 import { usePickingCardState } from '@/composables/usePickingCardState'
+import { useClipboard } from '@/composables/useClipboard.js'
+import PickingItemActions from '@/components/picking/item/PickingItemActions.vue'
+import PickingItemLocations from '@/components/picking/item/PickingItemLocations.vue'
+import PickingItemHistory from '@/components/picking/item/PickingItemHistory.vue'
 
 const props = defineProps({
   inv: { type: Object, required: true },
   selectedItems: { type: Set, default: () => new Set() },
   validateStock: { type: Function, default: () => true },
   mode: { type: String, default: 'picking' }, // 'picking' | 'history'
-  historyLogs: { type: Array, default: () => [] },
+  historyLogs: { type: Array, default: () => [] }
 })
 
 const authStore = useAuthStore()
-const emit = defineEmits(['toggle-invoice', 'void-invoice'])
+const emit = defineEmits(['toggle-invoice', 'void-invoice', 'retry-backorder', 'items-updated'])
+const { copyToClipboard } = useClipboard()
 
-const isOpen = ref(false)
-const isLoading = ref(false)
-
-const { totalSKU, isInvoiceSelected, canCancel, isItemInvalid, getMpStatusBadge } =
-  usePickingCardState(props, authStore)
-
-// --- ACTIONS ---
-async function onToggleInvoice(event) {
-  emit('toggle-invoice', { inv: props.inv, checked: event.target.checked })
-}
-
-async function onVoidInvoice() {
-  const msg = `Void pesanan ${props.inv.original_invoice_id}?\nSemua status item (termasuk yang berhasil di-pick) akan dikembalikan ke stok.`
-  if (!await swalConfirm(msg)) return
-  try {
-    isLoading.value = true
-    emit('void-invoice', props.inv.id)
-  } catch (error) {
-    console.error(error)
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const sourceBgClass = computed(() => {
-  const source = props.inv.source?.toLowerCase()
-  if (source === 'tokopedia') return 'bg-success'
-  if (source === 'shopee') return 'bg-warning'
-  return 'bg-secondary'
-})
+const {
+  isOpen,
+  isLoading,
+  sourceBgClass,
+  handleCardClick,
+  onVoidInvoice,
+  onRetryBackorder,
+  totalSKU,
+  hasStockIssue,
+  isInvoiceSelected,
+  canCancel,
+  getMpStatusBadge
+} = usePickingCardState(props, authStore)
 </script>
 
 <template>
   <div
-    class="bg-background border rounded-lg overflow-hidden transition-all duration-300 flex flex-col shadow-sm break-inside-avoid group relative"
+    class="bg-background border rounded-lg overflow-hidden transition-all duration-200 flex flex-col shadow-sm break-inside-avoid group relative"
     :class="[
+      mode === 'picking' ? 'cursor-pointer select-none active:scale-[0.995]' : '',
       isInvoiceSelected
-        ? 'border-primary ring-1 ring-primary/30 shadow-md'
-        : 'border-secondary hover:border-primary/50 hover:shadow-sm',
+        ? 'border-primary ring-2 ring-primary/40 shadow-md bg-primary/[0.02]'
+        : 'border-secondary hover:border-primary/50 hover:shadow-sm'
     ]"
+    @click="(e) => handleCardClick(e, emit)"
   >
     <!-- HEADER CARD COMPACT -->
     <div
@@ -68,14 +57,18 @@ const sourceBgClass = computed(() => {
       <div class="absolute left-0 top-0 bottom-0 w-1" :class="sourceBgClass"></div>
 
       <div class="flex items-center gap-2 pl-2 min-w-0 flex-1">
-        <!-- MAIN CHECKBOX -->
-        <div v-if="mode === 'picking'" class="pt-0.5">
-          <input
-            type="checkbox"
-            :checked="isInvoiceSelected"
-            @change="onToggleInvoice"
-            class="w-4 h-4 rounded border-secondary/40 text-primary cursor-pointer accent-primary transition-all hover:scale-110"
-          />
+        <!-- SELECTION BADGE (CLICK-TO-SELECT) -->
+        <div v-if="mode === 'picking'" class="pt-0.5 flex items-center justify-center shrink-0">
+          <div
+            class="w-4 h-4 rounded flex items-center justify-center transition-all duration-200"
+            :class="[
+              isInvoiceSelected
+                ? 'bg-primary text-background shadow-sm ring-1 ring-primary scale-105'
+                : 'border-2 border-secondary/50 group-hover:border-primary/60 bg-background/50'
+            ]"
+          >
+            <font-awesome-icon v-if="isInvoiceSelected" icon="fa-solid fa-check" class="text-[9px]" />
+          </div>
         </div>
 
         <!-- LOGO -->
@@ -96,13 +89,21 @@ const sourceBgClass = computed(() => {
         </div>
 
         <div class="min-w-0 flex flex-col">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
             <h3
               class="font-bold tracking-tight truncate text-text text-xs hover:text-primary transition-colors cursor-text select-text leading-tight"
               :title="inv.invoice"
             >
               {{ inv.invoice }}
             </h3>
+            <button
+              type="button"
+              @click.stop="copyToClipboard(inv.invoice, 'Nomor Invoice')"
+              class="text-text/30 hover:text-primary w-6 h-6 flex items-center justify-center rounded hover:bg-secondary/10 transition-colors text-[10px] shrink-0"
+              title="Salin Nomor Invoice"
+            >
+              <font-awesome-icon icon="fa-solid fa-copy" />
+            </button>
             <!-- Compact Status Badge -->
             <span
               v-if="inv.marketplace_status && inv.marketplace_status !== 'NEW'"
@@ -139,115 +140,45 @@ const sourceBgClass = computed(() => {
           Cabang
         </span>
 
-        <button
-          v-if="canCancel && inv.status !== 'VOID'"
-          @click.stop="onVoidInvoice"
-          :disabled="isLoading"
-          class="group flex items-center justify-center rounded border border-danger bg-danger/10 w-6 h-6 text-danger/50 transition-colors hover:text-danger disabled:opacity-50"
-          title="Void"
-        >
-          <font-awesome-icon
-            :icon="isLoading ? 'fa-solid fa-spinner' : 'fa-solid fa-trash'"
-            :spin="isLoading"
-            class="text-xs"
-          />
-        </button>
-
-        <font-awesome-icon
-          v-if="mode === 'history'"
-          icon="fa-solid fa-chevron-down"
-          class="text-text/30 transition-transform duration-300 text-xs"
-          :class="{ 'rotate-180': isOpen }"
+        <!-- Compact Actions -->
+        <PickingItemActions
+          :inv="inv"
+          :mode="mode"
+          :has-stock-issue="hasStockIssue"
+          :can-cancel="canCancel"
+          :is-loading="isLoading"
+          :is-open="isOpen"
+          :show-chevron="mode === 'history'"
+          compact
+          @void-invoice="onVoidInvoice(emit)"
+          @retry-backorder="onRetryBackorder(emit)"
+          @items-updated="(id) => emit('items-updated', id)"
+          @toggle-open="isOpen = !isOpen"
         />
       </div>
     </div>
 
     <!-- ITEM LIST COMPACT (PICKING MODE) -->
-    <div v-if="mode === 'picking'" class="divide-y divide-secondary/10 relative text-xs">
-      <div
-        v-if="isInvoiceSelected"
-        class="absolute inset-0 bg-primary/5 pointer-events-none z-0"
-      ></div>
+    <PickingItemLocations
+      v-if="mode === 'picking'"
+      :locations="inv.locations"
+      :is-invoice-selected="isInvoiceSelected"
+      :validate-stock="validateStock"
+      compact
+    />
 
-      <div v-for="(items, locName) in inv.locations" :key="locName" class="relative z-10">
-        <!-- Location Header Compact -->
-        <div
-          class="bg-secondary/50 px-3 py-1 flex items-center justify-between border-b border-secondary/5"
-        >
-          <span v-if="inv.status === 'VOID'" class="flex items-center gap-1">
-            <i class="fa-solid fa-ban text-[10px]"></i> VOID
-          </span>
-          <div v-else class="flex items-center gap-1.5">
-            <font-awesome-icon
-              :icon="
-                !locName || locName === 'Unknown Loc'
-                  ? 'fa-solid fa-triangle-exclamation'
-                  : 'fa-solid fa-location-dot'
-              "
-              class="text-[10px]"
-              :class="!locName || locName === 'Unknown Loc' ? 'text-danger' : 'text-primary'"
-            />
-            <span
-              class="text-[10px] font-bold"
-              :class="!locName || locName === 'Unknown Loc' ? 'text-danger' : 'text-primary'"
-            >
-              {{ locName || 'Stok Kosong' }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Item Rows Compact -->
-        <table class="w-full text-left">
-          <tbody class="divide-y divide-secondary/5">
-            <tr
-              v-for="item in items"
-              :key="item.id"
-              class="transition-colors group/item"
-              :class="isItemInvalid(item) ? 'bg-danger/5' : ''"
-            >
-              <td class="pl-3 py-1.5 align-top">
-                <div class="flex flex-col">
-                  <div class="font-bold text-text mb-0.5 flex items-center gap-1.5 leading-none">
-                    {{ item.sku }}
-                    <span
-                      v-if="isInvoiceSelected && !isItemInvalid(item)"
-                      class="text-primary text-[9px]"
-                    >
-                      <font-awesome-icon icon="fa-solid fa-check-circle" />
-                    </span>
-                  </div>
-                  <div
-                    class="text-[9px] text-text/60 leading-tight line-clamp-1 group-hover/item:line-clamp-none transition-all"
-                  >
-                    {{ item.product_name }}
-                  </div>
-
-                  <!-- Warning Stok Compact -->
-                  <div
-                    v-if="isItemInvalid(item) && item.location_code"
-                    class="text-[9px] text-danger font-bold mt-0.5 flex items-center gap-1"
-                  >
-                    <font-awesome-icon icon="fa-solid fa-triangle-exclamation" class="text-[8px]" />
-                    Kurang: {{ item.available_stock }} / {{ item.quantity }}
-                  </div>
-                  <div
-                    v-else-if="!item.location_code"
-                    class="text-[9px] text-danger font-bold mt-0.5"
-                  >
-                    Lokasi tidak ditemukan
-                  </div>
-                </div>
-              </td>
-              <td class="px-3 py-1.5 text-right align-top w-12">
-                <span class="font-bold" :class="isItemInvalid(item) ? 'text-danger' : 'text-text'">
-                  {{ item.quantity }}
-                </span>
-                <span class="text-[8px] text-text/40 ml-0.5">pcs</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    <!-- ITEM LIST COMPACT (HISTORY MODE) -->
+    <transition
+      enter-active-class="transition-[max-height] duration-300 ease-in-out overflow-hidden"
+      enter-from-class="max-h-0"
+      enter-to-class="max-h-[500px]"
+      leave-active-class="transition-[max-height] duration-300 ease-in-out overflow-hidden"
+      leave-from-class="max-h-[500px]"
+      leave-to-class="max-h-0"
+    >
+      <div v-if="mode === 'history' && isOpen" class="bg-secondary/20 border-t border-secondary/10 p-2.5 text-xs">
+        <PickingItemHistory :inv="inv" :history-logs="historyLogs" compact />
       </div>
-    </div>
+    </transition>
   </div>
 </template>

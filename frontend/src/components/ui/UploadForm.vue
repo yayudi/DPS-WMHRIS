@@ -65,6 +65,15 @@ function removeFile(index) {
   }
 }
 
+function resetFileInput() {
+  files.value = []
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+  }
+  userNotes.value = ''
+  isDryRun.value = false
+}
+
 function handleSubmit() {
   if (files.value.length === 0) return
 
@@ -88,7 +97,12 @@ function handleSubmit() {
   }
 
   emit('submit', formData)
+  resetFileInput()
 }
+
+defineExpose({
+  reset: resetFileInput,
+})
 </script>
 
 <template>

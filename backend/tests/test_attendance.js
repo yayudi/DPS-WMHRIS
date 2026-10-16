@@ -1,8 +1,8 @@
 import path from "path";
 import { fileURLToPath } from "url";
-import db from "./config/db.js";
-import { processAttendanceImport } from "./services/attendanceImportService.js";
-import { generateErrorFile } from "./utils/workerHelpers.js";
+import db from "../config/db.js";
+import { processAttendanceImport } from "../services/attendanceImportService.js";
+import { generateErrorFile } from "../utils/workerHelpers.js";
 import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -25,7 +25,7 @@ async function runTest() {
         // console.log(`Progress: ${curr}/${total}`);
       },
       false, // isDryRun (kita test beneran atau false biar kena db constraint)
-      {}
+      {},
     );
 
     console.log("=== HASIL IMPORT ===");
@@ -38,18 +38,17 @@ async function runTest() {
       console.log("Sebagian data error, men-generate Excel...");
       const exportDir = path.resolve(__dirname, "storage/exports");
       if (!fs.existsSync(exportDir)) {
-          fs.mkdirSync(exportDir, { recursive: true });
+        fs.mkdirSync(exportDir, { recursive: true });
       }
       const excelUrl = await generateErrorFile(
         csvPath,
         result.errors,
         result.headerRowIndex,
         999, // dummy jobId
-        exportDir
+        exportDir,
       );
       console.log("Berhasil generate Excel Error:", excelUrl);
     }
-
   } catch (error) {
     console.error("FATAL ERROR TEST:", error);
   } finally {

@@ -1,99 +1,110 @@
+<!-- frontend/src/components/picking/PickingListRow.vue -->
 <script setup>
-import { swalConfirm } from '@/composables/useSweetAlert'
-import { computed, ref } from 'vue'
 import { formatDate } from '@/api/helpers/time.js'
 import { useAuthStore } from '@/stores/auth'
 import logoTokopedia from '@/assets/img/tokopedia.svg'
 import logoShopee from '@/assets/img/shopee.svg'
 import { usePickingCardState } from '@/composables/usePickingCardState'
+import { useClipboard } from '@/composables/useClipboard.js'
+import PickingItemActions from '@/components/picking/item/PickingItemActions.vue'
+import PickingItemLocations from '@/components/picking/item/PickingItemLocations.vue'
+import PickingItemHistory from '@/components/picking/item/PickingItemHistory.vue'
 
 const props = defineProps({
   inv: { type: Object, required: true },
   selectedItems: { type: Set, default: () => new Set() },
   validateStock: { type: Function, default: () => true },
   mode: { type: String, default: 'picking' }, // 'picking' | 'history'
-  historyLogs: { type: Array, default: () => [] },
+  historyLogs: { type: Array, default: () => [] }
 })
 
 const authStore = useAuthStore()
-const emit = defineEmits(['toggle-invoice', 'void-invoice'])
-
-const isOpen = ref(false)
-const isLoading = ref(false)
+const emit = defineEmits(['toggle-invoice', 'void-invoice', 'retry-backorder', 'items-updated'])
+const { copyToClipboard } = useClipboard()
 
 const {
+  isOpen,
+  isLoading,
+  onVoidInvoice,
+  onRetryBackorder,
   totalSKU,
   hasStockIssue,
   isInvoiceSelected,
-  isItemInvalid,
-  getMpStatusBadge,
-  getStatusBadge
+  canCancel,
+  getMpStatusBadge
 } = usePickingCardState(props, authStore)
-
-const canCancel = computed(() => {
-  // Bisa cancel di mode picking (jika ada masalah stok)
-  // Atau di mode history (jika admin ingin membatalkan arsip)
-  if (props.mode === 'picking') {
-    return hasStockIssue.value && authStore.hasPermission('picking.cancel')
-  }
-  return authStore.hasPermission('picking.cancel') // Admin only for history
-})
-
-// --- ACTIONS ---
-async function onToggleInvoice(event) {
-  emit('toggle-invoice', { inv: props.inv, checked: event.target.checked })
-}
-
-async function handleVoid() {
-  const msg = `Void pesanan ${props.inv.original_invoice_id}?\nSemua status item (termasuk yang berhasil di-pick) akan dikembalikan ke stok.`
-  if (!await swalConfirm(msg)) return
-  try {
-    isLoading.value = true
-    emit('void-invoice', props.inv.id)
-  } catch (error) {
-    console.error(error)
-  } finally {
-    isLoading.value = false
-  }
-}
 </script>
 
 <template>
-  <div class="bg-background border-b border-secondary/10 last:border-b-0 hover:bg-secondary/5 transition-colors group"
-    :class="{ 'bg-primary/5': isInvoiceSelected }">
+  <div
+    class="bg-background border-b border-secondary/10 last:border-b-0 hover:bg-secondary/5 transition-colors group"
+    :class="{ 'bg-primary/5': isInvoiceSelected }"
+  >
     <!-- ROW HEADER -->
     <div class="px-4 py-3 flex items-center gap-4">
-      <!-- Checkbox (Picking Mode Only) -->
-      <div v-if="mode === 'picking'" class="flex-shrink-0">
-        <input type="checkbox" :checked="isInvoiceSelected" @change="onToggleInvoice"
-          class="w-4 h-4 rounded border-secondary/40 text-primary cursor-pointer accent-primary" />
+      <!-- Selection Badge (Picking Mode Only) -->
+      <div
+        v-if="mode === 'picking'"
+        class="flex-shrink-0 cursor-pointer"
+        @click.stop="emit('toggle-invoice', { inv: props.inv, checked: !isInvoiceSelected })"
+      >
+        <div
+          class="w-4 h-4 rounded flex items-center justify-center transition-all duration-200"
+          :class="[
+            isInvoiceSelected
+              ? 'bg-primary text-background shadow-sm ring-1 ring-primary scale-105'
+              : 'border-2 border-secondary/50 group-hover:border-primary/60 bg-background'
+          ]"
+        >
+          <font-awesome-icon v-if="isInvoiceSelected" icon="fa-solid fa-check" class="text-[9px]" />
+        </div>
       </div>
 
       <!-- Main Info (Clickable to Expand) -->
-      <div class="flex-1 min-w-0 grid grid-cols-12 gap-x-4 gap-y-2 items-center cursor-pointer py-1" @click="isOpen = !isOpen">
-        <!-- Invoice & Source (Col: 10 di Mobile, 4 di SM, 3 di LG) -->
-        <div class="col-span-10 sm:col-span-4 lg:col-span-3 flex items-center gap-3">
+      <div
+        class="flex-1 min-w-0 grid grid-cols-12 gap-x-4 gap-y-2 items-center cursor-pointer py-1"
+        @click="isOpen = !isOpen"
+      >
+        <!-- Invoice & Source (Col: 8 di Mobile, 4 di SM, 3 di LG) -->
+        <div class="col-span-8 sm:col-span-4 lg:col-span-3 flex items-center gap-3">
           <div
-            class="w-10 h-10 flex items-center justify-center rounded-lg bg-background border border-secondary/20 shrink-0 shadow-sm">
+            class="w-10 h-10 flex items-center justify-center rounded-lg bg-background border border-secondary/20 shrink-0 shadow-sm"
+          >
             <img v-if="inv.source === 'Tokopedia'" :src="logoTokopedia" class="w-6 h-6 object-contain" />
             <img v-else-if="inv.source === 'Shopee'" :src="logoShopee" class="w-6 h-6 object-contain" />
             <font-awesome-icon v-else icon="fa-solid fa-file-invoice" class="text-primary text-lg" />
           </div>
+
           <div class="min-w-0">
             <div
-              class="font-black text-[13px] sm:text-sm text-text truncate group-hover:text-primary transition-colors flex items-center gap-2">
-              {{ inv.invoice || inv.original_invoice_id }}
+              class="font-black text-[13px] sm:text-sm text-text truncate group-hover:text-primary transition-colors flex items-center gap-1.5"
+            >
+              <span>{{ inv.invoice || inv.original_invoice_id }}</span>
+              <button
+                type="button"
+                @click.stop="copyToClipboard(inv.invoice || inv.original_invoice_id, 'Nomor Invoice')"
+                class="text-text/30 hover:text-primary w-6 h-6 flex items-center justify-center rounded hover:bg-secondary/10 transition-colors text-xs shrink-0"
+                title="Salin Nomor Invoice"
+              >
+                <font-awesome-icon icon="fa-solid fa-copy" />
+              </button>
               <!-- Status Badge di Header untuk History -->
-              <span v-if="mode === 'history' && inv.status === 'CANCEL'"
-                class="text-[9px] px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/20 font-bold shrink-0">
+              <span
+                v-if="mode === 'history' && inv.status === 'CANCEL'"
+                class="text-[9px] px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/20 font-bold shrink-0"
+              >
                 BATAL
               </span>
             </div>
+
             <div class="text-[10px] text-text/60 flex items-center gap-1.5 mt-0.5">
               <span class="font-bold">{{ inv.source }}</span>
               <span v-if="inv.marketplace_status" class="w-1 h-1 rounded-full bg-secondary/30"></span>
-              <span v-if="inv.marketplace_status" :class="getMpStatusBadge(inv.marketplace_status).class"
-                class="px-1.5 rounded text-[9px] border font-bold">
+              <span
+                v-if="inv.marketplace_status"
+                :class="getMpStatusBadge(inv.marketplace_status).class"
+                class="px-1.5 rounded text-[9px] border font-bold"
+              >
                 {{ getMpStatusBadge(inv.marketplace_status).label }}
               </span>
             </div>
@@ -124,8 +135,8 @@ async function handleVoid() {
           </div>
         </div>
 
-        <!-- Stats & Status (Col: Sembunyi di Mobile, 4 di SM, 3 di LG) -->
-        <div class="col-span-2 sm:col-span-4 lg:col-span-3 hidden sm:flex flex-col lg:flex-row lg:items-center justify-end lg:justify-between gap-2 border-l border-secondary/10 pl-4 h-full">
+        <!-- Stats & Status (Col: Sembunyi di Mobile, 3 di SM, 2 di LG) -->
+        <div class="col-span-2 sm:col-span-3 lg:col-span-2 hidden sm:flex flex-col lg:flex-row lg:items-center justify-end lg:justify-between gap-2 border-l border-secondary/10 pl-4 h-full">
           <div class="flex flex-col items-end lg:items-start leading-none gap-1.5">
             <div class="text-xs font-black text-text">
               {{ totalSKU }} <span class="font-normal text-[10px] text-text/50 uppercase tracking-wider">SKU</span>
@@ -140,139 +151,69 @@ async function handleVoid() {
           </div>
           
           <div class="flex flex-col items-end gap-1.5">
-            <span v-if="inv.location_purpose === 'BRANCH'"
-              class="text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm bg-accent/20 text-accent/80 flex items-center gap-1 border border-accent/20 leading-none">
+            <span
+              v-if="inv.location_purpose === 'BRANCH'"
+              class="text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm bg-accent/20 text-accent/80 flex items-center gap-1 border border-accent/20 leading-none"
+            >
               <font-awesome-icon icon="fa-solid fa-code-branch" />
               Cabang
             </span>
-            <span v-if="mode === 'history' && inv.status === 'PICKED'"
-              class="text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm bg-success/20 text-success flex items-center gap-1 border border-success/20 leading-none">
+            <span
+              v-if="mode === 'history' && inv.status === 'PICKED'"
+              class="text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm bg-success/20 text-success flex items-center gap-1 border border-success/20 leading-none"
+            >
               <font-awesome-icon icon="fa-solid fa-check-double" />
               Selesai
             </span>
           </div>
         </div>
 
-        <!-- Actions (Col: 2 di Mobile, 1 di SM, 1 di LG) -->
-        <div class="col-span-2 sm:col-span-1 lg:col-span-1 flex justify-end items-center gap-2">
-          <!-- Tombol Cancel -->
-          <button
-            v-if="canCancel && inv.status !== 'VOID'"
-            @click.stop="handleVoid"
-            class="p-2 text-danger/70 hover:text-danger hover:bg-danger/10 rounded-lg transition-colors flex-shrink-0 flex items-center justify-center w-9 h-9"
-            title="Void"
-          >
-            <font-awesome-icon icon="fa-solid fa-ban" />
-          </button>
-
-          <div
-            class="w-7 h-7 flex items-center justify-center rounded-full bg-secondary/10 text-text/40 group-hover:bg-secondary/20 transition-colors shrink-0">
-            <font-awesome-icon icon="fa-solid fa-chevron-down" class="text-[10px] transition-transform duration-300"
-              :class="{ 'rotate-180': isOpen }" />
-          </div>
+        <!-- Actions (Col: 4 di Mobile, 2 di SM, 2 di LG) -->
+        <div class="col-span-4 sm:col-span-2 lg:col-span-2 flex justify-end items-center">
+          <PickingItemActions
+            :inv="inv"
+            :mode="mode"
+            :has-stock-issue="hasStockIssue"
+            :can-cancel="canCancel"
+            :is-loading="isLoading"
+            :is-open="isOpen"
+            is-row
+            :show-chevron="true"
+            @void-invoice="onVoidInvoice(emit)"
+            @retry-backorder="onRetryBackorder(emit)"
+            @items-updated="(id) => emit('items-updated', id)"
+            @toggle-open="isOpen = !isOpen"
+          />
         </div>
       </div>
     </div>
 
     <!-- EXPANDABLE DETAILS -->
-    <transition enter-active-class="transition-[max-height] duration-300 ease-in-out overflow-hidden"
-      enter-from-class="max-h-0" enter-to-class="max-h-[500px]"
+    <transition
+      enter-active-class="transition-[max-height] duration-300 ease-in-out overflow-hidden"
+      enter-from-class="max-h-0"
+      enter-to-class="max-h-[500px]"
       leave-active-class="transition-[max-height] duration-300 ease-in-out overflow-hidden"
-      leave-from-class="max-h-[500px]" leave-to-class="max-h-0">
+      leave-from-class="max-h-[500px]"
+      leave-to-class="max-h-0"
+    >
       <div v-if="isOpen" class="bg-secondary/5 border-t border-secondary/10 px-4 py-3 sm:px-14">
-        <!-- === MODE: PICKING (Group by Location) === -->
-        <div v-if="mode === 'picking'" class="space-y-3">
-          <div v-for="(items, locName) in inv.locations" :key="locName">
-            <div class="flex items-center gap-2 mb-1.5">
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-background border border-secondary/20 shadow-sm"
-                :class="!locName || locName === 'Unknown Loc'
-                  ? 'text-danger border-danger/30 bg-danger/5'
-                  : 'text-primary'
-                  ">
-                <font-awesome-icon icon="fa-solid fa-location-dot" class="mr-1" />
-                {{ locName || 'Stok Kosong' }}
-              </span>
-            </div>
+        <!-- MODE: PICKING (Group by Location) -->
+        <PickingItemLocations
+          v-if="mode === 'picking'"
+          layout="row"
+          :locations="inv.locations"
+          :is-invoice-selected="isInvoiceSelected"
+          :validate-stock="validateStock"
+        />
 
-            <div class="bg-background border border-secondary/10 rounded-lg overflow-hidden">
-              <table class="w-full text-xs text-left">
-                <tbody class="divide-y divide-secondary/5">
-                  <tr v-for="item in items" :key="item.id" class="hover:bg-secondary/5 transition-colors">
-                    <td class="py-2 px-3 font-mono font-bold text-text/80 w-32">{{ item.sku }}</td>
-                    <td class="py-2 px-3 text-text/70">{{ item.product_name }}</td>
-                    <td class="py-2 px-3 w-32">
-                      <div v-if="isItemInvalid(item) && item.location_code"
-                        class="text-danger font-bold flex items-center gap-1">
-                        <font-awesome-icon icon="fa-solid fa-triangle-exclamation" />
-                        <span>Stok: {{ item.available_stock }}</span>
-                      </div>
-                      <div v-else-if="!item.location_code" class="text-danger font-bold">
-                        Lokasi (-)
-                      </div>
-                    </td>
-                    <td class="py-2 px-3 text-right font-bold w-16 bg-secondary/5 border-l border-secondary/5">
-                      {{ item.quantity }}
-                      <span class="text-[9px] font-normal text-text/40">pcs</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- === MODE: HISTORY (Flat List + Logs) === -->
-        <div v-else class="space-y-3">
-          <!-- Item Table -->
-          <div class="bg-background border border-secondary/10 rounded-lg overflow-hidden">
-            <table class="w-full text-xs text-left">
-              <thead class="bg-secondary/5 text-text/50 font-medium">
-                <tr>
-                  <th class="py-1.5 px-3">SKU</th>
-                  <th class="py-1.5 px-3">Produk</th>
-                  <th class="py-1.5 px-3 text-right">Qty</th>
-                  <th class="py-1.5 px-3 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-secondary/5">
-                <tr v-for="(item, idx) in inv.items" :key="idx" class="hover:bg-secondary/5 transition-colors">
-                  <td class="py-2 px-3 font-mono font-bold text-text/80 w-32">{{ item.sku }}</td>
-                  <td class="py-2 px-3 text-text/70">{{ item.product_name || '-' }}</td>
-                  <td class="py-2 px-3 text-right font-bold w-16">
-                    {{ item.quantity }}
-                  </td>
-                  <td class="py-2 px-3 text-center w-24">
-                    <span class="text-[9px] px-1.5 py-0.5 rounded border flex items-center justify-center gap-1 w-full"
-                      :class="getStatusBadge(item.item_status).class">
-                      <font-awesome-icon :icon="`fa-solid ${getStatusBadge(item.item_status).icon}`" />
-                      {{ getStatusBadge(item.item_status).label }}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- History Logs (Revisions) -->
-          <div v-if="historyLogs && historyLogs.length > 0" class="pt-2 border-t border-secondary/10">
-            <p class="text-[10px] font-bold text-text/40 uppercase mb-2 ml-1">
-              Riwayat Revisi (Versi Lama)
-            </p>
-            <div class="space-y-1">
-              <div v-for="log in historyLogs" :key="log.id"
-                class="flex justify-between items-center text-[10px] text-text/50 bg-background border border-secondary/10 px-3 py-1.5 rounded">
-                <div class="flex items-center gap-2">
-                  <span v-if="inv.status === 'VOID'" class="flex items-center gap-1">
-                    <i class="fa-solid fa-ban text-[10px]"></i> VOID
-                  </span>
-                  <span class="font-mono text-text/70">#{{ log.id }}</span>
-                  <span class="line-through opacity-70">{{ log.status }}</span>
-                </div>
-                <span>{{ formatDate(log.created_at, true, true) }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- MODE: HISTORY (Flat List + Logs) -->
+        <PickingItemHistory
+          v-else
+          layout="row"
+          :inv="inv"
+          :history-logs="historyLogs"
+        />
       </div>
     </transition>
   </div>

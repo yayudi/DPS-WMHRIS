@@ -1,6 +1,59 @@
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { swalConfirm } from '@/composables/useSweetAlert'
 
 export function usePickingCardState(props, authStore) {
+  const isOpen = ref(false)
+  const isLoading = ref(false)
+  const isEditModalOpen = ref(false)
+
+  const sourceBgClass = computed(() => {
+    const source = props.inv?.source?.toLowerCase()
+    if (source === 'tokopedia') return 'bg-success'
+    if (source === 'shopee') return 'bg-warning'
+    return 'bg-secondary'
+  })
+
+  function handleCardClick(event, emit) {
+    if (props.mode !== 'picking') return
+    const target = event.target
+    if (
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('.modal') ||
+      target.closest('[data-no-card-select]')
+    ) {
+      return
+    }
+    emit('toggle-invoice', { inv: props.inv, checked: !isInvoiceSelected.value })
+  }
+
+  async function onVoidInvoice(emit) {
+    const msg = `Void pesanan ${props.inv?.original_invoice_id || props.inv?.invoice}?\nSemua status item (termasuk yang berhasil di-pick) akan dikembalikan ke stok.`
+    if (!(await swalConfirm(msg))) return
+    try {
+      isLoading.value = true
+      emit('void-invoice', props.inv.id)
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setTimeout(() => {
+        isLoading.value = false
+      }, 500)
+    }
+  }
+
+  async function onRetryBackorder(emit) {
+    isLoading.value = true
+    try {
+      emit('retry-backorder', props.inv.id)
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setTimeout(() => {
+        isLoading.value = false
+      }, 500)
+    }
+  }
   const totalSKU = computed(() => {
     if (props.mode === 'history' && props.inv.items) {
       return props.inv.items.length
@@ -134,6 +187,13 @@ export function usePickingCardState(props, authStore) {
   }
 
   return {
+    isOpen,
+    isLoading,
+    isEditModalOpen,
+    sourceBgClass,
+    handleCardClick,
+    onVoidInvoice,
+    onRetryBackorder,
     totalSKU,
     hasStockIssue,
     isInvoiceSelected,

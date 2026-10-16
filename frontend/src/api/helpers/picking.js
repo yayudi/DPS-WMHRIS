@@ -122,6 +122,21 @@ export const completePickingItems = async (payload) => {
 }
 
 /**
+ * Menyelesaikan proses picking secara paksa dengan auto-adjustment defisit stok
+ * @param {{ items: Array<{ id: number, picking_list_id: number, product_id?: number, quantity: number, location_id?: number }> }} payload
+ * @returns {Promise<Object>} Response sukses
+ */
+export const forceFinishPickingItems = async (payload) => {
+  try {
+    const response = await api.post('/picking/force-finish-items', payload)
+    return response.data
+  } catch (error) {
+    console.error('Error force-finishing picking items:', error)
+    throw error.response?.data || error
+  }
+}
+
+/**
  * Mengambil khusus item yang statusnya RETURNED
  * Digunakan untuk validasi retur (jika diperlukan terpisah)
  * @returns {Promise<Array>} Array of item objects (retur)

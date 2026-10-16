@@ -10,6 +10,7 @@ import JobErrorModal from '@/components/picking/JobErrorModal.vue'
 // --- STATE ---
 const activeTab = ref('pickingList')
 const baseUrl = import.meta.env.VITE_API_BASE_URL || ''
+const taskInitialSearch = ref('')
 
 // --- REFS KE CHILD COMPONENTS ---
 // Kita butuh ini untuk memanggil fungsi refresh/fetch di dalam child
@@ -49,6 +50,19 @@ async function handleSwitchTab(targetTab) {
     taskTabRef.value.fetchPendingItems() // Refresh daftar tugas
   } else if (targetTab === 'requirements' && requirementsTabRef.value) {
     requirementsTabRef.value.refetchRequirements()
+  }
+}
+
+/**
+ * Navigasi langsung ke tab Daftar Tugas dengan filter pencarian terpasang
+ * @param {string} query
+ */
+async function handleNavigateToTask(query) {
+  taskInitialSearch.value = query || ''
+  activeTab.value = 'pickingList'
+  await nextTick()
+  if (taskTabRef.value?.setSearchFilter) {
+    taskTabRef.value.setSearchFilter(query)
   }
 }
 
@@ -112,10 +126,18 @@ const deficitCount = computed(() => requirementsTabRef.value?.deficitCount || 0)
       <!-- Menggunakan v-if memastikan komponen di-mount ulang saat tab berubah (penting untuk lifecycle hook) -->
 
       <!-- Tab 1: Picking List -->
-      <PickingTaskTab v-if="activeTab === 'pickingList'" ref="taskTabRef" />
+      <PickingTaskTab
+        v-if="activeTab === 'pickingList'"
+        ref="taskTabRef"
+        :initial-search="taskInitialSearch"
+      />
 
       <!-- Tab 2: Kebutuhan Stok -->
-      <PickingStockRequirementsTab v-if="activeTab === 'requirements'" ref="requirementsTabRef" />
+      <PickingStockRequirementsTab
+        v-if="activeTab === 'requirements'"
+        ref="requirementsTabRef"
+        @navigate-to-task="handleNavigateToTask"
+      />
 
       <!-- Tab 3: History -->
       <PickingHistoryTab v-if="activeTab === 'history'" ref="historyTabRef" />

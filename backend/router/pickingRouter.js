@@ -58,6 +58,12 @@ router.post(
   validate(completeItemsSchema),
   pickingController.completeItems,
 );
+router.post(
+  "/force-finish-items",
+  canAccess("force-finish-picking"),
+  validate(completeItemsSchema),
+  pickingController.forceFinishItems,
+);
 router.post("/void/:id", canAccess("void-picking-list"), pickingController.voidPickingList);
 router.put("/:id/items", canAccess("confirm-picking-list"), pickingController.updatePickingItems);
 router.post("/retry-backorders-batch", pickingController.retryBackordersBatch);

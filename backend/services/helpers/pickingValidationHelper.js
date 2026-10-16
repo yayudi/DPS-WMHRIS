@@ -21,17 +21,20 @@ export async function restockValidatedItems(connection, listId, userId, reason) 
     `SELECT product_id, quantity, confirmed_location_id
       FROM picking_list_items
       WHERE picking_list_id = ? AND status = 'VALIDATED' AND confirmed_location_id IS NOT NULL`,
-    [listId]
+    [listId],
   );
 
   if (itemsToRestock.length > 0) {
-    logTrace("RESTOCK", `Mengembalikan stok untuk ${itemsToRestock.length} item pada list #${listId} (${reason})`);
+    logTrace(
+      "RESTOCK",
+      `Mengembalikan stok untuk ${itemsToRestock.length} item pada list #${listId} (${reason})`,
+    );
     for (const item of itemsToRestock) {
       await locationRepo.incrementStock(
         connection,
         item.product_id,
         item.confirmed_location_id,
-        item.quantity
+        item.quantity,
       );
 
       await stockRepo.createLog(connection, {
@@ -103,10 +106,7 @@ export async function handleExistingInvoices(connection, items, userId = 1) {
         // Jika barang belum keluar (masih PENDING/NEW), jangan set RETURNED.
         // Langsung VOID saja agar tidak terjadi double counting stok saat restock.
         if ([WMS_STATUS.PENDING, "NEW", "DRAFT"].includes(existing.status)) {
-          logTrace(
-            "UPSERT",
-            `🛡️ Order ${item.invoiceId} Retur saat PENDING. Dialihkan ke VOID.`
-          );
+          logTrace("UPSERT", `🛡️ Order ${item.invoiceId} Retur saat PENDING. Dialihkan ke VOID.`);
           if (existing.status !== WMS_STATUS.VOID) {
             voids.push(listId);
           }
@@ -142,11 +142,7 @@ export async function handleExistingInvoices(connection, items, userId = 1) {
         }
       }
       // 2. Handle VOID
-      else if (
-        status === MP_STATUS.VOID ||
-        status === "VOID" ||
-        status.includes("BATAL")
-      ) {
+      else if (status === MP_STATUS.VOID || status === "VOID" || status.includes("BATAL")) {
         if (existing.status !== WMS_STATUS.VOID) {
           logTrace("UPSERT", `🚫 Order ${item.invoiceId} void.`);
           voids.push(listId);
@@ -159,7 +155,7 @@ export async function handleExistingInvoices(connection, items, userId = 1) {
         if (existing.status === WMS_STATUS.RETURNED) {
           logTrace(
             "UPSERT",
-            `⚖️ Order ${item.invoiceId} batal retur (Dispute Menang?). Revert ke VALIDATED.`
+            `⚖️ Order ${item.invoiceId} batal retur (Dispute Menang?). Revert ke VALIDATED.`,
           );
           // Kembalikan status WMS ke VALIDATED (anggap barang laku/tidak jadi balik)
           updates.push({ id: listId, mpStatus: status, wmsStatus: WMS_STATUS.VALIDATED });
@@ -212,7 +208,7 @@ export async function handleExistingInvoices(connection, items, userId = 1) {
     // Cari item di DB berdasarkan ListID + SKU
     const [rows] = await connection.query(
       "SELECT id, quantity, status FROM picking_list_items WHERE picking_list_id = ? AND original_sku = ?",
-      [mr.listId, mr.sku]
+      [mr.listId, mr.sku],
     );
     if (rows.length > 0) {
       const dbItem = rows[0];
@@ -264,19 +260,27 @@ export async function fetchReferenceData(connection, skus, locationPurpose = "DI
       const stockSums = await locationRepo.getTotalStockByProductIds(
         connection,
         compIds,
-        locationPurpose
+        locationPurpose,
       );
       const stockSumMap = new Map(stockSums.map((s) => [s.product_id, Number(s.qty)]));
       components = components.map((c) => ({
         ...c,
         component_stock_display: stockSumMap.get(c.component_product_id) || 0,
       }));
-      componentLocs = await locationRepo.getLocationsByProductIds(connection, compIds, locationPurpose);
+      componentLocs = await locationRepo.getLocationsByProductIds(
+        connection,
+        compIds,
+        locationPurpose,
+      );
     }
   }
   let singleLocs = [];
   if (singleIds.length > 0) {
-    singleLocs = await locationRepo.getLocationsByProductIds(connection, singleIds, locationPurpose);
+    singleLocs = await locationRepo.getLocationsByProductIds(
+      connection,
+      singleIds,
+      locationPurpose,
+    );
   }
   const groupBy = (arr, key) => {
     const map = new Map();
@@ -298,15 +302,10 @@ export async function fetchReferenceData(connection, skus, locationPurpose = "DI
  * HELPER 3: Logika Perhitungan Validasi
  */
 export function calculateValidations(itemsToProcess, dbData) {
-  logTrace("CALC", `Mulai kalkulasi validasi untuk ${itemsToProcess.length} item.`);
   const { validProductMap, componentsByPackageId, locationsByProductId, locationsByComponentId } =
     dbData;
   const validItems = [];
   const invalidSkus = [];
-
-  // [CRITICAL] Agregasi Qty per SKU
-  // Kita harus menjumlahkan total kebutuhan per SKU dari seluruh batch file upload.
-  // Jika ada 3 order berbeda untuk "Produk A", stok harus dicek terhadap Total (3 pcs), bukan parsial.
   const qtyMap = new Map();
   itemsToProcess.forEach((item) => {
     const current = qtyMap.get(item.sku) || 0;
@@ -315,7 +314,6 @@ export function calculateValidations(itemsToProcess, dbData) {
 
   for (const item of itemsToProcess) {
     const product = validProductMap.get(item.sku);
-    const qtyNeeded = qtyMap.get(item.sku);
 
     if (product) {
       let isItemValid = true;
@@ -329,15 +327,47 @@ export function calculateValidations(itemsToProcess, dbData) {
           errorMessage = `${item.sku} (Paket Kosong)`;
         } else {
           const enrichedComponents = comps.map((c) => {
-            const needed = qtyNeeded * c.quantity_per_package;
+            const needed = item.qty * c.quantity_per_package;
             const locs = locationsByComponentId.get(c.component_product_id) || [];
-            const validLocs = locs.filter((l) => l.quantity >= needed);
-            const suggestedLoc = validLocs[0]?.location_id || null;
+            let remaining = needed;
+            const compAllocations = [];
+
+            for (const loc of locs) {
+              if (remaining <= 0) break;
+              const available = Number(loc.quantity || 0);
+              if (available <= 0) continue;
+
+              const take = Math.min(available, remaining);
+              compAllocations.push({
+                locationId: loc.location_id,
+                locationCode: loc.code,
+                quantity: take,
+                status: WMS_STATUS.PENDING,
+              });
+              loc.quantity = available - take;
+              remaining -= take;
+            }
+
+            if (remaining > 0) {
+              compAllocations.push({
+                locationId: null,
+                locationCode: null,
+                quantity: remaining,
+                status: "BACKORDER",
+              });
+            }
+
+            const suggestedLoc = compAllocations.find((a) => a.locationId)?.locationId || null;
+            const compStatus = compAllocations.every((a) => a.status === WMS_STATUS.PENDING)
+              ? WMS_STATUS.PENDING
+              : "BACKORDER";
+
             return {
               ...c,
               availableLocations: locs,
+              allocations: compAllocations,
               suggestedLocationId: suggestedLoc,
-              initialStatus: suggestedLoc ? WMS_STATUS.PENDING : "BACKORDER", // TODO: Review frontend handling
+              initialStatus: compStatus,
               qty_needed: needed,
             };
           });
@@ -345,18 +375,47 @@ export function calculateValidations(itemsToProcess, dbData) {
         }
       } else {
         const locs = locationsByProductId.get(product.id) || [];
-        const validLocs = locs.filter((l) => l.quantity >= qtyNeeded);
-        const suggestedLoc = validLocs[0]?.location_id || null;
+        let remaining = item.qty;
+        const allocations = [];
+
+        for (const loc of locs) {
+          if (remaining <= 0) break;
+          const available = Number(loc.quantity || 0);
+          if (available <= 0) continue;
+
+          const take = Math.min(available, remaining);
+          allocations.push({
+            locationId: loc.location_id,
+            locationCode: loc.code,
+            quantity: take,
+            status: WMS_STATUS.PENDING,
+          });
+          loc.quantity = available - take;
+          remaining -= take;
+        }
+
+        if (remaining > 0) {
+          allocations.push({
+            locationId: null,
+            locationCode: null,
+            quantity: remaining,
+            status: "BACKORDER",
+          });
+          logTrace("CALC_INFO", `Item ${item.sku} defisit ${remaining} pcs -> Status BACKORDER`);
+        }
+
+        const suggestedLoc = allocations.find((a) => a.locationId)?.locationId || null;
+        const initialStatus = allocations.every((a) => a.status === WMS_STATUS.PENDING)
+          ? WMS_STATUS.PENDING
+          : "BACKORDER";
+
         resultData = {
           availableLocations: locs,
+          allocations,
           suggestedLocationId: suggestedLoc,
-          initialStatus: suggestedLoc ? WMS_STATUS.PENDING : "BACKORDER",
+          initialStatus,
           components: null,
         };
-
-        if (!suggestedLoc) {
-          logTrace("CALC_INFO", `Item ${item.sku} stok kurang -> Status BACKORDER`);
-        }
       }
 
       if (!isItemValid) {
@@ -407,31 +466,57 @@ export async function insertPickingItems(connection, pickingListId, validItems, 
   for (const item of validItems) {
     if (item.is_package) {
       item.components.forEach((c) => {
-        // Komponen paket: harga 0 karena harga jual ada di parent package SKU
         const price = 0;
-
-        rows.push([
-          pickingListId,
-          c.component_product_id,
-          item.sku,
-          price,
-          item.qty * c.quantity_per_package,
-          c.initialStatus || WMS_STATUS.PENDING,
-          c.suggestedLocationId,
-        ]);
+        if (c.allocations && c.allocations.length > 0) {
+          c.allocations.forEach((alloc) => {
+            rows.push([
+              pickingListId,
+              c.component_product_id,
+              item.sku,
+              price,
+              alloc.quantity,
+              alloc.status || WMS_STATUS.PENDING,
+              alloc.locationId,
+            ]);
+          });
+        } else {
+          rows.push([
+            pickingListId,
+            c.component_product_id,
+            item.sku,
+            price,
+            item.qty * c.quantity_per_package,
+            c.initialStatus || WMS_STATUS.PENDING,
+            c.suggestedLocationId,
+          ]);
+        }
       });
     } else {
       const pid = productMap.get(item.sku.toUpperCase()).id;
       const price = productMap.get(item.sku.toUpperCase()).price || 0;
-      rows.push([
-        pickingListId,
-        pid,
-        item.sku,
-        price,
-        item.qty,
-        item.initialStatus || WMS_STATUS.PENDING,
-        item.suggestedLocationId,
-      ]);
+      if (item.allocations && item.allocations.length > 0) {
+        item.allocations.forEach((alloc) => {
+          rows.push([
+            pickingListId,
+            pid,
+            item.sku,
+            price,
+            alloc.quantity,
+            alloc.status || WMS_STATUS.PENDING,
+            alloc.locationId,
+          ]);
+        });
+      } else {
+        rows.push([
+          pickingListId,
+          pid,
+          item.sku,
+          price,
+          item.qty,
+          item.initialStatus || WMS_STATUS.PENDING,
+          item.suggestedLocationId,
+        ]);
+      }
     }
   }
   if (rows.length > 0) {
