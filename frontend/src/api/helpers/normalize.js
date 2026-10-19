@@ -1,14 +1,5 @@
 // frontend\src\api\helpers\normalize.js
-/**
- * Helper untuk mengubah format waktu "HH:mm:ss" menjadi total menit dari tengah malam.
- * @param {string | null} timeStr - String waktu, e.g., "08:05:00".
- * @returns {number | null} - Total menit, e.g., 485.
- */
-function timeToMinutes(timeStr) {
-  if (!timeStr || typeof timeStr !== 'string') return null
-  const [hours, minutes] = timeStr.split(':').map(Number)
-  return hours * 60 + minutes
-}
+import { timeToMinutes } from '@/utils/formatters.js'
 
 /**
  * REFACTOR BESAR:

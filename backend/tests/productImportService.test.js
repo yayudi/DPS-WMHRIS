@@ -20,6 +20,11 @@ jest.unstable_mockModule("../services/parsers/ParserEngine.js", () => ({
   })),
 }));
 
+// Mock Category Repository
+jest.unstable_mockModule("../repositories/categoryRepository.js", () => ({
+  findAllCategories: jest.fn().mockResolvedValue([]),
+}));
+
 // Mock Product Repository
 jest.unstable_mockModule("../repositories/productRepository.js", () => ({
   getIdBySku: jest.fn(),
@@ -29,6 +34,7 @@ jest.unstable_mockModule("../repositories/productRepository.js", () => ({
   softDeleteProduct: jest.fn(),
   getProductsWithFilters: jest.fn(),
   searchProducts: jest.fn(),
+  getProductsBySkus: jest.fn(),
 }));
 
 // Import Modules (Dynamic Import after Mocks)
@@ -50,6 +56,7 @@ describe("Product Import Service - Logic Processing", () => {
 
     // Default DB Mock: Empty (Item Not Found)
     mockConnection.query.mockResolvedValue([[]]);
+    productRepo.getProductsBySkus.mockResolvedValue([]);
   });
 
   test("Scenario 1: Update Existing Product (SKU Found)", async () => {
@@ -69,8 +76,8 @@ describe("Product Import Service - Logic Processing", () => {
     });
 
     // Mock DB Query: SKU ditemukan (Return 1 row)
-    mockConnection.query.mockResolvedValue([
-      [{ id: 10, sku: "SKU-EXIST", name: "Produk Lama", price: 40000 }],
+    productRepo.getProductsBySkus.mockResolvedValue([
+      { id: 10, sku: "SKU-EXIST", name: "Produk Lama", price: 40000 },
     ]);
 
     // EXECUTE
@@ -111,7 +118,7 @@ describe("Product Import Service - Logic Processing", () => {
     mockParserRun.mockResolvedValue({ orders: csvData, stats: {}, errors: [] });
 
     // Mock DB Query: SKU TIDAK ditemukan (Empty array default from beforeEach)
-    mockConnection.query.mockResolvedValue([[]]);
+    productRepo.getProductsBySkus.mockResolvedValue([]);
 
     // EXECUTE
     const result = await productImportService.processProductImport(
@@ -140,7 +147,7 @@ describe("Product Import Service - Logic Processing", () => {
     mockParserRun.mockResolvedValue({ orders: csvData, stats: {}, errors: [] });
 
     // Mock DB: SKU ditemukan
-    mockConnection.query.mockResolvedValue([[{ id: 1, sku: "SKU-TEST" }]]);
+    productRepo.getProductsBySkus.mockResolvedValue([{ id: 1, sku: "SKU-TEST" }]);
 
     // EXECUTE (DryRun = true)
     const result = await productImportService.processProductImport(
@@ -168,11 +175,9 @@ describe("Product Import Service - Logic Processing", () => {
 
     mockParserRun.mockResolvedValue({ orders: csvData, stats: {}, errors: [] });
     // Mock DB query to return existing products so they can be updated
-    mockConnection.query.mockResolvedValue([
-      [
-        { id: 2, sku: "SKU-2", name: "Old B" },
-        { id: 3, sku: "SKU-3", name: "Old C" }
-      ]
+    productRepo.getProductsBySkus.mockResolvedValue([
+      { id: 2, sku: "SKU-2", name: "Old B" },
+      { id: 3, sku: "SKU-3", name: "Old C" }
     ]);
 
     // EXECUTE (Start from index 1 -> Skip SKU-1)

@@ -111,3 +111,17 @@ export const upsertLog = async (username, date, data) => {
     return { id: result.insertId, action: 'INSERT' };
   }
 };
+
+/**
+ * Mengambil daftar hari libur berdasarkan tahun
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {number|string} year
+ * @returns {Promise<Array<{date: string, name: string}>>}
+ */
+export const findHolidaysByYear = async (connection, year) => {
+  const [rows] = await connection.query(
+    "SELECT date, name FROM holidays WHERE YEAR(date) = ?",
+    [year]
+  );
+  return rows;
+};

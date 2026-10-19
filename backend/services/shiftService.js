@@ -1,7 +1,6 @@
 import * as shiftRepository from '../repositories/shiftRepository.js';
-import { emitSharedTaskSignal } from "./firebaseSignalService.js";
+import { signals } from "./firebaseSignalService.js";
 import cache from "../config/cache.js";
-import Logger from "../utils/logger.js";
 
 /**
  * @returns {Promise<any>}
@@ -33,7 +32,7 @@ export const createShift = async (data) => {
   // Basic validation could go here
   const result = await shiftRepository.createShift(data);
   cache.del("MASTER_SHIFTS");
-  emitSharedTaskSignal('MASTER_DATA', 'REFRESH_SHIFTS').catch(e => Logger.error("Signal Error", e, "SHIFT_SERVICE"));
+  signals.refreshShifts();
   return result;
 };
 
@@ -47,7 +46,7 @@ export const updateShift = async (id, data) => {
   await getShift(id);
   const result = await shiftRepository.updateShift(id, data);
   cache.del("MASTER_SHIFTS");
-  emitSharedTaskSignal('MASTER_DATA', 'REFRESH_SHIFTS').catch(e => Logger.error("Signal Error", e, "SHIFT_SERVICE"));
+  signals.refreshShifts();
   return result;
 };
 
@@ -58,6 +57,6 @@ export const updateShift = async (id, data) => {
 export const deleteShift = async (id) => {
   const result = await shiftRepository.deleteShift(id);
   cache.del("MASTER_SHIFTS");
-  emitSharedTaskSignal('MASTER_DATA', 'REFRESH_SHIFTS').catch(e => Logger.error("Signal Error", e, "SHIFT_SERVICE"));
+  signals.refreshShifts();
   return result;
 };

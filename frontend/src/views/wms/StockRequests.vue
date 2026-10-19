@@ -16,6 +16,11 @@ import BasePagination from '@/components/ui/BasePagination.vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePagination } from '@/composables/usePagination.js'
 import { useFirebaseSync } from '@/composables/useFirebaseSync.js'
+import {
+  STOCK_REQUEST_STATUS,
+  STOCK_REQUEST_FILTER_OPTIONS,
+  getStockRequestBadgeClass
+} from '@/utils/stockRequestConstants.js'
 
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.user)
@@ -132,14 +137,14 @@ async function handleComplete(id, items, req) {
 const isAllSelected = computed({
   get() {
     const selectable = filteredRequests.value.filter(
-      req => req.status === 'PENDING' && req.requester_id !== currentUser.value?.id
+      req => req.status === STOCK_REQUEST_STATUS.PENDING && req.requester_id !== currentUser.value?.id
     )
     return selectable.length > 0 && selectedIds.value.length === selectable.length
   },
   set(val) {
     if (val) {
       const selectable = filteredRequests.value.filter(
-        req => req.status === 'PENDING' && req.requester_id !== currentUser.value?.id
+        req => req.status === STOCK_REQUEST_STATUS.PENDING && req.requester_id !== currentUser.value?.id
       )
       selectedIds.value = selectable.map(req => req.id)
     } else {
@@ -149,7 +154,7 @@ const isAllSelected = computed({
 })
 
 function canSelectRequest(req) {
-  return req.status === 'PENDING' && req.requester_id !== currentUser.value?.id
+  return req.status === STOCK_REQUEST_STATUS.PENDING && req.requester_id !== currentUser.value?.id
 }
 
 // handlePageChange and handleLimitChange are provided by usePagination
@@ -174,22 +179,6 @@ async function handleBulkAction(action) {
   }
 }
 
-function getStatusBadgeClass(status) {
-  switch (status) {
-    case 'PENDING':
-      return 'bg-warning/20 text-warning border-warning/30'
-    case 'APPROVED':
-      return 'bg-primary/20 text-primary border-primary/30'
-    case 'SHIPPED':
-      return 'bg-accent/20 text-accent border-accent/30'
-    case 'REJECTED':
-      return 'bg-danger/20 text-danger border-danger/30'
-    case 'COMPLETED':
-      return 'bg-success/20 text-success border-success/30'
-    default:
-      return 'bg-secondary/20 text-text border-secondary/30'
-  }
-}
 
 // Fitur Expand Row
 const expandedRows = ref([])
@@ -338,7 +327,7 @@ function printRequest(req) {
     <!-- Filters -->
     <div class="bg-secondary/75 rounded-xl border border-secondary p-4 shadow-sm flex gap-2 overflow-x-auto">
       <button
-        v-for="filter in ['ALL', 'PENDING', 'APPROVED', 'SHIPPED', 'COMPLETED', 'REJECTED']"
+        v-for="filter in STOCK_REQUEST_FILTER_OPTIONS"
         :key="filter"
         @click="((currentFilter = filter), loadRequests())"
         class="px-4 py-1.5 rounded-full text-xs font-bold transition-all border border-secondary shadow-sm whitespace-nowrap"
@@ -518,7 +507,7 @@ function printRequest(req) {
               <td class="p-3 text-sm">{{ req.requester_name }}</td>
               <td class="p-3">
                 <span
-                  :class="['px-2.5 py-1 rounded-full text-[10px] font-bold border', getStatusBadgeClass(req.status)]"
+                  :class="['px-2.5 py-1 rounded-full text-[10px] font-bold border', getStockRequestBadgeClass(req.status)]"
                 >
                   {{ req.status }}
                 </span>

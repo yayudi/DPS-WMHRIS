@@ -1,4 +1,6 @@
 // backend\repositories\jobRepository.js
+import { JOB_STATUS, EXPORT_JOB_TYPE } from "../config/jobConstants.js";
+
 // ============================================================================
 // GENERAL CRUD
 // ============================================================================
@@ -10,11 +12,13 @@ export const create = async (
   const optionsStr = options ? JSON.stringify(options) : null;
   const [result] = await connection.query(
     `INSERT INTO import_jobs (user_id, job_type, original_filename, file_path, status, notes, options, created_at, updated_at)
-      VALUES (?, ?, ?, ?, 'PENDING', ?, ?, NOW(), NOW())`,
-    [userId, jobType, filename, filePath, notes || null, optionsStr]
+      VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+    [userId, jobType, filename, filePath, JOB_STATUS.PENDING, notes || null, optionsStr]
   );
   return result.insertId;
 };
+
+export const createImportJob = create;
 
 /**
  * @param {import('mysql2/promise').Connection} connection
@@ -24,7 +28,7 @@ export const create = async (
  */
 export const update = async (connection, jobId, { status, summary, errorLog }) => {
   const errorLogStr = errorLog ? JSON.stringify(errorLog) : null;
-  if (status === "PROCESSING") {
+  if (status === JOB_STATUS.PROCESSING) {
     await connection.query(
       `UPDATE import_jobs
         SET status = ?, log_summary = ?, error_log = ?, processing_started_at = NOW(), updated_at = NOW()
@@ -119,9 +123,9 @@ export const updateProgress = async (connection, jobId, processed, total) => {
 export const voidJob = async (connection, jobId, userId) => {
   const [result] = await connection.query(
     `UPDATE import_jobs
-      SET status = 'VOID', updated_at = NOW()
-      WHERE id = ? AND status = 'PENDING' AND user_id = ?`,
-    [jobId, userId]
+      SET status = ?, updated_at = NOW()
+      WHERE id = ? AND status = ? AND user_id = ?`,
+    [JOB_STATUS.VOID, jobId, JOB_STATUS.PENDING, userId]
   );
   return result.affectedRows > 0;
 };
@@ -139,11 +143,12 @@ export const getAndLockPendingImportJob = async (connection) => {
   try {
     const [rows] = await connection.query(
       `SELECT * FROM import_jobs
-        WHERE status = 'PENDING'
-        OR (status = 'RETRYING' AND updated_at <= NOW() - INTERVAL 10 SECOND)
+        WHERE status = ?
+        OR (status = ? AND updated_at <= NOW() - INTERVAL 10 SECOND)
         ORDER BY created_at ASC
         LIMIT 1
-        FOR UPDATE`
+        FOR UPDATE`,
+      [JOB_STATUS.PENDING, JOB_STATUS.RETRYING]
     );
 
     if (rows.length === 0) {
@@ -154,8 +159,8 @@ export const getAndLockPendingImportJob = async (connection) => {
     const job = rows[0];
 
     await connection.query(
-      `UPDATE import_jobs SET status = 'PROCESSING', processing_started_at = NOW() WHERE id = ?`,
-      [job.id]
+      `UPDATE import_jobs SET status = ?, processing_started_at = NOW() WHERE id = ?`,
+      [JOB_STATUS.PROCESSING, job.id]
     );
 
     await connection.commit();
@@ -179,12 +184,12 @@ export const retryImportJob = async (connection, jobId, currentRetryCount, error
 
   return connection.query(
     `UPDATE import_jobs
-      SET status = 'RETRYING',
+      SET status = ?,
         retry_count = ?,
         log_summary = IF(log_summary IS NULL, ?, CONCAT(log_summary, ' | ', ?)),
         updated_at = NOW()
       WHERE id = ?`,
-    [nextRetry, note, note, jobId]
+    [JOB_STATUS.RETRYING, nextRetry, note, note, jobId]
   );
 };
 
@@ -212,8 +217,8 @@ export const completeImportJob = async (
  */
 export const failImportJob = async (connection, jobId, summary) => {
   return connection.query(
-    `UPDATE import_jobs SET status = 'FAILED', log_summary = ?, updated_at = NOW() WHERE id = ?`,
-    [summary, jobId]
+    `UPDATE import_jobs SET status = ?, log_summary = ?, updated_at = NOW() WHERE id = ?`,
+    [JOB_STATUS.FAILED, summary, jobId]
   );
 };
 
@@ -225,12 +230,12 @@ export const failImportJob = async (connection, jobId, summary) => {
 export const timeoutStuckImportJobs = async (connection, timeoutMinutes) => {
   return connection.query(
     `UPDATE import_jobs
-      SET status = 'FAILED',
+      SET status = ?,
           log_summary = CONCAT(COALESCE(log_summary, ''), ' [SYSTEM: Job Killed due to timeout/crash]'),
           updated_at = NOW()
-      WHERE status = 'PROCESSING'
+      WHERE status = ?
       AND updated_at < NOW() - INTERVAL ? MINUTE`,
-    [timeoutMinutes]
+    [JOB_STATUS.FAILED, JOB_STATUS.PROCESSING, timeoutMinutes]
   );
 };
 
@@ -248,8 +253,8 @@ export const createExportJob = async (connection, { userId, filters, jobType }) 
   const filtersStr = JSON.stringify(filters);
   const [result] = await connection.query(
     `INSERT INTO export_jobs (user_id, status, filters, job_type, created_at)
-      VALUES (?, 'PENDING', ?, ?, NOW())`,
-    [userId, filtersStr, jobType || "STOCK_REPORT"]
+      VALUES (?, ?, ?, ?, NOW())`,
+    [userId, JOB_STATUS.PENDING, filtersStr, jobType || EXPORT_JOB_TYPE.STOCK_REPORT]
   );
   return result.insertId;
 };
@@ -263,7 +268,8 @@ export const getAndLockPendingExportJob = async (connection) => {
   await connection.beginTransaction();
   try {
     const [rows] = await connection.query(
-      `SELECT * FROM export_jobs WHERE status = 'PENDING' ORDER BY created_at ASC LIMIT 1 FOR UPDATE`
+      `SELECT * FROM export_jobs WHERE status = ? ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,
+      [JOB_STATUS.PENDING]
     );
 
     if (rows.length === 0) {
@@ -274,8 +280,8 @@ export const getAndLockPendingExportJob = async (connection) => {
     const job = rows[0];
 
     await connection.query(
-      `UPDATE export_jobs SET status = 'PROCESSING', processing_started_at = NOW() WHERE id = ?`,
-      [job.id]
+      `UPDATE export_jobs SET status = ?, processing_started_at = NOW() WHERE id = ?`,
+      [JOB_STATUS.PROCESSING, job.id]
     );
 
     await connection.commit();
@@ -294,8 +300,8 @@ export const getAndLockPendingExportJob = async (connection) => {
  */
 export const completeExportJob = async (connection, jobId, filename) => {
   return connection.query(
-    `UPDATE export_jobs SET status = 'COMPLETED', file_path = ? WHERE id = ?`,
-    [filename, jobId]
+    `UPDATE export_jobs SET status = ?, file_path = ? WHERE id = ?`,
+    [JOB_STATUS.COMPLETED, filename, jobId]
   );
 };
 
@@ -307,8 +313,8 @@ export const completeExportJob = async (connection, jobId, filename) => {
  */
 export const failExportJob = async (connection, jobId, errorMessage) => {
   return connection.query(
-    `UPDATE export_jobs SET status = 'FAILED', error_message = ? WHERE id = ?`,
-    [errorMessage, jobId]
+    `UPDATE export_jobs SET status = ?, error_message = ? WHERE id = ?`,
+    [JOB_STATUS.FAILED, errorMessage, jobId]
   );
 };
 
@@ -320,9 +326,9 @@ export const failExportJob = async (connection, jobId, errorMessage) => {
 export const timeoutStuckExportJobs = async (connection, timeoutMinutes) => {
   return connection.query(
     `UPDATE export_jobs
-      SET status = 'FAILED', error_message = CONCAT('Job timeout after ', ?, ' minutes')
-      WHERE status = 'PROCESSING'
+      SET status = ?, error_message = CONCAT('Job timeout after ', ?, ' minutes')
+      WHERE status = ?
       AND processing_started_at < NOW() - INTERVAL ? MINUTE`,
-    [timeoutMinutes, timeoutMinutes]
+    [JOB_STATUS.FAILED, timeoutMinutes, JOB_STATUS.PROCESSING, timeoutMinutes]
   );
 };

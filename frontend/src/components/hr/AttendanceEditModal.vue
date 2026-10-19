@@ -4,6 +4,7 @@ import { useMagicKeys } from '@vueuse/core'
 import axios from '@/api/axios'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
+import { minutesToTime } from '@/utils/formatters.js'
 
 const props = defineProps({
   isOpen: Boolean,
@@ -42,23 +43,14 @@ watch(
 
       form.value = {
         status: currentStatus,
-        timeIn: newVal.jamMasuk ? minutesToTimeStr(newVal.jamMasuk) : '',
-        timeOut: newVal.jamKeluar ? minutesToTimeStr(newVal.jamKeluar) : '',
+        timeIn: minutesToTime(newVal.jamMasuk),
+        timeOut: minutesToTime(newVal.jamKeluar),
         notes: newVal.notes || '', // No need to replace regex anymore
       }
     }
   },
   { immediate: true },
 )
-
-function minutesToTimeStr(minutes) {
-  if (minutes === null || minutes === undefined) return ''
-  const h = Math.floor(minutes / 60)
-    .toString()
-    .padStart(2, '0')
-  const m = (minutes % 60).toString().padStart(2, '0')
-  return `${h}:${m}`
-}
 
 const statusOptions = [
   { value: 'HADIR', label: 'Hadir' },

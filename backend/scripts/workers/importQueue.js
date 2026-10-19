@@ -6,6 +6,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Logger from "../../utils/logger.js";
 import { ensureDirectoryExists, generateErrorFile } from "../../utils/workerHelpers.js";
+import { parseJsonSafe } from "../../utils/jsonUtils.js";
+import { JOB_STATUS, IMPORT_JOB_TYPE } from "../../config/jobConstants.js";
 
 // SERVICES
 import { ParserEngine } from "../../services/parsers/ParserEngine.js";
@@ -21,7 +23,7 @@ import * as mediaImportService from "../../services/mediaImportService.js";
 
 // REPOSITORIES
 import * as jobRepo from "../../repositories/jobRepository.js";
-import { emitSharedTaskSignal } from "../../services/firebaseSignalService.js";
+import { signals } from "../../services/firebaseSignalService.js";
 
 // --- KONFIGURASI & PATH ---
 const __filename = fileURLToPath(import.meta.url);
@@ -78,18 +80,12 @@ export const importQueue = async () => {
     let nextOptions = null;
 
     // Parse options
-    let jobOptions = {};
-    try {
-      if (job.options)
-        jobOptions = typeof job.options === "string" ? JSON.parse(job.options) : job.options;
-    } catch (e) {
-      Logger.warn("Invalid job options JSON", "IMPORT_WORKER", e);
-    }
+    const jobOptions = parseJsonSafe(job.options, {});
 
     const updateJobProgress = async (processed, total) => {
       try {
         await jobRepo.updateProgress(connection, jobId, processed, total);
-        emitSharedTaskSignal('BACKGROUND_JOBS', 'JOB_PROGRESS').catch(() => {});
+        signals.jobProgress();
       } catch {
         // Abaikan error update progress
       }
@@ -155,7 +151,7 @@ export const importQueue = async () => {
       logSummary = result.logSummary;
       errors = (result.errors || []).map((e) => ({ row: e.row, message: e.message }));
       processStats = result.stats || {};
-    } else if (realJobType === "IMPORT_ATTENDANCE") {
+    } else if (realJobType === IMPORT_JOB_TYPE.ATTENDANCE) {
       const result = await processAttendanceImport(
         connection,
         absoluteFilePath,
@@ -170,8 +166,8 @@ export const importQueue = async () => {
       errors = result.errors || [];
       processStats = result.stats || {};
     } else if (
-      realJobType === "BATCH_EDIT_PRODUCT" ||
-      job.job_type === "BATCH_EDIT_PRODUCT_DRY_RUN"
+      realJobType === IMPORT_JOB_TYPE.BATCH_EDIT_PRODUCT ||
+      job.job_type === `${IMPORT_JOB_TYPE.BATCH_EDIT_PRODUCT}_DRY_RUN`
     ) {
       const result = await productImportService.processProductImport(
         connection,
@@ -195,7 +191,7 @@ export const importQueue = async () => {
         isPartialSuccess = true;
         nextOptions = result.nextOptions;
       }
-    } else if (realJobType === "IMPORT_PACKAGES") {
+    } else if (realJobType === IMPORT_JOB_TYPE.PACKAGES) {
       const result = await processPackageImport(
         absoluteFilePath,
         jobId,
@@ -205,32 +201,32 @@ export const importQueue = async () => {
       // Package Import returns { successCount, errors, headerRowIndex }
       if (result.headerRowIndex) headerRowIndex = result.headerRowIndex;
       logSummary = `Selesai Import Paket. Berhasil: ${result.successCount}.`;
-      errors = (result.errors || []).map(e => {
+      errors = (result.errors || []).map((e) => {
         const match = typeof e === "string" ? e.match(/^Row (\d+):\s*(.*)/) : null;
         return {
           row: match ? parseInt(match[1], 10) : 0,
-          message: match ? match[2] : e
+          message: match ? match[2] : e,
         };
       });
       processStats = { success: result.successCount };
-    } else if (realJobType === "IMPORT_STOCK_INBOUND") {
+    } else if (realJobType === IMPORT_JOB_TYPE.STOCK_INBOUND) {
       const result = await stockImportService.processStockInboundImport(
         jobId,
         absoluteFilePath,
         job.user_id,
-        job.notes
+        job.notes,
       );
       // Stock Import returns { success: boolean, count: number, errors: [] }
       if (result.success) {
         logSummary = `Selesai Inbound Massal via Excel. Berhasil: ${result.count} items.`;
         processStats = { success: result.count };
-        errors = (result.errors || []).map(e => ({ row: e.row, message: e.error || e.message }));
+        errors = (result.errors || []).map((e) => ({ row: e.row, message: e.error || e.message }));
       } else {
         logSummary = "Gagal memproses Inbound Massal.";
         processStats = { success: 0 };
-        errors = (result.errors || []).map(e => ({ row: e.row, message: e.error || e.message }));
+        errors = (result.errors || []).map((e) => ({ row: e.row, message: e.error || e.message }));
       }
-    } else if (realJobType === "IMPORT_SCHEDULES") {
+    } else if (realJobType === IMPORT_JOB_TYPE.SCHEDULES) {
       const result = await scheduleImportService.processScheduleImport(
         jobId,
         absoluteFilePath,
@@ -245,7 +241,7 @@ export const importQueue = async () => {
         processStats = { success: 0 };
         errors = result.errors || [];
       }
-    } else if (realJobType === "LINK_MEDIA_EXCEL") {
+    } else if (realJobType === IMPORT_JOB_TYPE.LINK_MEDIA_EXCEL) {
       const result = await mediaImportService.processMediaLinkImport(
         connection,
         absoluteFilePath,
@@ -257,8 +253,8 @@ export const importQueue = async () => {
         processStats = { success: result.successCount, fail: result.failCount };
         errors = result.errors || [];
         // Firebase notification logic will be added at the end if needed, but we can emit signals directly in the service or here.
-        emitSharedTaskSignal('MASTER_DATA', 'REFRESH_PRODUCTS').catch(e => Logger.error("Signal Error", e, "IMPORT_WORKER"));
-        emitSharedTaskSignal('MASTER_DATA', 'REFRESH_MEDIA').catch(e => Logger.error("Signal Error", e, "IMPORT_WORKER"));
+        signals.refreshProducts();
+        signals.refreshMedia();
       } else {
         logSummary = "Gagal memproses Tautkan Massal Media.";
         processStats = { success: 0 };
@@ -276,30 +272,36 @@ export const importQueue = async () => {
 
       await connection.query(
         `UPDATE import_jobs
-             SET status = 'PENDING',
-                 options = ?,
-                 log_summary = ?,
-                 updated_at = NOW()
-             WHERE id = ?`,
-        [nextOptionsStr, pauseMsg, jobId],
+          SET status = ?,
+            options = ?,
+            log_summary = ?,
+            updated_at = NOW()
+          WHERE id = ?`,
+        [JOB_STATUS.PENDING, nextOptionsStr, pauseMsg, jobId],
       );
       Logger.info(`Job ${jobId} PAUSED (Resumable). Next offset saved.`, "IMPORT_WORKER");
       return;
     }
 
-    let finalStatus = "COMPLETED";
+    let finalStatus = JOB_STATUS.COMPLETED;
     if (errors.length > 0) {
-      finalStatus = "COMPLETED_WITH_ERRORS";
+      finalStatus = JOB_STATUS.COMPLETED_WITH_ERRORS;
       const errDetail = typeof errors[0] === "object" ? errors[0].message : errors[0];
       logSummary += ` (${errors.length} errors. Contoh: ${errDetail?.substring(0, 50)}...)`;
     }
     if (processStats.success === 0 && errors.length > 0) {
-      finalStatus = "FAILED";
+      finalStatus = JOB_STATUS.FAILED;
     }
 
     let downloadUrl = null;
     if (errors.length > 0) {
-      downloadUrl = await generateErrorFile(absoluteFilePath, errors, headerRowIndex, jobId, EXPORT_DIR);
+      downloadUrl = await generateErrorFile(
+        absoluteFilePath,
+        errors,
+        headerRowIndex,
+        jobId,
+        EXPORT_DIR,
+      );
     }
 
     let errorLogJSON = null;
@@ -322,16 +324,16 @@ export const importQueue = async () => {
       errorLogJSON = JSON.stringify({ message: "Error log format invalid" });
     }
 
-    if (processStats.success > 0 || finalStatus === "COMPLETED") {
+    if (processStats.success > 0 || finalStatus === JOB_STATUS.COMPLETED) {
       const total = processStats.success + (errors.length || 0);
       await jobRepo.updateProgress(connection, jobId, total, total);
     }
 
     await jobRepo.completeImportJob(connection, jobId, finalStatus, logSummary, errorLogJSON);
-    emitSharedTaskSignal('BACKGROUND_JOBS', 'IMPORT_COMPLETED').catch(e => Logger.error("Signal Error", e, "IMPORT_WORKER"));
+    signals.importCompleted();
 
-    if (realJobType === 'IMPORT_ATTENDANCE' || realJobType === 'IMPORT_SCHEDULES') {
-      emitSharedTaskSignal('HRIS_ATTENDANCE', 'REFRESH_ATTENDANCE').catch(e => Logger.error("Signal Error", e, "IMPORT_WORKER"));
+    if (realJobType === IMPORT_JOB_TYPE.ATTENDANCE || realJobType === IMPORT_JOB_TYPE.SCHEDULES) {
+      signals.refreshAttendance();
     }
 
     // Hapus file
@@ -355,7 +357,10 @@ export const importQueue = async () => {
         );
         const currentRetry = jobQuery[0][0]?.retry_count || 0;
 
-        const isRetriableError = (err) => err.message.includes('deadlock') || err.message.includes('timeout') || err.message.includes('ECONNRESET');
+        const isRetriableError = (err) =>
+          err.message.includes("deadlock") ||
+          err.message.includes("timeout") ||
+          err.message.includes("ECONNRESET");
 
         if (isRetriableError(error) && currentRetry < MAX_RETRIES) {
           Logger.warn(`Transient Error. Scheduling Retry #${currentRetry + 1}...`, "IMPORT_WORKER");
@@ -366,7 +371,7 @@ export const importQueue = async () => {
             jobId,
             `CRASH: ${error.message.substring(0, 255)}`,
           );
-          emitSharedTaskSignal('BACKGROUND_JOBS', 'IMPORT_FAILED').catch(e => Logger.error("Signal Error", e, "IMPORT_WORKER"));
+          signals.importFailed();
         }
       } catch (e) {
         Logger.error("Gagal update status CRASH/RETRY ke DB", e, "IMPORT_WORKER");

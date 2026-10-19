@@ -4,6 +4,7 @@ import db from "../config/db.js";
 import ExcelJS from "exceljs";
 import fs from "fs";
 import Logger from "../utils/logger.js";
+import { styleHeader, sanitizeSheetName } from "../utils/excelUtils.js";
 
 /**
  * @param {string} startDate
@@ -198,35 +199,8 @@ export const generateStatisticExport = async (filters, filePath) => {
     useSharedStrings: true,
   });
 
-  const styleHeaderLocal = (
-    ws,
-    rowNumber,
-    colCount,
-    bgColor = "FFD9E1F2",
-    fontColor = "FF000000",
-  ) => {
-    const row = ws.getRow(rowNumber);
-    row.height = 20;
-    for (let i = 1; i <= colCount; i++) {
-      const cell = row.getCell(i);
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
-      cell.font = { bold: true, color: { argb: fontColor } };
-      cell.border = {
-        top: { style: "thin" },
-        left: { style: "thin" },
-        bottom: { style: "thin" },
-        right: { style: "thin" },
-      };
-      cell.alignment = { vertical: "middle", horizontal: "center" };
-    }
-    row.commit();
-  };
-
   const writeDataToSheet = (sheetName, data) => {
-    // Ensure sheet name is valid for Excel (max 31 chars, no invalid chars)
-    const safeSheetName = String(sheetName)
-      .substring(0, 31)
-      .replace(/[\\/?*[\]]/g, "-");
+    const safeSheetName = sanitizeSheetName(sheetName);
     const sheet = workbookWriter.addWorksheet(safeSheetName);
 
     const headers = [
@@ -252,7 +226,7 @@ export const generateStatisticExport = async (filters, filePath) => {
     ];
 
     sheet.getRow(1).values = headers;
-    styleHeaderLocal(sheet, 1, headers.length, "FF4472C4", "FFFFFFFF");
+    styleHeader(sheet, 1, headers.length, "FF4472C4", "FFFFFFFF");
 
     for (const row of data) {
       sheet

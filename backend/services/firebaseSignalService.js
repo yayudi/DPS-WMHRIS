@@ -46,6 +46,50 @@ export const emitSharedTaskSignal = async (permission, action = 'REFRESH_NOTIFIC
 };
 
 /**
+ * Pembungkus internal agar pemanggilan sinyal tidak pernah throw atau menyebabkan unhandled rejection.
+ * @param {() => Promise<boolean>} emitFn
+ * @param {string} signalName
+ * @returns {Promise<boolean>}
+ */
+const safeSignal = async (emitFn, signalName) => {
+  try {
+    return await emitFn();
+  } catch (error) {
+    Logger.error(`Signal Error [${signalName}]`, error, "FIREBASE_SIGNAL");
+    return false;
+  }
+};
+
+/**
+ * Facade terpusat untuk emit sinyal dengan penanganan error bawaan dan eliminasi magic string.
+ */
+export const signals = {
+  refreshStock: () => safeSignal(() => emitSharedTaskSignal('WMS_DASHBOARD', 'REFRESH_STOCK'), 'REFRESH_STOCK'),
+  refreshPicking: () => safeSignal(() => emitSharedTaskSignal('PICKING_LIST', 'REFRESH_PICKING'), 'REFRESH_PICKING'),
+  refreshProducts: () => safeSignal(() => emitSharedTaskSignal('MASTER_DATA', 'REFRESH_PRODUCTS'), 'REFRESH_PRODUCTS'),
+  refreshCategories: () => safeSignal(() => emitSharedTaskSignal('MASTER_DATA', 'REFRESH_CATEGORIES'), 'REFRESH_CATEGORIES'),
+  refreshLocations: () => safeSignal(() => emitSharedTaskSignal('MASTER_DATA', 'REFRESH_LOCATIONS'), 'REFRESH_LOCATIONS'),
+  refreshRoles: () => safeSignal(() => emitSharedTaskSignal('MASTER_DATA', 'REFRESH_ROLES'), 'REFRESH_ROLES'),
+  refreshUsers: () => safeSignal(() => emitSharedTaskSignal('MASTER_DATA', 'REFRESH_USERS'), 'REFRESH_USERS'),
+  refreshShifts: () => safeSignal(() => emitSharedTaskSignal('MASTER_DATA', 'REFRESH_SHIFTS'), 'REFRESH_SHIFTS'),
+  refreshChannels: () => safeSignal(() => emitSharedTaskSignal('MASTER_DATA', 'REFRESH_CHANNELS'), 'REFRESH_CHANNELS'),
+  refreshPaperSizes: () => safeSignal(() => emitSharedTaskSignal('MASTER_DATA', 'REFRESH_PAPER_SIZES'), 'REFRESH_PAPER_SIZES'),
+  refreshStickerTemplates: () => safeSignal(() => emitSharedTaskSignal('MASTER_DATA', 'REFRESH_STICKER_TEMPLATES'), 'REFRESH_STICKER_TEMPLATES'),
+  refreshRequests: () => safeSignal(() => emitSharedTaskSignal('STOCK_REQUESTS', 'REFRESH_REQUESTS'), 'REFRESH_REQUESTS'),
+  refreshAttendance: () => safeSignal(() => emitSharedTaskSignal('HRIS_ATTENDANCE', 'REFRESH_ATTENDANCE'), 'REFRESH_ATTENDANCE'),
+  refreshMedia: () => safeSignal(() => emitSharedTaskSignal('MASTER_DATA', 'REFRESH_MEDIA'), 'REFRESH_MEDIA'),
+  jobProgress: () => safeSignal(() => emitSharedTaskSignal('BACKGROUND_JOBS', 'JOB_PROGRESS'), 'JOB_PROGRESS'),
+  importCompleted: () => safeSignal(() => emitSharedTaskSignal('BACKGROUND_JOBS', 'IMPORT_COMPLETED'), 'IMPORT_COMPLETED'),
+  importFailed: () => safeSignal(() => emitSharedTaskSignal('BACKGROUND_JOBS', 'IMPORT_FAILED'), 'IMPORT_FAILED'),
+  exportCompleted: () => safeSignal(() => emitSharedTaskSignal('BACKGROUND_JOBS', 'EXPORT_COMPLETED'), 'EXPORT_COMPLETED'),
+  exportFailed: () => safeSignal(() => emitSharedTaskSignal('BACKGROUND_JOBS', 'EXPORT_FAILED'), 'EXPORT_FAILED'),
+  userNotifications: (userId) => safeSignal(() => emitUserSignal(userId, 'REFRESH_NOTIFICATIONS'), 'REFRESH_NOTIFICATIONS'),
+  sharedTaskNotifications: (permissionName) => safeSignal(() => emitSharedTaskSignal(permissionName, 'REFRESH_NOTIFICATIONS'), 'REFRESH_NOTIFICATIONS'),
+  forceLogout: (targetId) => safeSignal(() => emitSharedTaskSignal('AUTH_SECURITY', `FORCE_LOGOUT_${targetId}`), `FORCE_LOGOUT_${targetId}`),
+  transactionReverted: () => safeSignal(() => emitSharedTaskSignal('INVESTIGATION', 'TRANSACTION_REVERTED'), 'TRANSACTION_REVERTED'),
+};
+
+/**
  * Mendengarkan perubahan data master dari instance lain via Firebase.
  * Ini mencegah stale data jika aplikasi dijalankan di multi-instance.
  */

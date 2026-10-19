@@ -6,7 +6,7 @@ import { useDownload } from '@/composables/useDownload.js'
 import { useDownloadStore } from '@/stores/downloadStore.js'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import WmsActionHeader from '@/components/wms/shared/WmsActionHeader.vue'
-import dayjs from 'dayjs'
+import { formatDate } from '@/utils/formatters.js'
 import { useMobile } from '@/composables/useMobile.js'
 
 const { isMobile } = useMobile()
@@ -40,9 +40,6 @@ const getStatusClass = status => {
   }
 }
 
-const formatDate = dateStr => {
-  return dayjs(dateStr).format('DD MMM YYYY HH:mm')
-}
 
 // Helpers untuk Label Tipe Job
 const getJobTypeLabel = type => {

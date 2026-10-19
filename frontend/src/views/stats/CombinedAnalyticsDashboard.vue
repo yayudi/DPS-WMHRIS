@@ -8,9 +8,9 @@ import {
 import { fetchShopPerformance, fetchPackageAnalysis } from '@/api/helpers/stats.js'
 import { useMasterDataStore } from '@/stores/masterData'
 import { useToast } from '@/composables/useToast'
-import { dayjs } from '@/api/helpers/time.js'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import FilterBar from '@/components/ui/FilterBar.vue'
+import { formatCurrency, formatNumber, getDefaultMonthRange } from '@/utils/formatters.js'
 
 const masterData = useMasterDataStore()
 const { toast } = useToast()
@@ -21,8 +21,7 @@ const isLoading = ref(true)
 const buildingOptions = ref([])
 
 const filters = ref({
-  startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
-  endDate: dayjs().format('YYYY-MM-DD'),
+  ...getDefaultMonthRange({ endToday: true }),
   building: { include: [], exclude: [] }
 })
 
@@ -102,8 +101,7 @@ const inventoryValueChartOptions = ref({
   },
   tooltip: {
     y: {
-      formatter: val =>
-        new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val)
+      formatter: val => formatCurrency(val)
     }
   },
   theme: { mode: 'light' },
@@ -245,14 +243,6 @@ const processPackageAnalysisChart = packages => {
       data: sorted.map(p => Number(p.total_needed) || 0)
     }
   ]
-}
-
-const formatCurrency = val => {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val)
-}
-
-const formatNumber = val => {
-  return new Intl.NumberFormat('id-ID').format(val)
 }
 
 // Watch for dark mode changes (assuming standard tailwind 'dark' class on html)

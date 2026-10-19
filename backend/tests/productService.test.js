@@ -32,6 +32,14 @@ jest.unstable_mockModule("../repositories/productRepository.js", () => ({
   insertAuditLog: jest.fn(),
 }));
 
+// Mock Module: services/firebaseSignalService.js
+jest.unstable_mockModule("../services/firebaseSignalService.js", () => ({
+  signals: {
+    refreshProducts: jest.fn(),
+  },
+  sendFirebaseSignal: jest.fn(),
+}));
+
 // ============================================================================
 // 2. IMPORT MODULES UNDER TEST
 // ============================================================================
@@ -39,7 +47,6 @@ jest.unstable_mockModule("../repositories/productRepository.js", () => ({
 // Import dinamis setelah mock didefinisikan
 const productService = await import("../services/productService.js");
 const productRepo = await import("../repositories/productRepository.js");
-const db = await import("../config/db.js");
 
 // ============================================================================
 // 3. TEST SUITE

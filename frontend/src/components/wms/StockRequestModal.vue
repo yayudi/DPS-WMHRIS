@@ -8,8 +8,7 @@ import { useMasterDataStore } from '@/stores/masterData'
 import { createStockRequest } from '@/api/helpers/stockRequest'
 import ProductSearchAddForm from '@/components/wms/transfer/ProductSearchAddForm.vue'
 import BatchItemList from '@/components/wms/transfer/BatchItemList.vue'
-import { swalConfirm } from '@/composables/useSweetAlert'
-import Swal from 'sweetalert2'
+import { swalConfirm, swalDraftConfirm } from '@/composables/useSweetAlert'
 
 defineProps({
   isOpen: {
@@ -174,28 +173,11 @@ function clearDraft() {
 
 async function closeModal() {
   if (batchList.value.length > 0 || notes.value.trim() !== '') {
-    const result = await Swal.fire({
-      title: 'Tutup Form?',
-      text: 'Form belum selesai. Simpan sebagai draf atau hapus seluruh isian?',
-      icon: 'question',
-      showDenyButton: true,
-      showCancelButton: true,
-      confirmButtonText: 'Simpan Draf',
-      denyButtonText: 'Hapus Isian',
-      cancelButtonText: 'Batal',
-      customClass: {
-        popup: 'bg-background text-text rounded-xl shadow-2xl border border-secondary/50',
-        title: 'text-text font-bold',
-        htmlContainer: 'text-text opacity-90',
-        confirmButton: 'bg-primary hover:opacity-90 text-white font-semibold py-2.5 px-5 rounded-lg mx-2 transition-all',
-        denyButton: 'bg-danger hover:opacity-90 text-white font-semibold py-2.5 px-5 rounded-lg mx-2 transition-all',
-        cancelButton: 'bg-secondary hover:opacity-90 text-text font-semibold py-2.5 px-5 rounded-lg mx-2 transition-all'
-      }
-    })
+    const action = await swalDraftConfirm('Tutup Form?')
     
-    if (result.isConfirmed) {
+    if (action === 'save') {
       emit('close')
-    } else if (result.isDenied) {
+    } else if (action === 'clear') {
       clearDraft()
       emit('close')
     }

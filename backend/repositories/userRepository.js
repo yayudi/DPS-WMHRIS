@@ -113,3 +113,27 @@ export const getUserIdsByPermission = async (connection, permissionName) => {
   );
   return rows.map(r => r.id);
 };
+
+/**
+ * Memeriksa apakah user memiliki akses ke lokasi tertentu.
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {number|string} userId
+ * @param {number|string} locationId
+ * @returns {Promise<boolean>}
+ */
+export const hasLocationAccess = async (connection, userId, locationId) => {
+  const [rows] = await connection.query(
+    "SELECT 1 FROM user_locations WHERE user_id = ? AND location_id = ? LIMIT 1",
+    [userId, locationId]
+  );
+  return rows.length > 0;
+};
+
+/**
+ * @param {import('mysql2/promise').Connection} connection
+ * @returns {Promise<Array<{id: number, username: string}>>}
+ */
+export const getAllUsernames = async (connection) => {
+  const [rows] = await connection.query("SELECT id, username FROM users");
+  return rows;
+};

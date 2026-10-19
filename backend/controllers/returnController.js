@@ -1,209 +1,52 @@
 // backend/controllers/returnController.js
-import db from "../config/db.js";
-import * as returnRepo from "../repositories/returnRepository.js";
-import * as locationRepo from "../repositories/locationRepository.js";
-import * as stockRepo from "../repositories/stockMovementRepository.js";
+import * as returnService from "../services/returnService.js";
+import catchAsync from "../utils/catchAsync.js";
 
 /**
  * GET: Ambil daftar barang yang statusnya RETURNED
  * (Barang retur dari marketplace yang sudah sampai gudang tapi belum divalidasi)
  */
-export const getPendingReturns = async (req, res, next) => {
-  let connection;
-  try {
-    connection = await db.getConnection();
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.max(1, parseInt(req.query.limit) || 10);
-    const search = req.query.search || '';
-    const source = req.query.source || '';
-    const startDate = req.query.startDate || '';
-    const endDate = req.query.endDate || '';
-    const offset = (page - 1) * limit;
+export const getPendingReturns = catchAsync(async (req, res) => {
+  const result = await returnService.getPendingReturnsService(req.query);
 
-    const { rows, total } = await returnRepo.getPendingReturns(connection, {
-      limit, offset, search, source, startDate, endDate
-    });
-
-    const totalPages = Math.ceil(total / limit);
-
-    res.json({
-      success: true,
-      data: rows,
-      pagination: {
-        page, limit, total, totalPages
-      }
-    });
-  } catch (error) {
-    next(error);
-  } finally {
-    if (connection) connection.release();
-  }
-};
+  res.json({
+    success: true,
+    data: result.rows,
+    pagination: result.pagination,
+  });
+});
 
 /**
  * GET: Ambil Riwayat Retur
  * Menggabungkan data retur marketplace dan retur manual
  */
-export const getReturnHistory = async (req, res, next) => {
-  let connection;
-  try {
-    connection = await db.getConnection();
+export const getReturnHistory = catchAsync(async (req, res) => {
+  const result = await returnService.getReturnHistoryService(req.query);
 
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.max(1, parseInt(req.query.limit) || 10);
-    const search = req.query.search || '';
-    const source = req.query.source || '';
-    const condition = req.query.condition || '';
-    const locationId = req.query.locationId || '';
-    const startDate = req.query.startDate || '';
-    const endDate = req.query.endDate || '';
-    const sortOrder = req.query.sortOrder || 'desc';
-    const offset = (page - 1) * limit;
-
-    const { rows, total } = await returnRepo.getReturnHistory(connection, {
-      limit, offset, search, source, condition, locationId, sortOrder, startDate, endDate
-    });
-
-    const totalPages = Math.ceil(total / limit);
-
-    res.json({
-      success: true,
-      data: rows,
-      pagination: {
-        page, limit, total, totalPages
-      }
-    });
-  } catch (error) {
-    next(error);
-  } finally {
-    if (connection) connection.release();
-  }
-};
+  res.json({
+    success: true,
+    data: result.rows,
+    pagination: result.pagination,
+  });
+});
 
 /**
  * POST: Validasi & Terima Barang Retur (Picking Item)
  * Menangani Full Return maupun Partial Return (Split)
  */
-export const approveReturn = async (req, res, next) => {
-  const { itemId, qtyAccepted, locationId, condition, notes } = req.body;
-  const userId = req.user?.id || 1;
+export const approveReturn = catchAsync(async (req, res) => {
+  const userContext = { userId: req.user?.id || 1 };
+  const result = await returnService.approveReturnService(req.body, userContext);
 
-  let connection;
-  try {
-    connection = await db.getConnection();
-    await connection.beginTransaction();
-
-    // Validasi Item Asli
-    const item = await returnRepo.getItemById(connection, itemId);
-    if (!item) {
-      throw new Error("Item picking tidak ditemukan.");
-    }
-
-    if (item.status !== "RETURNED") {
-      throw new Error(
-        `Item status bukan RETURNED (Status saat ini: ${item.status}). Tidak bisa divalidasi.`
-      );
-    }
-
-    const qtyVal = parseInt(qtyAccepted, 10);
-    if (qtyVal <= 0 || qtyVal > item.quantity) {
-      throw new Error(`Jumlah diterima (${qtyVal}) tidak valid. Maksimal: ${item.quantity}.`);
-    }
-
-    // Proses Retur (Full vs Partial)
-    if (qtyVal === item.quantity) {
-      // CASE A: Full Return -> Update item eksisting langsung
-      await returnRepo.completeReturnItem(connection, itemId, {
-        condition,
-        notes,
-        locationId,
-      });
-    } else {
-      // CASE B: Partial Return -> Split Item
-
-      // a. Kurangi qty item lama (sisa yang belum diproses)
-      await returnRepo.decreaseItemQty(connection, itemId, qtyVal);
-
-      // b. Buat item baru untuk bagian yang SUKSES diretur (COMPLETED_RETURN)
-      await returnRepo.createSplitReturnItem(connection, item, {
-        qtyReturn: qtyVal,
-        condition,
-        notes,
-        locationId,
-      });
-    }
-
-    // Update Stok Fisik (Increment)
-    // Barang masuk kembali ke lokasi yang dipilih (baik kondisi Bagus atau Rusak, tetap masuk lokasi fisik)
-    await locationRepo.incrementStock(connection, item.product_id, locationId, qtyVal);
-
-    // Catat Log Pergerakan Stok
-    await stockRepo.createLog(connection, {
-      productId: item.product_id,
-      quantity: qtyVal,
-      toLocationId: locationId,
-      type: "RETURN_INBOUND",
-      userId: userId,
-      notes: `Validasi Retur #${itemId} (${condition}): ${notes || "-"}`,
-    });
-
-    await connection.commit();
-
-    res.json({
-      success: true,
-      message: `Retur berhasil diproses. Stok bertambah ${qtyVal} pcs.`,
-    });
-  } catch (error) {
-    if (connection) await connection.rollback();
-    return next(error);
-  } finally {
-    if (connection) connection.release();
-  }
-};
+  res.json(result);
+});
 
 /**
  * POST: Retur Manual (Barang Nyasar / Offline / Tanpa Picking List)
  */
-export const createManualReturn = async (req, res, next) => {
-  const { productId, quantity, condition, locationId, reference, notes } = req.body;
-  const userId = req.user?.id || 1;
+export const createManualReturn = catchAsync(async (req, res) => {
+  const userContext = { userId: req.user?.id || 1 };
+  const result = await returnService.createManualReturnService(req.body, userContext);
 
-  let connection;
-  try {
-    connection = await db.getConnection();
-    await connection.beginTransaction();
-
-    const qtyVal = parseInt(quantity, 10);
-
-    // Insert ke Tabel Manual Returns
-    await returnRepo.createManualReturn(connection, {
-      userId,
-      productId,
-      quantity: qtyVal,
-      condition,
-      reference,
-      notes,
-    });
-
-    // Tambah Stok Fisik
-    await locationRepo.incrementStock(connection, productId, locationId, qtyVal);
-
-    // Catat Log Pergerakan
-    await stockRepo.createLog(connection, {
-      productId: productId,
-      quantity: qtyVal,
-      toLocationId: locationId,
-      type: "MANUAL_RETURN",
-      userId: userId,
-      notes: `Manual Retur Ref: ${reference || "-"} (${condition})`,
-    });
-
-    await connection.commit();
-    res.json({ success: true, message: "Retur manual berhasil dicatat." });
-  } catch (error) {
-    if (connection) await connection.rollback();
-    return next(error);
-  } finally {
-    if (connection) connection.release();
-  }
-};
+  res.json(result);
+});

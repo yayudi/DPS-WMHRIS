@@ -3,7 +3,7 @@ import * as scheduleService from '../services/scheduleService.js';
 import * as jobRepositories from '../repositories/jobRepository.js';
 import db from '../config/db.js';
 import ExcelJS from 'exceljs';
-import Logger from '../utils/logger.js';
+import { IMPORT_JOB_TYPE } from '../config/jobConstants.js';
 
 import AppError from "../utils/AppError.js";
 export const getSchedules = catchAsync(async (req, res, next) => {
@@ -41,7 +41,7 @@ export const uploadImportSchedule = catchAsync(async (req, res, next) => {
     req.connection,
     {
       userId: req.user.id,
-      jobType: "IMPORT_SCHEDULES",
+      jobType: IMPORT_JOB_TYPE.SCHEDULES,
       filePath: req.file.path,
       filename: req.file.originalname
     }
@@ -60,10 +60,9 @@ export const uploadImportSchedule = catchAsync(async (req, res, next) => {
 /**
  * GET /api/schedules/template
  */
-export const downloadTemplate = async (req, res, next) => {
-  try {
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Import Schedule");
+export const downloadTemplate = catchAsync(async (req, res) => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Import Schedule");
 
     // Validasi Data (Dropdown)
     // Ambil User & Shift dari DB
@@ -142,11 +141,6 @@ export const downloadTemplate = async (req, res, next) => {
     res.header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.attachment("Template_Jadwal_Shift.xlsx");
 
-    await workbook.xlsx.write(res);
-    res.end();
-
-  } catch (error) {
-    Logger.error("Template Gen Error", error, "SCHEDULE_CONTROLLER");
-    next(new AppError("Gagal generate template", 500));
-  }
-};
+  await workbook.xlsx.write(res);
+  res.end();
+});

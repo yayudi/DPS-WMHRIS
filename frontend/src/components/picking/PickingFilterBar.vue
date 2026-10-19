@@ -6,17 +6,9 @@ import DateRangeFilter from '@/components/ui/DateRangeFilter.vue'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import TriStateSelect from '@/components/ui/TriStateSelect.vue'
 import { usePickingFilters } from '@/composables/usePickingFilters.js'
+import { SOURCE_OPTIONS as sourceOptions, PURPOSE_OPTIONS as purposeOptions } from '@/utils/channelConstants.js'
 
-const sourceOptions = [
-  { id: 'Tokopedia', label: 'Tokopedia' },
-  { id: 'Shopee', label: 'Shopee' },
-  { id: 'Offline', label: 'Offline' }
-]
 
-const purposeOptions = [
-  { id: 'DISPLAY', label: 'DISPLAY' },
-  { id: 'BRANCH', label: 'BRANCH' }
-]
 
 const stockStatusOptions = [
   { id: 'READY', label: 'Siap Pick' },

@@ -1,17 +1,13 @@
 import { computed, ref } from 'vue'
 import { swalConfirm } from '@/composables/useSweetAlert'
+import { getSourceBadgeClass } from '@/utils/channelConstants.js'
 
 export function usePickingCardState(props, authStore) {
   const isOpen = ref(false)
   const isLoading = ref(false)
   const isEditModalOpen = ref(false)
 
-  const sourceBgClass = computed(() => {
-    const source = props.inv?.source?.toLowerCase()
-    if (source === 'tokopedia') return 'bg-success'
-    if (source === 'shopee') return 'bg-warning'
-    return 'bg-secondary'
-  })
+  const sourceBgClass = computed(() => getSourceBadgeClass(props.inv?.source, { solid: true }))
 
   function handleCardClick(event, emit) {
     if (props.mode !== 'picking') return

@@ -1,10 +1,9 @@
 import catchAsync from "../utils/catchAsync.js";
-// backend/controllers/stockController.js
 import * as stockService from "../services/stockService.js";
 import * as jobService from "../services/jobService.js";
 import * as jobRepo from "../repositories/jobRepository.js";
 import db from "../config/db.js";
-import Logger from "../utils/logger.js";
+import { EXPORT_JOB_TYPE, IMPORT_JOB_TYPE } from "../config/jobConstants.js";
 
 import AppError from "../utils/AppError.js";
 // ============================================================================
@@ -100,7 +99,7 @@ export const downloadAdjustmentTemplate = catchAsync(async (req, res, next) => {
   const workbook = await stockService.generateAdjustmentTemplateService();
   res.setHeader(
     "Content-Type",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   );
   res.setHeader("Content-Disposition", "attachment; filename=Template_Adjustment_Stok.xlsx");
   await workbook.xlsx.write(res);
@@ -111,7 +110,7 @@ export const getInboundTemplate = catchAsync(async (req, res, next) => {
   const workbook = await stockService.generateInboundTemplateService();
   res.setHeader(
     "Content-Type",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   );
   res.setHeader("Content-Disposition", "attachment; filename=Template_Inbound_Stok.xlsx");
   await workbook.xlsx.write(res);
@@ -125,13 +124,11 @@ export const importBatchInbound = catchAsync(async (req, res, next) => {
 
   const userId = req.user.id;
   const userNotes = req.body.notes ? req.body.notes.trim() : "";
-  const finalNotes = userNotes
-    ? `Batch Stock Inbound | ${userNotes}`
-    : "Batch Stock Inbound";
+  const finalNotes = userNotes ? `Batch Stock Inbound | ${userNotes}` : "Batch Stock Inbound";
 
   const jobId = await jobService.createJobService({
     userId,
-    type: "IMPORT_STOCK_INBOUND",
+    type: IMPORT_JOB_TYPE.STOCK_INBOUND,
     originalname: req.file.originalname,
     serverFilePath: req.file.path,
     notes: finalNotes,
@@ -144,12 +141,15 @@ export const importBatchInbound = catchAsync(async (req, res, next) => {
   });
 });
 
-export const requestAdjustmentUpload = async (req, res, next) => {
+export const requestAdjustmentUpload = catchAsync(async (req, res) => {
   return uploadAdjustment(req, res);
-};
+});
 
 export const getImportJobs = catchAsync(async (req, res, next) => {
-  const jobs = await jobService.getUserJobsService(req.user.id, req.user.role, ['ADJUST_STOCK', 'ADJUST_STOCK_DRY_RUN']);
+  const jobs = await jobService.getUserJobsService(req.user.id, req.user.role, [
+    "ADJUST_STOCK",
+    "ADJUST_STOCK_DRY_RUN",
+  ]);
   res.json({ success: true, data: jobs });
 });
 
@@ -198,30 +198,45 @@ export const getStockHistory = catchAsync(async (req, res, next) => {
   const endDate = req.query.endDate || null;
   const locationId = req.query.locationId || null;
   const user = req.query.user || null;
-  const result = await stockService.getStockHistoryService(req.params.productId, page, 15, movementType, startDate, endDate, locationId, user);
+  const result = await stockService.getStockHistoryService(
+    req.params.productId,
+    page,
+    15,
+    movementType,
+    startDate,
+    endDate,
+    locationId,
+    user,
+  );
   res.json({ success: true, ...result });
 });
 
-export const batchTransfer = async (req, res, next) => {
-  try {
-    const { fromLocationId, toLocationId, movements } = req.body;
+export const batchTransfer = catchAsync(async (req, res) => {
+  const { fromLocationId, toLocationId, movements } = req.body;
 
-    const result = await stockService.batchTransferService({
-      fromLocationId,
-      toLocationId,
-      movements,
-      userId: req.user.id,
-      userRoleId: req.user.role_id,
-    });
-    res.json({ success: true, message: "Batch transfer berhasil.", ...result });
-  } catch (error) {
-    Logger.error("Batch Transfer Error", error, "STOCK_CONTROLLER");
-    return next(error);
-  }
-};
+  const result = await stockService.batchTransferService({
+    fromLocationId,
+    toLocationId,
+    movements,
+    userId: req.user.id,
+    userRoleId: req.user.role_id,
+  });
+  res.json({ success: true, message: "Batch transfer berhasil.", ...result });
+});
 
 export const getBatchLogs = catchAsync(async (req, res, next) => {
-  const { startDate, endDate, productName, movementType, sourceLocation, destinationLocation, userId, notes, page, limit } = req.query;
+  const {
+    startDate,
+    endDate,
+    productName,
+    movementType,
+    sourceLocation,
+    destinationLocation,
+    userId,
+    notes,
+    page,
+    limit,
+  } = req.query;
 
   const result = await stockService.getBatchLogsService({
     startDate,
@@ -233,14 +248,23 @@ export const getBatchLogs = catchAsync(async (req, res, next) => {
     userId,
     notes,
     page,
-    limit
+    limit,
   });
   res.json({ success: true, data: result.data, pagination: result.pagination });
 });
 
 export const requestBatchLogExport = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
-  const { startDate, endDate, productName, movementType, sourceLocation, destinationLocation, notes, format } = req.body;
+  const {
+    startDate,
+    endDate,
+    productName,
+    movementType,
+    sourceLocation,
+    destinationLocation,
+    notes,
+    format,
+  } = req.body;
 
   const filters = {
     startDate,
@@ -251,13 +275,13 @@ export const requestBatchLogExport = catchAsync(async (req, res, next) => {
     destinationLocation,
     notes,
     format: format || "xlsx",
-    exportType: "BATCH_LOG_EXPORT",
+    exportType: EXPORT_JOB_TYPE.BATCH_LOG_EXPORT,
   };
 
   const jobId = await jobRepo.createExportJob(db, {
     userId,
     filters,
-    jobType: "BATCH_LOG_EXPORT",
+    jobType: EXPORT_JOB_TYPE.BATCH_LOG_EXPORT,
   });
 
   res.status(202).json({

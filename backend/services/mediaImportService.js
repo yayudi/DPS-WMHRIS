@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import * as productRepo from "../repositories/productRepository.js";
+import * as mediaRepo from "../repositories/mediaRepository.js";
 import Logger from "../utils/logger.js";
 import { logChange } from "./productService.js";
 
@@ -91,10 +92,7 @@ export const processMediaLinkImport = async (connection, filePath, userId) => {
         searchPath = searchPath.split('?')[0].split('#')[0];
 
         // Cari image berdasar path (mencocokkan nama file persis di DB, baik main maupun thumb)
-        const [images] = await connection.query(
-          "SELECT id FROM media_assets WHERE main_path LIKE ? OR thumbnail_path LIKE ?",
-          [`%${searchPath}`, `%${searchPath}`]
-        );
+        const images = await mediaRepo.findMediaByPath(connection, searchPath);
 
         if (images.length === 0) {
           result.errors.push({
@@ -108,12 +106,9 @@ export const processMediaLinkImport = async (connection, filePath, userId) => {
         const mediaId = images[0].id;
 
         // Cek apakah sudah dilink
-        const [existing] = await connection.query(
-          "SELECT id FROM product_images WHERE product_id = ? AND media_id = ?",
-          [productId, mediaId],
-        );
+        const isLinked = await productRepo.isProductMediaLinked(connection, productId, mediaId);
 
-        if (existing.length === 0) {
+        if (!isLinked) {
           await productRepo.linkMedia(connection, productId, [mediaId]);
           await logChange(
             connection,

@@ -163,11 +163,7 @@
             <label class="block text-sm font-medium text-text/80 mb-1">Source (Order)</label>
             <TriStateSelect
               v-model="filters.plSource"
-              :options="[
-                { id: 'Tokopedia', label: 'Tokopedia' },
-                { id: 'Shopee', label: 'Shopee' },
-                { id: 'Offline', label: 'Offline' }
-              ]"
+              :options="SOURCE_OPTIONS"
               placeholder="Pilih Source..."
               label="label"
               track-by="id"
@@ -669,6 +665,7 @@ import { useMasterDataStore } from '@/stores/masterData'
 import { useInvestigationFilters } from '@/composables/useInvestigationFilters'
 import { useInvestigationLogic } from '@/composables/useInvestigationLogic'
 import { fetchMovementTypes } from '@/api/helpers/stock.js'
+import { SOURCE_OPTIONS } from '@/utils/channelConstants.js'
 
 const { toast } = useToast()
 const locationOptions = ref([])

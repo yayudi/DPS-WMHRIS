@@ -35,7 +35,7 @@ export async function extractDateFromCsv(filepath) {
 /**
  * Parsing Logika Utama: CSV Stream -> User Data Object
  */
-export function parseCsvToUserData(filepath) {
+export function parseCsvToUserData(filepath, mapping = {}) {
   return new Promise((resolve, reject) => {
     const data = {};
     let rowCount = 0;
@@ -60,9 +60,11 @@ export function parseCsvToUserData(filepath) {
         Logger.info(`📋 Header Lengkap: ${JSON.stringify(headers)}`, "ATTENDANCE_PARSER");
 
         const hasUserID = headers.some((h) =>
-          ["User ID", "No.", "AC-No.", "ID Number"].includes(h)
+          [mapping.id, "User ID", "No.", "AC-No.", "ID Number", "Nomor Pegawai"].filter(Boolean).includes(h)
         );
-        const hasDate = headers.some((h) => ["Date/Time", "Time", "Waktu", "DateTime"].includes(h));
+        const hasDate = headers.some((h) =>
+          [mapping.time, "Date/Time", "Time", "Waktu", "DateTime", "Waktu Absen"].filter(Boolean).includes(h)
+        );
 
         if (!hasUserID || !hasDate) {
           Logger.warn(
@@ -79,9 +81,13 @@ export function parseCsvToUserData(filepath) {
           Logger.info(`Row #${rowCount}: ${JSON.stringify(row)}`, "ATTENDANCE_PARSER");
         }
 
-        const id = row["User ID"] || row["No."] || row["AC-No."] || row["ID Number"];
-        const nama = row["Full Name"] || row["Name"] || row["Nama"];
-        const datetimeRaw = row["Date/Time"] || row["Time"] || row["Waktu"] || row["DateTime"];
+        const idCol = mapping.id;
+        const nameCol = mapping.name;
+        const timeCol = mapping.time;
+
+        const id = (idCol && row[idCol]) || row["User ID"] || row["No."] || row["AC-No."] || row["ID Number"] || row["Nomor Pegawai"];
+        const nama = (nameCol && row[nameCol]) || row["Full Name"] || row["Name"] || row["Nama"] || row["Nama Lengkap"];
+        const datetimeRaw = (timeCol && row[timeCol]) || row["Date/Time"] || row["Time"] || row["Waktu"] || row["DateTime"] || row["Waktu Absen"];
 
         if (!id || !datetimeRaw) {
           if (skippedCount < 5)

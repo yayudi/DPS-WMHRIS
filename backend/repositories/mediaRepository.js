@@ -221,3 +221,18 @@ export const updateMediaTags = async (connection, mediaId, tags) => {
 export const updateMediaTitle = async (connection, mediaId, title) => {
   await connection.query('UPDATE media_assets SET title = ? WHERE id = ?', [title, mediaId]);
 };
+
+/**
+ * Mencari aset media berdasarkan pola path
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {string} searchPath
+ * @returns {Promise<Array<{ id: number }>>}
+ */
+export const findMediaByPath = async (connection, searchPath) => {
+  const [rows] = await connection.query(
+    "SELECT id FROM media_assets WHERE main_path LIKE ? OR thumbnail_path LIKE ?",
+    [`%${searchPath}`, `%${searchPath}`]
+  );
+  return rows;
+};
+

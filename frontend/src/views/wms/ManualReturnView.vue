@@ -5,8 +5,7 @@ import { ref, onMounted, toRaw, computed, watch } from 'vue'
 import { useMagicKeys, useLocalStorage } from '@vueuse/core'
 import { useRouter } from 'vue-router'
 import { useToast } from '@/composables/useToast.js'
-import { swalAlert } from '@/composables/useSweetAlert'
-import Swal from 'sweetalert2'
+import { swalAlert, swalDraftConfirm } from '@/composables/useSweetAlert'
 import api from '@/api/axios'
 import ProductSearchSelector from '@/components/wms/transfer/ProductSearchSelector.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
@@ -117,28 +116,11 @@ async function submitForm() {
 async function goBack() {
   const isDirty = form.value.invoiceId.trim() !== '' || form.value.items.length > 1 || form.value.items[0].selectedProduct !== null
   if (isDirty) {
-    const result = await Swal.fire({
-      title: 'Kembali?',
-      text: 'Form belum selesai. Simpan sebagai draf atau hapus seluruh isian?',
-      icon: 'question',
-      showDenyButton: true,
-      showCancelButton: true,
-      confirmButtonText: 'Simpan Draf',
-      denyButtonText: 'Hapus Isian',
-      cancelButtonText: 'Batal',
-      customClass: {
-        popup: 'bg-background text-text rounded-xl shadow-2xl border border-secondary/50',
-        title: 'text-text font-bold',
-        htmlContainer: 'text-text opacity-90',
-        confirmButton: 'bg-primary hover:opacity-90 text-white font-semibold py-2.5 px-5 rounded-lg mx-2 transition-all',
-        denyButton: 'bg-danger hover:opacity-90 text-white font-semibold py-2.5 px-5 rounded-lg mx-2 transition-all',
-        cancelButton: 'bg-secondary hover:opacity-90 text-text font-semibold py-2.5 px-5 rounded-lg mx-2 transition-all'
-      }
-    })
+    const action = await swalDraftConfirm('Kembali?')
     
-    if (result.isConfirmed) {
+    if (action === 'save') {
       router.go(-1)
-    } else if (result.isDenied) {
+    } else if (action === 'clear') {
       form.value = { invoiceId: '', items: [{ selectedProduct: null, quantity: 1, condition: 'GOOD', locationId: '', notes: '' }] }
       router.go(-1)
     }

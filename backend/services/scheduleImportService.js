@@ -1,21 +1,20 @@
-import db from "../config/db.js";
 import ExcelJS from "exceljs";
 import * as scheduleRepository from "../repositories/scheduleRepository.js";
+import * as userRepository from "../repositories/userRepository.js";
+import * as shiftRepository from "../repositories/shiftRepository.js";
+import { withTransaction } from "../utils/dbUtils.js";
 
 /**
  * Process Batch Schedule Import from Excel
  */
 export const processScheduleImport = async (jobId, filePath, userId) => {
-  let connection;
-  const errors = [];
-  let successCount = 0;
-
-  try {
-    connection = await db.getConnection();
+  return await withTransaction(async (connection) => {
+    const errors = [];
+    let successCount = 0;
 
     // Pre-fetch Data for Validation (Cache)
-    const [users] = await connection.query("SELECT id, username FROM users");
-    const [shifts] = await connection.query("SELECT id, name FROM shifts");
+    const users = await userRepository.getAllUsernames(connection);
+    const shifts = await shiftRepository.getAllShifts(connection);
 
     const userMap = new Map(users.map((u) => [u.username.toLowerCase(), u.id]));
     const shiftMap = new Map(shifts.map((s) => [s.name.toLowerCase(), s.id]));
@@ -96,18 +95,11 @@ export const processScheduleImport = async (jobId, filePath, userId) => {
     }
 
     // Batch Upsert
-    await connection.beginTransaction();
     for (const schedule of schedulesToInsert) {
-      await scheduleRepository.upsertSchedule(schedule);
+      await scheduleRepository.upsertSchedule(schedule, connection);
       successCount++;
     }
-    await connection.commit();
 
     return { success: true, count: successCount, errors: [] };
-  } catch (error) {
-    if (connection) await connection.rollback();
-    throw error;
-  } finally {
-    if (connection) connection.release();
-  }
+  });
 };

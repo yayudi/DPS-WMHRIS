@@ -11,6 +11,7 @@ import { useEventListener, useResizeObserver, onClickOutside } from '@vueuse/cor
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import { useMobile } from '@/composables/useMobile.js'
 import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/vue'
+import { WEEK_DAYS as weekDays, SHORT_WEEK_DAYS as weekDaysShort } from '@/utils/formatters.js'
 
 const { isMobile } = useMobile()
 const masterData = useMasterDataStore()
@@ -29,8 +30,6 @@ const userOptions = computed(() => {
 
 // Calendar State
 const currentDate = ref(new Date())
-const weekDays = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
-const weekDaysShort = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
 
 // Popover State
 const popover = ref({

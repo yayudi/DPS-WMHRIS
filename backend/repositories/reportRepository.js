@@ -1,6 +1,4 @@
 // backend\repositories\reportRepository.js
-import db from "../config/db.js";
-import Logger from "../utils/logger.js";
 
 /**
  * Streaming Data Stok untuk Report Excel
@@ -98,73 +96,33 @@ export const getStockReportStream = (connection, filters) => {
 
 /**
  * Mengambil data opsi filter (Gedung, Purpose, Relation)
- * Fungsi ini dipindahkan dari reportService.js
- */
-// export const getReportFilters = async (connection) => {
-//   const [allBuildingRows] = await connection.query(
-//     "SELECT DISTINCT building FROM locations WHERE building IS NOT NULL AND building != '' ORDER BY building ASC"
-//   );
-
-//   const [purposeRows] = await connection.query(
-//     "SELECT DISTINCT purpose FROM locations WHERE purpose IS NOT NULL AND purpose != '' ORDER BY purpose ASC"
-//   );
-
-//   const [relationRows] = await connection.query(
-//     "SELECT DISTINCT purpose, building FROM locations WHERE purpose IS NOT NULL AND building IS NOT NULL AND purpose != '' AND building != ''"
-//   );
-
-//   const buildingsByPurpose = {};
-//   relationRows.forEach((row) => {
-//     if (!buildingsByPurpose[row.purpose]) {
-//       buildingsByPurpose[row.purpose] = [];
-//     }
-//     buildingsByPurpose[row.purpose].push(row.building);
-//   });
-
-//   return {
-//     allBuildings: allBuildingRows.map((row) => row.building),
-//     purposes: purposeRows.map((row) => row.purpose),
-//     buildingsByPurpose: buildingsByPurpose,
-//   };
-// };
-
-/**
+ * @param {import('mysql2/promise').Connection} connection
  * @returns {Promise<any>}
  */
-export const getReportFilters = async () => {
-  let connection;
-  try {
-    connection = await db.getConnection();
+export const getReportFilters = async (connection) => {
+  const [allBuildingRows] = await connection.query(
+    "SELECT DISTINCT building FROM locations WHERE building IS NOT NULL AND building != '' ORDER BY building ASC"
+  );
 
-    const [allBuildingRows] = await connection.query(
-      "SELECT DISTINCT building FROM locations WHERE building IS NOT NULL AND building != '' ORDER BY building ASC"
-    );
+  const [purposeRows] = await connection.query(
+    "SELECT DISTINCT purpose FROM locations WHERE purpose IS NOT NULL AND purpose != '' ORDER BY purpose ASC"
+  );
 
-    const [purposeRows] = await connection.query(
-      "SELECT DISTINCT purpose FROM locations WHERE purpose IS NOT NULL AND purpose != '' ORDER BY purpose ASC"
-    );
+  const [relationRows] = await connection.query(
+    "SELECT DISTINCT purpose, building FROM locations WHERE purpose IS NOT NULL AND building IS NOT NULL AND purpose != '' AND building != ''"
+  );
 
-    const [relationRows] = await connection.query(
-      "SELECT DISTINCT purpose, building FROM locations WHERE purpose IS NOT NULL AND building IS NOT NULL AND purpose != '' AND building != ''"
-    );
+  const buildingsByPurpose = {};
+  relationRows.forEach((row) => {
+    if (!buildingsByPurpose[row.purpose]) {
+      buildingsByPurpose[row.purpose] = [];
+    }
+    buildingsByPurpose[row.purpose].push(row.building);
+  });
 
-    const buildingsByPurpose = {};
-    relationRows.forEach((row) => {
-      if (!buildingsByPurpose[row.purpose]) {
-        buildingsByPurpose[row.purpose] = [];
-      }
-      buildingsByPurpose[row.purpose].push(row.building);
-    });
-
-    return {
-      allBuildings: allBuildingRows.map((row) => row.building),
-      purposes: purposeRows.map((row) => row.purpose),
-      buildingsByPurpose: buildingsByPurpose,
-    };
-  } catch (error) {
-    Logger.error("Error di getReportFilters service", error, "REPORT_REPOSITORY");
-    throw error;
-  } finally {
-    if (connection) connection.release();
-  }
+  return {
+    allBuildings: allBuildingRows.map((row) => row.building),
+    purposes: purposeRows.map((row) => row.purpose),
+    buildingsByPurpose: buildingsByPurpose,
+  };
 };

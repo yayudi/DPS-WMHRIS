@@ -1,52 +1,7 @@
 // backend/repositories/systemLogRepository.js
 import db from "../config/db.js";
-
-/**
- * Get system audit logs with pagination and filters
- * @param {object} filters
- * @returns {Promise<{data: Array, total: number}>}
- */
-const buildTriStateWhere = (column, filterValue, queryParams) => {
-  const clauses = [];
-  let parsed = filterValue;
-  if (typeof filterValue === "string" && filterValue.startsWith("{")) {
-    try {
-      parsed = JSON.parse(filterValue);
-    } catch {
-      /* ignore */
-    }
-  }
-
-  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-    const inc = parsed.include
-      ? Array.isArray(parsed.include)
-        ? parsed.include
-        : Object.values(parsed.include)
-      : [];
-    if (inc.length > 0) {
-      clauses.push(`${column} IN (?)`);
-      queryParams.push(inc);
-    }
-    const exc = parsed.exclude
-      ? Array.isArray(parsed.exclude)
-        ? parsed.exclude
-        : Object.values(parsed.exclude)
-      : [];
-    if (exc.length > 0) {
-      clauses.push(`${column} NOT IN (?)`);
-      queryParams.push(exc);
-    }
-  } else if (parsed && parsed !== "All" && parsed !== "all") {
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      clauses.push(`${column} IN (?)`);
-      queryParams.push(parsed);
-    } else if (typeof parsed === "string") {
-      clauses.push(`${column} = ?`);
-      queryParams.push(parsed);
-    }
-  }
-  return clauses;
-};
+import { buildTriStateWhere } from "../utils/sqlUtils.js";
+import { normalizePagination } from "../utils/paginationUtils.js";
 
 export const getLogs = async ({
   page = 1,
@@ -58,7 +13,7 @@ export const getLogs = async ({
   startDate,
   endDate,
 }) => {
-  const offset = (page - 1) * limit;
+  const { limit: safeLimit, offset } = normalizePagination({ page, limit }, 20);
   const conditions = ["1=1"];
   const params = [];
 
@@ -116,7 +71,7 @@ export const getLogs = async ({
     LIMIT ? OFFSET ?
   `;
 
-  const [rows] = await db.query(query, [...params, limit, offset]);
+  const [rows] = await db.query(query, [...params, safeLimit, offset]);
 
   return { data: rows, total };
 };

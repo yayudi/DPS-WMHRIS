@@ -1,5 +1,6 @@
-// backend/services/stockService.js
-import db from "../config/db.js";
+import { withTransaction, withConnection } from "../utils/dbUtils.js";
+import { buildTriStateWhere } from "../utils/sqlUtils.js";
+import { normalizePagination, formatPaginationMeta } from "../utils/paginationUtils.js";
 import Logger from "../utils/logger.js";
 import ExcelJS from "exceljs";
 
@@ -7,10 +8,12 @@ import ExcelJS from "exceljs";
 import * as productRepo from "../repositories/productRepository.js";
 import * as locationRepo from "../repositories/locationRepository.js";
 import * as stockRepo from "../repositories/stockMovementRepository.js";
+import * as userRepo from "../repositories/userRepository.js";
+import * as pickingRepo from "../repositories/pickingRepository.js";
 
 // SERVICES
 import * as notificationService from "./notificationService.js";
-import { emitSharedTaskSignal } from "./firebaseSignalService.js";
+import { signals } from "./firebaseSignalService.js";
 
 // ==============================================================================
 // INTERNAL HELPER: SMART ITEM RESOLVER (The "Brain")
@@ -18,9 +21,12 @@ import { emitSharedTaskSignal } from "./firebaseSignalService.js";
 
 /**
  * Menerima array pergerakan stok (SKU & Qty), lalu:
- * Validasi SKU ke DB.
- * Cek apakah Paket? Jika ya, pecah jadi komponen.
- * Kembalikan array item FISIK yang siap diproses stoknya.
+ * - Validasi SKU ke DB
+ * - Cek apakah Paket? Jika ya, pecah jadi komponen
+ * - Kembalikan array item FISIK yang siap diproses stoknya
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {Array<{ sku: string, quantity: number, [key: string]: any }>} movements
+ * @returns {Promise<Array<{ productId: number, sku: string, quantity: number, isComponent?: boolean, parentSku?: string, [key: string]: any }>>}
  */
 const resolveInventoryItems = async (connection, movements) => {
   const resolvedItems = [];
@@ -83,23 +89,14 @@ const resolveInventoryItems = async (connection, movements) => {
 /**
  * Service: Transfer Stok (Single)
  */
-export const transferStockService = async ({
-  productId,
-  fromLocationId,
-  toLocationId,
-  quantity,
-  userId,
-  notes,
-}) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-
-  try {
-    const [rows] = await connection.query("SELECT sku, name FROM products WHERE id = ?", [
-      productId,
-    ]);
-    if (rows.length === 0) throw new Error("Produk tidak ditemukan.");
-    const sku = rows[0].sku;
+export const transferStockService = async (
+  { productId, fromLocationId, toLocationId, quantity, userId, notes },
+  existingConnection = null,
+) => {
+  return withTransaction(async (connection) => {
+    const product = await productRepo.getProductById(connection, productId);
+    if (!product) throw new Error("Produk tidak ditemukan.");
+    const sku = product.sku;
 
     const itemsToMove = await resolveInventoryItems(connection, [
       { sku, quantity, fromLocationId, toLocationId },
@@ -137,8 +134,6 @@ export const transferStockService = async ({
       });
     }
 
-    await connection.commit();
-
     // Kirim Notifikasi
     try {
       const title = "Transfer Stok";
@@ -162,33 +157,26 @@ export const transferStockService = async ({
       Logger.error("Failed to prepare notification", e, "STOCK_SERVICE");
     }
 
-    emitSharedTaskSignal("WMS_DASHBOARD", "REFRESH_STOCK").catch((e) =>
-      Logger.error("Signal Error", e, "STOCK_SERVICE"),
-    );
+    signals.refreshStock();
 
     return { success: true, message: "Transfer berhasil." };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  }, existingConnection);
 };
 
 /**
  * Service: Adjust Stock (Single)
  */
-export const adjustStockService = async ({ productId, locationId, quantity, userId, notes }) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-
-  try {
-    const [rows] = await connection.query("SELECT sku FROM products WHERE id = ?", [productId]);
-    if (rows.length === 0) throw new Error("Produk tidak ditemukan.");
+export const adjustStockService = async (
+  { productId, locationId, quantity, userId, notes },
+  existingConnection = null,
+) => {
+  return withTransaction(async (connection) => {
+    const product = await productRepo.getProductById(connection, productId);
+    if (!product) throw new Error("Produk tidak ditemukan.");
 
     // Helper Resolver (Juga memecah paket saat opname jika user opname paket!)
     const itemsToAdjust = await resolveInventoryItems(connection, [
-      { sku: rows[0].sku, quantity: Math.abs(quantity) },
+      { sku: product.sku, quantity: Math.abs(quantity) },
     ]);
 
     for (const item of itemsToAdjust) {
@@ -220,48 +208,28 @@ export const adjustStockService = async ({ productId, locationId, quantity, user
       });
     }
 
-    await connection.commit();
-
-    emitSharedTaskSignal("WMS_DASHBOARD", "REFRESH_STOCK").catch((e) =>
-      Logger.error("Signal Error", e, "STOCK_SERVICE"),
-    );
+    signals.refreshStock();
 
     return { success: true, message: "Penyesuaian stok berhasil." };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  }, existingConnection);
 };
 
 /**
  * Service: Process Batch Movements (INBOUND, RETURN, TRANSFER, etc)
  */
-export const processBatchMovementsService = async ({
-  type,
-  fromLocationId,
-  toLocationId,
-  notes,
-  movements,
-  userId,
-  userRoleId,
-}) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-
-  try {
+export const processBatchMovementsService = async (
+  { type, fromLocationId, toLocationId, notes, movements, userId, userRoleId },
+  existingConnection = null,
+) => {
+  return withTransaction(async (connection) => {
     // Permission Check
     if (type === "TRANSFER" || type === "ADJUSTMENT") {
       if (userRoleId !== 1) {
         const locationToCheck = type === "TRANSFER" ? fromLocationId : toLocationId;
         if (!locationToCheck) throw new Error("Lokasi wajib diisi untuk operasi ini.");
 
-        const [permissionRows] = await connection.query(
-          "SELECT 1 FROM user_locations WHERE user_id = ? AND location_id = ?",
-          [userId, locationToCheck],
-        );
-        if (permissionRows.length === 0)
+        const hasAccess = await userRepo.hasLocationAccess(connection, userId, locationToCheck);
+        if (!hasAccess)
           throw new Error("Akses ditolak. Anda tidak memiliki izin untuk lokasi ini.");
       }
     }
@@ -299,12 +267,8 @@ export const processBatchMovementsService = async ({
             throw new Error(`Lokasi asal/tujuan tidak valid untuk ${item.sku}`);
 
           if (type === "TRANSFER_MULTI" && userRoleId !== 1) {
-            const [perm] = await connection.query(
-              "SELECT 1 FROM user_locations WHERE user_id = ? AND location_id = ?",
-              [userId, srcLoc],
-            );
-            if (perm.length === 0)
-              throw new Error(`Akses ditolak untuk lokasi asal SKU '${item.sku}'.`);
+            const hasAccess = await userRepo.hasLocationAccess(connection, userId, srcLoc);
+            if (!hasAccess) throw new Error(`Akses ditolak untuk lokasi asal SKU '${item.sku}'.`);
           }
 
           const currentStock = await locationRepo.getStockAtLocation(
@@ -350,9 +314,16 @@ export const processBatchMovementsService = async ({
         case "TRANSFER_OUT":
         case "OUTBOUND": {
           if (!srcLoc) throw new Error("Lokasi asal wajib diisi.");
-          const currentStockOut = await locationRepo.getStockAtLocation(connection, productId, srcLoc, true);
+          const currentStockOut = await locationRepo.getStockAtLocation(
+            connection,
+            productId,
+            srcLoc,
+            true,
+          );
           if (currentStockOut < quantity)
-            throw new Error(`Stok SKU '${item.sku}' kurang. Ada: ${currentStockOut}, Butuh: ${quantity}.`);
+            throw new Error(
+              `Stok SKU '${item.sku}' kurang. Ada: ${currentStockOut}, Butuh: ${quantity}.`,
+            );
 
           await locationRepo.deductStock(connection, productId, srcLoc, quantity);
           await stockRepo.createLog(connection, {
@@ -431,28 +402,21 @@ export const processBatchMovementsService = async ({
       }
     }
 
-    emitSharedTaskSignal("WMS_DASHBOARD", "REFRESH_STOCK").catch((e) =>
-      Logger.error("Signal Error", e, "STOCK_SERVICE"),
-    );
+    signals.refreshStock();
 
     return { success: true, count: resolvedItems.length };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  }, existingConnection);
 };
 
 /**
  * Service: Process Batch Stock Opname (Pure Override)
  * Bypass component breakdown. Fails if package SKU included.
  */
-export const processBatchOpnameService = async ({ movements, userId, userRoleId }) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-
-  try {
+export const processBatchOpnameService = async (
+  { movements, userId, userRoleId },
+  existingConnection = null,
+) => {
+  return withTransaction(async (connection) => {
     // 1. Resolve Items using getProductMap (to check if product exists and if it's package)
     const skuSet = new Set(movements.map((m) => m.sku));
     const productMap = await productRepo.getProductMapWithComponents(
@@ -481,11 +445,8 @@ export const processBatchOpnameService = async ({ movements, userId, userRoleId 
 
       // Ensure user has location permission if not superadmin
       if (userRoleId !== 1) {
-        const [perm] = await connection.query(
-          "SELECT 1 FROM user_locations WHERE user_id = ? AND location_id = ?",
-          [userId, mov.toLocationId],
-        );
-        if (perm.length === 0) {
+        const hasAccess = await userRepo.hasLocationAccess(connection, userId, mov.toLocationId);
+        if (!hasAccess) {
           throw new Error(`Akses ditolak untuk mencatat stok pada lokasi SKU '${mov.sku}'.`);
         }
       }
@@ -519,20 +480,11 @@ export const processBatchOpnameService = async ({ movements, userId, userRoleId 
       }
     }
 
-    await connection.commit();
-
-    emitSharedTaskSignal("WMS_DASHBOARD", "REFRESH_STOCK").catch((e) =>
-      Logger.error("Signal Error", e, "STOCK_SERVICE"),
-    );
+    signals.refreshStock();
 
     // Return processedCount (how many actual updates happened)
     return { success: true, count: processedCount };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  }, existingConnection);
 };
 
 /**
@@ -564,8 +516,7 @@ export const batchTransferService = async ({
  * @returns {Promise<any>}
  */
 export const generateAdjustmentTemplateService = async () => {
-  const connection = await db.getConnection();
-  try {
+  return withConnection(async (connection) => {
     const locationCodes = await locationRepo.getAllLocationCodes(connection);
 
     const workbook = new ExcelJS.Workbook();
@@ -597,17 +548,14 @@ export const generateAdjustmentTemplateService = async () => {
       };
     }
     return workbook;
-  } finally {
-    connection.release();
-  }
+  });
 };
 
 /**
  * @returns {Promise<any>}
  */
 export const generateInboundTemplateService = async () => {
-  const connection = await db.getConnection();
-  try {
+  return withConnection(async (connection) => {
     const locationCodes = await locationRepo.getAllLocationCodes(connection);
 
     const workbook = new ExcelJS.Workbook();
@@ -639,9 +587,7 @@ export const generateInboundTemplateService = async () => {
       };
     }
     return workbook;
-  } finally {
-    connection.release();
-  }
+  });
 };
 
 /**
@@ -665,9 +611,8 @@ export const getStockHistoryService = async (
   locationId = null,
   user = null,
 ) => {
-  const offset = (page - 1) * limit;
-  const connection = await db.getConnection();
-  try {
+  const { page: safePage, limit: safeLimit, offset } = normalizePagination({ page, limit }, 15);
+  return withConnection(async (connection) => {
     let countQuery =
       "SELECT COUNT(*) as total FROM stock_movements sm JOIN users u ON sm.user_id = u.id WHERE sm.product_id = ?";
     const countParams = [productId];
@@ -731,58 +676,20 @@ export const getStockHistoryService = async (
     }
 
     historyQuery += " ORDER BY sm.created_at DESC LIMIT ? OFFSET ?";
-    historyParams.push(limit, offset);
+    historyParams.push(safeLimit, offset);
 
     const [totalRows] = await connection.query(countQuery, countParams);
     const [history] = await connection.query(historyQuery, historyParams);
 
-    return { data: history, pagination: { total: totalRows[0].total, page, limit } };
-  } finally {
-    connection.release();
-  }
+    return {
+      data: history,
+      pagination: formatPaginationMeta(totalRows[0].total, safePage, safeLimit),
+    };
+  });
 };
 
-export const buildTriStateWhere = (column, filterValue, queryParams) => {
-  const clauses = [];
-  let parsed = filterValue;
-  if (typeof filterValue === "string" && filterValue.startsWith("{")) {
-    try {
-      parsed = JSON.parse(filterValue);
-    } catch {
-      /* ignore */
-    }
-  }
-
-  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-    const inc = parsed.include
-      ? Array.isArray(parsed.include)
-        ? parsed.include
-        : Object.values(parsed.include)
-      : [];
-    if (inc.length > 0) {
-      clauses.push(`${column} IN (?)`);
-      queryParams.push(inc);
-    }
-    const exc = parsed.exclude
-      ? Array.isArray(parsed.exclude)
-        ? parsed.exclude
-        : Object.values(parsed.exclude)
-      : [];
-    if (exc.length > 0) {
-      clauses.push(`${column} NOT IN (?)`);
-      queryParams.push(exc);
-    }
-  } else if (parsed && parsed !== "All" && parsed !== "all") {
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      clauses.push(`${column} IN (?)`);
-      queryParams.push(parsed);
-    } else if (typeof parsed === "string") {
-      clauses.push(`${column} = ?`);
-      queryParams.push(parsed);
-    }
-  }
-  return clauses;
-};
+// Re-export for backward compatibility with exportService and consumers
+export { buildTriStateWhere };
 
 /**
  * @param {Object} options
@@ -800,9 +707,8 @@ export const getBatchLogsService = async ({
   page = 1,
   limit = 50,
 }) => {
-  const connection = await db.getConnection();
-  try {
-    const offset = (page - 1) * limit;
+  return withConnection(async (connection) => {
+    const { page: safePage, limit: safeLimit, offset } = normalizePagination({ page, limit }, 50);
     const baseWhere = `sm.created_at BETWEEN ? AND ?`;
     const params = [startDate, `${endDate} 23:59:59`];
 
@@ -872,39 +778,32 @@ export const getBatchLogsService = async ({
     dataQuery += ` ORDER BY sm.created_at DESC LIMIT ? OFFSET ?`;
 
     const [totalRows] = await connection.query(countQuery, params);
-    const dataParams = [...params, limit, offset];
+    const dataParams = [...params, safeLimit, offset];
     const [logs] = await connection.query(dataQuery, dataParams);
 
     return {
       data: logs,
-      pagination: {
-        total: totalRows[0].total,
-        page,
-        limit,
-        totalPages: Math.ceil(totalRows[0].total / limit),
-      },
+      pagination: formatPaginationMeta(totalRows[0].total, safePage, safeLimit),
     };
-  } finally {
-    connection.release();
-  }
+  });
 };
 
 /**
  * @param {Object} options
  * @returns {Promise<any>}
  */
-export const validateReturnService = async ({ pickingListItemId, returnToLocationId, userId }) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-
-  try {
-    const [itemRows] = await connection.query(
-      `SELECT product_id, quantity FROM picking_list_items WHERE id = ? AND status = 'RETURNED' FOR UPDATE`,
-      [pickingListItemId],
+export const validateReturnService = async (
+  { pickingListItemId, returnToLocationId, userId },
+  existingConnection = null,
+) => {
+  return withTransaction(async (connection) => {
+    const returnedItem = await pickingRepo.getReturnedItemForValidation(
+      connection,
+      pickingListItemId,
     );
 
-    if (itemRows.length === 0) throw new Error("Item retur tidak ditemukan atau sudah diproses.");
-    const { product_id, quantity } = itemRows[0];
+    if (!returnedItem) throw new Error("Item retur tidak ditemukan atau sudah diproses.");
+    const { product_id, quantity } = returnedItem;
 
     await locationRepo.incrementStock(connection, product_id, returnToLocationId, quantity);
     await stockRepo.createLog(connection, {
@@ -915,25 +814,12 @@ export const validateReturnService = async ({ pickingListItemId, returnToLocatio
       userId,
       notes: `Validasi Retur Item ID: ${pickingListItemId}`,
     });
-    await connection.query(
-      "UPDATE picking_list_items SET status = 'COMPLETED_RETURN' WHERE id = ?",
-      [pickingListItemId],
-    );
+    await pickingRepo.updateItemStatus(connection, pickingListItemId, "COMPLETED_RETURN");
 
-    await connection.commit();
-    emitSharedTaskSignal("WMS_DASHBOARD", "REFRESH_STOCK").catch((e) =>
-      Logger.error("Signal Error", e, "STOCK_SERVICE"),
-    );
-    emitSharedTaskSignal("PICKING_LIST", "REFRESH_PICKING").catch((e) =>
-      Logger.error("Signal Error", e, "STOCK_SERVICE"),
-    );
+    signals.refreshStock();
+    signals.refreshPicking();
     return { success: true, message: `Item (ID: ${pickingListItemId}) berhasil divalidasi.` };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  }, existingConnection);
 };
 
 /**
@@ -941,11 +827,7 @@ export const validateReturnService = async ({ pickingListItemId, returnToLocatio
  * @returns {Promise<Array>}
  */
 export const getMovementTypesService = async () => {
-  const connection = await db.getConnection();
-  try {
-    const types = await stockRepo.getMovementTypes(connection);
-    return types;
-  } finally {
-    connection.release();
-  }
+  return withConnection(async (connection) => {
+    return stockRepo.getMovementTypes(connection);
+  });
 };

@@ -12,6 +12,7 @@ import BaseTabs from '@/components/ui/BaseTabs.vue'
 import FilterBar from '@/components/ui/FilterBar.vue'
 import DateRangeFilter from '@/components/ui/DateRangeFilter.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
+import { getDefaultMonthRange } from '@/utils/formatters.js'
 
 // Lazy load tab components
 const DetailView = defineAsyncComponent(() => import('@/components/hr/DetailView.vue'))
@@ -36,8 +37,7 @@ const isDataLoading = ref(false)
 const { isMobile } = useMobile()
 const mobileLayout = ref(isMobile.value ? 'card' : 'compact') // 'card' | 'compact'
 const filterValues = ref({
-  startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
-  endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
+  ...getDefaultMonthRange(),
   name: []
 })
 
@@ -131,8 +131,7 @@ watch(
 function clearFilters() {
   filterValues.value.name = []
   // Reset date to current month
-  filterValues.value.startDate = dayjs().startOf('month').format('YYYY-MM-DD')
-  filterValues.value.endDate = dayjs().endOf('month').format('YYYY-MM-DD')
+  Object.assign(filterValues.value, getDefaultMonthRange())
 }
 
 // --- EXPORT ---

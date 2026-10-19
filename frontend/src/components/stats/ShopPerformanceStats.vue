@@ -6,7 +6,9 @@ import FilterBar from '@/components/ui/FilterBar.vue'
 import { fetchShopPerformance } from '@/api/helpers/stats.js'
 import api from '@/api/axios'
 const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
-import { formatNumber, formatCurrency } from '@/utils/formatters.js'
+import { useReportDateRange } from '@/composables/useReportDateRange.js'
+import { formatNumber, formatCurrency, getMonthLabel } from '@/utils/formatters.js'
+import { ANALYTICS_SOURCE_OPTIONS as sourceOptions, getSourceBadgeClass as sourceBadgeClass } from '@/utils/channelConstants.js'
 
 // const { toast } = useToast()
 const { themeColors, isDarkTheme, isThemeChanging } = useTheme()
@@ -21,12 +23,13 @@ const fulfillmentData = ref([])
 const comparisonData = ref({ current: {}, previous: {}, delta: {} })
 const shopOptions = ref([])
 
-const filterValues = ref({
-  reportType: 'monthly',
-  year: new Date().getFullYear(),
-  selectedMonth: ('0' + (new Date().getMonth() + 1)).slice(-2),
-  startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
-  endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
+const {
+  filterValues,
+  resetDateFilters,
+  getDatePayload,
+  getDateFilterSchema,
+  REPORT_TYPE_OPTIONS: reportTypeOptions
+} = useReportDateRange({
   source: { include: [], exclude: [] },
   shopName: { include: [], exclude: [] }
 })
@@ -39,111 +42,20 @@ const tabs = [
   { id: 'comparison', label: 'Perbandingan Periode', icon: 'fa-solid fa-right-left' }
 ]
 
-const reportTypeOptions = [
-  { value: 'monthly', label: 'Bulan', icon: 'fa-solid fa-calendar' },
-  { value: 'annual', label: 'Tahun', icon: 'fa-solid fa-calendar-days' },
-  { value: 'custom', label: 'Kustom', icon: 'fa-solid fa-calendar-plus' }
-]
-
-const sourceOptions = [
-  { id: 'Tokopedia', label: 'Tokopedia / TikTok' },
-  { id: 'Shopee', label: 'Shopee' },
-  { id: 'Offline', label: 'Offline / Lainnya' }
-]
-
-const availableMonths = [
-  { value: '01', label: 'Januari' },
-  { value: '02', label: 'Februari' },
-  { value: '03', label: 'Maret' },
-  { value: '04', label: 'April' },
-  { value: '05', label: 'Mei' },
-  { value: '06', label: 'Juni' },
-  { value: '07', label: 'Juli' },
-  { value: '08', label: 'Agustus' },
-  { value: '09', label: 'September' },
-  { value: '10', label: 'Oktober' },
-  { value: '11', label: 'November' },
-  { value: '12', label: 'Desember' }
-]
-
-const availableYears = computed(() => {
-  const current = new Date().getFullYear()
-  return Array.from({ length: 7 }, (_, i) => current - 5 + i)
-})
 
 const getApiPayload = () => {
-  let startDate, endDate, prevStartDate, prevEndDate
-  if (filterValues.value.reportType === 'annual') {
-    startDate = `${filterValues.value.year}-01-01`
-    endDate = `${filterValues.value.year}-12-31`
-    // Previous = year before
-    const prevYear = filterValues.value.year - 1
-    prevStartDate = `${prevYear}-01-01`
-    prevEndDate = `${prevYear}-12-31`
-  } else if (filterValues.value.reportType === 'monthly') {
-    const d = new Date(`${filterValues.value.year}-${filterValues.value.selectedMonth}-02`)
-    startDate = dayjs(d).startOf('month').format('YYYY-MM-DD')
-    endDate = dayjs(d).endOf('month').format('YYYY-MM-DD')
-
-    const prev = dayjs(d).subtract(1, 'month')
-    prevStartDate = prev.startOf('month').format('YYYY-MM-DD')
-    prevEndDate = prev.endOf('month').format('YYYY-MM-DD')
-  } else {
-    startDate = filterValues.value.startDate
-    endDate = filterValues.value.endDate
-    // For custom range, calculate same-length period before
-    const startMs = new Date(startDate).getTime()
-    const endMs = new Date(endDate).getTime()
-    const diffMs = endMs - startMs
-    prevEndDate = dayjs(startMs - 1).format('YYYY-MM-DD') // day before start
-    prevStartDate = dayjs(startMs - 1 - diffMs).format('YYYY-MM-DD')
-  }
+  const datePayload = getDatePayload({ withComparison: true })
   return {
-    startDate,
-    endDate,
-    prevStartDate,
-    prevEndDate,
+    ...datePayload,
     source: filterValues.value.source,
     shopName: filterValues.value.shopName
   }
 }
 
-const mainFilters = computed(() => {
-  const filters = [{ type: 'segmented', key: 'reportType', label: 'Tipe Laporan', options: reportTypeOptions }]
-
-  if (filterValues.value.reportType === 'annual') {
-    filters.push({
-      type: 'select',
-      key: 'year',
-      label: 'Tahun',
-      options: availableYears.value.map(y => ({ id: y, label: y })),
-      clearable: false,
-      searchable: false
-    })
-  } else if (filterValues.value.reportType === 'monthly') {
-    filters.push({
-      type: 'select',
-      key: 'selectedMonth',
-      label: 'Bulan',
-      options: availableMonths,
-      trackBy: 'value',
-      clearable: false,
-      searchable: false,
-      placeholder: 'Pilih Bulan'
-    })
-    filters.push({
-      type: 'select',
-      key: 'year',
-      label: 'Tahun',
-      options: availableYears.value.map(y => ({ id: y, label: y })),
-      clearable: false,
-      searchable: false
-    })
-  } else {
-    filters.push({ type: 'daterange', keyStart: 'startDate', keyEnd: 'endDate', label: 'Rentang Waktu' })
-  }
-  return filters
-})
+const mainFilters = computed(() => [
+  { type: 'segmented', key: 'reportType', label: 'Tipe Laporan', options: reportTypeOptions },
+  ...getDateFilterSchema()
+])
 
 const advancedFilters = computed(() => [
   {
@@ -308,13 +220,6 @@ const trendOptions = computed(() => ({
   ]
 }))
 
-// === SOURCE BADGE ===
-const sourceBadgeClass = source => {
-  if (source === 'Shopee') return 'bg-[#ee4d2d]/10 text-[#ee4d2d]'
-  if (source === 'Tokopedia') return 'bg-[#00AA5B]/10 text-[#00AA5B]'
-  return 'bg-secondary/20 text-text/70'
-}
-
 // === COMPARISON TAB ===
 const compMetrics = computed(() => [
   {
@@ -363,12 +268,12 @@ const periodLabel = computed(() => {
   const f = filterValues.value
   if (f.reportType === 'annual') return { current: `${f.year}`, previous: `${f.year - 1}` }
   if (f.reportType === 'monthly') {
-    const monthName = availableMonths.find(m => m.value === f.selectedMonth)?.label || f.selectedMonth
-    const prevDate = dayjs(`${f.year}-${f.selectedMonth}-02`).subtract(1, 'month').toDate()
-    const prevMonthName = availableMonths.find(m => m.value === ('0' + (prevDate.getMonth() + 1)).slice(-2))?.label
+    const monthName = getMonthLabel(f.selectedMonth)
+    const prevDate = dayjs(`${f.year}-${f.selectedMonth}-02`).subtract(1, 'month')
+    const prevMonthName = getMonthLabel(prevDate)
     return {
       current: `${monthName} ${f.year}`,
-      previous: `${prevMonthName} ${prevDate.getFullYear()}`
+      previous: `${prevMonthName} ${prevDate.year()}`
     }
   }
   return { current: `${f.startDate} s/d ${f.endDate}`, previous: 'Periode sebelumnya' }
@@ -390,15 +295,9 @@ const periodLabel = computed(() => {
       @change="applyFilters"
       @clear="
         () => {
-          filterValues = {
-            reportType: 'monthly',
-            year: new Date().getFullYear(),
-            selectedMonth: ('0' + (new Date().getMonth() + 1)).slice(-2),
-            startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
-            endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
-            source: { include: [], exclude: [] },
-            shopName: { include: [], exclude: [] }
-          }
+          resetDateFilters()
+          filterValues.value.source = { include: [], exclude: [] }
+          filterValues.value.shopName = { include: [], exclude: [] }
           applyFilters()
         }
       "

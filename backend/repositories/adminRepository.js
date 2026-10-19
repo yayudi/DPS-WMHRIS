@@ -1,5 +1,4 @@
 // backend/repositories/adminRepository.js
-import db from "../config/db.js";
 
 /**
  * Mengambil semua user aktif beserta role dan shift name.

@@ -39,14 +39,16 @@ export const getScheduleByDate = async (userId, date) => {
 /**
  * Create or Update (Upsert) a schedule.
  * @param {Object} scheduleData { userId, shiftId, date, createdBy }
+ * @param {import('mysql2/promise').Connection} [connection]
  */
-export const upsertSchedule = async ({ userId, shiftId, date, createdBy }) => {
+export const upsertSchedule = async ({ userId, shiftId, date, createdBy }, connection) => {
+  const conn = connection || db;
   const query = `
         INSERT INTO user_schedules (user_id, shift_id, date, created_by)
         VALUES (?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE shift_id = VALUES(shift_id), created_by = VALUES(created_by)
     `;
-  const [result] = await db.query(query, [userId, shiftId, date, createdBy]);
+  const [result] = await conn.query(query, [userId, shiftId, date, createdBy]);
   return result;
 };
 

@@ -4,19 +4,7 @@ import fs from "fs";
 import * as productRepo from "../repositories/productRepository.js";
 import * as categoryRepo from "../repositories/categoryRepository.js";
 import Logger from "../utils/logger.js";
-
-const styleHeader = (worksheet, rowNumber, colCount, bgColor = "FFD9E1F2") => {
-  const row = worksheet.getRow(rowNumber);
-  row.height = 20;
-  for (let i = 1; i <= colCount; i++) {
-    const cell = row.getCell(i);
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
-    cell.font = { bold: true };
-    cell.border = { top: { style: "thin" }, bottom: { style: "thin" } };
-    cell.alignment = { vertical: "middle", horizontal: "center" };
-  }
-  row.commit();
-};
+import { styleHeader } from "../utils/excelUtils.js";
 
 /**
  * @param {any} filters
@@ -136,7 +124,11 @@ export const generatePackageExport = async (filters, filePath) => {
     Logger.info("Finished.", "PACKAGE_EXPORT");
   } catch (error) {
     Logger.error("Error", error, "PACKAGE_EXPORT");
-    try { stream.end(); } catch (e) {}
+    try {
+      stream.end();
+    } catch {
+      // Abaikan error saat menutup stream darurat
+    }
     throw error;
   } finally {
     if (connection) connection.release();

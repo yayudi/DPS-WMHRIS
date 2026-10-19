@@ -35,3 +35,17 @@ export const MP_STATUS = {
   RETURNED: "RETURNED", // Shopee/Tokped: "Dikembalikan", "Refund", dll
   UNKNOWN: "UNKNOWN",
 };
+
+export const STOCK_REQUEST_STATUS = Object.freeze({
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  SHIPPED: "SHIPPED",
+  COMPLETED: "COMPLETED",
+  REJECTED: "REJECTED",
+});
+
+export const STOCK_REQUEST_TYPE = Object.freeze({
+  TRANSFER: "TRANSFER",
+  STOCK_OPNAME: "STOCK_OPNAME",
+});
+

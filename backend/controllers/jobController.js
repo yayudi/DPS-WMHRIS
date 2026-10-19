@@ -1,29 +1,21 @@
 // backend/controllers/jobController.js
-import db from "../config/db.js";
 import * as jobRepo from "../repositories/jobRepository.js";
-import Logger from "../utils/logger.js";
+import catchAsync from "../utils/catchAsync.js";
+import { withConnection } from "../utils/dbUtils.js";
+import { parseJsonSafe } from "../utils/jsonUtils.js";
 
 /**
  * Get list of import jobs for the current user.
  */
-export const getUserImportJobs = async (req, res, next) => {
-  let connection;
-  try {
-    const userId = req.user.id;
-    connection = await db.getConnection();
+export const getUserImportJobs = catchAsync(async (req, res) => {
+  const userId = req.user.id;
 
+  const formattedJobs = await withConnection(async (connection) => {
     const jobs = await jobRepo.findByUser(connection, userId, 20); // Limit 20
 
     // Parse error_log JSON if exists
-    const formattedJobs = jobs.map((job) => {
-      let errorLog = null;
-      if (job.error_log) {
-        try {
-          errorLog = typeof job.error_log === "string" ? JSON.parse(job.error_log) : job.error_log;
-        } catch (e) {
-          Logger.warn(`Failed to parse error_log for job ${job.id}`, "JOB_CTRL", e);
-        }
-      }
+    return jobs.map((job) => {
+      const errorLog = parseJsonSafe(job.error_log, null);
 
       return {
         id: job.id,
@@ -32,7 +24,7 @@ export const getUserImportJobs = async (req, res, next) => {
         originalFilename: job.original_filename,
         summary: job.log_summary,
         notes: job.notes || null,
-        errorLog: errorLog, // Contains download_url and errors array
+        errorLog, // Contains download_url and errors array
         createdAt: job.created_at,
         updatedAt: job.updated_at,
         retryCount: job.retry_count,
@@ -40,14 +32,10 @@ export const getUserImportJobs = async (req, res, next) => {
         totalRecords: job.total_records,
       };
     });
+  });
 
-    res.json({
-      success: true,
-      data: formattedJobs,
-    });
-  } catch (error) {
-    next(error);
-  } finally {
-    if (connection) connection.release();
-  }
-};
+  res.json({
+    success: true,
+    data: formattedJobs,
+  });
+});

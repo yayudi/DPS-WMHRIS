@@ -1,4 +1,5 @@
-// backend/repositories/stockRequestRepository.js
+import { normalizePagination, formatPaginationMeta } from "../utils/paginationUtils.js";
+import { STOCK_REQUEST_STATUS, STOCK_REQUEST_TYPE } from "../config/wmsConstants.js";
 
 /**
  * @typedef {Object} StockRequestPayload
@@ -17,7 +18,15 @@
  * @returns {Promise<number>} ID dari stock_request yang dibuat
  */
 export const createStockRequest = async (connection, payload) => {
-  const { requesterId, fromLocationId, toLocationId, notes, items, type = 'TRANSFER' } = payload;
+  const {
+    requesterId,
+    fromLocationId,
+    toLocationId,
+    notes,
+    items,
+    type = STOCK_REQUEST_TYPE.TRANSFER,
+    status = STOCK_REQUEST_STATUS.PENDING
+  } = payload;
 
   // Generate request_number (contoh SR-YYMMDD-XXXX)
   const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, "");
@@ -27,8 +36,8 @@ export const createStockRequest = async (connection, payload) => {
   const [result] = await connection.execute(
     `INSERT INTO stock_requests
     (request_number, type, requester_id, from_location_id, to_location_id, status, notes, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, 'PENDING', ?, NOW(), NOW())`,
-    [requestNumber, type, requesterId, fromLocationId || null, toLocationId || null, notes || null],
+    VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+    [requestNumber, type, requesterId, fromLocationId || null, toLocationId || null, status, notes || null],
   );
 
   const stockRequestId = result.insertId;
@@ -95,9 +104,7 @@ export const getStockRequests = async (connection, filters = {}) => {
   baseQuery += ` ORDER BY sr.created_at DESC`;
 
   // Apply pagination
-  const page = parseInt(filters.page) || 1;
-  const limit = parseInt(filters.limit) || 50;
-  const offset = (page - 1) * limit;
+  const { page, limit, offset } = normalizePagination(filters, 50);
 
   baseQuery += ` LIMIT ? OFFSET ?`;
   queryParams.push(limit, offset);
@@ -134,12 +141,7 @@ export const getStockRequests = async (connection, filters = {}) => {
 
   return {
     data: rows,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit)
-    }
+    pagination: formatPaginationMeta(total, page, limit),
   };
 };
 

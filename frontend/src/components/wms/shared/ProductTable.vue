@@ -11,6 +11,7 @@ import { resolveProductImageUrl } from '@/composables/useImageUrl'
 import ProductThumbnail from '@/components/common/ProductThumbnail.vue'
 import { useMobile } from '@/composables/useMobile'
 import { useClipboard } from '@/composables/useClipboard'
+import { useProductStock } from '@/composables/useProductStock'
 
 const props = defineProps({
   products: { type: Array, required: true },
@@ -92,37 +93,8 @@ function getCurrentLocation(product) {
   return '-'
 }
 
-function getVirtualStock(product) {
-  if (product.is_package && product.components && product.components.length > 0) {
-    const possiblePackages = product.components.map(c => {
-      const stockAvail = c.stock_available || 0
-      const needed = c.quantity || 1
-      return Math.floor(stockAvail / needed)
-    })
-    return Math.min(...possiblePackages)
-  }
-  return 0
-}
-
-function getCurrentStock(product) {
-  let physicalStock = 0
-  if (props.activeView === 'all') physicalStock = product.totalStock
-  else if (props.activeView === 'gudang') physicalStock = product.stockGudang
-  else if (props.activeView === 'pajangan') physicalStock = product.stockPajangan
-  else if (props.activeView === 'ltc') physicalStock = product.stockLTC
-
-  return physicalStock !== 0 && physicalStock !== null ? physicalStock : getVirtualStock(product)
-}
-
-function getDisplayWeight(product) {
-  if (product.weight && product.weight > 0) return product.weight
-  if (product.is_package && product.components && product.components.length > 0) {
-    const hasUnweighedComponent = product.components.some(c => !c.weight || c.weight <= 0)
-    if (hasUnweighedComponent) return 0
-    return product.components.reduce((sum, c) => sum + (c.weight || 0) * (c.quantity || 1), 0)
-  }
-  return 0
-}
+const { getVirtualStock, resolveEffectiveStock, getDisplayWeight } = useProductStock()
+const getCurrentStock = product => resolveEffectiveStock(product, props.activeView)
 
 function hasMultipleLocations(product) {
   const allLocations = product.stock_locations || []

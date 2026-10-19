@@ -1,10 +1,10 @@
-import db from "../config/db.js";
-import Logger from "../utils/logger.js";
 import * as investigationRepo from "../repositories/investigationRepository.js";
 import * as locationRepo from "../repositories/locationRepository.js";
 import * as stockRepo from "../repositories/stockMovementRepository.js";
 import AppError from "../utils/AppError.js";
-import { emitSharedTaskSignal } from "./firebaseSignalService.js";
+import { normalizePagination, formatPaginationMeta } from "../utils/paginationUtils.js";
+import { withTransaction, withConnection } from "../utils/dbUtils.js";
+import { signals } from "./firebaseSignalService.js";
 
 /**
  * Service to find duplicate stock transactions.
@@ -21,22 +21,22 @@ import { emitSharedTaskSignal } from "./firebaseSignalService.js";
  * @returns {Promise<Array>}
  */
 export const getDuplicateTransactionsService = async (filters, page = 1, limit = 10) => {
-  const connection = await db.getConnection();
-  try {
-    // Validasi basic
-    if (filters.startDate && filters.endDate) {
-      if (new Date(filters.startDate) > new Date(filters.endDate)) {
-        throw new AppError("Tanggal mulai tidak boleh lebih besar dari tanggal akhir.", 400);
-      }
+  // Validasi basic
+  if (filters.startDate && filters.endDate) {
+    if (new Date(filters.startDate) > new Date(filters.endDate)) {
+      throw new AppError("Tanggal mulai tidak boleh lebih besar dari tanggal akhir.", 400);
     }
+  }
 
-    const offset = (page - 1) * limit;
+  const { page: safePage, limit: safeLimit, offset } = normalizePagination({ page, limit }, 10);
+
+  return withConnection(async (connection) => {
 
     const totalGroups = await investigationRepo.countDuplicateGroups(connection, filters);
     const duplicates = await investigationRepo.getDuplicateGroups(
       connection,
       filters,
-      limit,
+      safeLimit,
       offset,
     );
 
@@ -219,14 +219,10 @@ export const getDuplicateTransactionsService = async (filters, page = 1, limit =
       data: finalGrouped,
       meta: {
         totalGroups,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(totalGroups / limit),
+        ...formatPaginationMeta(totalGroups, safePage, safeLimit),
       },
     };
-  } finally {
-    connection.release();
-  }
+  });
 };
 
 /**
@@ -235,9 +231,7 @@ export const getDuplicateTransactionsService = async (filters, page = 1, limit =
  * @param {number} userId
  */
 export const revertTransactionService = async (transactionId, userId) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-  try {
+  return withTransaction(async (connection) => {
     // 1. Fetch original transaction
     const [rows] = await connection.query(`SELECT * FROM stock_movements WHERE id = ?`, [
       transactionId,
@@ -303,14 +297,8 @@ export const revertTransactionService = async (transactionId, userId) => {
       [transactionId],
     );
 
-    await connection.commit();
-    emitSharedTaskSignal('INVESTIGATION', 'TRANSACTION_REVERTED').catch(e => Logger.error("Signal Error", e, "INVESTIGATION_SERVICE"));
-    emitSharedTaskSignal('WMS_DASHBOARD', 'REFRESH_STOCK').catch(e => Logger.error("Signal Error", e, "INVESTIGATION_SERVICE"));
+    signals.transactionReverted();
+    signals.refreshStock();
     return { success: true, message: "Transaksi berhasil di-revert dan stok dikembalikan." };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  });
 };

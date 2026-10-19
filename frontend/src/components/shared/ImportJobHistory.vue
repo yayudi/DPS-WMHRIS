@@ -86,7 +86,7 @@
 
 <script setup>
 import { computed, onMounted } from 'vue'
-import dayjs from 'dayjs'
+import { formatDate } from '@/utils/formatters.js'
 import { useUploadStore } from '@/stores/uploadStore.js'
 
 const props = defineProps({
@@ -109,9 +109,6 @@ const filteredJobs = computed(() => {
   return jobs.value.filter((j) => props.jobTypes.includes(j.jobType))
 })
 
-const formatDate = (date) => {
-  return dayjs(date).format('DD MMM YYYY, HH:mm')
-}
 
 const formatStatus = (status) => {
   const map = {

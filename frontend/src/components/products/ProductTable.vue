@@ -10,6 +10,7 @@ import BaseContextMenu from '@/components/ui/BaseContextMenu.vue'
 import { useSmartGrid } from '@/composables/useSmartGrid'
 import { useProductContextMenu } from '@/composables/useProductContextMenu'
 import { useMobile } from '@/composables/useMobile.js'
+import { useProductStock } from '@/composables/useProductStock.js'
 
 const props = defineProps({
   products: { type: Array, required: true, default: () => [] },
@@ -69,25 +70,8 @@ const { getSortIcon } = useSortIcon(toRef(props, 'sortBy'), toRef(props, 'sortOr
 // --- HELPER LOGIC ---
 const getImageUrl = product => resolveProductImageUrl(product)
 
-const getVirtualStock = product => {
-  if (product.is_package && product.components && product.components.length > 0) {
-    const possiblePackages = product.components.map(c => {
-      const stockAvail = c.stock_available || 0
-      const needed = c.quantity || 1
-      return Math.floor(stockAvail / needed)
-    })
-    return Math.min(...possiblePackages)
-  }
-  return 0
-}
-
-const getCurrentStock = product => {
-  let physicalStock = product.total_stock !== undefined ? product.total_stock : product.stock || 0
-  if (product.is_package) {
-    return physicalStock !== 0 ? physicalStock : getVirtualStock(product)
-  }
-  return physicalStock
-}
+const { getVirtualStock, resolveEffectiveStock } = useProductStock()
+const getCurrentStock = product => resolveEffectiveStock(product, 'all')
 
 const isArchived = product => product.is_active === 0 || product.deleted_at
 

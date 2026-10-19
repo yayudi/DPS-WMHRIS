@@ -2,10 +2,12 @@ import db from '../config/db.js';
 
 /**
  * Get all shifts
+ * @param {import('mysql2/promise').Connection} [connection]
  * @returns {Promise<Array>}
  */
-export const getAllShifts = async () => {
-  const [rows] = await db.query('SELECT * FROM shifts ORDER BY name ASC');
+export const getAllShifts = async (connection) => {
+  const conn = connection || db;
+  const [rows] = await conn.query('SELECT * FROM shifts ORDER BY name ASC');
   return rows;
 };
 

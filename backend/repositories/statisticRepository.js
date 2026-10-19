@@ -1,71 +1,7 @@
 // backend/repositories/statisticRepository.js
+import { buildTriStateWhere } from "../utils/sqlUtils.js";
 
-/**
- * @param {any} field
- * @param {any} filter
- * @param {any} queryParams
- * @returns {any}
- */
-export const buildTriStateWhere = (field, filter, queryParams) => {
-  const clauses = [];
-  if (filter) {
-    if (Array.isArray(filter) && filter.length > 0) {
-      clauses.push(`${field} IN (?)`);
-      queryParams.push(filter);
-    } else if (typeof filter === "object" && !Array.isArray(filter)) {
-      const includeItems = filter.include
-        ? Array.isArray(filter.include)
-          ? filter.include
-          : Object.values(filter.include)
-        : [];
-      if (includeItems.length > 0) {
-        clauses.push(`${field} IN (?)`);
-        queryParams.push(includeItems);
-      }
-      const excludeItems = filter.exclude
-        ? Array.isArray(filter.exclude)
-          ? filter.exclude
-          : Object.values(filter.exclude)
-        : [];
-      if (excludeItems.length > 0) {
-        clauses.push(`${field} NOT IN (?)`);
-        queryParams.push(excludeItems);
-      }
-    } else if (typeof filter === "string" && filter !== "all" && filter !== "") {
-      let parsedFilter = null;
-      try {
-        parsedFilter = JSON.parse(filter);
-      } catch {
-        // Not JSON string, treat as normal string
-      }
-
-      if (parsedFilter && typeof parsedFilter === "object" && !Array.isArray(parsedFilter)) {
-        const includeItems = parsedFilter.include
-          ? Array.isArray(parsedFilter.include)
-            ? parsedFilter.include
-            : Object.values(parsedFilter.include)
-          : [];
-        if (includeItems.length > 0) {
-          clauses.push(`${field} IN (?)`);
-          queryParams.push(includeItems);
-        }
-        const excludeItems = parsedFilter.exclude
-          ? Array.isArray(parsedFilter.exclude)
-            ? parsedFilter.exclude
-            : Object.values(parsedFilter.exclude)
-          : [];
-        if (excludeItems.length > 0) {
-          clauses.push(`${field} NOT IN (?)`);
-          queryParams.push(excludeItems);
-        }
-      } else {
-        clauses.push(`${field} = ?`);
-        queryParams.push(filter);
-      }
-    }
-  }
-  return clauses;
-};
+export { buildTriStateWhere };
 
 /**
  * @param {Object} connection

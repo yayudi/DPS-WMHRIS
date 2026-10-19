@@ -1,4 +1,15 @@
 // backend/repositories/productRepository.js
+import { getPaginationOffset } from "../utils/paginationUtils.js";
+
+const ALLOWED_PRODUCT_SORT_COLUMNS = Object.freeze([
+  "name",
+  "sku",
+  "price",
+  "updated_at",
+  "deleted_at",
+  "weight",
+]);
+
 // ============================================================================
 // READ OPERATIONS (Complex Queries & Aggregations)
 // ============================================================================
@@ -38,8 +49,7 @@ export const getProductsWithFilters = async (connection, filters) => {
     skipComponents,
   } = filters;
 
-  const allowedSortColumns = ["name", "sku", "price", "updated_at", "deleted_at", "weight"];
-  const safeSortBy = allowedSortColumns.includes(sortBy) ? `p.${sortBy}` : "p.name";
+  const safeSortBy = ALLOWED_PRODUCT_SORT_COLUMNS.includes(sortBy) ? `p.${sortBy}` : "p.name";
 
   // LOGIKA STATUS: Menggunakan is_active DAN deleted_at
   const whereClauses = [];
@@ -341,8 +351,7 @@ export const getProductsWithFilters = async (connection, filters) => {
 export const getProductsWithFiltersStream = (connection, filters) => {
   const { search, searchBy, packageOnly, is_package, status, location, sortBy, sortOrder } =
     filters;
-  const allowedSortColumns = ["name", "sku", "price", "updated_at", "deleted_at", "weight"];
-  const safeSortBy = allowedSortColumns.includes(sortBy) ? `p.${sortBy}` : "p.name";
+  const safeSortBy = ALLOWED_PRODUCT_SORT_COLUMNS.includes(sortBy) ? `p.${sortBy}` : "p.name";
   const whereClauses = [];
   const queryParams = [];
 
@@ -512,7 +521,7 @@ export const getIdBySku = async (connection, sku) => {
 export const getProductsBySkus = async (connection, skuList) => {
   if (!skuList || skuList.length === 0) return [];
   const [rows] = await connection.query(
-    `SELECT id, sku, is_package, name, price, weight FROM products WHERE sku IN (?)`,
+    `SELECT * FROM products WHERE sku IN (?)`,
     [skuList],
   );
   return rows;
@@ -550,7 +559,7 @@ export const searchProducts = async (
   inStockOnly = false,
 ) => {
   const queryParams = [];
-  const offset = (page - 1) * limit;
+  const offset = getPaginationOffset(page, limit);
 
   const keywords = (searchTerm || "").split(" ").filter((k) => k.length > 0);
   const keywordClauses = keywords.map(() => "(LOWER(p.name) LIKE ? OR LOWER(p.sku) LIKE ?)");
@@ -1190,3 +1199,18 @@ export const getImageById = async (connection, imageId) => {
   );
   return rows.length > 0 ? rows[0] : null;
 };
+
+/**
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {number|string} productId
+ * @param {number|string} mediaId
+ * @returns {Promise<boolean>}
+ */
+export const isProductMediaLinked = async (connection, productId, mediaId) => {
+  const [rows] = await connection.query(
+    "SELECT id FROM product_images WHERE product_id = ? AND media_id = ?",
+    [productId, mediaId]
+  );
+  return rows.length > 0;
+};
+

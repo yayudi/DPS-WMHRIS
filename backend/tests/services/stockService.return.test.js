@@ -32,6 +32,14 @@ jest.unstable_mockModule("../../repositories/stockMovementRepository.js", () => 
   createLog: jest.fn(),
 }));
 
+jest.unstable_mockModule("../../services/firebaseSignalService.js", () => ({
+  signals: {
+    refreshStock: jest.fn(),
+    refreshProducts: jest.fn(),
+  },
+  sendFirebaseSignal: jest.fn(),
+}));
+
 // ============================================================================
 // 2. IMPORT MODULES
 // ============================================================================

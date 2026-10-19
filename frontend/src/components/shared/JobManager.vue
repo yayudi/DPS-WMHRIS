@@ -4,7 +4,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useDownloadStore } from '@/stores/downloadStore.js'
 import { useUploadStore } from '@/stores/uploadStore.js'
 import { useFirebaseSync } from '@/composables/useFirebaseSync.js'
-import dayjs from 'dayjs'
+import { formatDate } from '@/utils/formatters.js'
 
 const downloadStore = useDownloadStore()
 const uploadStore = useUploadStore()
@@ -97,7 +97,6 @@ const getStatusClass = status => {
   return map[status] || 'text-text/60 bg-secondary/10'
 }
 
-const formatDate = date => dayjs(date).format('DD MMM YYYY, HH:mm')
 
 const recentDownloads = computed(() => downloadStore.jobs.slice(0, 5))
 const recentUploads = computed(() => uploadStore.jobs.slice(0, 5))

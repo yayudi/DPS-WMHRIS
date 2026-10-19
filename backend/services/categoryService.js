@@ -1,8 +1,8 @@
-import db from "../config/db.js";
 import Logger from "../utils/logger.js";
 import * as categoryRepo from "../repositories/categoryRepository.js";
 import { emitSharedTaskSignal } from "./firebaseSignalService.js";
 import cache from "../config/cache.js";
+import { withTransaction, withConnection } from "../utils/dbUtils.js";
 
 /**
  * Mengambil semua kategori aktif
@@ -12,14 +12,11 @@ export const getAllCategories = async () => {
   const cacheKey = "MASTER_CATEGORIES";
   if (cache.has(cacheKey)) return cache.get(cacheKey);
 
-  const connection = await db.getConnection();
-  try {
+  return withConnection(async (connection) => {
     const data = await categoryRepo.findAllCategories(connection);
     cache.set(cacheKey, data);
     return data;
-  } finally {
-    connection.release();
-  }
+  });
 };
 
 /**
@@ -28,26 +25,24 @@ export const getAllCategories = async () => {
  * @returns {Promise<Object>}
  */
 export const createCategory = async (name) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-  try {
-    const trimmedName = name.trim();
-    const id = await categoryRepo.createCategory(connection, trimmedName);
-    await connection.commit();
-    cache.del("MASTER_CATEGORIES");
-    emitSharedTaskSignal('MASTER_DATA', 'REFRESH_CATEGORIES').catch(e => Logger.error("Signal Error", e, "CATEGORY_SERVICE"));
-    return { id, name: trimmedName };
-  } catch (error) {
-    await connection.rollback();
-    if (error.code === 'ER_DUP_ENTRY') {
-      const customError = new Error("Nama kategori sudah ada");
-      customError.code = "DUPLICATE_ENTRY";
-      throw customError;
+  return withTransaction(async (connection) => {
+    try {
+      const trimmedName = name.trim();
+      const id = await categoryRepo.createCategory(connection, trimmedName);
+      cache.del("MASTER_CATEGORIES");
+      emitSharedTaskSignal("MASTER_DATA", "REFRESH_CATEGORIES").catch((e) =>
+        Logger.error("Signal Error", e, "CATEGORY_SERVICE"),
+      );
+      return { id, name: trimmedName };
+    } catch (error) {
+      if (error.code === "ER_DUP_ENTRY") {
+        const customError = new Error("Nama kategori sudah ada");
+        customError.code = "DUPLICATE_ENTRY";
+        throw customError;
+      }
+      throw error;
     }
-    throw error;
-  } finally {
-    connection.release();
-  }
+  });
 };
 
 /**
@@ -56,9 +51,7 @@ export const createCategory = async (name) => {
  * @param {string} name 
  */
 export const updateCategory = async (id, name) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-  try {
+  return withTransaction(async (connection) => {
     const trimmedName = name.trim();
     const affected = await categoryRepo.updateCategory(connection, id, trimmedName);
     if (affected === 0) {
@@ -66,15 +59,11 @@ export const updateCategory = async (id, name) => {
       err.code = "NOT_FOUND";
       throw err;
     }
-    await connection.commit();
     cache.del("MASTER_CATEGORIES");
-    emitSharedTaskSignal('MASTER_DATA', 'REFRESH_CATEGORIES').catch(e => Logger.error("Signal Error", e, "CATEGORY_SERVICE"));
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+    emitSharedTaskSignal("MASTER_DATA", "REFRESH_CATEGORIES").catch((e) =>
+      Logger.error("Signal Error", e, "CATEGORY_SERVICE"),
+    );
+  });
 };
 
 /**
@@ -82,22 +71,16 @@ export const updateCategory = async (id, name) => {
  * @param {string} id 
  */
 export const deleteCategory = async (id) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-  try {
+  return withTransaction(async (connection) => {
     const affected = await categoryRepo.deleteCategory(connection, id);
     if (affected === 0) {
       const err = new Error("Kategori tidak ditemukan");
       err.code = "NOT_FOUND";
       throw err;
     }
-    await connection.commit();
     cache.del("MASTER_CATEGORIES");
-    emitSharedTaskSignal('MASTER_DATA', 'REFRESH_CATEGORIES').catch(e => Logger.error("Signal Error", e, "CATEGORY_SERVICE"));
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+    emitSharedTaskSignal("MASTER_DATA", "REFRESH_CATEGORIES").catch((e) =>
+      Logger.error("Signal Error", e, "CATEGORY_SERVICE"),
+    );
+  });
 };

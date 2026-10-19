@@ -2,6 +2,7 @@ import catchAsync from "../utils/catchAsync.js";
 // backend/controllers/attendanceController.js
 import { createJobService } from "../services/jobService.js";
 import db from "../config/db.js";
+import { IMPORT_JOB_TYPE } from "../config/jobConstants.js";
 import { loadHolidays } from "../services/helpers/fileHelpers.js";
 import * as attendanceService from "../services/attendanceService.js";
 import AppError from "../utils/AppError.js";
@@ -51,11 +52,10 @@ export const getIndexes = catchAsync(async (req, res, next) => {
  * Get attendance data by Date Range.
  * Fetches holidays, users, logs, and raw logs for efficient frontend processing.
  */
-export const getRangeData = async (req, res, next) => {
+export const getRangeData = catchAsync(async (req, res) => {
   const { startDate, endDate } = req.query;
 
-  try {
-    const start = new Date(startDate);
+  const start = new Date(startDate);
     const end = new Date(endDate);
 
     // 1. Ambil data libur (Load holidays for both years if range spans years)
@@ -123,22 +123,18 @@ export const getRangeData = async (req, res, next) => {
     };
 
     res.json(responseJson);
-  } catch (error) {
-    next(error);
-  }
-};
+});
 
 /**
  * Get monthly attendance data (Summary & Detail).
  * Fetches holidays, users, logs, and raw logs for efficient frontend processing.
  */
-export const getMonthlyData = async (req, res, next) => {
+export const getMonthlyData = catchAsync(async (req, res) => {
   const year = parseInt(req.params.year);
   const month = parseInt(req.params.month);
 
-  try {
-    // 1. Ambil data libur
-    const holidayMap = await loadHolidays(year);
+  // 1. Ambil data libur
+  const holidayMap = await loadHolidays(year);
 
     // 2. Ambil semua user aktif (untuk normalisasi data frontend jika log kosong)
     const [allUsers] = await db.query(
@@ -194,10 +190,7 @@ export const getMonthlyData = async (req, res, next) => {
     };
 
     res.json(responseJson);
-  } catch (error) {
-    next(error);
-  }
-};
+});
 
 // ============================================================================
 // WRITE OPERATIONS (UPLOAD)
@@ -217,7 +210,7 @@ export const uploadAttendanceLogs = catchAsync(async (req, res, next) => {
   const isDryRun = req.body.dryRun === "true" || req.body.dryRun === true;
 
   // Tentukan Tipe Job berdasarkan Mode
-  const jobType = isDryRun ? "IMPORT_ATTENDANCE_DRY_RUN" : "IMPORT_ATTENDANCE";
+  const jobType = isDryRun ? `${IMPORT_JOB_TYPE.ATTENDANCE}_DRY_RUN` : IMPORT_JOB_TYPE.ATTENDANCE;
 
   const userNotes = req.body.notes ? req.body.notes.trim() : "";
   const defaultNotes = isDryRun ? "Simulasi Import Absensi (Dry Run)" : "Import Absensi";

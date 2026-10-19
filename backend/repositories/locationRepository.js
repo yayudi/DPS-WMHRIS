@@ -292,3 +292,40 @@ export const deleteLocation = async (connection, id) => {
   return result.affectedRows > 0;
 };
 
+/**
+ * Pre-fetch and lock all stock locations with purpose for given products (FOR UPDATE)
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {number[]} productIds
+ * @returns {Promise<Array<{ product_id: number, location_id: number, quantity: number, purpose: string }>>}
+ */
+export const getStockLocationsForUpdate = async (connection, productIds) => {
+  if (!productIds || productIds.length === 0) return [];
+  const [rows] = await connection.query(
+    `SELECT sl.product_id, sl.location_id, sl.quantity, l.purpose
+     FROM stock_locations sl
+     JOIN locations l ON sl.location_id = l.id
+     WHERE sl.product_id IN (?)
+     FOR UPDATE`,
+    [productIds]
+  );
+  return rows;
+};
+
+/**
+ * Lock stock locations for given products (FOR UPDATE)
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {number[]} productIds
+ * @returns {Promise<Array<{ product_id: number, location_id: number, quantity: number }>>}
+ */
+export const getSimpleStockLocationsForUpdate = async (connection, productIds) => {
+  if (!productIds || productIds.length === 0) return [];
+  const [rows] = await connection.query(
+    `SELECT product_id, location_id, quantity
+     FROM stock_locations
+     WHERE product_id IN (?)
+     FOR UPDATE`,
+    [productIds]
+  );
+  return rows;
+};
+

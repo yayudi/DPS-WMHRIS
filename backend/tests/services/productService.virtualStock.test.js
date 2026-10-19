@@ -14,6 +14,14 @@ jest.unstable_mockModule("../../repositories/productRepository.js", () => ({
   insertAuditLog: jest.fn(),
 }));
 
+// Mock services/firebaseSignalService.js
+jest.unstable_mockModule("../../services/firebaseSignalService.js", () => ({
+  signals: {
+    refreshProducts: jest.fn(),
+  },
+  sendFirebaseSignal: jest.fn(),
+}));
+
 // IMPORT MODULES UNDER TEST
 const { calculatePackageMeta } = await import("../../services/productService.js");
 

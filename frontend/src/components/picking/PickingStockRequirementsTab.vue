@@ -5,12 +5,14 @@ import { useQuery } from '@tanstack/vue-query'
 import { getStockRequirements, getStockRequirementOrders } from '@/api/helpers/picking.js'
 import { useFirebaseSync } from '@/composables/useFirebaseSync.js'
 import { useToast } from '@/composables/useToast.js'
+import { useClipboard } from '@/composables/useClipboard.js'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import TriStateSelect from '@/components/ui/TriStateSelect.vue'
 import debounce from 'lodash/debounce'
 import dayjs from 'dayjs'
 
 const { toast } = useToast()
+const { copyToClipboard } = useClipboard()
 
 // --- FILTERS & LOCAL STATE ---
 const searchQuery = ref('')
@@ -334,29 +336,7 @@ onUnmounted(() => {
   window.removeEventListener('click', closeActionDropdown)
 })
 
-/**
- * Salin teks ke clipboard sistem
- * @param {string} text
- * @param {string} successMsg
- */
-async function copyToClipboard(text, successMsg = 'Berhasil disalin!') {
-  try {
-    if (navigator?.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text)
-    } else {
-      const textarea = document.createElement('textarea')
-      textarea.value = text
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
-    }
-    toast.success(successMsg)
-  } catch (err) {
-    console.error('Failed to copy to clipboard:', err)
-    toast.error('Gagal menyalin ke clipboard.')
-  }
-}
+
 
 /**
  * Trigger navigasi ke tab Picking Task dengan filter pencarian

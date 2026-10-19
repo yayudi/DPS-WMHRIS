@@ -1,11 +1,11 @@
 // backend/services/adminService.js
-import db from "../config/db.js";
 import Logger from "../utils/logger.js";
 import bcrypt from "bcryptjs";
 import * as adminRepo from "../repositories/adminRepository.js";
 import { createLog } from "../repositories/systemLogRepository.js";
 import { emitSharedTaskSignal } from "./firebaseSignalService.js";
 import cache from "../config/cache.js";
+import { withTransaction, withConnection } from "../utils/dbUtils.js";
 
 /**
  * Mengambil semua user aktif.
@@ -15,10 +15,11 @@ export const getAllUsers = async () => {
   const cacheKey = "MASTER_USERS_ACTIVE";
   if (cache.has(cacheKey)) return cache.get(cacheKey);
 
-  const [connection] = [db]; // Pool langsung, non-transactional read
-  const data = await adminRepo.findAllActiveUsers(connection);
-  cache.set(cacheKey, data);
-  return data;
+  return withConnection(async (connection) => {
+    const data = await adminRepo.findAllActiveUsers(connection);
+    cache.set(cacheKey, data);
+    return data;
+  });
 };
 
 /**
@@ -26,7 +27,9 @@ export const getAllUsers = async () => {
  * @returns {Promise<Array>}
  */
 export const getAllRoles = async () => {
-  return adminRepo.findAllRoles(db);
+  return withConnection(async (connection) => {
+    return adminRepo.findAllRoles(connection);
+  });
 };
 
 /**
@@ -54,10 +57,7 @@ export const createUser = async ({
   ip,
   userAgent,
 }) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-
-  try {
+  return withTransaction(async (connection) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     const insertId = await adminRepo.insertUser(connection, {
@@ -89,16 +89,12 @@ export const createUser = async ({
       userAgent,
     });
 
-    await connection.commit();
     cache.del("MASTER_USERS_ACTIVE");
-    emitSharedTaskSignal('MASTER_DATA', 'REFRESH_USERS').catch(e => Logger.error("Signal Error", e, "ADMIN_SERVICE"));
+    emitSharedTaskSignal("MASTER_DATA", "REFRESH_USERS").catch((e) =>
+      Logger.error("Signal Error", e, "ADMIN_SERVICE"),
+    );
     return newUser;
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  });
 };
 
 /**
@@ -114,10 +110,7 @@ export const createUser = async ({
 export const updateUser = async ({ adminId, targetId, data, ip, userAgent }) => {
   const { username, nickname, newPassword, role_id, shift_id, exclude_from_attendance } = data;
 
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-
-  try {
+  return withTransaction(async (connection) => {
     const oldUser = await adminRepo.findUserById(connection, targetId);
     if (!oldUser) {
       const err = new Error("User tidak ditemukan.");
@@ -192,20 +185,18 @@ export const updateUser = async ({ adminId, targetId, data, ip, userAgent }) => 
       });
     }
 
-    await connection.commit();
     cache.del("MASTER_USERS_ACTIVE");
-    emitSharedTaskSignal('MASTER_DATA', 'REFRESH_USERS').catch(e => Logger.error("Signal Error", e, "ADMIN_SERVICE"));
+    emitSharedTaskSignal("MASTER_DATA", "REFRESH_USERS").catch((e) =>
+      Logger.error("Signal Error", e, "ADMIN_SERVICE"),
+    );
 
     // Jika terjadi perubahan role atau password, paksa user logout via Firebase
     if (changesRecord.role_id || changesRecord.password) {
-      emitSharedTaskSignal('AUTH_SECURITY', `FORCE_LOGOUT_${targetId}`).catch(e => Logger.error("Signal Error", e, "ADMIN_SERVICE"));
+      emitSharedTaskSignal("AUTH_SECURITY", `FORCE_LOGOUT_${targetId}`).catch((e) =>
+        Logger.error("Signal Error", e, "ADMIN_SERVICE"),
+      );
     }
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  });
 };
 
 /**
@@ -225,10 +216,7 @@ export const deleteUser = async ({ adminId, targetId, ip, userAgent }) => {
     throw err;
   }
 
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-
-  try {
+  return withTransaction(async (connection) => {
     await adminRepo.softDeleteUser(connection, targetId);
 
     // Audit Log
@@ -242,16 +230,14 @@ export const deleteUser = async ({ adminId, targetId, ip, userAgent }) => {
       userAgent,
     });
 
-    await connection.commit();
     cache.del("MASTER_USERS_ACTIVE");
-    emitSharedTaskSignal('MASTER_DATA', 'REFRESH_USERS').catch(e => Logger.error("Signal Error", e, "ADMIN_SERVICE"));
-    emitSharedTaskSignal('AUTH_SECURITY', `FORCE_LOGOUT_${targetId}`).catch(e => Logger.error("Signal Error", e, "ADMIN_SERVICE"));
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+    emitSharedTaskSignal("MASTER_DATA", "REFRESH_USERS").catch((e) =>
+      Logger.error("Signal Error", e, "ADMIN_SERVICE"),
+    );
+    emitSharedTaskSignal("AUTH_SECURITY", `FORCE_LOGOUT_${targetId}`).catch((e) =>
+      Logger.error("Signal Error", e, "ADMIN_SERVICE"),
+    );
+  });
 };
 
 /**
@@ -260,7 +246,9 @@ export const deleteUser = async ({ adminId, targetId, ip, userAgent }) => {
  * @returns {Promise<number[]>}
  */
 export const getUserLocations = async (userId) => {
-  return adminRepo.findUserLocationIds(db, userId);
+  return withConnection(async (connection) => {
+    return adminRepo.findUserLocationIds(connection, userId);
+  });
 };
 
 /**
@@ -274,10 +262,7 @@ export const getUserLocations = async (userId) => {
  * @returns {Promise<void>}
  */
 export const updateUserLocations = async ({ adminId, targetId, locationIds, ip, userAgent }) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-
-  try {
+  return withTransaction(async (connection) => {
     await adminRepo.replaceUserLocations(connection, targetId, locationIds);
 
     // Audit Log
@@ -290,12 +275,5 @@ export const updateUserLocations = async ({ adminId, targetId, locationIds, ip, 
       ip,
       userAgent,
     });
-
-    await connection.commit();
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  });
 };

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
-import dayjs from 'dayjs'
+import { formatDate } from '@/utils/formatters.js'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseTabs from '@/components/ui/BaseTabs.vue'
 import ImportJobHistory from '@/components/shared/ImportJobHistory.vue'
@@ -69,7 +69,6 @@ const getStatusClass = status => {
   return map[status] || 'bg-secondary/10 text-text/60'
 }
 
-const formatDate = date => dayjs(date).format('DD MMM YYYY, HH:mm')
 
 // Actions
 const handleExport = () => {

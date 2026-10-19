@@ -1,11 +1,10 @@
 // backend\services\fileHelpers.js
 import fs from "fs/promises";
 import path from "path";
-import db from "../../config/db.js";
+import * as attendanceRepo from "../../repositories/attendanceRepository.js";
+import { withConnection } from "../../utils/dbUtils.js";
 import Logger from "../../utils/logger.js";
 
-const STATUS_A = 1;
-const STATUS_L = 2;
 const LOG_IN = 0;
 const LOG_OUT = 1;
 const LOG_BREAK_IN = 2;
@@ -31,7 +30,9 @@ async function ensureDir(dirPath) {
 export async function loadHolidays(tahun) {
   const holidayMap = {};
   try {
-    const [rows] = await db.query("SELECT date, name FROM holidays WHERE YEAR(date) = ?", [tahun]);
+    const rows = await withConnection(async (connection) => {
+      return await attendanceRepo.findHolidaysByYear(connection, tahun);
+    });
 
     for (const row of rows) {
       // Ubah objek Tanggal SQL menjadi string YYYY-MM-DD

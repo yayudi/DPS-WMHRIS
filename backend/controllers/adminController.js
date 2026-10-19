@@ -16,7 +16,7 @@ export const getUsers = catchAsync(async (req, res, next) => {
  * POST /api/admin/users
  * Membuat user baru.
  */
-export const createUser = async (req, res, next) => {
+export const createUser = catchAsync(async (req, res) => {
   const { username, password, role_id, nickname, shift_id, exclude_from_attendance } = req.body;
 
   try {
@@ -35,11 +35,11 @@ export const createUser = async (req, res, next) => {
     res.status(201).json({ success: true, message: "Pengguna berhasil dibuat.", data: newUser });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
-      return next(new AppError("Username sudah digunakan.", 409));
+      throw new AppError("Username sudah digunakan.", 409, "DUPLICATE_ENTRY");
     }
-    return next(new AppError("Gagal membuat pengguna.", 500));
+    throw error;
   }
-};
+});
 
 /**
  * GET /api/admin/users/roles
@@ -54,7 +54,7 @@ export const getRoles = catchAsync(async (req, res, next) => {
  * PUT /api/admin/users/:id
  * Update data user.
  */
-export const updateUser = async (req, res, next) => {
+export const updateUser = catchAsync(async (req, res) => {
   const { id } = req.params;
   const { username } = req.body;
 
@@ -70,56 +70,44 @@ export const updateUser = async (req, res, next) => {
     res.json({ success: true, message: "Data pengguna berhasil diperbarui." });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
-      return next(new AppError(`Username '${username}' sudah digunakan.`, 409));
+      throw new AppError(`Username '${username}' sudah digunakan.`, 409, "DUPLICATE_ENTRY");
     }
-    return next(new AppError("Gagal memperbarui data pengguna.", 500));
+    throw error;
   }
-};
+});
 
 /**
  * DELETE /api/admin/users/:id
  * Soft delete user.
  */
-export const deleteUser = async (req, res, next) => {
+export const deleteUser = catchAsync(async (req, res) => {
   const { id } = req.params;
 
-  try {
-    await adminService.deleteUser({
-      adminId: req.user.id,
-      targetId: parseInt(id, 10),
-      ip: req.ip,
-      userAgent: req.headers["user-agent"],
-    });
+  await adminService.deleteUser({
+    adminId: req.user.id,
+    targetId: parseInt(id, 10),
+    ip: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
 
-    res.json({ success: true, message: "User berhasil dihapus." });
-  } catch (error) {
-    if (error.statusCode === 400) {
-      return next(error);
-    }
-    return next(new AppError("Server error", 500));
-  }
-};
+  res.json({ success: true, message: "User berhasil dihapus." });
+});
 
 /**
  * GET /api/admin/users/:id/locations
  * Mengambil lokasi yang diizinkan untuk user.
  */
-export const getUserLocations = async (req, res, next) => {
+export const getUserLocations = catchAsync(async (req, res) => {
   const { id } = req.params;
-
-  try {
-    const locationIds = await adminService.getUserLocations(parseInt(id, 10));
-    res.json({ success: true, data: locationIds });
-  } catch (error) {
-    next(error);
-  }
-};
+  const locationIds = await adminService.getUserLocations(parseInt(id, 10));
+  res.json({ success: true, data: locationIds });
+});
 
 /**
  * PUT /api/admin/users/:id/locations
  * Update lokasi yang diizinkan untuk user.
  */
-export const updateUserLocations = async (req, res, next) => {
+export const updateUserLocations = catchAsync(async (req, res) => {
   const { id } = req.params;
   const { locationIds } = req.body;
 
@@ -135,8 +123,8 @@ export const updateUserLocations = async (req, res, next) => {
     res.json({ success: true, message: "Izin lokasi pengguna berhasil diperbarui." });
   } catch (error) {
     if (error.code === "ER_NO_REFERENCED_ROW_2") {
-      return next(new AppError("Satu atau lebih ID lokasi tidak valid.", 400));
+      throw new AppError("Satu atau lebih ID lokasi tidak valid.", 400, "INVALID_LOCATION");
     }
-    return next(new AppError("Server error", 500));
+    throw error;
   }
-};
+});

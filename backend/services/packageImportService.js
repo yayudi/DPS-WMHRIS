@@ -1,6 +1,7 @@
-import db from "../config/db.js";
+import { withConnection } from "../utils/dbUtils.js";
 import ExcelJS from "exceljs";
 import * as productRepo from "../repositories/productRepository.js";
+import * as categoryRepo from "../repositories/categoryRepository.js";
 import Logger from "../utils/logger.js";
 
 /**
@@ -14,13 +15,12 @@ import Logger from "../utils/logger.js";
  */
 export const processPackageImport = async (filePath, jobId, updateProgress, userId) => {
   Logger.info(`Processing file: ${filePath}`, "PACKAGE_IMPORT");
-  let connection;
-  const errors = [];
-  let processedCount = 0;
-  let successCount = 0;
 
-  try {
-    connection = await db.getConnection();
+  return withConnection(async (connection) => {
+    const errors = [];
+    let processedCount = 0;
+    let successCount = 0;
+
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(filePath);
     const worksheet = workbook.getWorksheet(1); // Assume Sheet 1
@@ -85,7 +85,7 @@ export const processPackageImport = async (filePath, jobId, updateProgress, user
     Logger.info(`Total rows found: ${totalRows}. Valid Component Pairs: ${validComponentPairs.length}`, "PACKAGE_IMPORT");
 
     // [OPTIMIZATION] Fetch Categories to Map category names to IDs
-    const [categories] = await connection.query("SELECT id, name FROM categories WHERE is_active = 1");
+    const categories = await categoryRepo.findAllCategories(connection);
     const categoryMap = {};
     categories.forEach(c => {
       categoryMap[c.name.toLowerCase().trim()] = c.id;
@@ -194,11 +194,5 @@ export const processPackageImport = async (filePath, jobId, updateProgress, user
     }
 
     return { successCount, errors, headerRowIndex: headerRow.number };
-
-  } catch (error) {
-    Logger.error("Fatal Error", error, "PACKAGE_IMPORT");
-    throw error;
-  } finally {
-    if (connection) connection.release();
-  }
+  });
 };

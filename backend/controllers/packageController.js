@@ -1,80 +1,65 @@
-import db from "../config/db.js";
+// backend/controllers/packageController.js
 import * as jobRepo from "../repositories/jobRepository.js";
-import * as productRepo from "../repositories/productRepository.js"; // For standard CRUD if needed
 import AppError from "../utils/AppError.js";
-// Helper: Get Base URL
-const getBaseUrl = (req) => {
-  return `${req.protocol}://${req.get("host")}`;
-};
+import catchAsync from "../utils/catchAsync.js";
+import { withConnection } from "../utils/dbUtils.js";
+import { EXPORT_JOB_TYPE, IMPORT_JOB_TYPE } from "../config/jobConstants.js";
 
-export const exportPackages = async (req, res, next) => {
+/**
+ * Request asynchronous export of packages.
+ */
+export const exportPackages = catchAsync(async (req, res) => {
   const { format, search, searchBy, status } = req.query;
-  const userId = req.user?.id || 1; // Fallback to 1 if no user
+  const userId = req.user?.id || 1;
 
-  let connection;
-  try {
-    connection = await db.getConnection();
+  const filters = {
+    exportType: EXPORT_JOB_TYPE.EXPORT_PACKAGES,
+    format: format || "xlsx",
+    search,
+    searchBy,
+    status,
+  };
 
-    // Create Job Filters
-    const filters = {
-      exportType: "EXPORT_PACKAGES", // Identified by queue
-      format: format || "xlsx",
-      search,
-      searchBy,
-      status,
-    };
-
-    // Create Job
-    const jobId = await jobRepo.createExportJob(connection, {
+  const jobId = await withConnection(async (connection) => {
+    return await jobRepo.createExportJob(connection, {
       userId,
       filters,
-      jobType: "EXPORT_PACKAGES",
+      jobType: EXPORT_JOB_TYPE.EXPORT_PACKAGES,
     });
+  });
 
-    res.json({
-      success: true,
-      message: "Export job created successfully",
-      data: { jobId },
-    });
-  } catch (error) {
-    next(error);
-  } finally {
-    if (connection) connection.release();
-  }
-};
+  res.json({
+    success: true,
+    message: "Export job created successfully",
+    data: { jobId },
+  });
+});
 
-export const importPackagesBatch = async (req, res, next) => {
-  // Phase 4 Implementation Placeholder
-  // Enqueue IMPORT_PACKAGES job
+/**
+ * Enqueue batch package import job.
+ */
+export const importPackagesBatch = catchAsync(async (req, res) => {
   if (!req.file) {
-      return next(new AppError("No file uploaded.", 400));
+    throw new AppError("No file uploaded.", 400, "VALIDATION_ERROR");
   }
 
   const userId = req.user?.id || 1;
   const filePath = req.file.path;
   const originalName = req.file.originalname;
 
-  let connection;
-  try {
-      connection = await db.getConnection();
+  const jobId = await withConnection(async (connection) => {
+    return await jobRepo.create(connection, {
+      userId,
+      jobType: IMPORT_JOB_TYPE.PACKAGES,
+      filename: originalName,
+      filePath,
+      notes: "Batch Package Update",
+    });
+  });
 
-      // Create Import Job
-      const jobId = await jobRepo.create(connection, {
-          userId,
-          jobType: "IMPORT_PACKAGES",
-          filename: originalName,
-          filePath: filePath,
-          notes: "Batch Package Update"
-      });
-
-      res.json({
-          success: true,
-          message: "Import job created successfully",
-          data: { jobId }
-      });
-  } catch (error) {
-    next(error);
-  } finally {
-      if(connection) connection.release();
-  }
-};
+  res.json({
+    success: true,
+    message: "Import job created successfully",
+    data: { jobId },
+  });
+});

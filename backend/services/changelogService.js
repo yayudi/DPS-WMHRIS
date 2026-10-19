@@ -1,11 +1,14 @@
 import * as changelogRepository from "../repositories/changelogRepository.js";
+import { withConnection } from "../utils/dbUtils.js";
 
 /**
  * Memanggil repository dan merapikan data changelog jika diperlukan.
  * @returns {Promise<Array>}
  */
 export const fetchChangelogs = async () => {
-  const logs = await changelogRepository.getChangelogs();
+  const logs = await withConnection(async (connection) => {
+    return await changelogRepository.getChangelogs(connection);
+  });
   
   // Transform format snake_case ke camelCase
   return logs.map(log => ({

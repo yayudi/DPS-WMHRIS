@@ -5,6 +5,7 @@ import BaseTabs from '@/components/ui/BaseTabs.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import { useToast } from '@/composables/useToast.js'
 import axios from '@/api/axios.js'
+import { SOURCE_OPTIONS as tabs, PURPOSE_OPTIONS } from '@/utils/channelConstants.js'
 
 const emit = defineEmits(['upload-complete'])
 const { toast } = useToast()
@@ -20,16 +21,7 @@ const isDragging = ref(false)
 const isDryRun = ref(false)
 const userNotes = ref('')
 
-const tabs = [
-  { label: 'Offline', value: 'Offline' },
-  { label: 'Tokopedia', value: 'Tokopedia' },
-  { label: 'Shopee', value: 'Shopee' },
-]
-
-const purposeOptions = [
-  { id: 'DISPLAY', label: 'DISPLAY (Gudang Utama)' },
-  { id: 'BRANCH', label: 'BRANCH (Cabang LTC)' },
-]
+const purposeOptions = PURPOSE_OPTIONS.map(p => ({ id: p.id, label: p.fullLabel }))
 
 const fileAcceptString = computed(() => {
   if (selectedSource.value === 'Shopee') return '.xlsx, .xls'

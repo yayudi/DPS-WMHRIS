@@ -8,33 +8,9 @@ import * as locationRepo from "../repositories/locationRepository.js";
 import * as reportRepo from "../repositories/reportRepository.js";
 import * as productRepo from "../repositories/productRepository.js";
 import * as categoryRepo from "../repositories/categoryRepository.js";
-import { buildTriStateWhere } from "./stockService.js";
+import { buildTriStateWhere } from "../utils/sqlUtils.js";
 import Logger from "../utils/logger.js";
-
-// Helper Styling
-const styleHeader = (
-  worksheet,
-  rowNumber,
-  colCount,
-  bgColor = "FFD9E1F2",
-  fontColor = "FF000000",
-) => {
-  const row = worksheet.getRow(rowNumber);
-  row.height = 20;
-  for (let i = 1; i <= colCount; i++) {
-    const cell = row.getCell(i);
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
-    cell.font = { bold: true, color: { argb: fontColor } };
-    cell.border = {
-      top: { style: "thin" },
-      left: { style: "thin" },
-      bottom: { style: "thin" },
-      right: { style: "thin" },
-    };
-    cell.alignment = { vertical: "middle", horizontal: "center" };
-  }
-  row.commit();
-};
+import { styleHeader } from "../utils/excelUtils.js";
 
 /**
  * Service: Generate Stock Report (Streaming)

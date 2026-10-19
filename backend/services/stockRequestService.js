@@ -1,92 +1,84 @@
 // backend/services/stockRequestService.js
-import db from "../config/db.js";
 import Logger from "../utils/logger.js";
 import { processBatchMovementsService, processBatchOpnameService } from "./stockService.js";
-import { emitSharedTaskSignal } from "./firebaseSignalService.js";
+import { signals } from "./firebaseSignalService.js";
 import * as stockRequestRepo from "../repositories/stockRequestRepository.js";
 import * as notificationService from "./notificationService.js";
+import { withTransaction, withConnection } from "../utils/dbUtils.js";
+import { STOCK_REQUEST_STATUS, STOCK_REQUEST_TYPE } from "../config/wmsConstants.js";
 
 /**
  * Membuat permintaan stok (bulk)
  */
 export const createStockRequestService = async (payload, userId) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-  try {
-    const fullPayload = { ...payload, requesterId: userId };
-    const type = payload.type || "TRANSFER";
+  const fullPayload = { ...payload, requesterId: userId };
+  const type = payload.type || STOCK_REQUEST_TYPE.TRANSFER;
 
-    // Validasi basic
-    if (type === "TRANSFER") {
-      if (!payload.fromLocationId || !payload.toLocationId) {
-        throw new Error("Lokasi asal dan tujuan harus diisi untuk transfer.");
-      }
-      if (payload.fromLocationId === payload.toLocationId) {
-        throw new Error("Lokasi asal dan tujuan tidak boleh sama.");
-      }
-    } else if (type === "STOCK_OPNAME") {
-      if (!payload.toLocationId) {
-        throw new Error("Lokasi opname harus diisi.");
-      }
+  // Validasi basic
+  if (type === STOCK_REQUEST_TYPE.TRANSFER) {
+    if (!payload.fromLocationId || !payload.toLocationId) {
+      throw new Error("Lokasi asal dan tujuan harus diisi untuk transfer.");
     }
-
-    if (!payload.items || payload.items.length === 0) {
-      throw new Error("Minimal harus ada satu produk yang diminta.");
+    if (payload.fromLocationId === payload.toLocationId) {
+      throw new Error("Lokasi asal dan tujuan tidak boleh sama.");
     }
-
-    const requestId = await stockRequestRepo.createStockRequest(connection, fullPayload);
-    await connection.commit();
-    emitSharedTaskSignal("STOCK_REQUESTS", "REFRESH_REQUESTS").catch((e) => Logger.error("Signal Error", e, "STOCK_REQUEST_SERVICE"));
-
-    // Notifikasi ke user dengan permission approve-stock-requests
-    notificationService
-      .notifyUsersByPermission(
-        "approve-stock-requests",
-        "WMS",
-        "Permintaan Stok Baru",
-        `Permintaan stok baru (${type}) telah dibuat dan menunggu persetujuan.`,
-        { requestId, type },
-        userId,
-        true,
-      )
-      .catch((e) => Logger.error("Failed to send notification", e, "STOCK_REQUEST_SERVICE"));
-
-    return { success: true, message: "Permintaan stok berhasil dibuat.", requestId };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
+  } else if (type === STOCK_REQUEST_TYPE.STOCK_OPNAME) {
+    if (!payload.toLocationId) {
+      throw new Error("Lokasi opname harus diisi.");
+    }
   }
+
+  if (!payload.items || payload.items.length === 0) {
+    throw new Error("Minimal harus ada satu produk yang diminta.");
+  }
+
+  const requestId = await withTransaction(async (connection) => {
+    return await stockRequestRepo.createStockRequest(connection, fullPayload);
+  });
+
+  signals.refreshRequests();
+
+  // Notifikasi ke user dengan permission approve-stock-requests
+  notificationService
+    .notifyUsersByPermission(
+      "approve-stock-requests",
+      "WMS",
+      "Permintaan Stok Baru",
+      `Permintaan stok baru (${type}) telah dibuat dan menunggu persetujuan.`,
+      { requestId, type },
+      userId,
+      true,
+    )
+    .catch((e) => Logger.error("Failed to send notification", e, "STOCK_REQUEST_SERVICE"));
+
+  return { success: true, message: "Permintaan stok berhasil dibuat.", requestId };
 };
 
 /**
  * Mendapatkan semua request dengan filter
  */
 export const getStockRequestsService = async (filters) => {
-  const connection = await db.getConnection();
-  try {
-    const result = await stockRequestRepo.getStockRequests(connection, filters);
-    return {
-      success: true,
-      data: result.data,
-      pagination: result.pagination,
-    };
-  } finally {
-    connection.release();
-  }
+  const result = await withConnection(async (connection) => {
+    return await stockRequestRepo.getStockRequests(connection, filters);
+  });
+  return {
+    success: true,
+    data: result.data,
+    pagination: result.pagination,
+  };
 };
 
 /**
  * Approve Permintaan Stok (Oleh Pihak Pengirim)
  */
 export const approveStockRequestService = async (requestId, user) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-  try {
+  let isOpname = false;
+  let requestData = null;
+
+  await withTransaction(async (connection) => {
     const request = await stockRequestRepo.getStockRequestById(connection, requestId);
     if (!request) throw new Error("Permintaan stok tidak ditemukan.");
-    if (request.status !== "PENDING")
+    if (request.status !== STOCK_REQUEST_STATUS.PENDING)
       throw new Error("Hanya permintaan berstatus PENDING yang dapat disetujui.");
 
     // Cegah self-approval
@@ -94,7 +86,10 @@ export const approveStockRequestService = async (requestId, user) => {
       throw new Error("Anda tidak dapat menyetujui permintaan Anda sendiri.");
     }
 
-    if (request.type === "STOCK_OPNAME") {
+    requestData = request;
+
+    if (request.type === STOCK_REQUEST_TYPE.STOCK_OPNAME) {
+      isOpname = true;
       const movements = request.items.map((reqItem) => ({
         sku: reqItem.sku,
         quantity: reqItem.quantity,
@@ -112,49 +107,41 @@ export const approveStockRequestService = async (requestId, user) => {
         await stockRequestRepo.updateRequestItemReceived(connection, reqItem.id, reqItem.quantity);
       }
 
-      await stockRequestRepo.updateStockRequestStatus(connection, requestId, "COMPLETED");
-      await connection.commit();
-      emitSharedTaskSignal("STOCK_REQUESTS", "REFRESH_REQUESTS").catch((e) => Logger.error("Signal Error", e, "STOCK_REQUEST_SERVICE"));
-
-      // Notifikasi ke requester
-      notificationService
-        .notifyUsers(
-          [request.requester_id],
-          "WMS",
-          "Permintaan Opname Disetujui",
-          `Permintaan stok opname ${request.request_number} telah disetujui dan stok disesuaikan.`,
-          { requestId, requestNumber: request.request_number },
-          true,
-        )
-        .catch((e) => Logger.error("Failed to send notification", e, "STOCK_REQUEST_SERVICE"));
-
-      return { success: true, message: "Permintaan stok opname disetujui dan stok disesuaikan." };
+      await stockRequestRepo.updateStockRequestStatus(connection, requestId, STOCK_REQUEST_STATUS.COMPLETED);
+    } else {
+      await stockRequestRepo.updateStockRequestStatus(connection, requestId, STOCK_REQUEST_STATUS.APPROVED);
     }
+  });
 
-    await stockRequestRepo.updateStockRequestStatus(connection, requestId, "APPROVED");
+  signals.refreshRequests();
 
-    await connection.commit();
-    emitSharedTaskSignal("STOCK_REQUESTS", "REFRESH_REQUESTS").catch((e) => Logger.error("Signal Error", e, "STOCK_REQUEST_SERVICE"));
-
-    // Notifikasi ke requester
+  if (isOpname) {
     notificationService
       .notifyUsers(
-        [request.requester_id],
+        [requestData.requester_id],
         "WMS",
-        "Permintaan Stok Disetujui",
-        `Permintaan stok ${request.request_number} telah disetujui. Silakan lakukan konfirmasi penerimaan.`,
-        { requestId, requestNumber: request.request_number },
+        "Permintaan Opname Disetujui",
+        `Permintaan stok opname ${requestData.request_number} telah disetujui dan stok disesuaikan.`,
+        { requestId, requestNumber: requestData.request_number },
         true,
       )
       .catch((e) => Logger.error("Failed to send notification", e, "STOCK_REQUEST_SERVICE"));
 
-    return { success: true, message: "Permintaan stok berhasil disetujui." };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
+    return { success: true, message: "Permintaan stok opname disetujui dan stok disesuaikan." };
   }
+
+  notificationService
+    .notifyUsers(
+      [requestData.requester_id],
+      "WMS",
+      "Permintaan Stok Disetujui",
+      `Permintaan stok ${requestData.request_number} telah disetujui. Silakan lakukan konfirmasi penerimaan.`,
+      { requestId, requestNumber: requestData.request_number },
+      true,
+    )
+    .catch((e) => Logger.error("Failed to send notification", e, "STOCK_REQUEST_SERVICE"));
+
+  return { success: true, message: "Permintaan stok berhasil disetujui." };
 };
 
 /**
@@ -162,15 +149,17 @@ export const approveStockRequestService = async (requestId, user) => {
  * Mengurangi stok dari gudang asal dan merubah status jadi SHIPPED
  */
 export const dispatchStockRequestService = async (requestId, user) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-  try {
+  let requestData = null;
+
+  await withTransaction(async (connection) => {
     const request = await stockRequestRepo.getStockRequestById(connection, requestId);
     if (!request) throw new Error("Permintaan stok tidak ditemukan.");
-    if (request.status !== "APPROVED")
+    if (request.status !== STOCK_REQUEST_STATUS.APPROVED)
       throw new Error("Hanya permintaan berstatus APPROVED yang dapat dikirim.");
-    if (request.type === "STOCK_OPNAME")
+    if (request.type === STOCK_REQUEST_TYPE.STOCK_OPNAME)
       throw new Error("Permintaan Stock Opname tidak memerlukan pengiriman.");
+
+    requestData = request;
 
     // Deduct stock from sender (TRANSFER_OUT)
     const movements = request.items.map((reqItem) => ({
@@ -190,68 +179,55 @@ export const dispatchStockRequestService = async (requestId, user) => {
       userRoleId: user.role_id || 1, // Bypass jika role admin
     });
 
-    await stockRequestRepo.updateStockRequestStatus(connection, requestId, "SHIPPED");
+    await stockRequestRepo.updateStockRequestStatus(connection, requestId, STOCK_REQUEST_STATUS.SHIPPED);
+  });
 
-    await connection.commit();
-    emitSharedTaskSignal("STOCK_REQUESTS", "REFRESH_REQUESTS").catch((e) => Logger.error("Signal Error", e, "STOCK_REQUEST_SERVICE"));
+  signals.refreshRequests();
 
-    // Notifikasi ke requester
-    notificationService
-      .notifyUsers(
-        [request.requester_id],
-        "WMS",
-        "Barang Telah Dikirim",
-        `Barang untuk permintaan stok ${request.request_number} telah dikirim oleh gudang asal.`,
-        { requestId, requestNumber: request.request_number },
-        true,
-      )
-      .catch((e) => Logger.error("Failed to send notification", e, "STOCK_REQUEST_SERVICE"));
+  notificationService
+    .notifyUsers(
+      [requestData.requester_id],
+      "WMS",
+      "Barang Telah Dikirim",
+      `Barang untuk permintaan stok ${requestData.request_number} telah dikirim oleh gudang asal.`,
+      { requestId, requestNumber: requestData.request_number },
+      true,
+    )
+    .catch((e) => Logger.error("Failed to send notification", e, "STOCK_REQUEST_SERVICE"));
 
-    return { success: true, message: "Barang berhasil dikirim dan stok asal telah dipotong." };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  return { success: true, message: "Barang berhasil dikirim dan stok asal telah dipotong." };
 };
 
 /**
  * Reject Permintaan Stok
  */
 export const rejectStockRequestService = async (requestId, _) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-  try {
+  let requestData = null;
+
+  await withTransaction(async (connection) => {
     const request = await stockRequestRepo.getStockRequestById(connection, requestId);
     if (!request) throw new Error("Permintaan stok tidak ditemukan.");
-    if (request.status !== "PENDING")
+    if (request.status !== STOCK_REQUEST_STATUS.PENDING)
       throw new Error("Hanya permintaan berstatus PENDING yang dapat ditolak.");
 
-    await stockRequestRepo.updateStockRequestStatus(connection, requestId, "REJECTED");
+    requestData = request;
+    await stockRequestRepo.updateStockRequestStatus(connection, requestId, STOCK_REQUEST_STATUS.REJECTED);
+  });
 
-    await connection.commit();
-    emitSharedTaskSignal("STOCK_REQUESTS", "REFRESH_REQUESTS").catch((e) => Logger.error("Signal Error", e, "STOCK_REQUEST_SERVICE"));
+  signals.refreshRequests();
 
-    // Notifikasi ke requester
-    notificationService
-      .notifyUsers(
-        [request.requester_id],
-        "WMS",
-        "Permintaan Stok Ditolak",
-        `Permintaan stok ${request.request_number} telah ditolak.`,
-        { requestId, requestNumber: request.request_number },
-        true,
-      )
-      .catch((e) => Logger.error("Failed to send notification", e, "STOCK_REQUEST_SERVICE"));
+  notificationService
+    .notifyUsers(
+      [requestData.requester_id],
+      "WMS",
+      "Permintaan Stok Ditolak",
+      `Permintaan stok ${requestData.request_number} telah ditolak.`,
+      { requestId, requestNumber: requestData.request_number },
+      true,
+    )
+    .catch((e) => Logger.error("Failed to send notification", e, "STOCK_REQUEST_SERVICE"));
 
-    return { success: true, message: "Permintaan stok telah ditolak." };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  return { success: true, message: "Permintaan stok telah ditolak." };
 };
 
 /**
@@ -259,18 +235,19 @@ export const rejectStockRequestService = async (requestId, _) => {
  * Ini akan mentrigger penambahan stok (TRANSFER_IN).
  */
 export const completeStockRequestService = async (requestId, receivedItems, user) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-  try {
+  let requestData = null;
+
+  await withTransaction(async (connection) => {
     const request = await stockRequestRepo.getStockRequestById(connection, requestId);
     if (!request) throw new Error("Permintaan stok tidak ditemukan.");
-    if (request.status !== "SHIPPED")
+    if (request.status !== STOCK_REQUEST_STATUS.SHIPPED)
       throw new Error("Hanya permintaan berstatus SHIPPED yang dapat diselesaikan.");
+
+    requestData = request;
 
     // Update received_quantity
     const movements = [];
     for (const reqItem of request.items) {
-      // Cari received quantity dari payload receivedItems (jika ada), kalau tidak full quantity
       const match = receivedItems
         ? receivedItems.find((r) => r.productId === reqItem.product_id)
         : null;
@@ -278,7 +255,7 @@ export const completeStockRequestService = async (requestId, receivedItems, user
 
       await stockRequestRepo.updateRequestItemReceived(connection, reqItem.id, rQty);
 
-      if (request.type === "STOCK_OPNAME") {
+      if (request.type === STOCK_REQUEST_TYPE.STOCK_OPNAME) {
         throw new Error("Permintaan Stock Opname tidak memerlukan konfirmasi penerimaan.");
       } else {
         if (rQty > 0) {
@@ -306,30 +283,23 @@ export const completeStockRequestService = async (requestId, receivedItems, user
       });
     }
 
-    await stockRequestRepo.updateStockRequestStatus(connection, requestId, "COMPLETED");
+    await stockRequestRepo.updateStockRequestStatus(connection, requestId, STOCK_REQUEST_STATUS.COMPLETED);
+  });
 
-    await connection.commit();
-    emitSharedTaskSignal("STOCK_REQUESTS", "REFRESH_REQUESTS").catch((e) => Logger.error("Signal Error", e, "STOCK_REQUEST_SERVICE"));
+  signals.refreshRequests();
 
-    // Notifikasi ke requester
-    notificationService
-      .notifyUsers(
-        [request.requester_id],
-        "WMS",
-        "Permintaan Stok Selesai",
-        `Permintaan stok ${request.request_number} telah selesai dan stok berhasil ditransfer.`,
-        { requestId, requestNumber: request.request_number },
-        true,
-      )
-      .catch((e) => Logger.error("Failed to send notification", e, "STOCK_REQUEST_SERVICE"));
+  notificationService
+    .notifyUsers(
+      [requestData.requester_id],
+      "WMS",
+      "Permintaan Stok Selesai",
+      `Permintaan stok ${requestData.request_number} telah selesai dan stok berhasil ditransfer.`,
+      { requestId, requestNumber: requestData.request_number },
+      true,
+    )
+    .catch((e) => Logger.error("Failed to send notification", e, "STOCK_REQUEST_SERVICE"));
 
-    return { success: true, message: "Permintaan stok selesai dan stok telah ditransfer." };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  return { success: true, message: "Permintaan stok selesai dan stok telah ditransfer." };
 };
 
 /**

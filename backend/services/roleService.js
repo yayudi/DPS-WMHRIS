@@ -3,9 +3,9 @@ import db from "../config/db.js";
 import AppError from "../utils/AppError.js";
 import * as roleRepo from "../repositories/roleRepository.js";
 import { createLog } from "../repositories/systemLogRepository.js";
-import { emitSharedTaskSignal } from "./firebaseSignalService.js";
+import { signals } from "./firebaseSignalService.js";
 import cache from "../config/cache.js";
-import Logger from "../utils/logger.js";
+import { withTransaction } from "../utils/dbUtils.js";
 
 /**
  * @returns {Promise<any>}
@@ -48,35 +48,29 @@ export const getRolePermissionsService = async (roleId) => {
  * @returns {Promise<any>}
  */
 export const updateRolePermissionsService = async (roleId, permissionIds, userId, ip, userAgent) => {
-  let connection;
   try {
-    connection = await db.getConnection();
-    await connection.beginTransaction();
+    await withTransaction(async (connection) => {
+      await roleRepo.deleteRolePermissions(connection, roleId);
+      await roleRepo.insertRolePermissions(connection, roleId, permissionIds);
 
-    await roleRepo.deleteRolePermissions(connection, roleId);
-    await roleRepo.insertRolePermissions(connection, roleId, permissionIds);
-
-    await createLog(connection, {
-      userId: userId,
-      action: "UPDATE",
-      targetType: "ROLE",
-      targetId: String(roleId),
-      changes: { note: "Updated Role Permissions", permissionCount: permissionIds.length },
-      ip,
-      userAgent,
+      await createLog(connection, {
+        userId: userId,
+        action: "UPDATE",
+        targetType: "ROLE",
+        targetId: String(roleId),
+        changes: { note: "Updated Role Permissions", permissionCount: permissionIds.length },
+        ip,
+        userAgent,
+      });
     });
 
-    await connection.commit();
     cache.del("MASTER_ROLES");
-    emitSharedTaskSignal('MASTER_DATA', 'REFRESH_ROLES').catch(e => Logger.error("Signal Error", e, "ROLE_SERVICE"));
+    signals.refreshRoles();
   } catch (error) {
-    if (connection) await connection.rollback();
     if (error.code === "ER_NO_REFERENCED_ROW_2") {
       throw new AppError("Satu atau lebih ID izin atau peran tidak valid.", 400);
     }
     throw error;
-  } finally {
-    if (connection) connection.release();
   }
 };
 
@@ -103,7 +97,7 @@ export const createRoleService = async (name, description, userId, ip, userAgent
     });
 
     cache.del("MASTER_ROLES");
-    emitSharedTaskSignal('MASTER_DATA', 'REFRESH_ROLES').catch(e => Logger.error("Signal Error", e, "ROLE_SERVICE"));
+    signals.refreshRoles();
     return roleId;
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
@@ -138,7 +132,7 @@ export const updateRoleService = async (roleId, name, description, userId, ip, u
     });
     
     cache.del("MASTER_ROLES");
-    emitSharedTaskSignal('MASTER_DATA', 'REFRESH_ROLES').catch(e => Logger.error("Signal Error", e, "ROLE_SERVICE"));
+    signals.refreshRoles();
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
       throw new AppError("Nama peran sudah digunakan.", 409);
@@ -170,7 +164,7 @@ export const deleteRoleService = async (roleId, userId, ip, userAgent) => {
     });
     
     cache.del("MASTER_ROLES");
-    emitSharedTaskSignal('MASTER_DATA', 'REFRESH_ROLES').catch(e => Logger.error("Signal Error", e, "ROLE_SERVICE"));
+    signals.refreshRoles();
   } catch (error) {
     if (error.code === "ER_ROW_IS_REFERENCED_2") {
       throw new AppError("Gagal menghapus: Peran ini masih digunakan oleh satu atau lebih pengguna.", 400);

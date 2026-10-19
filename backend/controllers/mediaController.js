@@ -6,7 +6,9 @@ import db from "../config/db.js";
 import Logger from "../utils/logger.js";
 import { storageService } from "../services/storageService.js";
 import * as productRepo from "../repositories/productRepository.js";
-import { emitSharedTaskSignal } from "../services/firebaseSignalService.js";
+import { signals } from "../services/firebaseSignalService.js";
+
+import { normalizePagination, formatPaginationMeta } from "../utils/paginationUtils.js";
 
 import AppError from "../utils/AppError.js";
 
@@ -15,9 +17,7 @@ import AppError from "../utils/AppError.js";
  * list paginated
  */
 export const listMedia = async (req, res, next) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
-  const offset = (page - 1) * limit;
+  const { page, limit, offset } = normalizePagination(req.query, 20);
 
   const filters = {};
   if (req.query.search && req.query.search.trim()) {
@@ -42,12 +42,7 @@ export const listMedia = async (req, res, next) => {
     res.json({
       success: true,
       data: assets,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      pagination: formatPaginationMeta(total, page, limit),
     });
   } catch (error) {
     next(error);
@@ -143,7 +138,7 @@ export const deleteMedia = async (req, res, next) => {
 
     
     // Broadcast signal agar list media refresh otomatis di client lain
-    emitSharedTaskSignal("MASTER_DATA", "REFRESH_MEDIA");
+    signals.refreshMedia();
 
     res.json({ success: true, message: "Media berhasil dihapus" });
   } catch (error) {
@@ -174,7 +169,7 @@ export const updateMediaTagsController = async (req, res, next) => {
 
     await mediaRepo.updateMediaTags(connection, id, tags);
     
-    emitSharedTaskSignal("MASTER_DATA", "REFRESH_MEDIA");
+    signals.refreshMedia();
     
     res.json({ success: true, message: "Tags berhasil diperbarui" });
   } catch (error) {
@@ -201,7 +196,7 @@ export const updateMediaTitleController = async (req, res, next) => {
 
     await mediaRepo.updateMediaTitle(connection, id, title.trim());
     
-    emitSharedTaskSignal("MASTER_DATA", "REFRESH_MEDIA");
+    signals.refreshMedia();
     
     res.json({ success: true, message: "Judul berhasil diperbarui" });
   } catch (error) {
@@ -338,7 +333,7 @@ export const confirmUpload = async (req, res, next) => {
     await connection.commit();
     
     // Trigger update ke client lain
-    emitSharedTaskSignal("MASTER_DATA", "REFRESH_MEDIA");
+    signals.refreshMedia();
 
     res.json({
       success: true,

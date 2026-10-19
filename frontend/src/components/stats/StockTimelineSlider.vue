@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { getProductStockTimeline } from '@/api/helpers/statistics';
+import { formatDate } from '@/utils/formatters.js';
 
 const props = defineProps({
   productId: {
@@ -99,11 +100,7 @@ const nextPage = () => {
   if (page.value > 1) page.value--;
 };
 
-// UI helpers
-const formatDate = (dateString) => {
-  if (!dateString) return '-';
-  return new Date(dateString).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' });
-};
+
 
 // Keyboard Navigation & Sparkline
 const handleKeydown = (e) => {
@@ -175,7 +172,7 @@ const parsedNotes = computed(() => {
   if (refMatch) {
     const fullMatch = refMatch[0];
     const refCode = refMatch[1] || fullMatch.replace(/(?:Ref:|Invoice:|PO:)\s*/i, '');
-    let cleanText = notes.replace(fullMatch, '').replace(/[\(\)]/g, '').trim();
+    let cleanText = notes.replace(fullMatch, '').replace(/[()]/g, '').trim();
     if (cleanText.toLowerCase() === 'sale') cleanText = 'Penjualan';
 
     return {

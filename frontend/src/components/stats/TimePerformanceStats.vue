@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
-import { dayjs } from '@/api/helpers/time.js'
+import { useReportDateRange } from '@/composables/useReportDateRange.js'
 import { useTheme } from '@/composables/useTheme.js'
 import DateRangeFilter from '@/components/ui/DateRangeFilter.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
@@ -14,12 +14,7 @@ const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
 const isDataLoading = ref(false)
 const timelineList = ref([])
 
-const filterValues = ref({
-  reportType: 'monthly',
-  year: new Date().getFullYear(),
-  selectedMonth: ('0' + (new Date().getMonth() + 1)).slice(-2),
-  startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
-  endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
+const { filterValues, availableYears, getDatePayload, MONTH_OPTIONS, getMonthLabel, REPORT_TYPE_OPTIONS } = useReportDateRange({
   searchQuery: '',
   buildings: []
 })
@@ -44,58 +39,15 @@ onMounted(async () => {
 
 const activeResolution = ref('daily')
 
-const reportTypeOptions = [
-  { id: 'monthly', label: 'Bulanan (Per Hari)' },
-  { id: 'annual', label: 'Tahunan (Per Bulan)' },
-  { id: 'custom', label: 'Rentang Waktu Kustom' }
-]
+const reportTypeOptions = REPORT_TYPE_OPTIONS.map(o => ({ id: o.id, label: o.longLabel }))
 
-const availableMonths = [
-  { value: '01', label: 'Januari' },
-  { value: '02', label: 'Februari' },
-  { value: '03', label: 'Maret' },
-  { value: '04', label: 'April' },
-  { value: '05', label: 'Mei' },
-  { value: '06', label: 'Juni' },
-  { value: '07', label: 'Juli' },
-  { value: '08', label: 'Agustus' },
-  { value: '09', label: 'September' },
-  { value: '10', label: 'Oktober' },
-  { value: '11', label: 'November' },
-  { value: '12', label: 'Desember' }
-]
-
-const availableYears = computed(() => {
-  const current = new Date().getFullYear()
-  const years = []
-  for (let i = current - 5; i <= current + 1; i++) {
-    years.push(i)
-  }
-  return years
-})
 
 const getApiPayload = () => {
-  let startDate, endDate, timeResolution
-  if (filterValues.value.reportType === 'annual') {
-    startDate = `${filterValues.value.year}-01-01`
-    endDate = `${filterValues.value.year}-12-31`
-    timeResolution = 'monthly'
-  } else if (filterValues.value.reportType === 'monthly') {
-    const d = new Date(`${filterValues.value.year}-${filterValues.value.selectedMonth}-02`)
-    startDate = dayjs(d).startOf('month').format('YYYY-MM-DD')
-    endDate = dayjs(d).endOf('month').format('YYYY-MM-DD')
-    timeResolution = 'daily'
-  } else {
-    startDate = filterValues.value.startDate
-    endDate = filterValues.value.endDate
-    timeResolution = 'daily'
-  }
+  const datePayload = getDatePayload()
   return {
-    startDate,
-    endDate,
+    ...datePayload,
     searchQuery: filterValues.value.searchQuery,
-    buildings: filterValues.value.buildings,
-    timeResolution
+    buildings: filterValues.value.buildings
   }
 }
 
@@ -145,13 +97,10 @@ const chartTimelineOptions = computed(() => ({
       style: { colors: labelColor.value, cssClass: 'text-xs' },
       formatter: val => {
         if (!val) return val
-        const parts = val.split('-')
         if (activeResolution.value === 'monthly') {
-          // Format YYYY-MM
-          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
-          const m = parseInt(parts[1], 10)
-          return `${monthNames[m - 1]}`
+          return getMonthLabel(val, { short: true })
         }
+        const parts = val.split('-')
         return parts.length >= 3 ? `${parts[2]}/${parts[1]}` : val
       }
     }
@@ -219,7 +168,7 @@ const toggleSort = () => {
           <div v-else-if="filterValues.reportType === 'monthly'" class="flex gap-2">
             <BaseSelect
               v-model="filterValues.selectedMonth"
-              :options="availableMonths"
+              :options="MONTH_OPTIONS"
               track-by="value"
               emitValue
               :searchable="false"
@@ -336,11 +285,7 @@ const toggleSort = () => {
                 <td class="px-6 py-3 font-medium text-text font-mono border-r border-secondary/10">
                   {{
                     filterValues.reportType === 'annual' && item.date.length >= 7
-                      ? ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'][
-                          parseInt(item.date.split('-')[1]) - 1
-                        ] +
-                        ' ' +
-                        filterValues.year
+                      ? `${getMonthLabel(item.date, { short: true })} ${filterValues.year}`
                       : item.date
                   }}
                 </td>

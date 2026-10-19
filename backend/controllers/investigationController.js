@@ -1,5 +1,6 @@
 import catchAsync from "../utils/catchAsync.js";
 import * as investigationService from "../services/investigationService.js";
+import { parseJsonSafe } from "../utils/jsonUtils.js";
 
 /**
  * Mendapatkan transaksi ganda (duplikat).
@@ -12,24 +13,19 @@ export const getDuplicateTransactions = catchAsync(async (req, res, next) => {
     minOccurrences, maxOccurrences, minSku, maxSku, sortBy, sortDirection, maxTimeGap
   } = req.query;
 
-  const parseTriState = (val) => {
-    if (!val) return null;
-    try { return typeof val === 'string' ? JSON.parse(val) : val; } catch { return val; }
-  };
-
   const result = await investigationService.getDuplicateTransactionsService({
     startDate,
     endDate,
     includeNotes,
     excludeNotes,
-    movementType: parseTriState(movementType),
+    movementType: parseJsonSafe(movementType, null),
     productName,
     username,
     location,
     exactQuantity: exactQuantity === 'true',
     revertStatus,
-    plSource: parseTriState(plSource),
-    plStatus: parseTriState(plStatus),
+    plSource: parseJsonSafe(plSource, null),
+    plStatus: parseJsonSafe(plStatus, null),
     plMarketplaceStatus,
     plCustomer,
     minOccurrences: minOccurrences ? Number(minOccurrences) : undefined,

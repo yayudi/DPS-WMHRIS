@@ -6,10 +6,12 @@ import { fileURLToPath } from "url";
 import Logger from "../../utils/logger.js";
 import { ensureDirectoryExists } from "../../utils/workerHelpers.js";
 import { getFormattedDateTime } from "../../services/helpers/sharedHelpers.js";
+import { parseJsonSafe } from "../../utils/jsonUtils.js";
+import { EXPORT_JOB_TYPE } from "../../config/jobConstants.js";
 
 // REPOSITORIES
 import * as jobRepo from "../../repositories/jobRepository.js";
-import { emitSharedTaskSignal } from "../../services/firebaseSignalService.js";
+import { signals } from "../../services/firebaseSignalService.js";
 
 // SERVICE
 import {
@@ -49,31 +51,21 @@ export const processQueue = async () => {
     connection.release();
 
     // Parse Filters & Determine Type (Mendukung tipe String maupun Object ter-parse dari MySQL)
-    let filters = {};
-    if (typeof job.filters === "string") {
-      try {
-        filters = JSON.parse(job.filters || "{}");
-      } catch (err) {
-        Logger.warn("Gagal parse job.filters string, fallback ke {}", "EXPORT_WORKER", err);
-        filters = {};
-      }
-    } else if (job.filters && typeof job.filters === "object") {
-      filters = job.filters;
-    }
+    const filters = parseJsonSafe(job.filters, {});
 
-    const exportType = filters.exportType || "STOCK_REPORT";
+    const exportType = filters.exportType || EXPORT_JOB_TYPE.STOCK_REPORT;
     const dateStr = getFormattedDateTime();
     const ext = filters.format === "csv" ? ".csv" : ".xlsx";
     const fileName =
-      exportType === "PRODUCT_MASTER"
+      exportType === EXPORT_JOB_TYPE.PRODUCT_MASTER
         ? `Master_Produk_${dateStr}_(Job-${jobId})${ext}`
-        : exportType === "EXPORT_PACKAGES"
+        : exportType === EXPORT_JOB_TYPE.EXPORT_PACKAGES
           ? `Data_Paket_${dateStr}_(Job-${jobId})${ext}`
-          : exportType === "STATISTICS_STOCK_MOVEMENT"
+          : exportType === EXPORT_JOB_TYPE.STATISTICS_STOCK_MOVEMENT
             ? `Statistik_Stok_${dateStr}_(Job-${jobId})${ext}`
-            : exportType === "INVENTORY_VALUE"
+            : exportType === EXPORT_JOB_TYPE.INVENTORY_VALUE
               ? `Nilai_Inventaris_${dateStr}_(Job-${jobId})${ext}`
-              : exportType === "BATCH_LOG_EXPORT"
+              : exportType === EXPORT_JOB_TYPE.BATCH_LOG_EXPORT
                 ? `Batch_Log_${dateStr}_(Job-${jobId})${ext}`
                 : `Laporan_Stok_${dateStr}_(Job-${jobId})${ext}`;
 
@@ -81,13 +73,13 @@ export const processQueue = async () => {
 
     // DISPATCHER
     Logger.info(`Dispatching service for type: ${exportType}`, "EXPORT_WORKER");
-    if (exportType === "PRODUCT_MASTER") {
+    if (exportType === EXPORT_JOB_TYPE.PRODUCT_MASTER) {
       await generateProductExportStreaming(filters, filePath);
-    } else if (exportType === "EXPORT_PACKAGES") {
+    } else if (exportType === EXPORT_JOB_TYPE.EXPORT_PACKAGES) {
       await packageExportService.generatePackageExport(filters, filePath);
-    } else if (exportType === "STATISTICS_STOCK_MOVEMENT") {
+    } else if (exportType === EXPORT_JOB_TYPE.STATISTICS_STOCK_MOVEMENT) {
       await statisticExportService.generateStatisticExport(filters, filePath);
-    } else if (exportType === "BATCH_LOG_EXPORT") {
+    } else if (exportType === EXPORT_JOB_TYPE.BATCH_LOG_EXPORT) {
       await import("../../services/exportService.js").then((m) =>
         m.generateBatchLogExportStreaming(filters, filePath)
       );
@@ -112,7 +104,7 @@ export const processQueue = async () => {
     try {
       Logger.info(`Updating job ${jobId} status to COMPLETED...`, "EXPORT_WORKER");
       await jobRepo.completeExportJob(updateConnection, jobId, `${fileName}`);
-      emitSharedTaskSignal('BACKGROUND_JOBS', 'EXPORT_COMPLETED').catch(e => Logger.error("Signal Error", e, "EXPORT_WORKER"));
+      signals.exportCompleted();
     } finally {
       updateConnection.release();
     }
@@ -125,7 +117,7 @@ export const processQueue = async () => {
         const errConnection = await db.getConnection();
         await jobRepo.failExportJob(errConnection, jobId, error.message.substring(0, 255));
         errConnection.release();
-        emitSharedTaskSignal('BACKGROUND_JOBS', 'EXPORT_FAILED').catch(e => Logger.error("Signal Error", e, "EXPORT_WORKER"));
+        signals.exportFailed();
       } catch (dbError) {
         Logger.error("Fatal DB Error saat update FAILED", dbError, "EXPORT_WORKER");
       }

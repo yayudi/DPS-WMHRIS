@@ -13,6 +13,7 @@ import { usePagination } from '@/composables/usePagination.js'
 import BaseContextMenu from '@/components/ui/BaseContextMenu.vue'
 import { useContextMenu } from '@/composables/useContextMenu.js'
 import { useInstantInlineEdit } from '@/composables/useInstantInlineEdit.js'
+import { PLATFORM_OPTIONS as platformOptions } from '@/utils/channelConstants.js'
 
 const { isMobile } = useMobile()
 const { toast } = useToast()
@@ -42,8 +43,6 @@ const formData = ref({
   description: '',
   isActive: true
 })
-
-const platformOptions = ['Shopee', 'Tokopedia', 'Offline', 'Lainnya']
 
 // Modal hapus diganti dengan swalConfirm
 

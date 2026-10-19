@@ -1,16 +1,6 @@
-// Helper for formatting date
-export const formatDate = dateStr => {
-  if (!dateStr) return '-'
-  const d = new Date(dateStr)
-  return d.toLocaleString('id-ID', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
-}
+import { formatDate } from '@/utils/formatters.js'
+
+export { formatDate }
 
 // Helper to extract Picking List Item ID from notes
 export const extractItemId = notes => {

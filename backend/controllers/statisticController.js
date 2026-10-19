@@ -3,6 +3,7 @@ import catchAsync from "../utils/catchAsync.js";
 import * as statisticService from "../services/statisticService.js";
 import db from "../config/db.js";
 import * as jobRepo from "../repositories/jobRepository.js";
+import { EXPORT_JOB_TYPE } from "../config/jobConstants.js";
 export const getStockMovements = catchAsync(async (req, res, next) => {
   const {
     startDate,
@@ -54,13 +55,13 @@ export const requestStockMovementsExport = catchAsync(async (req, res, next) => 
     movement,
     buildings: building, // array if passed from UI usually
     categoryId,
-    exportType: "STATISTICS_STOCK_MOVEMENT",
+    exportType: EXPORT_JOB_TYPE.STATISTICS_STOCK_MOVEMENT,
   };
 
   const jobId = await jobRepo.createExportJob(db, {
     userId,
     filters,
-    jobType: "STATISTICS_STOCK_MOVEMENT",
+    jobType: EXPORT_JOB_TYPE.STATISTICS_STOCK_MOVEMENT,
   });
 
   res.status(202).json({
@@ -105,13 +106,13 @@ export const requestStockTimelineExport = catchAsync(async (req, res, next) => {
     status: status || "all",
     movement: movement || "all",
     buildings: building || [],
-    exportType: "STATISTICS_STOCK_TIMELINE",
+    exportType: EXPORT_JOB_TYPE.STATISTICS_STOCK_TIMELINE,
   };
 
   const jobId = await jobRepo.createExportJob(db, {
     userId,
     filters,
-    jobType: "STATISTICS_STOCK_TIMELINE",
+    jobType: EXPORT_JOB_TYPE.STATISTICS_STOCK_TIMELINE,
   });
 
   res.status(202).json({

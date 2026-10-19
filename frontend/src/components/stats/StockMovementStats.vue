@@ -1,6 +1,5 @@
 <script setup>
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
-import { dayjs } from '@/api/helpers/time.js'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast.js'
 import { useTheme } from '@/composables/useTheme.js'
@@ -15,7 +14,7 @@ import StatsChartCard from './shared/StatsChartCard.vue'
 import FilterBar from '@/components/ui/FilterBar.vue'
 import StockTimelineModal from '@/components/stats/StockTimelineModal.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
-import { formatNumber } from '@/utils/formatters.js'
+import { formatNumber, getDefaultMonthRange } from '@/utils/formatters.js'
 import { usePagination } from '@/composables/usePagination.js'
 
 const authStore = useAuthStore()
@@ -46,8 +45,7 @@ const {
 })
 
 const filterValues = ref({
-  startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
-  endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
+  ...getDefaultMonthRange(),
   searchQuery: '',
   status: { include: [], exclude: [] },
   movement: 'all',
@@ -584,8 +582,7 @@ const chartScatterOptions = computed(() => ({
       @clear="
         () => {
           filterValues = {
-            startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
-            endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
+            ...getDefaultMonthRange(),
             searchQuery: '',
             status: { include: [], exclude: [] },
             movement: 'all',

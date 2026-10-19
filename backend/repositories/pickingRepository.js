@@ -1,6 +1,7 @@
 // backend/repositories/pickingRepository.js
 import { WMS_STATUS } from "../config/wmsConstants.js";
 import Logger from "../utils/logger.js";
+import { buildTriStateWhere } from "../utils/sqlUtils.js";
 
 // ============================================================================
 // READ OPERATIONS
@@ -236,48 +237,6 @@ export const getStockRequirementLocationPurposes = async (connection) => {
  * @param {{ search?: string, status?: string, source?: string, locationPurpose?: string, sortBy?: string, sortOrder?: string, page?: number, limit?: number }} options
  * @returns {Promise<{ summary: Object, items: Array<Object>, total: number }>}
  */
-/**
- * Helper to build TriState WHERE clauses for SQL queries.
- * Supports { include: [], exclude: [] }, JSON string, array, or single string.
- * @param {string} field
- * @param {any} filter
- * @param {Array} queryParams
- * @returns {Array<string>}
- */
-const buildTriStateWhere = (field, filter, queryParams) => {
-  const clauses = [];
-  if (!filter) return clauses;
-
-  let parsed = filter;
-  if (typeof filter === 'string' && (filter.startsWith('{') || filter.startsWith('['))) {
-    try {
-      parsed = JSON.parse(filter);
-    } catch {
-      // Keep as string
-    }
-  }
-
-  if (Array.isArray(parsed) && parsed.length > 0) {
-    clauses.push(`${field} IN (?)`);
-    queryParams.push(parsed);
-  } else if (typeof parsed === 'object' && parsed !== null) {
-    const inc = Array.isArray(parsed.include) ? parsed.include : [];
-    if (inc.length > 0) {
-      clauses.push(`${field} IN (?)`);
-      queryParams.push(inc);
-    }
-    const exc = Array.isArray(parsed.exclude) ? parsed.exclude : [];
-    if (exc.length > 0) {
-      clauses.push(`${field} NOT IN (?)`);
-      queryParams.push(exc);
-    }
-  } else if (typeof parsed === 'string' && parsed.toLowerCase() !== 'all' && parsed.trim() !== '') {
-    clauses.push(`${field} = ?`);
-    queryParams.push(parsed.trim());
-  }
-
-  return clauses;
-};
 
 export const getStockRequirementsList = async (
   connection,
@@ -770,4 +729,145 @@ export const createItemsBulk = async (connection, rows) => {
     `INSERT INTO picking_list_items (picking_list_id, product_id, original_sku, price, quantity, status, suggested_location_id) VALUES ?`,
     [rows]
   );
+};
+
+/**
+ * Mengambil item VALIDATED yang siap direstock saat pembatalan order.
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {number|string} pickingListId
+ * @returns {Promise<Array<{ product_id: number, quantity: number, confirmed_location_id: number }>>}
+ */
+export const getValidatedItemsForRestock = async (connection, pickingListId) => {
+  const [rows] = await connection.query(
+    `SELECT product_id, quantity, confirmed_location_id
+     FROM picking_list_items
+     WHERE picking_list_id = ? AND status = 'VALIDATED' AND confirmed_location_id IS NOT NULL`,
+    [pickingListId]
+  );
+  return rows;
+};
+
+/**
+ * Mengambil item BACKORDER atau unallocated PENDING untuk satu picking list.
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {number|string} pickingListId
+ * @returns {Promise<Array<any>>}
+ */
+export const getUnfulfillableItemsByListId = async (connection, pickingListId) => {
+  const [rows] = await connection.query(
+    `SELECT
+       pli.id,
+       pli.picking_list_id,
+       pli.product_id,
+       pli.price,
+       pli.quantity,
+       pli.original_sku,
+       pl.location_purpose
+     FROM picking_list_items pli
+     JOIN picking_lists pl ON pli.picking_list_id = pl.id
+     WHERE pli.picking_list_id = ?
+       AND (pli.status = 'BACKORDER' OR (pli.status = 'PENDING' AND pli.suggested_location_id IS NULL))
+       AND pl.status IN ('PENDING', 'VALIDATED')
+       AND pl.is_active = 1`,
+    [pickingListId]
+  );
+  return rows;
+};
+
+/**
+ * Memperbarui alokasi kuantitas, lokasi, dan status item picking.
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {number|string} itemId
+ * @param {number} quantity
+ * @param {number|string|null} locationId
+ * @param {string} [status='PENDING']
+ * @returns {Promise<any>}
+ */
+export const updateItemAllocation = async (connection, itemId, quantity, locationId, status = "PENDING") => {
+  return connection.query(
+    "UPDATE picking_list_items SET quantity = ?, suggested_location_id = ?, status = ? WHERE id = ?",
+    [quantity, locationId, status, itemId]
+  );
+};
+
+/**
+ * Menyisipkan single picking item baru (misal saat split allocation).
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {Object} data
+ * @returns {Promise<any>}
+ */
+export const insertPickingItem = async (connection, { pickingListId, productId, originalSku, price = 0, quantity, status = "PENDING", suggestedLocationId = null }) => {
+  return connection.query(
+    `INSERT INTO picking_list_items (picking_list_id, product_id, original_sku, price, quantity, status, suggested_location_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [pickingListId, productId, originalSku, price, quantity, status, suggestedLocationId]
+  );
+};
+
+/**
+ * Mengambil semua item pending & backorder dari sekumpulan picking lists.
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {Array<number|string>} pickingListIds
+ * @returns {Promise<Array<any>>}
+ */
+export const getPendingAndBackorderItemsByListIds = async (connection, pickingListIds) => {
+  if (!pickingListIds || pickingListIds.length === 0) return [];
+  const [rows] = await connection.query(
+    `SELECT
+       pli.id,
+       pli.product_id,
+       pli.quantity,
+       pli.original_sku,
+       pli.status,
+       pli.suggested_location_id,
+       pl.location_purpose
+     FROM picking_list_items pli
+     JOIN picking_lists pl ON pli.picking_list_id = pl.id
+     WHERE pli.picking_list_id IN (?)
+       AND pli.status IN ('PENDING', 'BACKORDER')
+       AND pl.status IN ('PENDING', 'VALIDATED')
+       AND pl.is_active = 1`,
+    [pickingListIds]
+  );
+  return rows;
+};
+
+/**
+ * Mengambil SKU dari item yang unfulfillable untuk anti-parsial check.
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {number|string} listId
+ * @returns {Promise<Array<{ original_sku: string }>>}
+ */
+export const getUnfulfillableSkusByListId = async (connection, listId) => {
+  const [rows] = await connection.query(
+    `SELECT original_sku FROM picking_list_items
+     WHERE picking_list_id = ?
+       AND (status = 'BACKORDER' OR (status = 'PENDING' AND suggested_location_id IS NULL))`,
+    [listId]
+  );
+  return rows;
+};
+
+/**
+ * Menghapus seluruh item dari suatu picking list.
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {number|string} pickingListId
+ * @returns {Promise<any>}
+ */
+export const deleteItemsByPickingListId = async (connection, pickingListId) => {
+  return connection.query("DELETE FROM picking_list_items WHERE picking_list_id = ?", [pickingListId]);
+};
+
+/**
+ * Mengambil item RETURNED dengan row lock (FOR UPDATE) untuk validasi return.
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {number|string} itemId
+ * @returns {Promise<{ product_id: number, quantity: number }|null>}
+ */
+export const getReturnedItemForValidation = async (connection, itemId) => {
+  const [rows] = await connection.query(
+    "SELECT product_id, quantity FROM picking_list_items WHERE id = ? AND status = 'RETURNED' FOR UPDATE",
+    [itemId]
+  );
+  return rows.length > 0 ? rows[0] : null;
 };

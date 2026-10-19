@@ -5,9 +5,9 @@ import cache from "../config/cache.js";
 import * as productService from "../services/productService.js";
 import * as productRepo from "../repositories/productRepository.js";
 import * as jobRepo from "../repositories/jobRepository.js";
-import Logger from "../utils/logger.js";
-
+import { parseJsonSafe } from "../utils/jsonUtils.js";
 import AppError from "../utils/AppError.js";
+import { EXPORT_JOB_TYPE } from "../config/jobConstants.js";
 // ============================================================================
 // READ OPERATIONS (Direct Repo Access)
 // ============================================================================
@@ -34,80 +34,59 @@ export const getAdminProductList = catchAsync(async (req, res, next) => {
 
 // GET /
 // Main Product List (Mendukung Filter Status, Tipe, Search, Sort)
-export const getProducts = async (req, res, next) => {
+export const getProducts = catchAsync(async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
 
-  try {
-    const safeParse = (str) => {
-      if (!str) return [];
-      try {
-        return JSON.parse(str);
-      } catch {
-        return Array.isArray(str) ? str : [str];
-      }
-    };
+  const filters = {
+    page: parseInt(req.query.page) || 1,
+    limit: parseInt(req.query.limit) || 20,
+    search: req.query.search || "",
+    searchBy: req.query.searchBy === "sku" ? "sku" : "name",
+    location: req.query.location || "all",
+    status: req.query.status || "active",
+    is_package: req.query.is_package !== undefined ? req.query.is_package === "true" : undefined,
+    packageOnly: req.query.packageOnly === "true",
+    stockStatus: req.query.minusOnly === "true" ? "minus" : req.query.stockStatus || "all",
 
-    const filters = {
-      page: parseInt(req.query.page) || 1,
-      limit: parseInt(req.query.limit) || 20,
-      search: req.query.search || "",
-      searchBy: req.query.searchBy === "sku" ? "sku" : "name",
-      location: req.query.location || "all",
-      status: req.query.status || "active",
-      is_package: req.query.is_package !== undefined ? req.query.is_package === "true" : undefined,
-      packageOnly: req.query.packageOnly === "true",
-      stockStatus: req.query.minusOnly === "true" ? "minus" : req.query.stockStatus || "all",
+    // Tri-State Filters
+    categoryInclude: parseJsonSafe(req.query.categoryInclude, []),
+    categoryExclude: parseJsonSafe(req.query.categoryExclude, []),
+    buildingInclude: parseJsonSafe(req.query.buildingInclude, []),
+    buildingExclude: parseJsonSafe(req.query.buildingExclude, []),
+    floorInclude: parseJsonSafe(req.query.floorInclude, []),
+    floorExclude: parseJsonSafe(req.query.floorExclude, []),
 
-      // Tri-State Filters
-      categoryInclude: safeParse(req.query.categoryInclude),
-      categoryExclude: safeParse(req.query.categoryExclude),
-      buildingInclude: safeParse(req.query.buildingInclude),
-      buildingExclude: safeParse(req.query.buildingExclude),
-      floorInclude: safeParse(req.query.floorInclude),
-      floorExclude: safeParse(req.query.floorExclude),
+    // Fallbacks
+    building: req.query.building || "all",
+    floor: req.query.floor || "all",
+    categoryId: req.query.category_id || "",
 
-      // Fallbacks
-      building: req.query.building || "all",
-      floor: req.query.floor || "all",
-      categoryId: req.query.category_id || "",
-
-      sortBy: req.query.sortBy || "sku",
-      sortOrder: req.query.sortOrder === "asc" ? "ASC" : "DESC",
-      skipComponents: req.query.skipComponents === "true",
-    };
-    filters.offset = (filters.page - 1) * filters.limit;
-    const result = await productRepo.getProductsWithFilters(db, filters);
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
-};
+    sortBy: req.query.sortBy || "sku",
+    sortOrder: req.query.sortOrder === "asc" ? "ASC" : "DESC",
+    skipComponents: req.query.skipComponents === "true",
+  };
+  filters.offset = (filters.page - 1) * filters.limit;
+  const result = await productRepo.getProductsWithFilters(db, filters);
+  res.json(result);
+});
 
 // GET /:id
-export const getProductById = async (req, res, next) => {
+export const getProductById = catchAsync(async (req, res) => {
   const { id } = req.params;
-  try {
-    const product = await productRepo.getProductDetailWithStock(db, id);
-    if (!product) {
-      return next(new AppError("Produk tidak ditemukan", 404));
-    }
-
-    res.json({ success: true, data: product });
-  } catch (error) {
-    next(error);
+  const product = await productRepo.getProductDetailWithStock(db, id);
+  if (!product) {
+    throw new AppError("Produk tidak ditemukan", 404, "NOT_FOUND");
   }
-};
+
+  res.json({ success: true, data: product });
+});
 
 // GET /:id/stock-details
-export const getProductStockDetails = async (req, res, next) => {
+export const getProductStockDetails = catchAsync(async (req, res) => {
   const { id } = req.params;
-  try {
-    const rows = await productRepo.getProductStockDetails(db, id);
-    res.json({ success: true, data: rows });
-  } catch (error) {
-    next(error);
-  }
-};
+  const rows = await productRepo.getProductStockDetails(db, id);
+  res.json({ success: true, data: rows });
+});
 
 // GET /:id/history
 export const getProductHistory = catchAsync(async (req, res, next) => {
@@ -145,25 +124,10 @@ export const getProductStockTimeline = catchAsync(async (req, res, next) => {
 
 // POST /
 // Membuat produk baru
-export const createProduct = async (req, res, next) => {
+export const createProduct = catchAsync(async (req, res) => {
   const { sku, name, category_id, price, weight, is_package, mediaIds } = req.body;
-  let components = req.body.components;
-
-  // Handle Components JSON parsing from FormData
-  if (typeof components === "string") {
-    try {
-      components = JSON.parse(components);
-    } catch {
-      components = [];
-    }
-  }
-
-  // Parse mediaIds if it comes as stringified array
-  let parsedMediaIds = mediaIds || [];
-  if (typeof parsedMediaIds === "string") {
-    try { parsedMediaIds = JSON.parse(parsedMediaIds); } catch { parsedMediaIds = []; }
-  }
-
+  const components = parseJsonSafe(req.body.components, typeof req.body.components === "object" ? req.body.components : []);
+  const parsedMediaIds = parseJsonSafe(mediaIds, Array.isArray(mediaIds) ? mediaIds : []);
   const userId = req.user.id;
 
   try {
@@ -175,45 +139,27 @@ export const createProduct = async (req, res, next) => {
     cache.flushAll(); // Reset cache WMS
     res.status(201).json({ success: true, message: "Produk berhasil dibuat.", productId });
   } catch (error) {
-    Logger.error("Create Product Error", error, "PRODUCT_CONTROLLER");
     if (error.code === "DUPLICATE_SKU" || error.code === "ER_DUP_ENTRY") {
-      return next(new AppError("SKU sudah terdaftar.", 409));
+      throw new AppError("SKU sudah terdaftar.", 409, "DUPLICATE_SKU");
     }
-    return next(new AppError("Gagal membuat produk.", 500));
+    throw error;
   }
-};
+});
 
 // PUT /:id
 // Memperbarui produk
-export const updateProduct = async (req, res, next) => {
+export const updateProduct = catchAsync(async (req, res) => {
   const { id } = req.params;
   const { sku, name, category_id, price, weight, is_package, is_active, mediaIds } = req.body;
-
-  let components = req.body.components;
-  if (typeof components === "string") {
-    try {
-      components = JSON.parse(components);
-    } catch {
-      components = [];
-    }
-  }
-
-  let parsedMediaIds = mediaIds || [];
-  if (typeof parsedMediaIds === "string") {
-    try { parsedMediaIds = JSON.parse(parsedMediaIds); } catch { parsedMediaIds = []; }
-  }
-
+  const components = parseJsonSafe(req.body.components, typeof req.body.components === "object" ? req.body.components : []);
+  const parsedMediaIds = parseJsonSafe(mediaIds, Array.isArray(mediaIds) ? mediaIds : []);
   const userId = req.user.id;
 
   // Handle Restore Action (Specific Case)
   if (is_active === true && !name) {
-    try {
-      await productService.restoreProductService(id, userId);
-      cache.flushAll();
-      return res.json({ success: true, message: "Produk berhasil dipulihkan." });
-    } catch (error) {
-      next(error);
-    }
+    await productService.restoreProductService(id, userId);
+    cache.flushAll();
+    return res.json({ success: true, message: "Produk berhasil dipulihkan." });
   }
 
   try {
@@ -226,76 +172,56 @@ export const updateProduct = async (req, res, next) => {
     cache.flushAll();
     res.json({ success: true, message: "Produk berhasil diperbarui." });
   } catch (error) {
-    Logger.error("Update Product Error", error, "PRODUCT_CONTROLLER");
     if (error.code === "PRODUCT_NOT_FOUND") {
-      return next(new AppError("Produk tidak ditemukan.", 404));
+      throw new AppError("Produk tidak ditemukan.", 404, "NOT_FOUND");
     }
-    return next(new AppError("Gagal update produk.", 500));
+    throw error;
   }
-};
+});
 
 // DELETE /:id
 // Soft delete produk (set is_active = 0)
-export const deleteProduct = async (req, res, next) => {
+export const deleteProduct = catchAsync(async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
-  try {
-    await productService.softDeleteProductService(id, userId);
-    cache.flushAll();
-    res.json({ success: true, message: "Produk berhasil diarsipkan." });
-  } catch (error) {
-    next(error);
-  }
-};
+  await productService.softDeleteProductService(id, userId);
+  cache.flushAll();
+  res.json({ success: true, message: "Produk berhasil diarsipkan." });
+});
 
 // POST /:id/link-media
-export const linkMediaToProduct = async (req, res, next) => {
+export const linkMediaToProduct = catchAsync(async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   const { mediaIds } = req.body;
 
-
-  try {
-    await productService.linkMediaToProductService(id, mediaIds, userId);
-    cache.flushAll();
-    return res.json({
-      success: true,
-      message: "Media berhasil disematkan.",
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Removed uploadMoreImages; linkMediaToProduct should be used instead.
+  await productService.linkMediaToProductService(id, mediaIds, userId);
+  cache.flushAll();
+  res.json({
+    success: true,
+    message: "Media berhasil disematkan.",
+  });
+});
 
 // DELETE /:id/images/:imageId
-export const deleteProductImage = async (req, res, next) => {
+export const deleteProductImage = catchAsync(async (req, res) => {
   const { imageId } = req.params; // Get imageId from URL
   const userId = req.user.id;
 
-  try {
-    await productService.deleteProductImageService(imageId, userId);
-    cache.flushAll();
-    res.json({ success: true, message: "Gambar berhasil dihapus." });
-  } catch (error) {
-    next(error);
-  }
-};
+  await productService.deleteProductImageService(imageId, userId);
+  cache.flushAll();
+  res.json({ success: true, message: "Gambar berhasil dihapus." });
+});
 
 // PUT /:id/images/:imageId/primary
-export const setPrimaryImage = async (req, res, next) => {
+export const setPrimaryImage = catchAsync(async (req, res) => {
   const { id, imageId } = req.params;
   const userId = req.user.id;
 
-  try {
-    await productService.setPrimaryImageService(id, imageId, userId);
-    cache.flushAll();
-    res.json({ success: true, message: "Gambar utama berhasil diatur." });
-  } catch (error) {
-    next(error);
-  }
-};
+  await productService.setPrimaryImageService(id, imageId, userId);
+  cache.flushAll();
+  res.json({ success: true, message: "Gambar utama berhasil diatur." });
+});
 
 // ============================================================================
 // EXPORT OPERATIONS
@@ -320,14 +246,18 @@ export const exportProducts = catchAsync(async (req, res, next) => {
     sortOrder: req.query.sortOrder === "desc" ? "DESC" : "ASC",
     limit: 1000000,
     offset: 0,
-    exportType: "PRODUCT_MASTER",
+    exportType: EXPORT_JOB_TYPE.PRODUCT_MASTER,
     format: req.query.format || "xlsx",
     includeImages: req.query.includeImages === "true" || req.query.includeImages === true,
     columns: req.query.columns ? JSON.parse(req.query.columns) : null,
   };
 
   const userId = req.user.id;
-  const jobId = await jobRepo.createExportJob(db, { userId, filters, jobType: "PRODUCT_MASTER" });
+  const jobId = await jobRepo.createExportJob(db, {
+    userId,
+    filters,
+    jobType: EXPORT_JOB_TYPE.PRODUCT_MASTER,
+  });
 
   res.json({
     success: true,

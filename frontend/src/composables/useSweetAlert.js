@@ -64,6 +64,35 @@ export const swalAlert = async (title, content = '', icon = 'info', isHtml = fal
 }
 
 /**
+ * Dialog konfirmasi draf 3-pilihan (Simpan Draf / Hapus Isian / Batal)
+ * @param {string} [title='Form Belum Selesai'] - Judul dialog konfirmasi
+ * @param {string} [text='Form belum selesai. Simpan sebagai draf atau hapus seluruh isian?'] - Pesan detail
+ * @returns {Promise<'save'|'clear'|'cancel'>} Pilihan aksi pengguna
+ */
+export const swalDraftConfirm = async (
+  title = 'Form Belum Selesai',
+  text = 'Form belum selesai. Simpan sebagai draf atau hapus seluruh isian?'
+) => {
+  const result = await Swal.fire({
+    title,
+    text,
+    icon: 'question',
+    showDenyButton: true,
+    showCancelButton: true,
+    confirmButtonText: 'Simpan Draf',
+    denyButtonText: 'Hapus Isian',
+    cancelButtonText: 'Batal',
+    customClass: tailwindCustomClass,
+    buttonsStyling: false,
+    background: 'hsl(var(--color-background))'
+  })
+
+  if (result.isConfirmed) return 'save'
+  if (result.isDenied) return 'clear'
+  return 'cancel'
+}
+
+/**
  * Composable factory function
  * Berguna jika kita butuh dipanggil dari dalam komponen setup Vue,
  * meskipun export function di atas juga bisa diimport langsung.
@@ -71,6 +100,7 @@ export const swalAlert = async (title, content = '', icon = 'info', isHtml = fal
 export function useSweetAlert() {
   return {
     swalConfirm,
-    swalAlert
+    swalAlert,
+    swalDraftConfirm
   }
 }

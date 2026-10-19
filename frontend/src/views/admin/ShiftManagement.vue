@@ -8,6 +8,7 @@ import { useToast } from '@/composables/useToast.js'
 import { fetchShifts } from '@/api/helpers/admin.js'
 import ShiftFormModal from '@/components/shifts/ShiftFormModal.vue'
 import axios from '@/api/axios'
+import { formatWorkDaysLabel as getWorkDaysLabel } from '@/utils/formatters.js'
 
 const shifts = ref([])
 const loading = ref(true)
@@ -44,14 +45,6 @@ const deleteShift = async id => {
     toast('Shift dihapus', 'success')
     getShifts()
   } catch (e) { console.error(e) }
-}
-
-const getWorkDaysLabel = daysStr => {
-  if (!daysStr) return '-'
-  const days = daysStr.split(',')
-  if (days.length === 5 && !days.includes('6') && !days.includes('7')) return 'Senin - Jumat'
-  if (days.length === 6 && !days.includes('7')) return 'Senin - Sabtu'
-  return days.length + ' Hari Kerja'
 }
 
 onMounted(getShifts)

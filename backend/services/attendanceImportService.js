@@ -1,11 +1,7 @@
 // backend/services/attendanceImportService.js
 import { parseCsvToUserData, extractDateFromCsv } from "./parsers/attendanceParser.js";
 import Logger from "../utils/logger.js";
-import {} from // Constants now deprecated for Calculation, but PARSER_CONSTANTS might still be used if parser needs them
-// Checking usage...
-// Parser constants are in parser file or config?
-// WMS Constants used here were JAM_KERJA* which are now dynamic.
-"../config/wmsConstants.js";
+import { timeToMinutes, minutesToTime } from "../utils/dateUtils.js";
 
 const logTypeMap = { in: "in", out: "out", "break-in": "break-in", "break-out": "break-out" };
 
@@ -88,7 +84,7 @@ export async function processAttendanceImport(
     Logger.info(`Periode Terdeteksi: ${year}-${month}`, "ATTENDANCE_IMPORT");
 
     // 2. Parse Data User dari CSV
-    const { data: parsedData, headerRowIndex } = await parseCsvToUserData(filePath);
+    const { data: parsedData, headerRowIndex } = await parseCsvToUserData(filePath, options.mapping || options);
     const totalUsers = Object.keys(parsedData).length;
 
     if (totalUsers === 0) {
@@ -179,11 +175,6 @@ export async function processAttendanceImport(
       }
     }
 
-    const timeToMinutes = (timeStr) => {
-      if (!timeStr) return 0;
-      const [h, m] = timeStr.split(":").map(Number);
-      return h * 60 + m;
-    };
 
     // Proses Database (Transactional) per-user
     let totalProcessedDays = 0;
@@ -243,14 +234,6 @@ export async function processAttendanceImport(
             }
           }
 
-          const minutesToTime = (minutes) => {
-            if (minutes === null || minutes === undefined) return null;
-            const h = Math.floor(minutes / 60)
-              .toString()
-              .padStart(2, "0");
-            const m = (minutes % 60).toString().padStart(2, "0");
-            return `${h}:${m}:00`;
-          };
 
           // INSERT DB (Hanya jika BUKAN Dry Run)
           if (isDryRun === false) {
@@ -321,10 +304,10 @@ export async function processAttendanceImport(
         Logger.error(`Error processing attendance for ${username}`, err, "ATTENDANCE_IMPORT");
         if (user.sourceRows && user.sourceRows.length > 0) {
           user.sourceRows.forEach((row) => {
-            errors.push({ row, message: `Error untuk user ${username}: ${err.message}` });
+            errors.push({ row, error: err.message, message: `Error untuk user ${username}: ${err.message}` });
           });
         } else {
-          errors.push({ message: `Error untuk user ${username}: ${err.message}` });
+          errors.push({ error: err.message, message: `Error untuk user ${username}: ${err.message}` });
         }
       }
     }
@@ -341,7 +324,14 @@ export async function processAttendanceImport(
     stats.failed = errors.length;
     Logger.info(`Selesai. ${logSummary}`, "ATTENDANCE_IMPORT");
 
-    return { logSummary, errors, stats, headerRowIndex };
+    return {
+      success: true,
+      dryRun: isDryRun,
+      logSummary,
+      errors,
+      stats,
+      headerRowIndex,
+    };
   } catch (error) {
     if (connection) await connection.rollback();
     Logger.error("Fatal Error", error, "ATTENDANCE_IMPORT");

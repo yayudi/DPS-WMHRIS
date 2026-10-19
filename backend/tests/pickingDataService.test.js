@@ -30,6 +30,10 @@ jest.unstable_mockModule("mysql2/promise", () => ({
 jest.unstable_mockModule("../services/firebaseSignalService.js", () => ({
   emitSharedTaskSignal: jest.fn().mockResolvedValue(),
   emitUserSignal: jest.fn().mockResolvedValue(),
+  signals: {
+    refreshPicking: jest.fn().mockResolvedValue(true),
+    refreshStock: jest.fn().mockResolvedValue(true),
+  },
 }));
 
 // Mock Repositories
@@ -47,6 +51,14 @@ jest.unstable_mockModule("../repositories/pickingRepository.js", () => ({
   updateItemsStatusByListId: jest.fn(),
   voidHeader: jest.fn(),
   voidItemsByListId: jest.fn(),
+  getValidatedItemsForRestock: jest.fn(),
+  getUnfulfillableItemsByListId: jest.fn(),
+  updateItemAllocation: jest.fn(),
+  insertPickingItem: jest.fn(),
+  getPendingAndBackorderItemsByListIds: jest.fn(),
+  getUnfulfillableSkusByListId: jest.fn(),
+  deleteItemsByPickingListId: jest.fn(),
+  getReturnedItemForValidation: jest.fn(),
 }));
 
 jest.unstable_mockModule("../repositories/locationRepository.js", () => ({
@@ -56,6 +68,8 @@ jest.unstable_mockModule("../repositories/locationRepository.js", () => ({
   incrementStock: jest.fn(),
   getLocationsByProductIds: jest.fn(),
   getTotalStockByProductIds: jest.fn(),
+  getStockLocationsForUpdate: jest.fn(),
+  getSimpleStockLocationsForUpdate: jest.fn(),
 }));
 
 jest.unstable_mockModule("../repositories/stockMovementRepository.js", () => ({
@@ -103,6 +117,10 @@ describe("PickingDataService - Complete Items Logic", () => {
     pickingRepo.validateItem.mockResolvedValue({ affectedRows: 1 });
     stockRepo.createLog.mockResolvedValue({ insertId: 1 });
 
+    pickingRepo.getUnfulfillableSkusByListId.mockResolvedValue([]);
+    locationRepo.getStockLocationsForUpdate.mockResolvedValue([]);
+    locationRepo.getSimpleStockLocationsForUpdate.mockResolvedValue([]);
+
     // Ensure mockConnection.query also returns something valid by default to prevent crashes
     mockConnection.query.mockResolvedValue([[], []]);
   });
@@ -123,14 +141,10 @@ describe("PickingDataService - Complete Items Logic", () => {
     pickingRepo.getItemsByIds.mockResolvedValue([dbItem]);
     pickingRepo.getHeaderById.mockResolvedValue({ original_invoice_id: "INV-1" });
 
-
     // Mock bulk query for stocks
-    mockConnection.query.mockImplementation((q) => {
-      if (q.includes("stock_locations sl")) {
-        return Promise.resolve([[{ product_id: 99, location_id: 10, quantity: 10, purpose: "DISPLAY" }]]);
-      }
-      return Promise.resolve([[]]);
-    });
+    locationRepo.getStockLocationsForUpdate.mockResolvedValue([
+      { product_id: 99, location_id: 10, quantity: 10, purpose: "DISPLAY" },
+    ]);
 
     // EXECUTE
     const result = await pickingService.completePickingItemsService(payloadItems, 1);
@@ -174,12 +188,9 @@ describe("PickingDataService - Complete Items Logic", () => {
 
 
     // Mock bulk query for stocks (Loc 50 has 5 stock, purpose DISPLAY)
-    mockConnection.query.mockImplementation((q) => {
-      if (q.includes("stock_locations sl")) {
-        return Promise.resolve([[{ product_id: 88, location_id: 50, quantity: 5, purpose: "DISPLAY" }]]);
-      }
-      return Promise.resolve([[]]);
-    });
+    locationRepo.getStockLocationsForUpdate.mockResolvedValue([
+      { product_id: 88, location_id: 50, quantity: 5, purpose: "DISPLAY" },
+    ]);
 
     // EXECUTE
     const result = await pickingService.completePickingItemsService(payloadItems, 1);
@@ -216,12 +227,9 @@ describe("PickingDataService - Complete Items Logic", () => {
 
 
     // Mock bulk query for stocks: Cuma ada 2 di loc 10
-    mockConnection.query.mockImplementation((q) => {
-      if (q.includes("stock_locations sl")) {
-        return Promise.resolve([[{ product_id: 77, location_id: 10, quantity: 2, purpose: "DISPLAY" }]]);
-      }
-      return Promise.resolve([[]]);
-    });
+    locationRepo.getStockLocationsForUpdate.mockResolvedValue([
+      { product_id: 77, location_id: 10, quantity: 2, purpose: "DISPLAY" },
+    ]);
 
     // EXECUTE & ASSERT
     await expect(pickingService.completePickingItemsService(payloadItems, 1)).rejects.toThrow(
@@ -256,6 +264,10 @@ describe("PickingDataService - Complete Items Logic", () => {
     ];
 
     pickingRepo.getItemsByIds.mockResolvedValue(dbItems);
+
+    locationRepo.getStockLocationsForUpdate.mockResolvedValue([
+      { product_id: 10, location_id: 5, quantity: 5, purpose: "DISPLAY" },
+    ]);
 
     // Mock Behaviors based on inputs
     locationRepo.getStockAtLocation.mockImplementation((conn, pid) => {
@@ -307,15 +319,10 @@ describe("PickingDataService - Complete Items Logic", () => {
         },
       ]);
 
-      // Mock DB query for FOR UPDATE stock lock: current stock at ID 2 is -10 (negative stock case!)
-      mockConnection.query.mockImplementation((sql, _) => {
-        if (typeof sql === "string" && sql.includes("FOR UPDATE")) {
-          return Promise.resolve([
-            [{ product_id: 55, location_id: 2, quantity: -10 }],
-          ]);
-        }
-        return Promise.resolve([{ affectedRows: 1 }]);
-      });
+      // Mock locationRepo for FOR UPDATE stock lock: current stock at ID 2 is -10 (negative stock case!)
+      locationRepo.getSimpleStockLocationsForUpdate.mockResolvedValue([
+        { product_id: 55, location_id: 2, quantity: -10 },
+      ]);
 
       pickingRepo.countPendingItems.mockResolvedValue(0);
 

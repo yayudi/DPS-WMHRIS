@@ -83,6 +83,7 @@ import { useRouter } from 'vue-router'
 import api from '@/api/axios'
 import { useAuthStore } from '@/stores/auth.js'
 import { useFirebaseSync } from '@/composables/useFirebaseSync.js'
+import { formatTimeAgo } from '@/utils/formatters.js'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -153,17 +154,7 @@ const handleNotificationClick = async notif => {
   }
 }
 
-const formatTime = dateString => {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffInMinutes = Math.floor((now - date) / 60000)
-
-  if (diffInMinutes < 1) return 'Baru saja'
-  if (diffInMinutes < 60) return `${diffInMinutes} mnt yang lalu`
-  if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} jam yang lalu`
-  return date.toLocaleDateString('id-ID')
-}
+const formatTime = dateString => formatTimeAgo(dateString, { withSuffix: true })
 
 // Firebase Realtime Listener
 onMounted(() => {

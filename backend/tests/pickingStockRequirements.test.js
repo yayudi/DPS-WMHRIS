@@ -21,6 +21,10 @@ jest.unstable_mockModule("mysql2/promise", () => ({
 // Mock firebaseSignalService
 jest.unstable_mockModule("../services/firebaseSignalService.js", () => ({
   emitSharedTaskSignal: jest.fn().mockResolvedValue(true),
+  signals: {
+    refreshPicking: jest.fn().mockResolvedValue(true),
+    refreshStock: jest.fn().mockResolvedValue(true),
+  },
 }));
 
 // Mock Repositories

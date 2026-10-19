@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import db from "../config/db.js";
 import Logger from "../utils/logger.js";
+import { minutesToTime } from "../utils/dateUtils.js";
 import "dotenv/config";
 
 const BASE_JSON_DIR = path.join(process.cwd(), "assets", "json", "absensi");
@@ -113,15 +114,6 @@ async function migrate() {
             }
           }
 
-          // --- FUNGSI LENGKAP: Mengubah menit menjadi format waktu ---
-          const minutesToTime = (minutes) => {
-            if (minutes === null || typeof minutes === "undefined") return null;
-            const h = Math.floor(minutes / 60)
-              .toString()
-              .padStart(2, "0");
-            const m = (minutes % 60).toString().padStart(2, "0");
-            return `${h}:${m}:00`;
-          };
 
           await connection.beginTransaction();
           try {

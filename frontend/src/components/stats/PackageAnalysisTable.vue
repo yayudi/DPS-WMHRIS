@@ -1,11 +1,11 @@
 <!-- frontend\src\components\stats\PackageAnalysisTable.vue -->
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { dayjs } from '@/api/helpers/time.js'
 import FilterBar from '@/components/ui/FilterBar.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import { usePagination } from '@/composables/usePagination.js'
 import { fetchPackageAnalysis } from '@/api/helpers/stats.js'
+import { useReportDateRange } from '@/composables/useReportDateRange.js'
 import { formatNumber } from '@/utils/formatters.js'
 import { useMasterDataStore } from '@/stores/masterData.js'
 
@@ -14,12 +14,13 @@ const isDataLoading = ref(false)
 const analysisData = ref([])
 const expandedRows = ref([])
 
-const filterValues = ref({
-  reportType: 'monthly',
-  year: new Date().getFullYear(),
-  selectedMonth: ('0' + (new Date().getMonth() + 1)).slice(-2),
-  startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
-  endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
+const {
+  filterValues,
+  resetDateFilters,
+  getDatePayload,
+  getDateFilterSchema,
+  REPORT_TYPE_OPTIONS: reportTypeOptions
+} = useReportDateRange({
   searchQuery: '',
   packageCategoryId: { include: [], exclude: [] },
   componentCategoryId: { include: [], exclude: [] },
@@ -27,48 +28,12 @@ const filterValues = ref({
 })
 
 
-const reportTypeOptions = [
-  { value: 'monthly', label: 'Bulan', icon: 'fa-solid fa-calendar' },
-  { value: 'annual', label: 'Tahun', icon: 'fa-solid fa-calendar-days' },
-  { value: 'custom', label: 'Kustom', icon: 'fa-solid fa-calendar-plus' }
-]
 
-const availableMonths = [
-  { value: '01', label: 'Januari' },
-  { value: '02', label: 'Februari' },
-  { value: '03', label: 'Maret' },
-  { value: '04', label: 'April' },
-  { value: '05', label: 'Mei' },
-  { value: '06', label: 'Juni' },
-  { value: '07', label: 'Juli' },
-  { value: '08', label: 'Agustus' },
-  { value: '09', label: 'September' },
-  { value: '10', label: 'Oktober' },
-  { value: '11', label: 'November' },
-  { value: '12', label: 'Desember' }
-]
-
-const availableYears = computed(() => {
-  const current = new Date().getFullYear()
-  return Array.from({ length: 7 }, (_, i) => current - 5 + i)
-})
 
 const getApiPayload = () => {
-  let startDate, endDate
-  if (filterValues.value.reportType === 'annual') {
-    startDate = `${filterValues.value.year}-01-01`
-    endDate = `${filterValues.value.year}-12-31`
-  } else if (filterValues.value.reportType === 'monthly') {
-    const d = new Date(`${filterValues.value.year}-${filterValues.value.selectedMonth}-02`)
-    startDate = dayjs(d).startOf('month').format('YYYY-MM-DD')
-    endDate = dayjs(d).endOf('month').format('YYYY-MM-DD')
-  } else {
-    startDate = filterValues.value.startDate
-    endDate = filterValues.value.endDate
-  }
+  const datePayload = getDatePayload()
   return {
-    startDate,
-    endDate,
+    ...datePayload,
     categoryId: JSON.stringify(filterValues.value.componentCategoryId),
     packageCategoryId: JSON.stringify(filterValues.value.packageCategoryId),
     stockStatus: JSON.stringify(filterValues.value.stockStatus),
@@ -78,38 +43,10 @@ const getApiPayload = () => {
 }
 
 const mainFilters = computed(() => {
-  const filters = [{ type: 'segmented', key: 'reportType', label: 'Tipe Laporan', options: reportTypeOptions }]
-
-  if (filterValues.value.reportType === 'annual') {
-    filters.push({
-      type: 'select',
-      key: 'year',
-      label: 'Tahun',
-      options: availableYears.value.map(y => ({ value: y, label: y.toString() })),
-      clearable: false,
-      searchable: false
-    })
-  } else if (filterValues.value.reportType === 'monthly') {
-    filters.push({
-      type: 'select',
-      key: 'selectedMonth',
-      label: 'Bulan',
-      options: availableMonths,
-      clearable: false,
-      searchable: false,
-      placeholder: 'Pilih Bulan'
-    })
-    filters.push({
-      type: 'select',
-      key: 'year',
-      label: 'Tahun',
-      options: availableYears.value.map(y => ({ value: y, label: y.toString() })),
-      clearable: false,
-      searchable: false
-    })
-  } else {
-    filters.push({ type: 'daterange', keyStart: 'startDate', keyEnd: 'endDate', label: 'Rentang Waktu' })
-  }
+  const filters = [
+    { type: 'segmented', key: 'reportType', label: 'Tipe Laporan', options: reportTypeOptions },
+    ...getDateFilterSchema()
+  ]
 
   // Stock Status Filter (Local Frontend TriState)
   filters.push({
@@ -263,17 +200,11 @@ const getStatusText = status => {
       @change="applyFilters"
       @clear="
         () => {
-          filterValues = {
-            reportType: 'monthly',
-            year: new Date().getFullYear(),
-            selectedMonth: ('0' + (new Date().getMonth() + 1)).slice(-2),
-            startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
-            endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
-            searchQuery: '',
-            packageCategoryId: { include: [], exclude: [] },
-            componentCategoryId: { include: [], exclude: [] },
-            stockStatus: { include: [], exclude: [] }
-          }
+          resetDateFilters()
+          filterValues.value.searchQuery = ''
+          filterValues.value.packageCategoryId = { include: [], exclude: [] }
+          filterValues.value.componentCategoryId = { include: [], exclude: [] }
+          filterValues.value.stockStatus = { include: [], exclude: [] }
           applyFilters()
         }
       "

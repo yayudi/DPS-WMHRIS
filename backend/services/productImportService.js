@@ -1,6 +1,7 @@
 // backend/services/priceImportService.js
 import { ParserEngine } from "./parsers/ParserEngine.js";
 import * as productRepo from "../repositories/productRepository.js";
+import * as categoryRepo from "../repositories/categoryRepository.js";
 import Logger from "../utils/logger.js";
 
 export const processProductImport = async (
@@ -53,15 +54,13 @@ export const processProductImport = async (
       const chunkSize = 1000;
       for (let i = 0; i < skusToFetch.length; i += chunkSize) {
         const chunk = skusToFetch.slice(i, i + chunkSize);
-        const [existingRows] = await connection.query("SELECT * FROM products WHERE sku IN (?)", [
-          chunk,
-        ]);
+        const existingRows = await productRepo.getProductsBySkus(connection, chunk);
         existingRows.forEach((row) => dbProductMap.set(row.sku, row));
       }
     }
 
     // [OPTIMIZATION] Fetch Categories to Map category names to IDs
-    const [categories] = await connection.query("SELECT id, name FROM categories WHERE is_active = 1");
+    const categories = await categoryRepo.findAllCategories(connection);
     const categoryMap = {};
     categories.forEach(c => {
       categoryMap[c.name.toLowerCase().trim()] = c.id;

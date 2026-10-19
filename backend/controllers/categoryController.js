@@ -1,13 +1,11 @@
-import catchAsync from "../utils/catchAsync.js";
-// backend/controllers/categoryController.js
 import * as categoryService from "../services/categoryService.js";
-import Logger from "../utils/logger.js";
-
 import AppError from "../utils/AppError.js";
+import catchAsync from "../utils/catchAsync.js";
+
 /**
  * Mengambil semua kategori yang aktif
  */
-export const getCategories = catchAsync(async (req, res, next) => {
+export const getCategories = catchAsync(async (req, res) => {
   const data = await categoryService.getAllCategories();
   res.status(200).json({
     success: true,
@@ -19,9 +17,8 @@ export const getCategories = catchAsync(async (req, res, next) => {
 /**
  * Membuat kategori baru
  */
-export const createCategory = async (req, res, next) => {
+export const createCategory = catchAsync(async (req, res) => {
   const { name } = req.body;
-
   try {
     const data = await categoryService.createCategory(name);
     res.status(201).json({
@@ -30,21 +27,19 @@ export const createCategory = async (req, res, next) => {
       data,
     });
   } catch (error) {
-    Logger.error("Error createCategory", error, "CATEGORY_CONTROLLER");
     if (error.code === "DUPLICATE_ENTRY") {
-      return next(error);
+      throw new AppError("Nama kategori sudah ada", 409, "DUPLICATE_ENTRY");
     }
-    return next(new AppError("Gagal membuat kategori", 500));
+    throw error;
   }
-};
+});
 
 /**
  * Mengupdate kategori
  */
-export const updateCategory = async (req, res, next) => {
+export const updateCategory = catchAsync(async (req, res) => {
   const { id } = req.params;
   const { name } = req.body;
-
   try {
     await categoryService.updateCategory(id, name);
     res.status(200).json({
@@ -52,20 +47,18 @@ export const updateCategory = async (req, res, next) => {
       message: "Kategori berhasil diupdate",
     });
   } catch (error) {
-    Logger.error("Error updateCategory", error, "CATEGORY_CONTROLLER");
     if (error.code === "NOT_FOUND") {
-      return next(error);
+      throw new AppError("Kategori tidak ditemukan", 404, "NOT_FOUND");
     }
-    return next(new AppError("Gagal mengupdate kategori", 500));
+    throw error;
   }
-};
+});
 
 /**
  * Menghapus kategori (Soft Delete)
  */
-export const deleteCategory = async (req, res, next) => {
+export const deleteCategory = catchAsync(async (req, res) => {
   const { id } = req.params;
-
   try {
     await categoryService.deleteCategory(id);
     res.status(200).json({
@@ -73,10 +66,9 @@ export const deleteCategory = async (req, res, next) => {
       message: "Kategori berhasil dihapus",
     });
   } catch (error) {
-    Logger.error("Error deleteCategory", error, "CATEGORY_CONTROLLER");
     if (error.code === "NOT_FOUND") {
-      return next(error);
+      throw new AppError("Kategori tidak ditemukan", 404, "NOT_FOUND");
     }
-    return next(new AppError("Gagal menghapus kategori", 500));
+    throw error;
   }
-};
+});

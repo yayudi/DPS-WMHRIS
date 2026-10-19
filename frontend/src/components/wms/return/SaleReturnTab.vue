@@ -9,6 +9,7 @@ import FilterBar from '@/components/ui/FilterBar.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import { useReturnManager } from '@/composables/useReturnManager'
 import { formatDate } from '@/api/helpers/time'
+import { RETURN_SOURCE_OPTIONS as sourceOptions, getSourceBadgeClass } from '@/utils/channelConstants.js'
 
 const router = useRouter()
 
@@ -60,12 +61,6 @@ const isOverLimit = computed(() => remainingQty.value < 0)
 const tabList = [
   { label: 'Antrian Proses', value: 'pending' },
   { label: 'Riwayat Selesai', value: 'history' }
-]
-
-const sourceOptions = [
-  { id: 'tokopedia', label: 'Tokopedia' },
-  { id: 'shopee', label: 'Shopee' },
-  { id: 'manual', label: 'Manual' }
 ]
 
 const returnFilters = computed(() => {
@@ -133,15 +128,6 @@ function handleClearFilters() {
 
 function goToManualPage() {
   router.push({ name: 'ManualReturn' })
-}
-
-const getSourceClass = source => {
-  const s = (source || '').toLowerCase()
-  if (s.includes('tokopedia')) return 'bg-success/10 text-success border-success/20'
-  if (s.includes('shopee')) return 'bg-warning/10 text-warning border-warning/20'
-  if (s === 'manual') return 'bg-primary/10 text-primary border-primary/20'
-  if (s === 'system') return 'bg-accent/10 text-accent border-accent/20'
-  return 'bg-secondary/10 text-text/60 border-secondary/20'
 }
 
 onMounted(() => {
@@ -340,7 +326,7 @@ watch(Slash, pressed => {
               <span
                 :class="[
                   'px-2 py-1 rounded text-[10px] font-bold border capitalize',
-                  getSourceClass(item.source || item.type || 'manual')
+                  getSourceBadgeClass(item.source || item.type || 'manual', { border: true })
                 ]"
               >
                 {{ item.source || (item.type === 'MANUAL' ? 'Manual' : 'Marketplace') }}

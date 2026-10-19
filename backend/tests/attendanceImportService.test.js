@@ -80,7 +80,7 @@ describe("attendanceImportService", () => {
     mockConn.release.mockResolvedValue();
 
     // Setup Mock Query Database Default
-    mockConn.query.mockImplementation(async (sql, params) => {
+    mockConn.query.mockImplementation(async (sql) => {
       // Mock Check User Exists (Select ID/Name from Users)
       if (sql.includes("SELECT username FROM users") || sql.includes("SELECT id, username")) {
         return [
@@ -166,7 +166,6 @@ describe("attendanceImportService", () => {
 
     // Override FS mocks khusus untuk test ini agar mengembalikan CSV rusak
     mockReadFile.mockResolvedValueOnce(BAD_CSV);
-    mockCreateReadStream.mockImplementationOnce(() => createMockStream(BAD_CSV));
 
     // Expect Error: Service harus throw error jika tanggal tidak ditemukan di header
     await expect(attendanceService.processAttendanceImport(mockConn, "bad.csv", 1)).rejects.toThrow(
@@ -178,9 +177,15 @@ describe("attendanceImportService", () => {
 
   test("Scenario 4: Handling Database Error (Row Level)", async () => {
     // Simulasi error saat insert, tapi user ditemukan
-    mockConn.query
-      .mockResolvedValueOnce([[{ id: 1, username: "Budi Santoso" }]]) // Cek User Success
-      .mockRejectedValueOnce(new Error("DB Connection Lost")); // Insert Error Fail
+    mockConn.query.mockImplementation(async (sql) => {
+      if (sql.includes("INSERT INTO attendance_logs")) {
+        throw new Error("DB Connection Lost");
+      }
+      if (sql.includes("SELECT username FROM users") || sql.includes("SELECT id, username") || sql.includes("FROM users u")) {
+        return [[{ id: 1, username: "Budi Santoso" }]];
+      }
+      return [[]];
+    });
 
     const result = await attendanceService.processAttendanceImport(
       mockConn,
