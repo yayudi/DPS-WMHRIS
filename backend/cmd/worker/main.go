@@ -46,6 +46,13 @@ func main() {
 		log.Printf("Failed to register StockConsumer handlers: %v", err)
 	}
 
+	// Register LogListener
+	if container.LogListener != nil {
+		if err := container.LogListener.Register(eventBus); err != nil {
+			log.Printf("Failed to register LogListener handlers: %v", err)
+		}
+	}
+
 
 
 	jobService := container.JobService

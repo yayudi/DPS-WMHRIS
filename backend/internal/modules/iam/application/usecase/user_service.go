@@ -1,11 +1,6 @@
 package usecase
 
 import (
-	"github.com/dps-wmhris/backend/internal/shared/database"
-	"github.com/dps-wmhris/backend/internal/shared/eventbus"
-
-	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
-
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,9 +9,10 @@ import (
 	"time"
 
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
-
 	"github.com/dps-wmhris/backend/internal/modules/iam/port"
 	"github.com/dps-wmhris/backend/internal/shared/config"
+	"github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/eventbus"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -137,28 +133,15 @@ func (s *userServiceImpl) UpdateProfile(ctx context.Context, userID int, req iam
 		},
 	}
 	changesBytes, _ := json.Marshal(changes)
-	changesStr := string(changesBytes)
-
-	var ipPtr, uaPtr *string
-	if ip != "" {
-		ipPtr = &ip
-	}
-	if userAgent != "" {
-		uaPtr = &userAgent
-	}
-
-	if errLog := s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "UPDATE",
-			TargetType: "USER",
-			TargetID:   strconv.Itoa(userID),
-			Changes:    &changesStr,
-			IP:         ipPtr,
-			UserAgent:  uaPtr,
-		},
-		userID,
-	)); errLog != nil {
+	if errLog := eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     userID,
+		Action:     "UPDATE",
+		TargetType: "USER",
+		TargetID:   strconv.Itoa(userID),
+		Changes:    changesBytes,
+		IP:         ip,
+		UserAgent:  userAgent,
+	}); errLog != nil {
 		log.Printf("Failed to save system log: %v", errLog)
 	}
 

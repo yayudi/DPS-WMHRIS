@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,12 +11,22 @@ import (
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/eventbus"
 )
 
+type dbExecutor interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+}
+
+type stockMover interface {
+	MoveStock(ctx context.Context, userID int, req inventory_dto.MoveStockRequest) error
+}
+
 type StockConsumer struct {
-	stockService port.StockUseCase
-	db           *sqlx.DB
+	stockService stockMover
+	db           dbExecutor
 }
 
 func NewStockConsumer(stockService port.StockUseCase, db *sqlx.DB) *StockConsumer {
@@ -40,40 +51,37 @@ func (c *StockConsumer) checkAndMarkIdempotency(ctx context.Context, eventID str
 	query := "INSERT INTO processed_events (event_id, topic) VALUES (?, ?)"
 	_, err := c.db.ExecContext(ctx, query, eventID, topic)
 	if err != nil {
-		// If duplicate entry error (MySQL error 1062)
-		if err.Error() != "" {
-			// A simple check for duplicate key, you might want to use mysql.MySQLError type assertion in production
-			// For now, if insert fails, we assume it's duplicate or DB error.
-			log.Printf("[StockConsumer] Event %s for topic %s might already be processed or DB error: %v", eventID, topic, err)
-			return true, nil // Return true to indicate "already processed" to skip gracefully
+		if database.IsDuplicateKey(err) {
+			log.Printf("[StockConsumer] Event %s for topic %s already processed (duplicate 1062)", eventID, topic)
+			return true, nil // Already processed -> return true, nil to ACK without re-running
 		}
-		return false, err
+		// Real DB error -> return error so RabbitMQ can retry/NACK
+		return false, fmt.Errorf("failed to record processed event: %w", err)
 	}
 	return false, nil // Successfully marked as not processed
 }
 
+type stockDecreasedData struct {
+	EventID        string `json:"event_id"`
+	ProductID      int    `json:"product_id"`
+	Quantity       int    `json:"quantity"`
+	MovementType   string `json:"movement_type"`
+	FromLocationID *int   `json:"from_location_id"`
+	ToLocationID   *int   `json:"to_location_id"`
+	Notes          string `json:"notes"`
+}
+
 func (c *StockConsumer) handleStockDecreased(ctx context.Context, event eventbus.Event) error {
-	payloadBytes, err := json.Marshal(event.Payload)
-	if err != nil {
-		return err
-	}
-
-	var data struct {
-		EventID        string `json:"event_id"`
-		ProductID      int    `json:"product_id"`
-		Quantity       int    `json:"quantity"`
-		MovementType   string `json:"movement_type"`
-		FromLocationID *int   `json:"from_location_id"`
-		ToLocationID   *int   `json:"to_location_id"`
-		Notes          string `json:"notes"`
-	}
-
-	if err := json.Unmarshal(payloadBytes, &data); err != nil {
-		return err
+	var data stockDecreasedData
+	if err := json.Unmarshal(event.Payload, &data); err != nil {
+		return fmt.Errorf("failed to unmarshal stock.decreased payload: %w", err)
 	}
 
 	// Idempotency Check
-	isProcessed, _ := c.checkAndMarkIdempotency(ctx, data.EventID, "inventory.stock.decreased")
+	isProcessed, err := c.checkAndMarkIdempotency(ctx, data.EventID, "inventory.stock.decreased")
+	if err != nil {
+		return err
+	}
 	if isProcessed {
 		log.Printf("[StockConsumer] Skipping duplicate event %s", data.EventID)
 		return nil
@@ -105,25 +113,24 @@ func (c *StockConsumer) handleStockDecreased(ctx context.Context, event eventbus
 	return nil
 }
 
+type stockReturnedData struct {
+	EventID   string `json:"event_id"`
+	ProductID int    `json:"product_id"`
+	Quantity  int    `json:"quantity"`
+	Notes     string `json:"notes"`
+}
+
 func (c *StockConsumer) handleStockReturned(ctx context.Context, event eventbus.Event) error {
-	payloadBytes, err := json.Marshal(event.Payload)
-	if err != nil {
-		return err
-	}
-
-	var data struct {
-		EventID        string `json:"event_id"`
-		ProductID      int    `json:"product_id"`
-		Quantity       int    `json:"quantity"`
-		Notes          string `json:"notes"`
-	}
-
-	if err := json.Unmarshal(payloadBytes, &data); err != nil {
-		return err
+	var data stockReturnedData
+	if err := json.Unmarshal(event.Payload, &data); err != nil {
+		return fmt.Errorf("failed to unmarshal stock.returned payload: %w", err)
 	}
 
 	// Idempotency Check
-	isProcessed, _ := c.checkAndMarkIdempotency(ctx, data.EventID, "inventory.stock.returned")
+	isProcessed, err := c.checkAndMarkIdempotency(ctx, data.EventID, "inventory.stock.returned")
+	if err != nil {
+		return err
+	}
 	if isProcessed {
 		log.Printf("[StockConsumer] Skipping duplicate return event %s", data.EventID)
 		return nil
@@ -133,9 +140,6 @@ func (c *StockConsumer) handleStockReturned(ctx context.Context, event eventbus.
 		return nil
 	}
 
-	// 1. Fetch QA/Retur Location dynamically or use a hardcoded one for now.
-	// For best practice, we query the DB to find a location with purpose 'QA' or 'RETUR'.
-	// Here we will hardcode a fallback if not found, but we should use a valid ToLocationID.
 	var qaLocationID int
 	err = c.db.GetContext(ctx, &qaLocationID, "SELECT id FROM locations WHERE purpose = 'QA' LIMIT 1")
 	if err != nil {
@@ -144,11 +148,11 @@ func (c *StockConsumer) handleStockReturned(ctx context.Context, event eventbus.
 	}
 
 	req := inventory_dto.MoveStockRequest{
-		ProductID:      data.ProductID,
-		Quantity:       data.Quantity,
-		MovementType:   "RETURN_INBOUND",
-		ToLocationID:   &qaLocationID,
-		Notes:          fmt.Sprintf("Auto Return: %s", data.Notes),
+		ProductID:    data.ProductID,
+		Quantity:     data.Quantity,
+		MovementType: "RETURN_INBOUND",
+		ToLocationID: &qaLocationID,
+		Notes:        fmt.Sprintf("Auto Return: %s", data.Notes),
 	}
 
 	systemUserID := 1

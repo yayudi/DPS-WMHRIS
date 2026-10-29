@@ -1,21 +1,15 @@
 package usecase
 
 import (
-	"github.com/dps-wmhris/backend/internal/shared/database"
-	"github.com/dps-wmhris/backend/internal/shared/eventbus"
-
-	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
-
 	"context"
-	"encoding/json"
 	"errors"
 	"log"
 	"strconv"
-	"strings"
 
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
-
 	"github.com/dps-wmhris/backend/internal/modules/iam/port"
+	"github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/eventbus"
 )
 
 type roleServiceImpl struct {
@@ -60,40 +54,25 @@ func (s *roleServiceImpl) UpdateRolePermissions(ctx context.Context, roleID int,
 	})
 
 	if err != nil {
-		if strings.Contains(err.Error(), "1452") || strings.Contains(err.Error(), "foreign key constraint fails") {
+		if database.IsForeignKeyViolation(err) {
 			return errors.New("Role atau Permission ID tidak valid.")
 		}
 		return err
 	}
 
 	// Logging
-	changes := map[string]interface{}{
-		"note":            "Updated Role Permissions",
-		"permissionCount": len(req.PermissionIDs),
-	}
-	changesBytes, _ := json.Marshal(changes)
-	changesStr := string(changesBytes)
-
-	var ipPtr, uaPtr *string
-	if ip != "" {
-		ipPtr = &ip
-	}
-	if userAgent != "" {
-		uaPtr = &userAgent
-	}
-
-	if errLog := s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "UPDATE",
-			TargetType: "ROLE",
-			TargetID:   strconv.Itoa(roleID),
-			Changes:    &changesStr,
-			IP:         ipPtr,
-			UserAgent:  uaPtr,
+	if errLog := eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     userID,
+		Action:     "UPDATE",
+		TargetType: "ROLE",
+		TargetID:   strconv.Itoa(roleID),
+		Changes: map[string]interface{}{
+			"note":            "Updated Role Permissions",
+			"permissionCount": len(req.PermissionIDs),
 		},
-		userID,
-	)); errLog != nil {
+		IP:        ip,
+		UserAgent: userAgent,
+	}); errLog != nil {
 		log.Printf("Failed to save system log: %v", errLog)
 	}
 
@@ -103,39 +82,24 @@ func (s *roleServiceImpl) UpdateRolePermissions(ctx context.Context, roleID int,
 func (s *roleServiceImpl) CreateRole(ctx context.Context, req iam_dto.CreateRoleRequest, userID int, ip, userAgent string) (int, error) {
 	roleID, err := s.roleRepo.CreateRole(ctx, req.Name, req.Description)
 	if err != nil {
-		if strings.Contains(err.Error(), "1062") || strings.Contains(err.Error(), "Duplicate entry") {
+		if database.IsDuplicateKey(err) {
 			return 0, errors.New("Nama peran sudah digunakan.")
 		}
 		return 0, err
 	}
 
-	changes := map[string]interface{}{
-		"name":        req.Name,
-		"description": req.Description,
-	}
-	changesBytes, _ := json.Marshal(changes)
-	changesStr := string(changesBytes)
-
-	var ipPtr, uaPtr *string
-	if ip != "" {
-		ipPtr = &ip
-	}
-	if userAgent != "" {
-		uaPtr = &userAgent
-	}
-
-	if errLog := s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "CREATE",
-			TargetType: "ROLE",
-			TargetID:   strconv.Itoa(roleID),
-			Changes:    &changesStr,
-			IP:         ipPtr,
-			UserAgent:  uaPtr,
+	if errLog := eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     userID,
+		Action:     "CREATE",
+		TargetType: "ROLE",
+		TargetID:   strconv.Itoa(roleID),
+		Changes: map[string]interface{}{
+			"name":        req.Name,
+			"description": req.Description,
 		},
-		userID,
-	)); errLog != nil {
+		IP:        ip,
+		UserAgent: userAgent,
+	}); errLog != nil {
 		log.Printf("Failed to save system log: %v", errLog)
 	}
 
@@ -145,7 +109,7 @@ func (s *roleServiceImpl) CreateRole(ctx context.Context, req iam_dto.CreateRole
 func (s *roleServiceImpl) UpdateRole(ctx context.Context, roleID int, req iam_dto.CreateRoleRequest, userID int, ip, userAgent string) error {
 	isUpdated, err := s.roleRepo.UpdateRole(ctx, roleID, req.Name, req.Description)
 	if err != nil {
-		if strings.Contains(err.Error(), "1062") || strings.Contains(err.Error(), "Duplicate entry") {
+		if database.IsDuplicateKey(err) {
 			return errors.New("Nama peran sudah digunakan.")
 		}
 		return err
@@ -154,33 +118,18 @@ func (s *roleServiceImpl) UpdateRole(ctx context.Context, roleID int, req iam_dt
 		return errors.New("peran tidak ditemukan")
 	}
 
-	changes := map[string]interface{}{
-		"name":        req.Name,
-		"description": req.Description,
-	}
-	changesBytes, _ := json.Marshal(changes)
-	changesStr := string(changesBytes)
-
-	var ipPtr, uaPtr *string
-	if ip != "" {
-		ipPtr = &ip
-	}
-	if userAgent != "" {
-		uaPtr = &userAgent
-	}
-
-	if errLog := s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "UPDATE",
-			TargetType: "ROLE",
-			TargetID:   strconv.Itoa(roleID),
-			Changes:    &changesStr,
-			IP:         ipPtr,
-			UserAgent:  uaPtr,
+	if errLog := eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     userID,
+		Action:     "UPDATE",
+		TargetType: "ROLE",
+		TargetID:   strconv.Itoa(roleID),
+		Changes: map[string]interface{}{
+			"name":        req.Name,
+			"description": req.Description,
 		},
-		userID,
-	)); errLog != nil {
+		IP:        ip,
+		UserAgent: userAgent,
+	}); errLog != nil {
 		log.Printf("Failed to save system log: %v", errLog)
 	}
 
@@ -196,32 +145,15 @@ func (s *roleServiceImpl) DeleteRole(ctx context.Context, roleID int, userID int
 		return errors.New("peran tidak ditemukan")
 	}
 
-	changes := map[string]interface{}{
-		"note": "Deleted Role",
-	}
-	changesBytes, _ := json.Marshal(changes)
-	changesStr := string(changesBytes)
-
-	var ipPtr, uaPtr *string
-	if ip != "" {
-		ipPtr = &ip
-	}
-	if userAgent != "" {
-		uaPtr = &userAgent
-	}
-
-	if errLog := s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "DELETE",
-			TargetType: "ROLE",
-			TargetID:   strconv.Itoa(roleID),
-			Changes:    &changesStr,
-			IP:         ipPtr,
-			UserAgent:  uaPtr,
-		},
-		userID,
-	)); errLog != nil {
+	if errLog := eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     userID,
+		Action:     "DELETE",
+		TargetType: "ROLE",
+		TargetID:   strconv.Itoa(roleID),
+		Changes:    `{"note": "Deleted Role"}`,
+		IP:         ip,
+		UserAgent:  userAgent,
+	}); errLog != nil {
 		log.Printf("Failed to save system log: %v", errLog)
 	}
 

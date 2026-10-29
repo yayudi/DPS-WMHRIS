@@ -108,6 +108,7 @@ type WorkerContainer struct {
 
 func NewWorkerContainer(
 	txManager database.TransactionManager,
+	logListener *system_event.LogListener,
 	jobService system_usecase.JobService,
 	statisticService analytics_usecase.StatisticService,
 	storageService system_usecase.StorageService,
@@ -123,6 +124,7 @@ func NewWorkerContainer(
 ) *WorkerContainer {
 	return &WorkerContainer{
 		TxManager:         txManager,
+		LogListener:       logListener,
 		JobService:        jobService,
 		StatisticService:  statisticService,
 		StorageService:    storageService,

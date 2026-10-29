@@ -18,6 +18,7 @@ import (
 	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/erp"
 	mysql3 "github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/mysql"
 	usecase4 "github.com/dps-wmhris/backend/internal/modules/inventory/application/usecase"
+	"github.com/dps-wmhris/backend/internal/modules/system/adapter/inbound/event"
 	"github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
 	"github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
 	"github.com/dps-wmhris/backend/internal/shared/database"
@@ -28,6 +29,9 @@ import (
 
 func InitializeWorker(db *sqlx.DB) (*di.WorkerContainer, error) {
 	transactionManager := database.NewTransactionManager(db)
+	systemLogRepository := mysql.NewSystemLogRepository(db)
+	systemLogService := usecase.NewSystemLogService(systemLogRepository)
+	logListener := event.NewLogListener(systemLogService)
 	jobRepository := mysql.NewJobRepository(db)
 	jobService := usecase.NewJobService(jobRepository)
 	statisticRepository := mysql2.NewStatisticRepository(db)
@@ -60,6 +64,6 @@ func InitializeWorker(db *sqlx.DB) (*di.WorkerContainer, error) {
 	outboxRepository := mysql3.NewOutboxRepository(db)
 	keljaClient := erp.NewKeljaClient()
 	stockTransactionUseCase := usecase4.NewStockTransactionService(transactionManager, stockTransactionRepository, locationRepository, outboxRepository, keljaClient, productRepository, eventBus)
-	workerContainer := di.NewWorkerContainer(transactionManager, jobService, statisticService, storageService, exportService, firebaseSignalService, eventBus, mediaService, attendanceUseCase, scheduleUseCase, stockUseCase, productUseCase, stockTransactionUseCase)
+	workerContainer := di.NewWorkerContainer(transactionManager, logListener, jobService, statisticService, storageService, exportService, firebaseSignalService, eventBus, mediaService, attendanceUseCase, scheduleUseCase, stockUseCase, productUseCase, stockTransactionUseCase)
 	return workerContainer, nil
 }

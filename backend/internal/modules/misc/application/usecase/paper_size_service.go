@@ -1,18 +1,13 @@
 package usecase
 
 import (
-	"github.com/dps-wmhris/backend/internal/shared/database"
-	"github.com/dps-wmhris/backend/internal/shared/eventbus"
-
 	"context"
-	"encoding/json"
 	"strconv"
 
-	misc_dto "github.com/dps-wmhris/backend/internal/modules/misc/application/dto"
-
 	misc_mysql "github.com/dps-wmhris/backend/internal/modules/misc/adapter/outbound/mysql"
-
-	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
+	misc_dto "github.com/dps-wmhris/backend/internal/modules/misc/application/dto"
+	"github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/eventbus"
 )
 
 type PaperSizeService interface {
@@ -47,20 +42,15 @@ func (s *paperSizeServiceImpl) CreatePaperSize(ctx context.Context, req misc_dto
 		return 0, err
 	}
 
-	changesBytes, _ := json.Marshal(req)
-	changesStr := string(changesBytes)
-	_ = s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "CREATE",
-			TargetType: "PAPER_SIZE",
-			TargetID:   strconv.Itoa(id),
-			Changes:    &changesStr,
-			IP:         &ip,
-			UserAgent:  &userAgent,
-		},
-		userID,
-	))
+	_ = eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     userID,
+		Action:     "CREATE",
+		TargetType: "PAPER_SIZE",
+		TargetID:   strconv.Itoa(id),
+		Changes:    req,
+		IP:         ip,
+		UserAgent:  userAgent,
+	})
 
 	return id, nil
 }
@@ -71,20 +61,15 @@ func (s *paperSizeServiceImpl) UpdatePaperSize(ctx context.Context, id int, req 
 		return err
 	}
 
-	changesBytes, _ := json.Marshal(req)
-	changesStr := string(changesBytes)
-	_ = s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "UPDATE",
-			TargetType: "PAPER_SIZE",
-			TargetID:   strconv.Itoa(id),
-			Changes:    &changesStr,
-			IP:         &ip,
-			UserAgent:  &userAgent,
-		},
-		userID,
-	))
+	_ = eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     userID,
+		Action:     "UPDATE",
+		TargetType: "PAPER_SIZE",
+		TargetID:   strconv.Itoa(id),
+		Changes:    req,
+		IP:         ip,
+		UserAgent:  userAgent,
+	})
 
 	return nil
 }
@@ -95,19 +80,15 @@ func (s *paperSizeServiceImpl) DeletePaperSize(ctx context.Context, id int, user
 		return err
 	}
 
-	changesStr := `{"note": "Paper Size Deleted"}`
-	_ = s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "DELETE",
-			TargetType: "PAPER_SIZE",
-			TargetID:   strconv.Itoa(id),
-			Changes:    &changesStr,
-			IP:         &ip,
-			UserAgent:  &userAgent,
-		},
-		userID,
-	))
+	_ = eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     userID,
+		Action:     "DELETE",
+		TargetType: "PAPER_SIZE",
+		TargetID:   strconv.Itoa(id),
+		Changes:    `{"note": "Paper Size Deleted"}`,
+		IP:         ip,
+		UserAgent:  userAgent,
+	})
 
 	return nil
 }
