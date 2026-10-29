@@ -1,12 +1,9 @@
 import { ref, computed } from 'vue'
 import { productApi } from '../infrastructure/product.api'
 import type { Product, ProductSearchFilter } from '../domain/product.entity'
-import { useToast } from '@/core/presentation/composables/useToast'
 import { useQuery, keepPreviousData } from '@tanstack/vue-query'
 
 export function useProducts() {
-  const { toast } = useToast()
-
   const useProductSearchQuery = (searchParams: any) => {
     return useQuery({
       queryKey: ['products', searchParams],
@@ -20,30 +17,15 @@ export function useProducts() {
   }
 
   const deleteProduct = async (id: number | string) => {
-    try {
-      return await productApi.deleteProduct(id)
-    } catch (err: any) {
-      toast(err.message || 'Gagal menghapus produk', 'error')
-      throw err
-    }
+    return productApi.deleteProduct(id)
   }
 
   const updateProduct = async (id: number | string, payload: any) => {
-    try {
-      return await productApi.updateProduct(id, payload)
-    } catch (err: any) {
-      toast(err.message || 'Gagal mengupdate produk', 'error')
-      throw err
-    }
+    return productApi.updateProduct(id, payload)
   }
   
   const bulkAction = async (actionType: 'archive' | 'restore', ids: (number | string)[]) => {
-    try {
-      return await productApi.bulkAction(actionType, ids)
-    } catch (err: any) {
-      toast(err.message || 'Gagal melakukan aksi massal', 'error')
-      throw err
-    }
+    return productApi.bulkAction(actionType, ids)
   }
 
   return {

@@ -20,7 +20,6 @@ export function useStock() {
       return response
     } catch (err: any) {
       error.value = err?.message || 'Gagal mengambil data stok'
-      toast(error.value || 'Error', 'error')
       throw err
     } finally {
       isLoading.value = false
