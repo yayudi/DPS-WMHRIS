@@ -15,6 +15,7 @@ import (
 	mysql5 "github.com/dps-wmhris/backend/internal/modules/hris/adapter/outbound/mysql"
 	usecase3 "github.com/dps-wmhris/backend/internal/modules/hris/application/usecase"
 	mysql6 "github.com/dps-wmhris/backend/internal/modules/iam/adapter/outbound/mysql"
+	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/erp"
 	mysql3 "github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/mysql"
 	usecase4 "github.com/dps-wmhris/backend/internal/modules/inventory/application/usecase"
 	"github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
@@ -26,6 +27,7 @@ import (
 // Injectors from wire.go:
 
 func InitializeWorker(db *sqlx.DB) (*di.WorkerContainer, error) {
+	transactionManager := database.NewTransactionManager(db)
 	jobRepository := mysql.NewJobRepository(db)
 	jobService := usecase.NewJobService(jobRepository)
 	statisticRepository := mysql2.NewStatisticRepository(db)
@@ -41,7 +43,6 @@ func InitializeWorker(db *sqlx.DB) (*di.WorkerContainer, error) {
 	if err != nil {
 		return nil, err
 	}
-	transactionManager := database.NewTransactionManager(db)
 	mediaRepository := mysql.NewMediaRepository(db)
 	mediaService := usecase.NewMediaService(transactionManager, mediaRepository, productRepository, storageService)
 	attendanceRepository := mysql5.NewAttendanceRepository(db)
@@ -56,7 +57,9 @@ func InitializeWorker(db *sqlx.DB) (*di.WorkerContainer, error) {
 	productAuditRepository := mysql4.NewProductAuditRepository(db)
 	productUseCase := usecase5.NewProductUseCase(transactionManager, productRepository, productAuditRepository, categoryRepository)
 	stockTransactionRepository := mysql3.NewStockTransactionRepository(db)
-	stockTransactionUseCase := usecase4.NewStockTransactionService(transactionManager, stockTransactionRepository, locationRepository, eventBus)
-	workerContainer := di.NewWorkerContainer(jobService, statisticService, storageService, exportService, firebaseSignalService, eventBus, mediaService, attendanceUseCase, scheduleUseCase, stockUseCase, productUseCase, stockTransactionUseCase)
+	outboxRepository := mysql3.NewOutboxRepository(db)
+	keljaClient := erp.NewKeljaClient()
+	stockTransactionUseCase := usecase4.NewStockTransactionService(transactionManager, stockTransactionRepository, locationRepository, outboxRepository, keljaClient, productRepository, eventBus)
+	workerContainer := di.NewWorkerContainer(transactionManager, jobService, statisticService, storageService, exportService, firebaseSignalService, eventBus, mediaService, attendanceUseCase, scheduleUseCase, stockUseCase, productUseCase, stockTransactionUseCase)
 	return workerContainer, nil
 }

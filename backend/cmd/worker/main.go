@@ -7,11 +7,8 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
-
-	"github.com/jmoiron/sqlx"
 
 	analytics_usecase "github.com/dps-wmhris/backend/internal/modules/analytics/application/usecase"
 	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
@@ -69,6 +66,8 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
+	stockTransactionService := container.StockTransactionService
+
 	go func() {
 		<-sigChan
 		log.Println("Shutting down worker...")
@@ -78,6 +77,54 @@ func main() {
 		log.Println("Starting EventBus...")
 		if err := eventBus.Start(ctx); err != nil {
 			log.Printf("EventBus failed to start: %v", err)
+		}
+	}()
+	go func() {
+		log.Println("Starting Outbox Event Dispatcher...")
+		outboxTicker := time.NewTicker(2 * time.Second)
+		defer outboxTicker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-outboxTicker.C:
+				if count, err := stockTransactionService.DispatchPendingOutboxEvents(ctx); err != nil {
+					log.Printf("[Outbox] Dispatch error: %v", err)
+				} else if count > 0 {
+					log.Printf("[Outbox] Dispatched %d events", count)
+				}
+			}
+		}
+	}()
+	go func() {
+		log.Println("Starting Kelja Fulfillment Reconciler (Safety Net)...")
+		reconcileTicker := time.NewTicker(15 * time.Minute)
+		defer reconcileTicker.Stop()
+
+		// Initial check after startup warmup
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Second):
+			if count, err := stockTransactionService.ReconcileMissingFulfillments(ctx); err != nil {
+				log.Printf("[Reconciliation] Startup check error: %v", err)
+			} else if count > 0 {
+				log.Printf("[Reconciliation] Startup check reconciled %d missing fulfillments", count)
+			}
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-reconcileTicker.C:
+				if count, err := stockTransactionService.ReconcileMissingFulfillments(ctx); err != nil {
+					log.Printf("[Reconciliation] Periodic check error: %v", err)
+				} else if count > 0 {
+					log.Printf("[Reconciliation] Periodic check reconciled %d missing fulfillments", count)
+				}
+			}
 		}
 	}()
 
@@ -101,48 +148,32 @@ func main() {
 			if recovered, err := jobRepo.RecoverStuckExportJobs(ctx); err == nil && recovered > 0 {
 				log.Printf("Recovered %d stuck export jobs", recovered)
 			}
-			processPendingImportJobs(ctx, db, jobRepo, jobService, attendanceService, stockService, scheduleService, productService, firebaseService, mediaService)
-			processPendingExportJobs(ctx, db, jobRepo, jobService, exportService, firebaseService)
+			processPendingImportJobs(ctx, container.TxManager, jobRepo, jobService, attendanceService, stockService, scheduleService, productService, firebaseService, mediaService)
+			processPendingExportJobs(ctx, container.TxManager, jobRepo, jobService, exportService, firebaseService)
 		}
 	}
 }
 
 const maxConcurrentJobs = 3
 
-func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_mysql.JobRepository, jobService system_usecase.JobService, attendanceService hris_port.AttendanceUseCase, stockService inventory_port.StockUseCase, scheduleService hris_port.ScheduleUseCase, productService catalog_port.ProductUseCase, firebaseService system_usecase.FirebaseSignalService, mediaService system_usecase.MediaService) {
-	sem := make(chan struct{}, maxConcurrentJobs)
-	var wg sync.WaitGroup
-
-	for {
-		sem <- struct{}{} // Wait for an available slot
-
-		tx, err := db.BeginTxx(ctx, nil)
-		if err != nil {
-			log.Printf("Error starting tx: %v", err)
-			<-sem
-			break
-		}
-
-		job, err := jobRepo.ClaimNextImportJob(ctx)
-		if err != nil {
-			if err.Error() != "sql: no rows in result set" {
-				log.Printf("Error claiming next import job: %v", err)
-			}
-			_ = tx.Rollback() // #nosec G104
-			<-sem
-			break // No more jobs or error
-		}
-		_ = tx.Commit() // #nosec G104
-
-		wg.Add(1)
-		go func(job system_domain.ImportJob) {
-			defer wg.Done()
-			defer func() { <-sem }()
-
-			// 10 minutes timeout per job
-			ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-			defer cancel()
-
+func processPendingImportJobs(
+	ctx context.Context,
+	txManager database.TransactionManager,
+	jobRepo system_mysql.JobRepository,
+	jobService system_usecase.JobService,
+	attendanceService hris_port.AttendanceUseCase,
+	stockService inventory_port.StockUseCase,
+	scheduleService hris_port.ScheduleUseCase,
+	productService catalog_port.ProductUseCase,
+	firebaseService system_usecase.FirebaseSignalService,
+	mediaService system_usecase.MediaService,
+) {
+	dispatchJobs(
+		ctx,
+		txManager,
+		dispatchConfig{Concurrency: maxConcurrentJobs, JobTimeout: 10 * time.Minute, Name: "import"},
+		jobRepo.ClaimNextImportJob,
+		func(ctx context.Context, job *system_domain.ImportJob) error {
 			log.Printf("Found PENDING import job: %d (%s)", job.ID, job.JobType)
 
 			// Execute Job
@@ -233,43 +264,25 @@ func processPendingImportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_m
 					_ = firebaseService.EmitSharedTaskSignal(ctx, "HRIS_ATTENDANCE", "REFRESH_ATTENDANCE")
 				}
 			}
-		}(*job)
-	}
-
-	wg.Wait()
+			return processErr
+		},
+	)
 }
 
-func processPendingExportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_mysql.JobRepository, jobService system_usecase.JobService, exportService analytics_usecase.ExportService, firebaseService system_usecase.FirebaseSignalService) {
-	sem := make(chan struct{}, maxConcurrentJobs)
-	var wg sync.WaitGroup
-
-	for {
-		sem <- struct{}{}
-
-		tx, err := db.BeginTxx(ctx, nil)
-		if err != nil {
-			log.Printf("Error starting tx: %v", err)
-			<-sem
-			break
-		}
-
-		job, err := jobRepo.ClaimNextExportJob(ctx)
-		if err != nil {
-			_ = tx.Rollback() // #nosec G104
-			<-sem
-			break
-		}
-		_ = tx.Commit() // #nosec G104
-
-		wg.Add(1)
-		go func(job system_domain.ExportJob) {
-			defer wg.Done()
-			defer func() { <-sem }()
-
-			// 10 minutes timeout per job
-			ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-			defer cancel()
-
+func processPendingExportJobs(
+	ctx context.Context,
+	txManager database.TransactionManager,
+	jobRepo system_mysql.JobRepository,
+	jobService system_usecase.JobService,
+	exportService analytics_usecase.ExportService,
+	firebaseService system_usecase.FirebaseSignalService,
+) {
+	dispatchJobs(
+		ctx,
+		txManager,
+		dispatchConfig{Concurrency: maxConcurrentJobs, JobTimeout: 10 * time.Minute, Name: "export"},
+		jobRepo.ClaimNextExportJob,
+		func(ctx context.Context, job *system_domain.ExportJob) error {
 			log.Printf("Found PENDING export job: %d (%s)", job.ID, job.JobType)
 
 			var processErr error
@@ -318,8 +331,7 @@ func processPendingExportJobs(ctx context.Context, db *sqlx.DB, jobRepo system_m
 				// Job status is updated by the service (ProcessExportStockReport etc)
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "EXPORT_COMPLETED")
 			}
-		}(*job)
-	}
-
-	wg.Wait()
+			return processErr
+		},
+	)
 }

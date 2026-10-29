@@ -16,6 +16,7 @@ import (
 	misc_handler "github.com/dps-wmhris/backend/internal/modules/misc/adapter/inbound/http"
 	system_handler "github.com/dps-wmhris/backend/internal/modules/system/adapter/inbound/http"
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 )
 
 type Container struct {
@@ -39,6 +40,7 @@ type Container struct {
 	StockRequestHandler    *inventory_http.StockRequestHandler
 	StockTransactionHandler *inventory_http.StockTransactionHandler
 	StockQueryHandler      *inventory_http.StockQueryHandler
+	SlotHandler            *inventory_http.SlotHandler
 	PackageHandler         *catalog_handler.PackageHandler
 	ReturnHandler          *inventory_http.ReturnHandler
 	InvestigationHandler   *inventory_http.InvestigationHandler
@@ -52,7 +54,7 @@ type Container struct {
 
 func NewContainer(systemLogHandler *system_handler.SystemLogHandler, roleHandler *iam_handler.RoleHandler, userHandler *iam_handler.UserHandler, adminUserHandler *iam_handler.AdminUserHandler, salesChannelHandler *inventory_http.SalesChannelHandler, paperSizeHandler *misc_handler.PaperSizeHandler, stickerTemplateHandler *misc_handler.StickerTemplateHandler, notificationHandler *system_handler.NotificationHandler, jobHandler *system_handler.JobHandler, uploadHandler *system_handler.UploadHandler, mediaHandler *system_handler.MediaHandler, categoryHandler *catalog_handler.CategoryHandler,
 	eventBus eventbus.EventBus,
-	logListener *system_event.LogListener, productHandler *catalog_handler.ProductHandler, locationHandler *inventory_http.LocationHandler, stockHandler *inventory_http.StockHandler, stockRequestHandler *inventory_http.StockRequestHandler, stockTransactionHandler *inventory_http.StockTransactionHandler, stockQueryHandler *inventory_http.StockQueryHandler, packageHandler *catalog_handler.PackageHandler, returnHandler *inventory_http.ReturnHandler, investigationHandler *inventory_http.InvestigationHandler, statsHandler *analytics_handler.StatsHandler, reportHandler *analytics_handler.ReportHandler, statisticHandler *analytics_handler.StatisticHandler, shiftHandler *hris_handler.ShiftHandler, scheduleHandler *hris_handler.ScheduleHandler, attendanceHandler *hris_handler.AttendanceHandler) *Container {
+	logListener *system_event.LogListener, productHandler *catalog_handler.ProductHandler, locationHandler *inventory_http.LocationHandler, stockHandler *inventory_http.StockHandler, stockRequestHandler *inventory_http.StockRequestHandler, stockTransactionHandler *inventory_http.StockTransactionHandler, stockQueryHandler *inventory_http.StockQueryHandler, slotHandler *inventory_http.SlotHandler, packageHandler *catalog_handler.PackageHandler, returnHandler *inventory_http.ReturnHandler, investigationHandler *inventory_http.InvestigationHandler, statsHandler *analytics_handler.StatsHandler, reportHandler *analytics_handler.ReportHandler, statisticHandler *analytics_handler.StatisticHandler, shiftHandler *hris_handler.ShiftHandler, scheduleHandler *hris_handler.ScheduleHandler, attendanceHandler *hris_handler.AttendanceHandler) *Container {
 	return &Container{
 		SystemLogHandler:       systemLogHandler,
 		RoleHandler:            roleHandler,
@@ -74,6 +76,7 @@ func NewContainer(systemLogHandler *system_handler.SystemLogHandler, roleHandler
 		StockRequestHandler:    stockRequestHandler,
 		StockTransactionHandler: stockTransactionHandler,
 		StockQueryHandler:      stockQueryHandler,
+		SlotHandler:            slotHandler,
 		PackageHandler:         packageHandler,
 		ReturnHandler:          returnHandler,
 		InvestigationHandler:   investigationHandler,
@@ -87,6 +90,7 @@ func NewContainer(systemLogHandler *system_handler.SystemLogHandler, roleHandler
 }
 
 type WorkerContainer struct {
+	TxManager         database.TransactionManager
 	EventBus          eventbus.EventBus
 	LogListener       *system_event.LogListener
 	JobService        system_usecase.JobService
@@ -103,6 +107,7 @@ type WorkerContainer struct {
 }
 
 func NewWorkerContainer(
+	txManager database.TransactionManager,
 	jobService system_usecase.JobService,
 	statisticService analytics_usecase.StatisticService,
 	storageService system_usecase.StorageService,
@@ -117,6 +122,7 @@ func NewWorkerContainer(
 	stockTransactionService inventory_port.StockTransactionUseCase,
 ) *WorkerContainer {
 	return &WorkerContainer{
+		TxManager:         txManager,
 		JobService:        jobService,
 		StatisticService:  statisticService,
 		StorageService:    storageService,

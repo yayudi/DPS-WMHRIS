@@ -11,6 +11,9 @@ import (
 )
 
 func TestTriggerStock(t *testing.T) {
+	if os.Getenv("INTEGRATION_TEST") != "true" {
+		t.Skip("Skipping worker integration test; requires live DB and RabbitMQ")
+	}
 	os.Chdir("../../")
 	config.LoadConfig() 
 	

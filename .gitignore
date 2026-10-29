@@ -36,8 +36,13 @@ scratch_*
 bundle-stats.*
 migrations/
 gosec*
-api
-worker
+# Binaries
+/api
+/worker
+/backend/api
+/backend/worker
+!backend/cmd/api/
+!backend/cmd/worker/
 
 # ===================================================================
 # IDE & EDITORS
@@ -55,11 +60,13 @@ worker
 .agent/*
 .agents/*
 
-# Whitelist (Keep) critical context and rules
+# Whitelist (Keep) critical context, rules, and skills
 !.agent/rules/
+!.agent/skills/
 !.agent/workflows/
 !.agent/README.md
 !.agents/rules/
+!.agents/skills/
 !.agents/workflows/
 !.agents/README.md
 

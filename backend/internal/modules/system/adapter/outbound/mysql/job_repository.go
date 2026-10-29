@@ -1,12 +1,12 @@
 package mysql
 
 import (
-	database "github.com/dps-wmhris/backend/internal/shared/database"
-
 	"context"
+	"database/sql"
+	"errors"
 
 	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
-
+	database "github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/jmoiron/sqlx"
 )
@@ -63,7 +63,10 @@ func (r *jobRepositoryImpl) GetImportJobByID(ctx context.Context, id int) (*syst
 	query := `SELECT * FROM import_jobs WHERE id = ?`
 	var job system_domain.ImportJob
 	err := r.db.GetContext(ctx, &job, query, id)
-	return &job, err
+	if err != nil {
+		return nil, err
+	}
+	return &job, nil
 }
 
 func (r *jobRepositoryImpl) UpdateImportJobStatus(ctx context.Context, id int, status string, logSummary *string, errorLog *string) error {
@@ -96,6 +99,9 @@ func (r *jobRepositoryImpl) ClaimNextImportJob(ctx context.Context) (*system_dom
 	ext := database.GetExt(ctx, r.db)
 	err := ext.GetContext(ctx, &job, query)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	_, err = ext.ExecContext(ctx,
@@ -143,7 +149,10 @@ func (r *jobRepositoryImpl) GetExportJobByID(ctx context.Context, id int) (*syst
 	query := `SELECT * FROM export_jobs WHERE id = ?`
 	var job system_domain.ExportJob
 	err := r.db.GetContext(ctx, &job, query, id)
-	return &job, err
+	if err != nil {
+		return nil, err
+	}
+	return &job, nil
 }
 
 func (r *jobRepositoryImpl) UpdateExportJobStatus(ctx context.Context, id int, status string, filePath *string, errorMessage *string) error {
@@ -169,6 +178,9 @@ func (r *jobRepositoryImpl) ClaimNextExportJob(ctx context.Context) (*system_dom
 	ext := database.GetExt(ctx, r.db)
 	err := ext.GetContext(ctx, &job, query)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	_, err = ext.ExecContext(ctx,
