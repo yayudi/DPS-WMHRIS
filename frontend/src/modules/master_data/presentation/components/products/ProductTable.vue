@@ -7,6 +7,7 @@ import ProductThumbnail from '@/core/presentation/components/common/ProductThumb
 import BaseSkeleton from '@/core/presentation/components/ui/BaseSkeleton.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import BaseContextMenu from '@/core/presentation/components/ui/BaseContextMenu.vue'
+import { formatCurrency, formatNumber } from '@/core/utils/formatters'
 import { useSmartGrid } from '@/core/presentation/composables/useSmartGrid'
 import { useProductContextMenu } from '@/modules/master_data/presentation/composables/useProductContextMenu'
 import { useMobile } from '@/core/presentation/composables/useMobile'
@@ -171,7 +172,11 @@ const {
   isFetchingNextPage: toRef(props, 'isFetchingNextPage'),
   onFetchMore: () => emit('fetch-more'),
   onCellEdit: payload => emit('cell-edit', payload),
-  tableFeatures: stockFeatures
+  tableFeatures: stockFeatures,
+  cellFormatters: {
+    price: val => formatCurrency(val),
+    weight: val => formatNumber(val)
+  }
 })
 
 const onCellBlur = (event, product, columnId) => {

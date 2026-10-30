@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
-import { formatCurrency } from '@/core/utils/formatters'
+import { formatCurrency, formatDate } from '@/core/utils/formatters'
 
 const props = defineProps({
   productId: { type: Number, required: true },
@@ -81,7 +81,7 @@ function getBadgeColor(action) {
           <tr v-for="log in history" :key="log.id" class="hover:bg-secondary/5 transition-colors">
             <!-- Waktu -->
             <td class="px-4 py-2 text-text/70 whitespace-nowrap">
-              {{ new Date(log.created_at).toLocaleString('id-ID') }}
+              {{ formatDate(log.created_at) }}
             </td>
             <!-- User -->
             <td class="px-4 py-2 font-medium text-text">

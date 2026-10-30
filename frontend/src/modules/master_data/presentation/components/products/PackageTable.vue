@@ -5,6 +5,7 @@ import BaseSkeleton from '@/core/presentation/components/ui/BaseSkeleton.vue'
 import { useMobile } from '@/core/presentation/composables/useMobile'
 import { useSortIcon } from '@/core/presentation/composables/useSortIcon'
 import { useSmartGrid } from '@/core/presentation/composables/useSmartGrid'
+import { formatCurrency, formatNumber } from '@/core/utils/formatters'
 import BaseContextMenu from '@/core/presentation/components/ui/BaseContextMenu.vue'
 import { useProductContextMenu } from '@/modules/master_data/presentation/composables/useProductContextMenu'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
@@ -157,7 +158,11 @@ const {
   hasNextPage: toRef(props, 'hasNextPage'),
   isFetchingNextPage: toRef(props, 'isFetchingNextPage'),
   onFetchMore: () => emit('fetch-more'),
-  onCellEdit: payload => emit('cell-edit', payload)
+  onCellEdit: payload => emit('cell-edit', payload),
+  cellFormatters: {
+    price: val => formatCurrency(val),
+    weight: val => formatNumber(val)
+  }
 })
 
 // Helper to safely get row data to avoid Vue proxy method loss issues

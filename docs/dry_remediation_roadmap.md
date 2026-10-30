@@ -64,7 +64,7 @@
 | WP-06 | Repository consolidation (`FetchPaginated`, `BaseRepository`, `GetExt`)                   |    P1     | ✅ DONE                               | WP-01, WP-05             |
 | WP-07 | Frontend API dedupe + `serializeFilterParams`                                             |    P1     | ✅ DONE                               | WP-03                    |
 | WP-08 | Excel importer/template consolidation                                                     |    P2     | ✅ DONE                               | WP-04                    |
-| WP-09 | Frontend core dedupe (`useInlineSave<T>`, job-queue store, formatter)                     |    P2     | TODO                                  | WP-03                    |
+| WP-09 | Frontend core dedupe (`useInlineSave<T>`, job-queue store, formatter)                     |    P2     | ✅ DONE                               | WP-03                    |
 | WP-10 | Frontend view dedupe (Product/Package management, Job History)                            |    P2     | TODO                                  | WP-07, WP-09             |
 | WP-11 | Test hardening (flaky test, coverage helper baru)                                         |    P2     | TODO                                  | —                        |
 
@@ -326,7 +326,7 @@ flowchart LR
 
 ---
 
-### WP-09 — Frontend Core Dedupe (P2)
+### WP-09 — Frontend Core Dedupe (DONE)
 
 - `useInlineSave.ts`: generik `useInlineSave<T>({ save: (id, payload) => Promise<void>, ... })`; keluarkan URL `/products/${id}` & `payload.components` dari `core/`; ganti `productsSource.find` dalam loop dengan `Map` (O(1)).
 - `useSmartGrid.ts:85-90`: hapus hardcode kolom `price`/`weight` → konfigurasi dari pemanggil.
@@ -701,6 +701,61 @@ Tambahkan di bawah §8 (Log), satu blok per WP:
 | `go test ./internal/...` | ✅ 100% Lulus seluruh paket internal |
 | `git grep "excelize\.OpenFile" backend/` | ✅ Tepat 1 temuan di `internal/parser/base_parser.go` |
 **Risiko tersisa:** `ReadExcelFile` membaca sheet pertama (sheet index 0) secara default; jika ada workflow baru di masa mendatang yang menyimpan data di sheet sekunder, perlu ditambahkan parameter opsional `sheetIndex/sheetName`.
+
+---
+
+### [WP-09] Frontend Core Deduplication & Store Consolidation — DONE (orchestrator, 2026-10-30)
+
+**Ringkasan:**
+- Memperbaiki bug kalkulasi hash warna dinamis di `frontend/src/core/utils/formatters.ts` (`getDynamicColorClass`) yang sebelumnya mengevaluasi `label.charCodeAt(2)` sehingga menghasilkan `NaN` dan kelas warna `undefined` untuk label berkarakter < 3 (mis. "A", "B1"); digantikan dengan string hash djb2 32-bit deterministik. Re-export `formatDate` agar formatting tanggal dan angka terpusat.
+- Membuat Pinia store factory higher-order `createJobQueueStore(storeId, fetchJobsApi)` di `frontend/src/core/presentation/stores/createJobQueueStore.ts` untuk mengonsolidasi ~90% duplikasi boilerplate antara `downloadStore.ts` dan `uploadStore.ts` (state `jobs`, `pendingCount`, `isExpanded`, methods `fetchJobs`, `notifyNewJob`, `toggleWidget`).
+- Mengubah `useInlineSave.ts` menjadi generic `useInlineSave<T extends { id: string | number }>`:
+  - Mengeliminasi hardcoded domain URL `/products/${id}` dan `payload.components` dari `src/core/` melalui opsi `saveItem` dan `transformPayload`.
+  - Mengganti pencarian linier $O(N \times M)$ `productsSource.find(p => p.id === id)` dalam chunk iteration loop dengan `Map<string | number, T>` ($O(1)$).
+  - Menginjeksi `productApi.updateProduct` pada `ProductManagement.vue` dan `PackageManagement.vue`.
+- Menghilangkan hardcoded kolom `price` dan `weight` di `useSmartGrid.ts:85-90` dengan menambahkan opsi `cellFormatters` dan `formatCellValue`, serta mengadopsinya secara eksplisit pada `ProductTable.vue` dan `PackageTable.vue`.
+- Memperbaiki `useFirebaseListener.ts` agar memeriksa `getCurrentInstance()` sebelum meregistrasi lifecycle hook `onUnmounted` guna mencegah error/warning ketika dipanggil di luar konteks setup Vue, serta memastikan fungsi cleanup `stopListening` bersifat idempotent.
+- Mengganti pembuatan objek URL manual (`URL.createObjectURL`), inject elemen `<a>` DOM, dan klik manual di `useStock.ts:34-40` (`exportStock`) dengan `useDownload().downloadBlob` yang menangani `URL.revokeObjectURL` secara otomatis untuk mencegah memory leak.
+- Mengonsolidasi duplikasi inline `Intl.NumberFormat` dan `.toLocaleString('id-ID')` pada `CombinedAnalyticsDashboard.vue`, `AttendanceStats.vue`, `SummaryDetailModal.vue`, `SummaryView.vue`, `ProductHistoryList.vue`, `HistoryModal.vue`, dan `GenericImportModal.vue`.
+- Menulis unit test komprehensif:
+  - `frontend/src/core/utils/formatters.test.ts` (16 test cases mencakup label 1-2 karakter, empty, deterministik, currency, tags, filename).
+  - `frontend/src/core/presentation/stores/createJobQueueStore.test.ts` (6 test cases menguji initial state, filter status `PENDING`/`PROCESSING`, `notifyNewJob`, `toggleWidget`, error handling).
+  - `frontend/src/core/presentation/composables/useInlineSave.test.ts` (3 test cases menguji dirty tracking, cancel, chunking, custom `saveItem`, dan $O(1)$ Map lookup).
+
+**File diubah / dibuat:**
+- `frontend/src/core/utils/formatters.ts`
+- `frontend/src/core/utils/formatters.test.ts` (baru)
+- `frontend/src/core/presentation/stores/createJobQueueStore.ts` (baru)
+- `frontend/src/core/presentation/stores/createJobQueueStore.test.ts` (baru)
+- `frontend/src/core/presentation/stores/downloadStore.ts`
+- `frontend/src/core/presentation/stores/uploadStore.ts`
+- `frontend/src/core/presentation/composables/useInlineSave.ts`
+- `frontend/src/core/presentation/composables/useInlineSave.test.ts` (baru)
+- `frontend/src/core/presentation/composables/useSmartGrid.ts`
+- `frontend/src/core/presentation/composables/useFirebaseListener.ts`
+- `frontend/src/modules/wms/application/useStock.ts`
+- `frontend/src/modules/master_data/presentation/views/ProductManagement.vue`
+- `frontend/src/modules/master_data/presentation/views/PackageManagement.vue`
+- `frontend/src/modules/master_data/presentation/components/products/ProductTable.vue`
+- `frontend/src/modules/master_data/presentation/components/products/PackageTable.vue`
+- `frontend/src/modules/master_data/presentation/components/products/ProductHistoryList.vue`
+- `frontend/src/modules/analytics/presentation/views/CombinedAnalyticsDashboard.vue`
+- `frontend/src/modules/analytics/presentation/components/AttendanceStats.vue`
+- `frontend/src/modules/hr/presentation/components/SummaryDetailModal.vue`
+- `frontend/src/modules/hr/presentation/components/SummaryView.vue`
+- `frontend/src/core/presentation/components/shared/GenericImportModal.vue`
+- `frontend/src/modules/wms/presentation/components/shared/HistoryModal.vue`
+- `docs/dry_remediation_roadmap.md`
+
+**Verifikasi:**
+| Perintah | Hasil |
+| :-- | :-- |
+| `npm run test:run` (Vitest) | ✅ 100% Lulus (17 test suite, 90 tests) |
+| `npm run type-check` (`vue-tsc --noEmit`) | ✅ 0 type errors (exit code 0) |
+| `npm run build` (Vite production build) | ✅ Build sukses dalam 13.42s (177 PWA precache entries) |
+| `git grep "label\.charCodeAt(2)"` | ✅ 0 temuan (exit code 1) |
+**Risiko tersisa:** `formatCurrency` menggunakan locale `id-ID` yang menambahkan prefix `"Rp "` secara default; komponen yang sebelumnya menambahkan prefix manual `"Rp "` di template harus menggunakan `formatNumber` jika tidak ingin terjadi duplikasi simbol `"Rp Rp"`.
+
 
 
 

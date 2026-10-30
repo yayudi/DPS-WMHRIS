@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useSummary } from '@/modules/hr/presentation/composables/useSummary'
 import { formatJamMenit } from '@/core/utils/time'
+import { formatCurrency } from '@/core/utils/formatters'
 import SummaryDetailModal from './SummaryDetailModal.vue'
 import BaseSkeleton from '@/core/presentation/components/ui/BaseSkeleton.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
@@ -176,7 +177,7 @@ function closeModal() {
               :class="mobileLayout === 'compact' ? 'hidden md:table-cell' : 'flex md:table-cell'"
             >
               <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Uang Lembur</span>
-              <span>Rp {{ s.uangLembur.toLocaleString('id-ID') }}</span>
+              <span>{{ formatCurrency(s.uangLembur) }}</span>
             </td>
           </tr>
         </TransitionGroup>

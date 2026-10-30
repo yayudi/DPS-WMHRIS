@@ -122,6 +122,8 @@ export const formatFileName = (filePath, type) => {
   return filename
 }
 
+export { formatDate } from './time'
+
 /**
  * Palet warna untuk color-coding dinamis.
  * Digunakan oleh gedung, purpose, dan label dinamis lainnya.
@@ -141,14 +143,18 @@ const FALLBACK_COLOR = 'bg-secondary/10 text-text/60 ring-secondary/20'
 /**
  * Menghasilkan class Tailwind color berdasarkan string apapun (hash deterministik).
  * Warna konsisten untuk string yang sama di seluruh aplikasi.
- * @param {string} label - Nama gedung, purpose, atau label lainnya
+ * @param {string | null | undefined} label - Nama gedung, purpose, atau label lainnya
  * @returns {string} Tailwind classes
  */
-const getDynamicColorClass = label => {
+export const getDynamicColorClass = (label?: string | null): string => {
   if (!label) return FALLBACK_COLOR
+  const str = String(label).trim()
+  if (!str) return FALLBACK_COLOR
+
   let hash = 0
-  for (let i = 0; i < label.length * 0.75; i++) {
-    hash = label.charCodeAt(2) + i + ((hash << 5) - hash)
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i)
+    hash |= 0
   }
   const index = Math.abs(hash) % DYNAMIC_COLOR_PALETTE.length
   return DYNAMIC_COLOR_PALETTE[index]
@@ -156,14 +162,16 @@ const getDynamicColorClass = label => {
 
 /**
  * Mendapatkan class Tailwind berdasarkan tipe purpose lokasi (dinamis, hash-based)
- * @param {string} purpose
+ * @param {string | null | undefined} purpose
  * @returns {string} Tailwind classes
  */
-export const getLocationPurposeColorClass = purpose => getDynamicColorClass(purpose?.toUpperCase())
+export const getLocationPurposeColorClass = (purpose?: string | null): string =>
+  getDynamicColorClass(purpose?.toUpperCase())
 
 /**
  * Mendapatkan class Tailwind berdasarkan nama gedung (dinamis, hash-based)
- * @param {string} building
+ * @param {string | null | undefined} building
  * @returns {string} Tailwind classes
  */
-export const getLocationBuildingColorClass = building => getDynamicColorClass(building)
+export const getLocationBuildingColorClass = (building?: string | null): string =>
+  getDynamicColorClass(building)

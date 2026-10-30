@@ -108,7 +108,7 @@
             <div class="flex justify-between items-start">
               <div>
                 <div class="font-bold text-sm text-text">{{ job.originalFilename || 'File Upload' }}</div>
-                <div class="text-xs text-text/60">{{ new Date(job.createdAt).toLocaleString() }}</div>
+                <div class="text-xs text-text/60">{{ formatDate(job.createdAt) }}</div>
               </div>
               <div>
                 <span
@@ -201,6 +201,7 @@ import { useUploadStore } from '@/core/presentation/stores/uploadStore'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { useDownload } from '@/core/presentation/composables/useDownload'
 import { useUpload } from '@/core/presentation/composables/useUpload'
+import { formatDate } from '@/core/utils/formatters'
 
 const props = defineProps({
   isOpen: Boolean,

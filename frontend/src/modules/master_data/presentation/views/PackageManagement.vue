@@ -6,6 +6,7 @@ import { useMagicKeys, refDebounced } from '@vueuse/core'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { usePackages } from '../../application/usePackages'
 import { useProducts } from '../../application/useProducts'
+import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import ProductFormModal from '@/modules/wms/presentation/components/shared/ProductFormModal.vue'
 import ConnectionStatus from '@/modules/wms/presentation/components/shared/ConnectionStatus.vue'
 import PackageTable from '@/modules/master_data/presentation/components/products/PackageTable.vue'
@@ -41,6 +42,7 @@ const {
   handleCancelInlineEdit,
   handleBulkSaveInline
 } = useInlineSave({
+  saveItem: (id, payload) => productApi.updateProduct(id, payload),
   fetchProducts: () => fetchProducts(),
   tableKeyRef: tableKey,
   afterSaveAction: () => packageTableRef.value?.clearComponentCache()

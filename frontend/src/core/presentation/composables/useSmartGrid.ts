@@ -15,6 +15,8 @@ import { formatCurrency, formatNumber } from '@/core/utils/formatters'
  * @param {function} options.onFetchMore - Callback when scrolled near bottom
  * @param {function} options.onCellEdit - Callback when cell is edited
  * @param {Object} [options.tableFeatures={}] - Additional features for useTable
+ * @param {Record<string, function>} [options.cellFormatters] - Custom formatters per column id
+ * @param {function} [options.formatCellValue] - General formatter hook (val, colId)
  */
 export function useSmartGrid({
   data,
@@ -25,7 +27,9 @@ export function useSmartGrid({
   isFetchingNextPage,
   onFetchMore,
   onCellEdit,
-  tableFeatures
+  tableFeatures,
+  cellFormatters,
+  formatCellValue
 }) {
   // 1. Setup Table
   const tableOptions = {
@@ -84,6 +88,13 @@ export function useSmartGrid({
   // 4. Cell Editing Handler
   const formatCurrencyOrNumber = (val, colId) => {
     if (val === null || val === undefined) return '-'
+    if (formatCellValue) {
+      return formatCellValue(val, colId)
+    }
+    if (cellFormatters && typeof cellFormatters[colId] === 'function') {
+      return cellFormatters[colId](val)
+    }
+    // Backward-compatible fallback for callers without explicit formatter mappings
     if (colId === 'price') return formatCurrency(val)
     if (colId === 'weight') return formatNumber(val)
     return val

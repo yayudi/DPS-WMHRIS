@@ -5,6 +5,7 @@ import { useFirebaseSync } from '@/core/presentation/composables/useFirebaseSync
 import { useMagicKeys } from '@vueuse/core'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { useProducts } from '../../application/useProducts'
+import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import debounce from 'lodash/debounce'
 import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
@@ -84,7 +85,11 @@ const {
   handleInlineEditChange,
   handleCancelInlineEdit,
   handleBulkSaveInline
-} = useInlineSave({ fetchProducts: () => fetchProducts(), tableKeyRef: tableKey })
+} = useInlineSave({
+  saveItem: (id, payload) => productApi.updateProduct(id, payload),
+  fetchProducts: () => fetchProducts(),
+  tableKeyRef: tableKey
+})
 
 // --- API ACTIONS (TanStack Vue Query) ---
 

@@ -1,4 +1,4 @@
-import { ref, onUnmounted } from 'vue';
+import { ref, onUnmounted, getCurrentInstance } from 'vue';
 import { ref as dbRef, onValue, off } from 'firebase/database';
 import { firebaseDb } from '@/core/infrastructure/firebase';
 
@@ -45,21 +45,35 @@ export const useFirebaseListener = (userId, permissions = [], onSignalReceived) 
   };
 
   const stopListening = () => {
+    if (!isListening.value && !userSignalRef && permissionRefs.length === 0) return;
+
     if (userSignalRef) {
-      off(userSignalRef);
+      try {
+        off(userSignalRef);
+      } catch (err) {
+        console.warn('[useFirebaseListener] Failed to detach user signal listener:', err);
+      }
       userSignalRef = null;
     }
-    
-    permissionRefs.forEach(pRef => off(pRef));
+
+    permissionRefs.forEach(pRef => {
+      try {
+        off(pRef);
+      } catch (err) {
+        console.warn('[useFirebaseListener] Failed to detach permission listener:', err);
+      }
+    });
     permissionRefs = [];
-    
+
     isListening.value = false;
   };
 
-  // Otomatis stop listening saat komponen di-unmount
-  onUnmounted(() => {
-    stopListening();
-  });
+  // Otomatis stop listening saat komponen di-unmount jika berada dalam lifecycle setup
+  if (getCurrentInstance()) {
+    onUnmounted(() => {
+      stopListening();
+    });
+  }
 
   return {
     isListening,
