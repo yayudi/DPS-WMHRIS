@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
-import api from '@/core/infrastructure/http.client'
+import { authApi } from '@/modules/auth/infrastructure/auth.api'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 
@@ -49,11 +49,11 @@ async function handleUpdate() {
       newPassword: newPassword.value || null, // Kirim null jika kosong
     }
 
-    const response = await api.put('/user/profile', payload)
+    const response = await authApi.updateProfile(payload)
 
     toast('Data akun berhasil diperbarui!', 'success')
 
-    auth.updateUserNickname(response.data.user.nickname)
+    auth.updateUserNickname((response.data as any)?.user?.nickname || nickname.value)
 
     // Kosongkan field password
     currentPassword.value = ''

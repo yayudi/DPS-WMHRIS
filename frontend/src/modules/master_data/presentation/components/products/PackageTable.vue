@@ -7,7 +7,7 @@ import { useSortIcon } from '@/core/presentation/composables/useSortIcon'
 import { useSmartGrid } from '@/core/presentation/composables/useSmartGrid'
 import BaseContextMenu from '@/core/presentation/components/ui/BaseContextMenu.vue'
 import { useProductContextMenu } from '@/modules/master_data/presentation/composables/useProductContextMenu'
-import axios from '@/core/infrastructure/http.client'
+import { productApi } from '@/modules/master_data/infrastructure/product.api'
 
 const { isMobile } = useMobile()
 
@@ -57,8 +57,8 @@ const toggleExpand = async id => {
   if (!componentCache.value.has(id)) {
     loadingComponents.value.add(id)
     try {
-      const { data } = await axios.get(`/products/${id}`)
-      componentCache.value.set(id, data.data?.components || [])
+      const data = await productApi.fetchProductById(id)
+      componentCache.value.set(id, (data?.components || data?.data?.components) || [])
     } catch {
       componentCache.value.set(id, []) // fallback empty
     } finally {

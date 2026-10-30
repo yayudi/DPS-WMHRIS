@@ -1,11 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
 import { dayjs } from '@/core/utils/time'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { useTheme } from '@/core/presentation/composables/useTheme'
-import { getStockMovementStatistics, getStockBuildingBreakdown } from '@/modules/analytics/application/utils/statistics'
-import { requestStatisticExport } from '@/modules/analytics/application/utils/exportStats'
+import { analyticsApi } from '@/modules/analytics/infrastructure/analytics.api'
+import { serializeFilterParams } from '@/core/utils/filterParams'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import BaseTabs from '@/core/presentation/components/ui/BaseTabs.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
@@ -27,16 +27,16 @@ const { toast } = useToast()
 const isDataLoading = ref(false)
 const isExporting = ref(false)
 const showTimelineModal = ref(false)
-const selectedProductId = ref(null)
-const statisticsList = ref([])
+const selectedProductId = ref<string | number | null>(null)
+const statisticsList = ref<any[]>([])
 const viewMode = ref('table')
 const chartMaxCap = ref(10)
 const showFilters = ref(false)
-const expandedRow = ref(null)
-const breakdownData = ref({})
-const breakdownLoading = ref({})
+const expandedRow = ref<string | null>(null)
+const breakdownData = ref<Record<string | number, any[]>>({})
+const breakdownLoading = ref<Record<string | number, boolean>>({})
 
-const toggleRowExpand = async (sku, productId) => {
+const toggleRowExpand = async (sku: string, productId: string | number) => {
   if (expandedRow.value === sku) {
     expandedRow.value = null
     return
@@ -45,7 +45,7 @@ const toggleRowExpand = async (sku, productId) => {
   if (!breakdownData.value[productId]) {
     breakdownLoading.value[productId] = true
     try {
-      const response = await getStockBuildingBreakdown(
+      const response = await analyticsApi.getStockBuildingBreakdown(
         productId,
         filterValues.value.startDate,
         filterValues.value.endDate
@@ -64,7 +64,7 @@ const totalOutAll = computed(() => {
   return statisticsList.value.reduce((acc, i) => acc + Number(i.total_sold), 0)
 })
 
-const getNetFlowInfo = item => {
+const getNetFlowInfo = (item: any) => {
   const net = Number(item.total_inbound) - Number(item.total_sold)
   if (net > 0)
     return { value: `+${formatNumber(net)}`, label: 'Surplus', class: 'text-success', icon: 'fa-solid fa-arrow-up' }
@@ -73,13 +73,13 @@ const getNetFlowInfo = item => {
   return { value: '0', label: 'Seimbang', class: 'text-text/60', icon: 'fa-solid fa-minus' }
 }
 
-const getSellThroughRate = item => {
+const getSellThroughRate = (item: any) => {
   const total = Number(item.total_sold) + Number(item.current_stock)
   if (total <= 0) return 0
   return ((Number(item.total_sold) / total) * 100).toFixed(1)
 }
 
-const getContributionPct = item => {
+const getContributionPct = (item: any) => {
   if (totalOutAll.value <= 0) return '0.0'
   return ((Number(item.total_sold) / totalOutAll.value) * 100).toFixed(1)
 }
@@ -103,13 +103,16 @@ const filterValues = ref({
   startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
   endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
   searchQuery: '',
-  status: { include: [], exclude: [] },
+  status: { include: [] as string[], exclude: [] as string[] },
   movement: 'all',
-  building: { include: [], exclude: [] },
-  categoryId: { include: [], exclude: [] }
+  building: { include: [] as string[], exclude: [] as string[] },
+  categoryId: { include: [] as string[], exclude: [] as string[] }
 })
 
-const reportFilters = ref({
+const reportFilters = ref<{
+  allBuildings: any[]
+  allCategories: any[]
+}>({
   allBuildings: [],
   allCategories: []
 })
@@ -207,23 +210,9 @@ const canExport = computed(
   () => authStore.hasPermission('statistic.stock.export') || authStore.hasPermission('manage-all')
 )
 
-const openTimelineInvestigation = productId => {
+const openTimelineInvestigation = (productId: string | number) => {
   selectedProductId.value = productId
   showTimelineModal.value = true
-}
-
-const prepareFilters = filters => {
-  const prepared = { ...filters }
-  if (prepared.status && typeof prepared.status === 'object') {
-    prepared.status = JSON.stringify(prepared.status)
-  }
-  if (prepared.building && typeof prepared.building === 'object') {
-    prepared.building = JSON.stringify(prepared.building)
-  }
-  if (prepared.categoryId && typeof prepared.categoryId === 'object') {
-    prepared.categoryId = JSON.stringify(prepared.categoryId)
-  }
-  return prepared
 }
 
 const fetchStatistics = async () => {
@@ -233,7 +222,7 @@ const fetchStatistics = async () => {
   breakdownData.value = {}
   breakdownLoading.value = {}
   try {
-    const response = await getStockMovementStatistics(prepareFilters(filterValues.value))
+    const response = await analyticsApi.getStockMovementStatistics(serializeFilterParams(filterValues.value))
     const payload = response?.data || response // Ambil properti data asli dari Controller
 
     if (payload && !Array.isArray(payload) && payload.summary) {
@@ -265,7 +254,7 @@ const handleExport = async () => {
       ...filterValues.value,
       exportName
     }
-    const data = await requestStatisticExport(prepareFilters(filtersPayload))
+    const data = await analyticsApi.requestStatisticExport(prepareFilters(filtersPayload))
     if (data.success) {
       toast(data.message || 'Sedang memproses export ke background', 'success')
     }

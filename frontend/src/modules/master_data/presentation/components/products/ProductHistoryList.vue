@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
-import axios from '@/core/infrastructure/http.client'
+import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { formatCurrency } from '@/core/utils/formatters'
 
 const props = defineProps({
@@ -13,10 +13,8 @@ const loading = ref(false)
 const fetchHistory = async () => {
   loading.value = true
   try {
-    const { data } = await axios.get(`/products/${props.productId}/history`)
-    if (data.success) {
-      history.value = data.data || []
-    }
+    const data = await productApi.fetchProductHistory(props.productId)
+    history.value = Array.isArray(data) ? data : data?.data || []
   } catch (e) {
     console.error('Gagal load history', e)
   } finally {

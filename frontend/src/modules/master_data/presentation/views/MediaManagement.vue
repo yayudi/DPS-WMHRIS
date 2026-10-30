@@ -4,7 +4,6 @@ import { ref, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue'
 import debounce from 'lodash/debounce'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { useImageActions } from '@/modules/master_data/presentation/composables/useImageActions'
-import apiClient from '@/core/infrastructure/http.client'
 import { useMedia } from '../../application/useMedia'
 import MediaInfoModal from '../components/MediaInfoModal.vue'
 import MediaLightbox from '@/core/presentation/components/common/MediaLightbox.vue'
@@ -399,7 +398,7 @@ const executeBulkUpload = async () => {
         products = bulkSelectedProducts.value.map(p => p.id)
       }
 
-      const result = await uploadMediaToR2(apiClient, chunk, chunkTitles, tags, products, progress => {
+      const result = await uploadMediaToR2(chunk, chunkTitles, tags, products, progress => {
         uploadProgress.value = `Memproses & Mengunggah ${i + chunk.length} dari ${selectedFiles.value.length} aset... (${progress}%)`
       })
 

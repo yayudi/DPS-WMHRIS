@@ -1,31 +1,30 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { getProductStockTimeline } from '@/modules/analytics/application/utils/statistics';
+import { analyticsApi } from '@/modules/analytics/infrastructure/analytics.api';
 
-const props = defineProps({
-  productId: {
-    type: String,
-    required: true
-  },
-  buildings: {
-    type: Array,
-    default: () => []
+const props = withDefaults(
+  defineProps<{
+    productId: string | number;
+    buildings?: string[];
+  }>(),
+  {
+    buildings: () => []
   }
-});
+);
 
 const page = ref(1);
 const limit = ref(100);
 
 const isPending = ref(false);
-const error = ref(null);
-const timelineResult = ref({ data: [], totalPages: 1 });
+const error = ref<any>(null);
+const timelineResult = ref<{ data: any[]; totalPages: number }>({ data: [], totalPages: 1 });
 
 const fetchTimeline = async () => {
   if (!props.productId) return;
   isPending.value = true;
   error.value = null;
   try {
-    const res = await getProductStockTimeline(props.productId, page.value, limit.value, props.buildings);
+    const res = await analyticsApi.getProductStockTimeline(String(props.productId), page.value, limit.value, props.buildings);
     timelineResult.value = res.data;
   } catch (err) {
     console.error(err) // Auto-added to prevent unused var
@@ -57,14 +56,14 @@ const sliderIndex = ref(0);
 const baseReversedData = computed(() => [...actualData.value].reverse());
 
 // Movement Type Filter
-const hiddenMovementTypes = ref(new Set());
+const hiddenMovementTypes = ref<Set<string>>(new Set());
 
 const availableMovementTypes = computed(() => {
-  const types = new Set(baseReversedData.value.map(d => d.movement_type));
+  const types = new Set<string>(baseReversedData.value.map(d => d.movement_type));
   return Array.from(types).sort();
 });
 
-const toggleMovementTypeFilter = (type) => {
+const toggleMovementTypeFilter = (type: string) => {
   const newSet = new Set(hiddenMovementTypes.value);
   if (newSet.has(type)) {
     newSet.delete(type);
@@ -100,16 +99,17 @@ const nextPage = () => {
 };
 
 // UI helpers
-const formatDate = (dateString) => {
+const formatDate = (dateString?: string) => {
   if (!dateString) return '-';
   return new Date(dateString).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' });
 };
 
 // Keyboard Navigation & Sparkline
-const handleKeydown = (e) => {
+const handleKeydown = (e: KeyboardEvent) => {
   if (reversedData.value.length === 0) return;
   // Jangan navigasi jika user sedang mengetik di input box (seperti kotak pencarian)
-  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  const target = e.target as HTMLElement | null;
+  if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
 
   if (e.key === 'ArrowLeft') {
     e.preventDefault();
@@ -188,7 +188,7 @@ const parsedNotes = computed(() => {
 });
 
 // Mode Perbandingan (Compare Mode)
-const compareIndex = ref(null);
+const compareIndex = ref<number | null>(null);
 
 const toggleCompare = () => {
   if (compareIndex.value === null) {

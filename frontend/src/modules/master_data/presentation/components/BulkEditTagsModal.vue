@@ -1,7 +1,7 @@
 <script setup>
 import { swalConfirm, swalAlert } from '@/core/presentation/composables/useSweetAlert'
 import { ref, watch } from 'vue'
-import apiClient from '@/core/infrastructure/http.client'
+import { mediaApi } from '@/modules/master_data/infrastructure/media.api'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import { useToast } from '@/core/presentation/composables/useToast'
 
@@ -47,8 +47,8 @@ const submitTags = async () => {
     let successCount = 0
     // Sequential loop to save DB connection pool
     for (const id of props.selectedMediaIds) {
-      const res = await apiClient.put(`/media/${id}/tags`, { tags: rawTags })
-      if (res.data.success) successCount++
+      await mediaApi.updateMediaTags(id, rawTags)
+      successCount++
     }
     toast(`Berhasil memperbarui tag untuk ${successCount} gambar.`, 'success')
     emit('updated')

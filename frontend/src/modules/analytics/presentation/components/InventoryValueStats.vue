@@ -1,9 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import BaseTabs from '@/core/presentation/components/ui/BaseTabs.vue'
 import { useTheme } from '@/core/presentation/composables/useTheme'
-import { getInventoryValueStatistics, getStockBuildingBreakdown } from '@/modules/analytics/application/utils/statistics'
+import { analyticsApi } from '@/modules/analytics/infrastructure/analytics.api'
+import { serializeFilterParams } from '@/core/utils/filterParams'
 import { dayjs } from '@/core/utils/time'
 import StockTimelineModal from '@/modules/analytics/presentation/components/StockTimelineModal.vue'
 const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
@@ -18,22 +19,22 @@ import { usePagination } from '@/core/presentation/composables/usePagination'
 
 const masterData = useMasterDataStore()
 const isDataLoading = ref(false)
-const statisticsList = ref([])
+const statisticsList = ref<any[]>([])
 const viewMode = ref('table')
 const chartMaxCap = ref(10)
 const showFilters = ref(false)
 const showTimelineModal = ref(false)
-const selectedProductId = ref(null)
-const expandedRow = ref(null)
-const breakdownData = ref({})
-const breakdownLoading = ref({})
+const selectedProductId = ref<string | number | null>(null)
+const expandedRow = ref<string | null>(null)
+const breakdownData = ref<Record<string | number, any[]>>({})
+const breakdownLoading = ref<Record<string | number, boolean>>({})
 
-const openTimelineInvestigation = productId => {
+const openTimelineInvestigation = (productId: string | number) => {
   selectedProductId.value = productId
   showTimelineModal.value = true
 }
 
-const toggleRowExpand = async (sku, productId) => {
+const toggleRowExpand = async (sku: string, productId: string | number) => {
   if (expandedRow.value === sku) {
     expandedRow.value = null
     return
@@ -44,7 +45,7 @@ const toggleRowExpand = async (sku, productId) => {
     try {
       const startDate = dayjs().startOf('month').format('YYYY-MM-DD')
       const endDate = dayjs().format('YYYY-MM-DD')
-      const response = await getStockBuildingBreakdown(productId, startDate, endDate)
+      const response = await analyticsApi.getStockBuildingBreakdown(productId, startDate, endDate)
       breakdownData.value[productId] = response?.data || response || []
     } catch (err) {
       console.error('Failed to fetch breakdown:', err)
@@ -76,7 +77,7 @@ const fetchStatistics = async () => {
   breakdownData.value = {}
   breakdownLoading.value = {}
   try {
-    const data = await getInventoryValueStatistics(filterValues.value)
+    const data = await analyticsApi.getInventoryValueStatistics(serializeFilterParams(filterValues.value))
     statisticsList.value = data.data || []
   } catch (error) {
     console.error(error) // Auto-added to prevent unused var
@@ -91,14 +92,18 @@ const applyFilters = () => {
 
 const filterValues = ref({
   searchQuery: '',
-  stockStatus: { include: [], exclude: [] },
-  building: { include: [], exclude: [] },
-  purpose: { include: [], exclude: [] },
+  stockStatus: { include: [] as string[], exclude: [] as string[] },
+  building: { include: [] as string[], exclude: [] as string[] },
+  purpose: { include: [] as string[], exclude: [] as string[] },
   isPackage: '',
-  categoryId: { include: [], exclude: [] }
+  categoryId: { include: [] as string[], exclude: [] as string[] }
 })
 
-const reportFilters = ref({
+const reportFilters = ref<{
+  allBuildings: any[]
+  purposes: string[]
+  allCategories: any[]
+}>({
   allBuildings: [],
   purposes: [],
   allCategories: []
@@ -156,7 +161,7 @@ const mainFilters = computed(() => [
   {
     type: 'triselect',
     key: 'purpose',
-    label: 'Tujuan Rak',
+    label: 'Tujuan Lantai',
     options: purposeOptions.value,
     optionLabel: 'label',
     trackBy: 'id',

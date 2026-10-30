@@ -1,6 +1,6 @@
 import imageCompression from 'browser-image-compression'
 import axios from 'axios'
-// I will adjust the import based on how the project does it.
+import { mediaApi } from '@/modules/master_data/infrastructure/media.api'
 
 /**
  * Membaca File dan mengembalikan promise berupa ImageBitmap untuk digambar ke Canvas
@@ -80,27 +80,41 @@ export const processMediaClientSide = async file => {
  * @param {Array<number>} products
  * @param {Function} onProgressCallback - Callback progress (0-100)
  */
-export const uploadMediaToR2 = async (apiClient, files, fileTitles, tags, products, onProgressCallback = null) => {
+export const uploadMediaToR2 = async (apiClientOrFiles, files, fileTitles, tags, products, onProgressCallback = null) => {
+  let realFiles = files
+  let realTitles = fileTitles
+  let realTags = tags
+  let realProducts = products
+  let realCallback = onProgressCallback
+
+  if (Array.isArray(apiClientOrFiles)) {
+    realFiles = apiClientOrFiles
+    realTitles = files
+    realTags = fileTitles
+    realProducts = tags
+    realCallback = products
+  }
+
   // Minta Presigned URL dari Backend
-  const fileRequests = files.map(f => ({ name: f.name, type: 'image/webp' }))
-  const presignedRes = await apiClient.post('/media/presigned-url', { files: fileRequests })
-  const urls = presignedRes.data.data
+  const fileRequests = realFiles.map(f => ({ name: f.name, type: 'image/webp' }))
+  const presignedRes = await mediaApi.getPresignedUrl(fileRequests)
+  const urls = presignedRes.data || presignedRes
 
   const assetsMetadata = []
 
   let completedSteps = 0
-  const totalSteps = files.length * 3
+  const totalSteps = realFiles.length * 3
   const updateProgress = () => {
     completedSteps++
-    if (onProgressCallback) {
-      onProgressCallback(Math.round((completedSteps / totalSteps) * 100))
+    if (realCallback) {
+      realCallback(Math.round((completedSteps / totalSteps) * 100))
     }
   }
 
   // Proses & Unggah masing-masing file
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i]
-    const title = fileTitles && fileTitles[i] ? fileTitles[i].trim() : file.name
+  for (let i = 0; i < realFiles.length; i++) {
+    const file = realFiles[i]
+    const title = realTitles && realTitles[i] ? realTitles[i].trim() : file.name
     const urlData = urls.find(u => u.originalName === file.name)
 
     if (!urlData) throw new Error(`URL presigned tidak ditemukan untuk ${file.name}`)
@@ -124,7 +138,7 @@ export const uploadMediaToR2 = async (apiClient, files, fileTitles, tags, produc
     // Siapkan Metadata
     assetsMetadata.push({
       title: title,
-      tags: tags || [],
+      tags: realTags || [],
       hash: processed.hash,
       sizeBytes: processed.sizeBytes,
       width: processed.width,
@@ -135,10 +149,10 @@ export const uploadMediaToR2 = async (apiClient, files, fileTitles, tags, produc
   }
 
   // Konfirmasi unggahan ke Backend untuk disimpan di MySQL
-  const confirmRes = await apiClient.post('/media/confirm', {
+  const confirmRes = await mediaApi.confirmUpload({
     assets: assetsMetadata,
-    products: products
+    products: realProducts
   })
 
-  return confirmRes.data
+  return confirmRes.data || confirmRes
 }

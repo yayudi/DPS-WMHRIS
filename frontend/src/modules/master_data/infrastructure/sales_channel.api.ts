@@ -1,8 +1,9 @@
 import { http } from '@/core/infrastructure/http.client'
 
 export const salesChannelApi = {
-  async fetchAllSalesChannels(): Promise<any> {
-    const response = await http.get('/sales-channels')
+  async fetchAllSalesChannels(activeOnly = false): Promise<any> {
+    const params = activeOnly ? { activeOnly: true } : undefined
+    const response = await http.get('/sales-channels', { params })
     return response.data || []
   },
   async createSalesChannel(payload: any): Promise<any> {

@@ -2,7 +2,8 @@
 import { ref, watch, onMounted } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
 import { useToast } from '@/core/presentation/composables/useToast'
-import axios from '@/core/infrastructure/http.client'
+import { productApi } from '@/modules/master_data/infrastructure/product.api'
+import { categoryApi } from '@/modules/master_data/infrastructure/category.api'
 import debounce from 'lodash/debounce'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
@@ -69,24 +70,22 @@ async function handleCreateCategory() {
   if (!categorySearchQuery.value.trim() || isCreatingCategory.value) return
   isCreatingCategory.value = true
   try {
-    const { data } = await axios.post('/categories', {
+    const data = await categoryApi.createCategory({
       name: categorySearchQuery.value.trim()
     })
-    if (data.success) {
-      toast('Kategori berhasil ditambahkan', 'success')
-      await fetchCategories()
+    toast('Kategori berhasil ditambahkan', 'success')
+    await fetchCategories()
 
-      const newCatId = data.data?.id || data.data?.insertId
-      if (newCatId) {
-        form.value.category_id = newCatId
-      } else {
-        const found = categories.value.find(
-          c => c.name.toLowerCase() === categorySearchQuery.value.trim().toLowerCase()
-        )
-        if (found) form.value.category_id = found.id
-      }
-      categorySearchQuery.value = ''
+    const newCatId = data?.id || data?.insertId || data?.data?.id
+    if (newCatId) {
+      form.value.category_id = newCatId
+    } else {
+      const found = categories.value.find(
+        c => c.name.toLowerCase() === categorySearchQuery.value.trim().toLowerCase()
+      )
+      if (found) form.value.category_id = found.id
     }
+    categorySearchQuery.value = ''
   } catch (err) {
     console.error(err)
     //     const msg = err.response?.data?.message || 'Gagal menambahkan kategori' // Disabled due to unused var
@@ -115,17 +114,16 @@ const debouncedDuplicateCheck = {
 
 async function _executeDuplicateCheck(field, value) {
   try {
-    const { data } = await axios.get('/products', {
-      params: { search: value, searchBy: field, limit: 20 }
-    })
-    const isDuplicate = data.data.some(p => {
+    const data = await productApi.getProducts({ search: value, searchBy: field, limit: 20 })
+    const list = Array.isArray(data) ? data : data?.data || []
+    const isDuplicate = list.some(p => {
       if (props.mode === 'edit' && p.id === props.productData.id) return false
       return p[field].toString().toLowerCase() === value.toString().toLowerCase()
     })
 
     let similarItems = []
     if (field === 'name' && !isDuplicate) {
-        similarItems = data.data.filter(p => {
+        similarItems = list.filter(p => {
             if (props.mode === 'edit' && p.id === props.productData.id) return false
             return p[field].toString().toLowerCase() !== value.toString().toLowerCase()
         }).slice(0, 5) // Tampilkan max 5 produk mirip
@@ -189,11 +187,10 @@ watch(
 
       const generateNextSKU = async () => {
         try {
-          const { data } = await axios.get('/products', {
-            params: { sortBy: 'sku', sortOrder: 'desc', limit: 1 }
-          })
-          if (data.data && data.data.length > 0) {
-            const lastSku = data.data[0].sku || ''
+          const data = await productApi.getProducts({ sortBy: 'sku', sortOrder: 'desc', limit: 1 })
+          const list = Array.isArray(data) ? data : data?.data || []
+          if (list.length > 0) {
+            const lastSku = list[0].sku || ''
             const match = lastSku.match(/^([A-Za-z]+)(\d+)$/)
             if (match) {
               const prefix = match[1]
@@ -211,18 +208,19 @@ watch(
         // MODE EDIT / DUPLICATE: Fetch data lengkap dari server
         fetchLoading.value = true
         try {
-          const { data } = await axios.get(`/products/${props.productData.id}`)
-          if (data.success) {
+          const data = await productApi.fetchProductById(props.productData.id)
+          const prod = data?.data || data
+          if (prod) {
             form.value = {
-              sku: data.data.sku,
-              name: data.data.name,
-              category_id: data.data.category_id || null,
-              price: data.data.price || 0,
-              weight: data.data.weight || 0,
-              length: data.data.length || 0,
-              width: data.data.width || 0,
-              height: data.data.height || 0,
-              is_package: Boolean(data.data.is_package)
+              sku: prod.sku,
+              name: prod.name,
+              category_id: prod.category_id || null,
+              price: prod.price || 0,
+              weight: prod.weight || 0,
+              length: prod.length || 0,
+              width: prod.width || 0,
+              height: prod.height || 0,
+              is_package: Boolean(prod.is_package)
             }
             // Mapping komponen jika ada
             components.value = data.data.components || []
@@ -274,10 +272,10 @@ watch(
 // Logika Pencarian Komponen Paket
 const debouncedComponentSearch = debounce(async query => {
   try {
-    const { data } = await axios.get(`/products/search?q=${query}`)
+    const data = await productApi.searchProducts({ q: query })
 
     // Extract array depending on response format
-    const resultsArray = Array.isArray(data) ? data : data.data || []
+    const resultsArray = Array.isArray(data) ? data : data?.data || []
 
     // Filter: Jangan tampilkan produk yang sudah dipilih atau produk itu sendiri (jika edit)
     searchResults.value = resultsArray.filter(
@@ -355,18 +353,15 @@ async function handleSubmit() {
       ...(mediaIds.length > 0 && { mediaIds })
     }
 
-    let response
     if (props.mode === 'create' || props.mode === 'duplicate') {
-      response = await axios.post('/products', finalPayload)
+      await productApi.createProduct(finalPayload)
     } else {
-      response = await axios.put(`/products/${props.productData.id}`, finalPayload)
+      await productApi.updateProduct(props.productData.id, finalPayload)
     }
 
-    if (response.data.success) {
-      toast(`Produk berhasil ${props.mode === 'edit' ? 'diperbarui' : 'dibuat'}!`, 'success')
-      emit('refresh') // Memberitahu parent untuk refresh tabel
-      emit('close')
-    }
+    toast(`Produk berhasil ${props.mode === 'edit' ? 'diperbarui' : 'dibuat'}!`, 'success')
+    emit('refresh') // Memberitahu parent untuk refresh tabel
+    emit('close')
   } catch (err) {
     console.error(err)
     //     const msg = err.response?.data?.message || 'Terjadi kesalahan saat menyimpan.' // Disabled due to unused var

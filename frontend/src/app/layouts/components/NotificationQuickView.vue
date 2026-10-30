@@ -80,7 +80,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '@/core/infrastructure/http.client'
+import { notificationApi } from '@/modules/settings/infrastructure/notification.api'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { useFirebaseSync } from '@/core/presentation/composables/useFirebaseSync'
 
@@ -102,11 +102,9 @@ const togglePopover = () => {
 const fetchNotifications = async () => {
   try {
     loading.value = true
-    const response = await api.get('/notifications/recent?limit=5')
-    if (response.data.success) {
-      notifications.value = response.data.data
-      pendingCount.value = notifications.value.length // In real app, might want a separate count endpoint if limit < total unread
-    }
+    const data = await notificationApi.getRecentNotifications(5)
+    notifications.value = Array.isArray(data) ? data : data?.data || []
+    pendingCount.value = notifications.value.length
   } catch (error) {
     console.error('Failed to fetch notifications:', error)
   } finally {
@@ -116,7 +114,7 @@ const fetchNotifications = async () => {
 
 const markAllAsDone = async () => {
   try {
-    await api.put('/notifications/all/done')
+    await notificationApi.markAllAsDone()
     notifications.value = []
     pendingCount.value = 0
   } catch (error) {
@@ -126,7 +124,7 @@ const markAllAsDone = async () => {
 
 const markAsDone = async id => {
   try {
-    await api.put(`/notifications/${id}/done`)
+    await notificationApi.markAsDone(id)
     notifications.value = notifications.value.filter(n => n.id !== id)
     pendingCount.value = notifications.value.length
   } catch (error) {
@@ -179,13 +177,11 @@ onUnmounted(() => {
 
 useFirebaseSync(currentUser.value?.permissions || [], 'REFRESH_NOTIFICATIONS', () => {
   // Silent fetch
-  api
-    .get('/notifications/recent?limit=5')
-    .then(res => {
-      if (res.data.success) {
-        notifications.value = res.data.data
-        pendingCount.value = notifications.value.length
-      }
+  notificationApi
+    .getRecentNotifications(5)
+    .then(data => {
+      notifications.value = Array.isArray(data) ? data : data?.data || []
+      pendingCount.value = notifications.value.length
     })
     .catch(err => console.error('Silent fetch failed:', err))
 })

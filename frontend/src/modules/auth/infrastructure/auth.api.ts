@@ -2,7 +2,6 @@ import { http } from '@/core/infrastructure/http.client'
 import type { ApiResponse } from '@/core/domain/api.types'
 import type { LoginPayload, LoginRawResponse } from '../domain/auth.types'
 import type { AuthUser } from '../domain/user.entity'
-import axios from '@/core/infrastructure/http.client'
 
 /**
  * Auth API Repository
@@ -15,7 +14,7 @@ export const authApi = {
    * Mengirim kredensial login ke server
    */
   login(payload: LoginPayload): Promise<LoginRawResponse> {
-    return axios.post<LoginRawResponse>('/auth/login', payload).then(res => res.data)
+    return http.post<LoginRawResponse>('/auth/login', payload).then(res => res.data as LoginRawResponse)
   },
 
   /**
@@ -23,6 +22,13 @@ export const authApi = {
    */
   getProfile(): Promise<ApiResponse<AuthUser>> {
     return http.get<AuthUser>('/user/profile')
+  },
+
+  /**
+   * Memperbarui profil akun user saat ini
+   */
+  updateProfile(payload: { nickname?: string; password?: string }): Promise<ApiResponse<any>> {
+    return http.put('/user/profile', payload)
   },
 
   /**

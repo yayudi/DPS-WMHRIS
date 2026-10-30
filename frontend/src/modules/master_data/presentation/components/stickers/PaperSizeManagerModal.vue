@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import api from '@/core/infrastructure/http.client'
+import { stickerApi } from '@/modules/master_data/infrastructure/sticker.api'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { swalConfirm, swalAlert } from '@/core/presentation/composables/useSweetAlert'
 
@@ -33,10 +33,8 @@ const formData = ref({
 const fetchPaperSizes = async () => {
   isLoading.value = true
   try {
-    const res = await api.get('/paper-sizes')
-    if (res.data.success) {
-      paperSizes.value = res.data.data
-    }
+    const data = await stickerApi.fetchPaperSizes()
+    paperSizes.value = Array.isArray(data) ? data : data?.data || []
   } catch (error) {
     console.error(error)
     toast('Gagal memuat ukuran kertas', 'error')
@@ -78,15 +76,13 @@ const deletePaperSize = async id => {
   if (!confirmed) return
 
   try {
-    const res = await api.delete(`/paper-sizes/${id}`)
-    if (res.data.success) {
-      toast('Ukuran kertas dihapus', 'success')
-      fetchPaperSizes()
-      emit('updated')
-    }
+    await stickerApi.deletePaperSize(id)
+    toast('Ukuran kertas dihapus', 'success')
+    fetchPaperSizes()
+    emit('updated')
   } catch (error) {
     console.error(error)
-    swalAlert(error.response?.data?.message || 'Gagal menghapus ukuran kertas')
+    swalAlert(error?.response?.data?.message || 'Gagal menghapus ukuran kertas')
   }
 }
 
@@ -103,22 +99,19 @@ const submitForm = async () => {
   }
 
   try {
-    let res
     if (formData.value.id) {
-      res = await api.put(`/paper-sizes/${formData.value.id}`, formData.value)
+      await stickerApi.updatePaperSize(formData.value.id, formData.value)
     } else {
-      res = await api.post('/paper-sizes', formData.value)
+      await stickerApi.createPaperSize(formData.value)
     }
 
-    if (res.data.success) {
-      toast('Ukuran kertas berhasil disimpan', 'success')
-      showForm.value = false
-      fetchPaperSizes()
-      emit('updated')
-    }
+    toast('Ukuran kertas berhasil disimpan', 'success')
+    showForm.value = false
+    fetchPaperSizes()
+    emit('updated')
   } catch (error) {
     console.error(error)
-    swalAlert(error.response?.data?.message || 'Gagal menyimpan ukuran kertas')
+    swalAlert(error?.response?.data?.message || 'Gagal menyimpan ukuran kertas')
   }
 }
 

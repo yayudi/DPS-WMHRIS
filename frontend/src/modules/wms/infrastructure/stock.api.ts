@@ -1,6 +1,16 @@
 import { http } from '@/core/infrastructure/http.client'
 import type { ApiResponse, PaginatedData } from '@/core/domain/api.types'
 import type { StockFilter, ProductStock, StockLocation } from '../domain/stock.entity'
+import { locationApi } from '@/modules/master_data/infrastructure/location.api'
+
+export interface TransferStockPayload {
+  product_id?: number
+  from_location_id?: number
+  to_location_id?: number
+  quantity: number
+  notes?: string
+  [key: string]: unknown
+}
 
 /**
  * Repository untuk API Stok (WMS)
@@ -23,7 +33,7 @@ export const stockApi = {
     return http.blob('/wms/stock/export', { params: filter })
   },
 
-  transferStock(payload: any): Promise<ApiResponse<any>> {
+  transferStock(payload: TransferStockPayload): Promise<ApiResponse<any>> {
     return http.post('/stock/transfer', payload)
   },
 
@@ -32,16 +42,7 @@ export const stockApi = {
   },
 
   async fetchAllLocations(): Promise<StockLocation[]> {
-    try {
-      const response = await http.get<StockLocation[]>('/locations')
-      if (Array.isArray(response.data)) {
-        return response.data
-      }
-      return []
-    } catch (error: any) {
-      console.error('Error fetching all locations:', error)
-      throw new Error(error?.message || 'Gagal mengambil daftar lokasi')
-    }
+    return locationApi.fetchAllLocations()
   },
 
   fetchStockHistory(productId: number, params: any): Promise<ApiResponse<PaginatedData<any>>> {
@@ -65,8 +66,8 @@ export const stockApi = {
     return http.post('/stock/batch-process', payload)
   },
 
-  processSingleTransfer(payload: any): Promise<ApiResponse<any>> {
-    return http.post('/stock/transfer', payload)
+  processSingleTransfer(payload: TransferStockPayload): Promise<ApiResponse<any>> {
+    return this.transferStock(payload)
   },
 
   requestAdjustmentUpload(file: File, notes?: string): Promise<ApiResponse<any>> {

@@ -1,18 +1,19 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
 import { dayjs } from '@/core/utils/time'
 import { useTheme } from '@/core/presentation/composables/useTheme'
 import DateRangeFilter from '@/core/presentation/components/ui/DateRangeFilter.vue'
 import SearchInput from '@/core/presentation/components/ui/SearchInput.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
-import { getStockMovementStatistics } from '@/modules/analytics/application/utils/statistics'
+import { analyticsApi } from '@/modules/analytics/infrastructure/analytics.api'
+import { serializeFilterParams } from '@/core/utils/filterParams'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 
 const masterData = useMasterDataStore()
 const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
 
 const isDataLoading = ref(false)
-const timelineList = ref([])
+const timelineList = ref<any[]>([])
 
 const filterValues = ref({
   reportType: 'monthly',
@@ -21,10 +22,12 @@ const filterValues = ref({
   startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
   endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
   searchQuery: '',
-  buildings: []
+  buildings: [] as string[]
 })
 
-const reportFilters = ref({
+const reportFilters = ref<{
+  allBuildings: any[]
+}>({
   allBuildings: []
 })
 
@@ -107,7 +110,7 @@ const fetchStatistics = async () => {
   activeResolution.value = payloadReq.timeResolution
 
   try {
-    const response = await getStockMovementStatistics(payloadReq)
+    const response = await analyticsApi.getStockMovementStatistics(serializeFilterParams(payloadReq))
     const payload = response?.data || response
 
     if (payload && !Array.isArray(payload) && payload.timeline) {

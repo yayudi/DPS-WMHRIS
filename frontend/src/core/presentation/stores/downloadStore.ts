@@ -1,7 +1,7 @@
 // frontend/src/stores/downloadStore.js
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import axios from '@/core/infrastructure/http.client'
+import { analyticsApi } from '@/modules/analytics/infrastructure/analytics.api'
 
 export const useDownloadStore = defineStore('download', () => {
   const jobs = ref([])
@@ -11,14 +11,13 @@ export const useDownloadStore = defineStore('download', () => {
 
   const fetchJobs = async () => {
     try {
-      const res = await axios.get('/reports/my-jobs')
-      if (res.data && res.data.success) {
-        jobs.value = res.data.data
+      const res = await analyticsApi.getUserExportJobs()
+      const list = Array.isArray(res) ? res : res?.data || []
+      jobs.value = list
 
-        // Count active jobs
-        const activeJobs = jobs.value.filter(j => j.status === 'PENDING' || j.status === 'PROCESSING')
-        pendingCount.value = activeJobs.length
-      }
+      // Count active jobs
+      const activeJobs = jobs.value.filter(j => j.status === 'PENDING' || j.status === 'PROCESSING')
+      pendingCount.value = activeJobs.length
     } catch (error) {
       console.error('Failed to fetch download jobs:', error)
     }

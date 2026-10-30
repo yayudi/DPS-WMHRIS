@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import api from '@/core/infrastructure/http.client'
+import { investigationApi } from '../../infrastructure/investigation.api'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { useDownload } from '@/core/presentation/composables/useDownload'
 import { usePagination } from '@/core/presentation/composables/usePagination'
@@ -136,14 +136,10 @@ export function useInvestigationFilters() {
         if (params[k] === '' || params[k] === null || params[k] === undefined) delete params[k]
       })
 
-      const response = await api.get('/investigation/duplicates', { params })
-      if (response.data.success) {
-        results.value = response.data.data || []
-        if (response.data.meta) {
-          totalGroups.value = response.data.meta.totalGroups
-        }
-      } else {
-        toast(response.data.message || 'Gagal mengambil data.', 'error')
+      const response = await investigationApi.fetchDuplicates(params)
+      results.value = (Array.isArray(response) ? response : (response as any).data) || []
+      if ((response as any).total !== undefined) {
+        totalGroups.value = (response as any).total
       }
     } catch (error) {
       console.error('Fetch error:', error)

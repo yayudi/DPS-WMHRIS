@@ -1,7 +1,7 @@
 // frontend/src/stores/uploadStore.js
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import axios from '@/core/infrastructure/http.client'
+import { jobApi } from '@/modules/settings/infrastructure/job.api'
 
 export const useUploadStore = defineStore('upload', () => {
   const jobs = ref([])
@@ -10,14 +10,13 @@ export const useUploadStore = defineStore('upload', () => {
 
   const fetchJobs = async () => {
     try {
-      const res = await axios.get('/jobs/import')
-      if (res.data && res.data.success) {
-        jobs.value = res.data.data
-        
-        // Count active jobs
-        const activeJobs = jobs.value.filter(j => j.status === 'PENDING' || j.status === 'PROCESSING')
-        pendingCount.value = activeJobs.length
-      }
+      const res = await jobApi.fetchImportJobs()
+      const list = Array.isArray(res) ? res : (res as any)?.data || []
+      jobs.value = list
+      
+      // Count active jobs
+      const activeJobs = jobs.value.filter((j: any) => j.status === 'PENDING' || j.status === 'PROCESSING')
+      pendingCount.value = activeJobs.length
     } catch (error) {
       console.error('Failed to fetch upload jobs:', error)
     }
