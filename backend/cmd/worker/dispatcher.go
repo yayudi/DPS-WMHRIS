@@ -37,11 +37,20 @@ func dispatchJobs[J any](
 	var wg sync.WaitGroup
 
 	for {
+		if ctx.Err() != nil {
+			break
+		}
+
 		select {
 		case <-ctx.Done():
 			wg.Wait()
 			return
 		case sem <- struct{}{}:
+		}
+
+		if ctx.Err() != nil {
+			<-sem
+			break
 		}
 
 		var job *J
@@ -67,6 +76,10 @@ func dispatchJobs[J any](
 		go func(targetJob *J) {
 			defer wg.Done()
 			defer func() { <-sem }()
+
+			if ctx.Err() != nil {
+				return
+			}
 
 			jobCtx, cancel := context.WithTimeout(ctx, cfg.JobTimeout)
 			defer cancel()

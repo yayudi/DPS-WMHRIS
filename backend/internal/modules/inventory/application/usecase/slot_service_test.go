@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 
@@ -39,6 +40,12 @@ func (m *mockSlotRepo) GetSlots(ctx context.Context, productID int, locationID i
 			result = append(result, *s)
 		}
 	}
+	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].IsPrimary != result[j].IsPrimary {
+			return result[i].IsPrimary
+		}
+		return result[i].ID < result[j].ID
+	})
 	return result, nil
 }
 

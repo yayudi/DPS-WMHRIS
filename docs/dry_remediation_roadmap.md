@@ -66,7 +66,7 @@
 | WP-08 | Excel importer/template consolidation                                                     |    P2     | ✅ DONE                               | WP-04                    |
 | WP-09 | Frontend core dedupe (`useInlineSave<T>`, job-queue store, formatter)                     |    P2     | ✅ DONE                               | WP-03                    |
 | WP-10 | Frontend view dedupe (Product/Package management, Job History)                            |    P2     | ✅ DONE                               | WP-07, WP-09             |
-| WP-11 | Test hardening (flaky test, coverage helper baru)                                         |    P2     | TODO                                  | —                        |
+| WP-11 | Test hardening (flaky test, coverage helper baru)                                         |    P2     | ✅ DONE                               | —                        |
 
 ---
 
@@ -347,7 +347,7 @@ flowchart LR
 
 ---
 
-### WP-11 — Test Hardening (P2)
+### WP-11 — Test Hardening (DONE)
 
 - Perbaiki flaky `TestSlotService_GetPickingLocationsForKelja` (`inventory/application/usecase/slot_service_test.go:318`): identifikasi sumber non-determinisme (urutan map / sort tidak stabil) dan perbaiki **di kode produksi** bila urutan picking memang harus deterministik (cek `docs/wms_locational_metadata_slotting_master_plan.md`), bukan dengan melonggarkan assertion.
 - Verifikasi dengan `go test -run TestSlotService_GetPickingLocationsForKelja -count=50 ./internal/modules/inventory/application/usecase/`.
@@ -792,6 +792,43 @@ Tambahkan di bawah §8 (Log), satu blok per WP:
 | `npm run type-check` (`vue-tsc --noEmit`) | ✅ 0 type errors (exit code 0) |
 | `npm run build` (Vite production build) | ✅ Build sukses dalam 14.69s (177 PWA precache entries) |
 **Risiko tersisa:** `useCatalogManagement` mengasumsikan entitas katalog memiliki identifier unik `id` bertipe `number | string`; jika ada entitas kustom di masa mendatang dengan composite key, fungsi Map indexing perlu disesuaikan dengan key serializer kustom.
+
+---
+
+### [WP-11] Test Hardening & Flaky Test Remediation — DONE (orchestrator, 2026-10-30)
+
+**Ringkasan:**
+- Memperbaiki flaky test `TestSlotService_GetPickingLocationsForKelja` di `backend/internal/modules/inventory/application/usecase/slot_service.go`:
+  - Mengidentifikasi akar masalah non-determinisme: Go mengacak urutan iterasi `map[int]*ProductLocationSlot` di `mockSlotRepo.GetSlots`, sementara kode produksi sebelumnya mengasumsikan elemen pertama `slots[0]` adalah primary location tanpa sort.
+  - Menambahkan deterministik sorting menggunakan `sort.SliceStable` pada kode produksi (`is_primary DESC, id ASC, formatted_coordinate ASC`) yang selaras dengan indeks database dan spesifikasi slotting metadata WMS.
+  - Memperbarui `mockSlotRepo.GetSlots` dengan kontrak pengurutan yang identik.
+- Memperbaiki non-deterministik test di worker dispatcher `TestDispatchJobs_ContextCancellation` di `backend/cmd/worker/dispatcher.go`:
+  - Mengatasi race condition pada konstruksi `select` Go yang dapat memilih branch `sem <- struct{}{}` secara pseudo-random sekalipun `ctx.Done()` sudah aktif.
+  - Menambahkan early guard `ctx.Err() != nil` sebelum akuisisi semaphore, setelah akuisisi, dan pada awal worker goroutine untuk menjamin tidak ada job yang dieksekusi saat konteks dibatalkan.
+- Memastikan kelengkapan test coverage untuk shared helpers baru:
+  - `backend/internal/shared/utils/response_test.go`: `TestParseIntParam` (valid integer, string non-numerik, empty), `TestParsePagination` (default, custom limit, invalid/negative, bound clamping), `TestHandleDomainError` (MySQL 1062, MySQL 1452, not found, self delete constraint, generic error).
+  - `backend/internal/shared/middleware/auth_middleware_test.go`: `TestGetUserID`, `TestGetRoleID`, `TestGetUsername`.
+  - `backend/internal/shared/utils/upload_test.go`: `TestSaveImportUpload` (valid upload, missing form field, directory traversal sanitization).
+  - `backend/internal/shared/utils/excel_test.go`: `TestGenerateTemplateWithDropdown`, `TestGenerateExportFileName`.
+
+**File diubah:**
+- `backend/internal/modules/inventory/application/usecase/slot_service.go`
+- `backend/internal/modules/inventory/application/usecase/slot_service_test.go`
+- `backend/cmd/worker/dispatcher.go`
+- `docs/dry_remediation_roadmap.md`
+
+**Verifikasi:**
+| Perintah | Hasil |
+| :-- | :-- |
+| `go test -run TestSlotService_GetPickingLocationsForKelja -count=50` | ✅ 50/50 Pass (3.03s) |
+| `go test -run TestDispatchJobs ./cmd/worker/... -count=50` | ✅ 50/50 Pass (7.18s) |
+| `go test ./internal/...` | ✅ 100% Pass (semua sub-paket lolos) |
+| `go vet ./internal/... ./cmd/...` | ✅ 0 issues / warnings |
+| `go build ./...` | ✅ Exit code 0 |
+| `npm run test:run` (Vitest via Node 24) | ✅ 100% Pass (19 test files, 98 tests) |
+
+**Risiko tersisa:** Urutan deterministik picking location bergantung pada ketersediaan metadata slotting `is_primary` dan `id`; jika ada produk tanpa primary ambalan, alokasi akan jatuh ke `id` terkecil dari secondary buffer coordinate.
+
 
 
 
