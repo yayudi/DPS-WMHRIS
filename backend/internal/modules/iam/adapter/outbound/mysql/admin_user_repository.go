@@ -13,11 +13,16 @@ import (
 )
 
 type adminUserRepositoryImpl struct {
+	database.BaseRepository[domain.User]
 	db *sqlx.DB
 }
 
 func NewAdminUserRepository(db *sqlx.DB) port.AdminUserRepository {
-	return &adminUserRepositoryImpl{db: db}
+	base := database.NewBaseRepository[domain.User](db, "users")
+	return &adminUserRepositoryImpl{
+		BaseRepository: base,
+		db:             db,
+	}
 }
 
 func (r *adminUserRepositoryImpl) FindAllActiveUsers(ctx context.Context) ([]iam_dto.AdminUserResponse, error) {
@@ -30,8 +35,9 @@ func (r *adminUserRepositoryImpl) FindAllActiveUsers(ctx context.Context) ([]iam
 		WHERE u.is_active = 1
 		ORDER BY u.username ASC
 	`
+	ext := database.GetExt(ctx, r.db)
 	var users []iam_dto.AdminUserResponse
-	err := r.db.SelectContext(ctx, &users, query)
+	err := ext.SelectContext(ctx, &users, query)
 	if err != nil {
 		return nil, err
 	}
@@ -42,13 +48,7 @@ func (r *adminUserRepositoryImpl) FindAllActiveUsers(ctx context.Context) ([]iam
 }
 
 func (r *adminUserRepositoryImpl) FindUserByID(ctx context.Context, userID int) (*domain.User, error) {
-	query := "SELECT id, username, nickname, role_id, shift_id, exclude_from_attendance FROM users WHERE id = ?"
-	var user domain.User
-	err := r.db.GetContext(ctx, &user, query, userID)
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
+	return r.FindByID(ctx, userID)
 }
 
 func (r *adminUserRepositoryImpl) InsertUser(ctx context.Context, username, passwordHash string, roleID int, nickname *string, shiftID *int, excludeFromAttendance bool) (int, error) {
@@ -56,7 +56,8 @@ func (r *adminUserRepositoryImpl) InsertUser(ctx context.Context, username, pass
 		INSERT INTO users (username, password_hash, role_id, nickname, shift_id, exclude_from_attendance)
 		VALUES (?, ?, ?, ?, ?, ?)
 	`
-	res, err := r.db.ExecContext(ctx, query, username, passwordHash, roleID, nickname, shiftID, excludeFromAttendance)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query, username, passwordHash, roleID, nickname, shiftID, excludeFromAttendance)
 	if err != nil {
 		return 0, err
 	}
@@ -78,7 +79,8 @@ func (r *adminUserRepositoryImpl) UpdateUserByID(ctx context.Context, userID int
 	query += " WHERE id = ?"
 	values = append(values, userID)
 
-	res, err := r.db.ExecContext(ctx, query, values...)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query, values...)
 	if err != nil {
 		return 0, err
 	}
@@ -88,7 +90,8 @@ func (r *adminUserRepositoryImpl) UpdateUserByID(ctx context.Context, userID int
 
 func (r *adminUserRepositoryImpl) SoftDeleteUser(ctx context.Context, userID int) (int, error) {
 	query := "UPDATE users SET is_active = 0 WHERE id = ?"
-	res, err := r.db.ExecContext(ctx, query, userID)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query, userID)
 	if err != nil {
 		return 0, err
 	}
@@ -98,8 +101,9 @@ func (r *adminUserRepositoryImpl) SoftDeleteUser(ctx context.Context, userID int
 
 func (r *adminUserRepositoryImpl) FindUserLocationIDs(ctx context.Context, userID int) ([]int, error) {
 	query := "SELECT location_id FROM user_locations WHERE user_id = ?"
+	ext := database.GetExt(ctx, r.db)
 	var locationIDs []int
-	err := r.db.SelectContext(ctx, &locationIDs, query, userID)
+	err := ext.SelectContext(ctx, &locationIDs, query, userID)
 	if err != nil {
 		return nil, err
 	}

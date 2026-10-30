@@ -60,7 +60,7 @@ func (r *returnRepositoryImpl) GetManualReturnHistory(ctx context.Context, page,
 		ORDER BY mr.created_at DESC
 	`, whereClauseStr)
 
-	return utils.FetchPaginated[domain.ManualReturnItem](ctx, r.db, query, page, limit, queryParams...)
+	return database.FetchPaginated[domain.ManualReturnItem](ctx, r.db, query, page, limit, queryParams...)
 }
 
 

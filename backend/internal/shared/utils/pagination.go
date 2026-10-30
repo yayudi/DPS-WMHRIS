@@ -1,11 +1,9 @@
 package utils
 
+import (
+	"github.com/dps-wmhris/backend/internal/shared/database"
+)
+
 // PaginatedResult merepresentasikan struktur data respon generik untuk paginasi.
-// Tipe T akan diisi dengan struct model/dto spesifik tanpa menggunakan reflect.
-type PaginatedResult[T any] struct {
-	Data       []T `json:"data"`
-	Total      int `json:"total"`
-	Page       int `json:"page"`
-	Limit      int `json:"limit"`
-	TotalPages int `json:"total_pages"`
-}
+// Di-alias ke database.PaginatedResult untuk menjaga kompatibilitas seluruh port dan handler.
+type PaginatedResult[T any] = database.PaginatedResult[T]

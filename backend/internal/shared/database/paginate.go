@@ -1,21 +1,27 @@
-package utils
+package database
 
 import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/jmoiron/sqlx"
 )
 
-// DBExt mendefinisikan interface yang dimiliki oleh *sqlx.DB dan *sqlx.Tx
-// agar fungsi utilitas generik dapat digunakan secara mulus di dalam maupun di luar transaksi.
-type DBExt interface {
-	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+// PaginatedResult merepresentasikan struktur data respon generik untuk paginasi.
+type PaginatedResult[T any] struct {
+	Data       []T `json:"data"`
+	Total      int `json:"total"`
+	Page       int `json:"page"`
+	Limit      int `json:"limit"`
+	TotalPages int `json:"total_pages"`
 }
 
 // FetchPaginated mengeksekusi baseQuery, menghitung total baris, dan mengambil data sesuai page & limit.
+// Secara internal otomatis menggunakan transaksi aktif dari context jika tersedia (via GetExt),
+// atau fallback ke koneksi database utama.
 // baseQuery tidak boleh mengandung klausa LIMIT/OFFSET di bagian akhir.
-func FetchPaginated[T any](ctx context.Context, db DBExt, baseQuery string, page, limit int, args ...interface{}) (PaginatedResult[T], error) {
+func FetchPaginated[T any](ctx context.Context, db *sqlx.DB, baseQuery string, page, limit int, args ...interface{}) (PaginatedResult[T], error) {
 	if page < 1 {
 		page = 1
 	}
@@ -23,10 +29,12 @@ func FetchPaginated[T any](ctx context.Context, db DBExt, baseQuery string, page
 		limit = 10
 	}
 
+	ext := GetExt(ctx, db)
+
 	// 1. Hitung total data keseluruhan menggunakan subquery
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS sub_q", baseQuery)
 	var total int
-	err := db.GetContext(ctx, &total, countQuery, args...)
+	err := ext.GetContext(ctx, &total, countQuery, args...)
 	if err != nil {
 		return PaginatedResult[T]{}, fmt.Errorf("failed to count rows: %w", err)
 	}
@@ -48,7 +56,7 @@ func FetchPaginated[T any](ctx context.Context, db DBExt, baseQuery string, page
 	fetchArgs := append(args, limit, offset)
 
 	var data []T
-	err = db.SelectContext(ctx, &data, paginatedQuery, fetchArgs...)
+	err = ext.SelectContext(ctx, &data, paginatedQuery, fetchArgs...)
 	if err != nil {
 		return PaginatedResult[T]{}, fmt.Errorf("failed to fetch paginated data: %w", err)
 	}

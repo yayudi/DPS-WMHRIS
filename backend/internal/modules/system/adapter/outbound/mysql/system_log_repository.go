@@ -126,5 +126,5 @@ func (r *systemLogRepositoryImpl) GetLogs(ctx context.Context, req system_dto.Ge
 	}
 	baseQuery = r.db.Rebind(baseQuery)
 
-	return utils.FetchPaginated[system_dto.SystemLogResponse](ctx, r.db, baseQuery, req.Page, req.Limit, params...)
+	return database.FetchPaginated[system_dto.SystemLogResponse](ctx, r.db, baseQuery, req.Page, req.Limit, params...)
 }

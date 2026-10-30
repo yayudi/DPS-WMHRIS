@@ -14,34 +14,25 @@ import (
 // ShiftRepository defines the interface for shift data operations
 
 type shiftRepositoryImpl struct {
+	database.BaseRepository[domain.Shift]
 	db *sqlx.DB
 }
 
 // NewShiftRepository injects the database dependency
 func NewShiftRepository(db *sqlx.DB) port.ShiftRepository {
-	return &shiftRepositoryImpl{db: db}
+	base := database.NewBaseRepository[domain.Shift](db, "shifts")
+	return &shiftRepositoryImpl{
+		BaseRepository: base,
+		db:             db,
+	}
 }
 
 func (r *shiftRepositoryImpl) GetAll(ctx context.Context) ([]domain.Shift, error) {
-	ext := database.GetExt(ctx, r.db)
-	var shifts []domain.Shift
-	query := `SELECT * FROM shifts ORDER BY name ASC`
-	err := ext.SelectContext(ctx, &shifts, query)
-	if err != nil {
-		return nil, err
-	}
-	return shifts, nil
+	return r.FindAll(ctx)
 }
 
 func (r *shiftRepositoryImpl) GetByID(ctx context.Context, id int) (*domain.Shift, error) {
-	ext := database.GetExt(ctx, r.db)
-	var shift domain.Shift
-	query := `SELECT * FROM shifts WHERE id = ?`
-	err := ext.GetContext(ctx, &shift, query, id)
-	if err != nil {
-		return nil, err
-	}
-	return &shift, nil
+	return r.FindByID(ctx, id)
 }
 
 func (r *shiftRepositoryImpl) Create(ctx context.Context, shift *domain.Shift) (int, error) {
@@ -81,13 +72,7 @@ func (r *shiftRepositoryImpl) Update(ctx context.Context, shift *domain.Shift) e
 }
 
 func (r *shiftRepositoryImpl) Delete(ctx context.Context, id int) error {
-	ext := database.GetExt(ctx, r.db)
-	if ext == nil {
-		ext = r.db
-	}
-	query := `DELETE FROM shifts WHERE id = ?`
-	_, err := ext.ExecContext(ctx, query, id)
-	return err
+	return r.SoftDelete(ctx, id)
 }
 
 // ClearDefault resets all shifts' is_default to false. Used transactionally.
@@ -118,7 +103,7 @@ func (r *shiftRepositoryImpl) GetUserShift(ctx context.Context, username string)
 
 	// Priority 2: Default shift
 	queryDefault := `SELECT * FROM shifts WHERE is_default = 1 LIMIT 1`
-	err = r.db.GetContext(ctx, &shift, queryDefault)
+	err = ext.GetContext(ctx, &shift, queryDefault)
 	if err != nil {
 		return nil, err
 	}

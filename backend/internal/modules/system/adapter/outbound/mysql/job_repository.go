@@ -46,7 +46,8 @@ func (r *jobRepositoryImpl) CreateImportJob(ctx context.Context, job *system_dom
 		INSERT INTO import_jobs (user_id, job_type, original_filename, file_path, notes, options, status)
 		VALUES (?, ?, ?, ?, ?, ?, 'PENDING')
 	`
-	res, err := r.db.ExecContext(ctx, query, job.UserID, job.JobType, job.OriginalFilename, job.FilePath, job.Notes, job.Options)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query, job.UserID, job.JobType, job.OriginalFilename, job.FilePath, job.Notes, job.Options)
 	if err != nil {
 		return 0, err
 	}
@@ -56,13 +57,14 @@ func (r *jobRepositoryImpl) CreateImportJob(ctx context.Context, job *system_dom
 
 func (r *jobRepositoryImpl) GetImportJobs(ctx context.Context, page int, limit int) (utils.PaginatedResult[system_domain.ImportJob], error) {
 	query := `SELECT * FROM import_jobs ORDER BY created_at DESC`
-	return utils.FetchPaginated[system_domain.ImportJob](ctx, r.db, query, page, limit)
+	return database.FetchPaginated[system_domain.ImportJob](ctx, r.db, query, page, limit)
 }
 
 func (r *jobRepositoryImpl) GetImportJobByID(ctx context.Context, id int) (*system_domain.ImportJob, error) {
 	query := `SELECT * FROM import_jobs WHERE id = ?`
 	var job system_domain.ImportJob
-	err := r.db.GetContext(ctx, &job, query, id)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.GetContext(ctx, &job, query, id)
 	if err != nil {
 		return nil, err
 	}
@@ -75,12 +77,14 @@ func (r *jobRepositoryImpl) UpdateImportJobStatus(ctx context.Context, id int, s
 		SET status = ?, log_summary = ?, error_log = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
 	`
-	_, err := r.db.ExecContext(ctx, query, status, logSummary, errorLog, id)
+	ext := database.GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, query, status, logSummary, errorLog, id)
 	return err
 }
 
 func (r *jobRepositoryImpl) UpdateImportJobProgress(ctx context.Context, id int, processed int, total int) error {
-	_, err := r.db.ExecContext(ctx,
+	ext := database.GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx,
 		"UPDATE import_jobs SET processed_records = ?, total_records = ?, status = 'PROCESSING' WHERE id = ?",
 		processed, total, id)
 	return err
@@ -89,7 +93,8 @@ func (r *jobRepositoryImpl) UpdateImportJobProgress(ctx context.Context, id int,
 func (r *jobRepositoryImpl) GetPendingImportJobs(ctx context.Context) ([]system_domain.ImportJob, error) {
 	query := `SELECT * FROM import_jobs WHERE status IN ('PENDING', 'PROCESSING') ORDER BY created_at ASC`
 	var jobs []system_domain.ImportJob
-	err := r.db.SelectContext(ctx, &jobs, query)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &jobs, query)
 	return jobs, err
 }
 
@@ -117,7 +122,8 @@ func (r *jobRepositoryImpl) RecoverStuckImportJobs(ctx context.Context) (int, er
 		SET status = 'FAILED', log_summary = 'Timeout: proses melebihi batas waktu (15 menit)' 
 		WHERE status = 'PROCESSING' 
 		AND processing_started_at < NOW() - INTERVAL 15 MINUTE`
-	res, err := r.db.ExecContext(ctx, query)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query)
 	if err != nil {
 		return 0, err
 	}
@@ -132,7 +138,8 @@ func (r *jobRepositoryImpl) CreateExportJob(ctx context.Context, job *system_dom
 		INSERT INTO export_jobs (user_id, job_type, filters, status)
 		VALUES (?, ?, ?, 'PENDING')
 	`
-	res, err := r.db.ExecContext(ctx, query, job.UserID, job.JobType, job.Filters)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query, job.UserID, job.JobType, job.Filters)
 	if err != nil {
 		return 0, err
 	}
@@ -142,13 +149,14 @@ func (r *jobRepositoryImpl) CreateExportJob(ctx context.Context, job *system_dom
 
 func (r *jobRepositoryImpl) GetExportJobs(ctx context.Context, page int, limit int) (utils.PaginatedResult[system_domain.ExportJob], error) {
 	query := `SELECT * FROM export_jobs ORDER BY created_at DESC`
-	return utils.FetchPaginated[system_domain.ExportJob](ctx, r.db, query, page, limit)
+	return database.FetchPaginated[system_domain.ExportJob](ctx, r.db, query, page, limit)
 }
 
 func (r *jobRepositoryImpl) GetExportJobByID(ctx context.Context, id int) (*system_domain.ExportJob, error) {
 	query := `SELECT * FROM export_jobs WHERE id = ?`
 	var job system_domain.ExportJob
-	err := r.db.GetContext(ctx, &job, query, id)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.GetContext(ctx, &job, query, id)
 	if err != nil {
 		return nil, err
 	}
@@ -161,14 +169,16 @@ func (r *jobRepositoryImpl) UpdateExportJobStatus(ctx context.Context, id int, s
 		SET status = ?, file_path = ?, error_message = ?
 		WHERE id = ?
 	`
-	_, err := r.db.ExecContext(ctx, query, status, filePath, errorMessage, id)
+	ext := database.GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, query, status, filePath, errorMessage, id)
 	return err
 }
 
 func (r *jobRepositoryImpl) GetPendingExportJobs(ctx context.Context) ([]system_domain.ExportJob, error) {
 	query := `SELECT * FROM export_jobs WHERE status = 'PENDING' ORDER BY created_at ASC`
 	var jobs []system_domain.ExportJob
-	err := r.db.SelectContext(ctx, &jobs, query)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &jobs, query)
 	return jobs, err
 }
 
@@ -196,7 +206,8 @@ func (r *jobRepositoryImpl) RecoverStuckExportJobs(ctx context.Context) (int, er
 		SET status = 'FAILED', error_message = 'Timeout: proses melebihi batas waktu (15 menit)' 
 		WHERE status = 'PROCESSING' 
 		AND processing_started_at < NOW() - INTERVAL 15 MINUTE`
-	res, err := r.db.ExecContext(ctx, query)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query)
 	if err != nil {
 		return 0, err
 	}

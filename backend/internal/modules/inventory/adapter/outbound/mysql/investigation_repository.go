@@ -10,6 +10,7 @@ import (
 
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	database "github.com/dps-wmhris/backend/internal/shared/database"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -243,7 +244,8 @@ func (r *investigationRepositoryImpl) GetDuplicateGroups(ctx context.Context, re
 	finalParams = append(finalParams, req.Limit, offset)
 
 	var results []domain.DuplicateTransactionItem
-	err := r.db.SelectContext(ctx, &results, query, finalParams...)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &results, query, finalParams...)
 	return results, err
 }
 
@@ -270,7 +272,8 @@ func (r *investigationRepositoryImpl) CountDuplicateGroups(ctx context.Context, 
 
 	finalParams := append(params, havingParams...)
 	var total int
-	err := r.db.QueryRowContext(ctx, query, finalParams...).Scan(&total)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.GetContext(ctx, &total, query, finalParams...)
 	return total, err
 }
 

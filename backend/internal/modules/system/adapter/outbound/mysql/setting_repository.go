@@ -5,35 +5,39 @@ import (
 	"database/sql"
 
 	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
+	database "github.com/dps-wmhris/backend/internal/shared/database"
 
 	"github.com/jmoiron/sqlx"
 )
 
 type SettingRepository interface {
+	database.BaseRepository[system_domain.SystemSetting]
 	GetAllSettings(ctx context.Context) ([]system_domain.SystemSetting, error)
 	GetSettingByKey(ctx context.Context, key string) (*system_domain.SystemSetting, error)
 	GetSettingsAsMap(ctx context.Context) (map[string]system_domain.SystemSetting, error)
 }
 
 type settingRepositoryImpl struct {
+	database.BaseRepository[system_domain.SystemSetting]
 	db *sqlx.DB
 }
 
 func NewSettingRepository(db *sqlx.DB) SettingRepository {
-	return &settingRepositoryImpl{db: db}
+	return &settingRepositoryImpl{
+		BaseRepository: database.NewBaseRepository[system_domain.SystemSetting](db, "system_settings"),
+		db:             db,
+	}
 }
 
 func (r *settingRepositoryImpl) GetAllSettings(ctx context.Context) ([]system_domain.SystemSetting, error) {
-	var settings []system_domain.SystemSetting
-	query := `SELECT * FROM system_settings`
-	err := r.db.SelectContext(ctx, &settings, query)
-	return settings, err
+	return r.FindAll(ctx)
 }
 
 func (r *settingRepositoryImpl) GetSettingByKey(ctx context.Context, key string) (*system_domain.SystemSetting, error) {
 	var setting system_domain.SystemSetting
 	query := `SELECT * FROM system_settings WHERE setting_key = ? LIMIT 1`
-	err := r.db.GetContext(ctx, &setting, query, key)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.GetContext(ctx, &setting, query, key)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

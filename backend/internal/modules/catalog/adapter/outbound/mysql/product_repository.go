@@ -59,29 +59,8 @@ func (r *productRepositoryImpl) Create(ctx context.Context, product *domain.Prod
 }
 
 func (r *productRepositoryImpl) CreateProductTx(ctx context.Context, product *domain.Product) (int, error) {
-	query := `
-		INSERT INTO products (
-			sku, name, category_id, price, is_active, is_package, 
-			weight, length, width, height
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-
-	ext := database.GetExt(ctx, r.db)
-	res, err := ext.ExecContext(ctx, query,
-		product.SKU, product.Name, product.CategoryID, product.Price,
-		product.IsActive, product.IsPackage, product.Weight,
-		product.Length, product.Width, product.Height,
-	)
-
-	if err != nil {
-		return 0, err
-	}
-
-	id, err := res.LastInsertId()
-	if err == nil {
-		product.ID = int(id)
-	}
-
-	return int(id), err
+	err := r.Create(ctx, product)
+	return product.ID, err
 }
 
 func (r *productRepositoryImpl) GetProductIDBySKUTx(ctx context.Context, sku string) (int, error) {
@@ -124,8 +103,9 @@ func (r *productRepositoryImpl) GetBySKUs(ctx context.Context, skus []string) ([
 	if err != nil {
 		return nil, err
 	}
-	query = r.db.Rebind(query)
-	err = r.db.SelectContext(ctx, &products, query, args...)
+	ext := database.GetExt(ctx, r.db)
+	query = ext.Rebind(query)
+	err = ext.SelectContext(ctx, &products, query, args...)
 	return products, err
 }
 
@@ -143,6 +123,8 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 		productMap[products[i].ID] = &products[i]
 	}
 
+	ext := database.GetExt(ctx, r.db)
+
 	// Fetch stock locations
 	query, args, err := sqlx.In(`
 		SELECT sl.product_id, l.id as location_id, l.code as location_code, COALESCE(l.purpose, '') as purpose, l.building, COALESCE(l.floor, '') as floor, sl.quantity
@@ -153,11 +135,11 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 	if err != nil {
 		return err
 	}
-	query = r.db.Rebind(query)
+	query = ext.Rebind(query)
 	log.Println("query:", query)
 	log.Println("args:", args)
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := ext.QueryContext(ctx, query, args...)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -185,8 +167,8 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 		ORDER BY pi.sort_order ASC, pi.id ASC
 	`, productIDs)
 	if err == nil {
-		query = r.db.Rebind(query)
-		rows, err = r.db.QueryContext(ctx, query, args...)
+		query = ext.Rebind(query)
+		rows, err = ext.QueryContext(ctx, query, args...)
 		if err == nil {
 			defer rows.Close()
 			for rows.Next() {
@@ -218,9 +200,9 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 	if err != nil {
 		return err
 	}
-	query = r.db.Rebind(query)
+	query = ext.Rebind(query)
 
-	rows, err = r.db.QueryContext(ctx, query, args...)
+	rows, err = ext.QueryContext(ctx, query, args...)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -341,11 +323,12 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 
 	// Location logic
 	purpose := ""
-	if filters.Location == "gudang" {
+	switch filters.Location {
+	case "gudang":
 		purpose = "WAREHOUSE"
-	} else if filters.Location == "pajangan" {
+	case "pajangan":
 		purpose = "DISPLAY"
-	} else if filters.Location == "ltc" {
+	case "ltc":
 		purpose = "BRANCH"
 	}
 
@@ -408,7 +391,8 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 	countSqlClean := "SELECT COUNT(DISTINCT p.id) " + querySql[strings.Index(querySql, "FROM"):]
 
 	var total int
-	err := r.db.GetContext(ctx, &total, countSqlClean, args...)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.GetContext(ctx, &total, countSqlClean, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -452,7 +436,7 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 	}
 
 	var results []catalog_dto.ProductDetailResponse
-	err = r.db.SelectContext(ctx, &results, finalSql, finalArgs...)
+	err = ext.SelectContext(ctx, &results, finalSql, finalArgs...)
 	if results == nil {
 		results = []catalog_dto.ProductDetailResponse{}
 	} else {
@@ -504,7 +488,8 @@ func (r *productRepositoryImpl) SearchProducts(ctx context.Context, keyword stri
 
 	sql, args, _ := builder.ToSql()
 	var results []catalog_dto.ProductDetailResponse
-	err := r.db.SelectContext(ctx, &results, sql, args...)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &results, sql, args...)
 	if results == nil {
 		results = []catalog_dto.ProductDetailResponse{}
 	} else {
@@ -522,7 +507,8 @@ func (r *productRepositoryImpl) GetAllActiveProducts(ctx context.Context) ([]cat
 		ORDER BY p.name ASC
 	`
 	var results []catalog_dto.ProductDetailResponse
-	err := r.db.SelectContext(ctx, &results, query)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &results, query)
 	if results == nil {
 		results = []catalog_dto.ProductDetailResponse{}
 	} else {
@@ -541,7 +527,8 @@ func (r *productRepositoryImpl) GetProductDetailWithStock(ctx context.Context, i
 		WHERE p.id = ?
 	`
 	var result catalog_dto.ProductDetailResponse
-	err := r.db.GetContext(ctx, &result, query, id)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.GetContext(ctx, &result, query, id)
 	if err == nil {
 		temp := []catalog_dto.ProductDetailResponse{result}
 		_ = r.attachProductDetails(ctx, temp)
@@ -560,7 +547,8 @@ func (r *productRepositoryImpl) GetProductStockDetails(ctx context.Context, id i
 		ORDER BY l.purpose ASC, l.building ASC
 	`
 	var results []catalog_dto.ProductStockDetailResponse
-	err := r.db.SelectContext(ctx, &results, query, id)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &results, query, id)
 	log.Printf("results %v\n", results)
 	return results, err
 }
@@ -575,7 +563,8 @@ func (r *productRepositoryImpl) GetProductHistory(ctx context.Context, id int) (
 		ORDER BY a.created_at DESC
 	`
 	var results []catalog_dto.ProductHistoryResponse
-	err := r.db.SelectContext(ctx, &results, query, id)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &results, query, id)
 	return results, err
 }
 
@@ -588,7 +577,8 @@ func (r *productRepositoryImpl) GetProductLastPriceUpdate(ctx context.Context, i
 		LIMIT 1
 	`
 	var updatedAt time.Time
-	err := r.db.GetContext(ctx, &updatedAt, query, id)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.GetContext(ctx, &updatedAt, query, id)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -613,9 +603,10 @@ func (r *productRepositoryImpl) GetProductMapWithComponents(ctx context.Context,
 		return nil, err
 	}
 
-	query = r.db.Rebind(query)
+	ext := database.GetExt(ctx, r.db)
+	query = ext.Rebind(query)
 	var products []catalog_dto.ProductDetailResponse
-	if err := r.db.SelectContext(ctx, &products, query, args...); err != nil {
+	if err := ext.SelectContext(ctx, &products, query, args...); err != nil {
 		return nil, err
 	}
 
@@ -682,7 +673,8 @@ func (r *productRepositoryImpl) GetProductTotalStock(ctx context.Context, produc
 	}
 
 	var total int
-	err = r.db.GetContext(ctx, &total, sqlStr, args...)
+	ext := database.GetExt(ctx, r.db)
+	err = ext.GetContext(ctx, &total, sqlStr, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -709,7 +701,8 @@ func (r *productRepositoryImpl) GetProductStockMovementsCount(ctx context.Contex
 	}
 
 	var count int
-	err = r.db.GetContext(ctx, &count, sqlStr, args...)
+	ext := database.GetExt(ctx, r.db)
+	err = ext.GetContext(ctx, &count, sqlStr, args...)
 	return count, err
 }
 
@@ -777,7 +770,8 @@ func (r *productRepositoryImpl) GetSumOfNewerStockMovements(ctx context.Context,
 	finalArgs = append(finalArgs, subArgs...)
 
 	var totalNetChange int
-	err = r.db.GetContext(ctx, &totalNetChange, finalQuery, finalArgs...)
+	ext := database.GetExt(ctx, r.db)
+	err = ext.GetContext(ctx, &totalNetChange, finalQuery, finalArgs...)
 	if err != nil {
 		return 0, err
 	}
@@ -809,7 +803,8 @@ func (r *productRepositoryImpl) GetProductStockMovementsPaginated(ctx context.Co
 	}
 
 	var rows []catalog_port.RawStockMovement
-	err = r.db.SelectContext(ctx, &rows, sqlStr, args...)
+	ext := database.GetExt(ctx, r.db)
+	err = ext.SelectContext(ctx, &rows, sqlStr, args...)
 	if rows == nil {
 		rows = []catalog_port.RawStockMovement{}
 	}
