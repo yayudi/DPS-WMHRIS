@@ -27,25 +27,56 @@ const StickerGeneratorModal = defineAsyncComponent(() => import('@/modules/maste
 import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
 import SegmentedControl from '@/core/presentation/components/ui/SegmentedControl.vue'
 import BaseSwitch from '@/core/presentation/components/ui/BaseSwitch.vue'
+import { useCatalogManagement } from '../composables/useCatalogManagement'
 
 const { toast } = useToast()
 const masterStore = useMasterDataStore()
 
+// --- CATALOG COMPOSABLE ---
+const {
+  selectedIds,
+  selectionCount,
+  isProcessingBulk,
+  showBatchEditModal,
+  showProductForm,
+  productFormMode,
+  selectedProduct,
+  initialFormTab,
+  tableKey,
+  searchQuery,
+  searchBy,
+  filterStatus,
+  sortBy,
+  sortOrder,
+  toggleSelection,
+  toggleSelectAll: baseToggleSelectAll,
+  openAddModal,
+  openEditModal,
+  openDuplicateModal,
+  handleDelete,
+  handleRestore,
+  performBulkAction: executeCatalogBulkAction,
+  handleSort
+} = useCatalogManagement({
+  entityLabel: 'produk',
+  initialSortBy: 'sku',
+  initialSortOrder: 'desc',
+  onArchiveItem: id => apiDeleteProduct(id),
+  onRestoreItem: (id, item) => productApi.updateProduct(id, { sku: item?.sku, is_active: true }),
+  onRefetch: () => fetchProducts()
+})
+
+const toggleSelectAll = () => baseToggleSelectAll(products.value)
+
 // --- STATE ---
 const products = ref([])
 // loading state is now handled by Vue Query
-const searchQuery = ref('')
-const searchBy = ref('name')
 const filterType = ref('all')
 const filterTypeTabs = [
   { value: 'all', label: 'Semua Tipe', icon: 'fa-layer-group' },
   { value: 'single', label: 'Satuan', icon: 'fa-box' },
   { value: 'package', label: 'Paket', icon: 'fa-boxes-stacked' }
 ]
-const filterStatus = ref('active')
-const sortBy = ref('sku')
-const sortOrder = ref('desc')
-const tableKey = ref(0)
 
 const categoryOptions = ref([])
 const filterCategory = ref({ include: [], exclude: [] })
@@ -56,25 +87,16 @@ const searchByOptions = [
   { id: 'sku', label: 'SKU' }
 ]
 
-// Modal State
-const showBatchEditModal = ref(false)
-const showProductForm = ref(false)
-const productFormMode = ref('create')
-const selectedProduct = ref({})
-const initialFormTab = ref('info')
+// Product-specific Modal State
 const showImageModal = ref(false)
 const selectedImageProduct = ref(null)
 const showHistoryModal = ref(false)
 const showStickerModal = ref(false)
 const printBatchList = ref([])
-const selectedIds = ref(new Set())
-const isProcessingBulk = ref(false)
 
 // Pagination State
 const totalProducts = ref(0)
 const isExporting = ref(false)
-
-const selectionCount = computed(() => selectedIds.value.size)
 const downloadStore = useDownloadStore()
 
 // Bulk Edit / Inline Edit State (from composable)
@@ -139,15 +161,6 @@ watch(
 )
 
 // --- HANDLERS (Dioper ke Child Components) ---
-// Pagination & Sorting
-const handleSort = (field: string) => {
-  if (sortBy.value === field) sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
-  else {
-    sortBy.value = field
-    sortOrder.value = 'asc'
-  }
-  fetchProducts()
-}
 
 // Search & Filter (Debounce)
 const handleFilterChange = debounce(() => {
@@ -168,100 +181,23 @@ watch(
   { deep: true }
 )
 
-// Selection
-const toggleSelection = id => {
-  if (selectedIds.value.has(id)) selectedIds.value.delete(id)
-  else selectedIds.value.add(id)
-}
-
-const toggleSelectAll = () => {
-  const allSelected = products.value.length > 0 && products.value.every(p => selectedIds.value.has(p.id))
-  if (allSelected) products.value.forEach(p => selectedIds.value.delete(p.id))
-  else products.value.forEach(p => selectedIds.value.add(p.id))
-}
-
-// CRUD
-const handleDelete = async product => {
-  if (!(await swalConfirm(`Arsipkan produk "${product.name}"?`))) return
-  try {
-    await apiDeleteProduct(product.id)
-    toast('Produk berhasil diarsipkan.', 'success')
-    if (selectedIds.value.has(product.id)) selectedIds.value.delete(product.id)
-    fetchProducts()
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-const handleRestore = async product => {
-  if (!(await swalConfirm(`Pulihkan produk "${product.name}"?`))) return
-  try {
-    await productApi.updateProduct(product.id, { sku: product.sku, is_active: true })
-    toast('Produk dipulihkan.', 'success')
-    if (selectedIds.value.has(product.id)) selectedIds.value.delete(product.id)
-    fetchProducts()
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-// Modals
-const openAddModal = async () => {
-  productFormMode.value = 'create'
-  selectedProduct.value = {}
-  initialFormTab.value = 'info'
-  showProductForm.value = true
-}
-const openEditModal = p => {
-  productFormMode.value = 'edit'
-  selectedProduct.value = p
-  initialFormTab.value = 'info'
-  showProductForm.value = true
-}
-const openHistoryModal = p => {
+// Product-specific Modals
+const openHistoryModal = (p: any) => {
   selectedProduct.value = p
   showHistoryModal.value = true
 }
-const openDuplicateModal = p => {
-  productFormMode.value = 'duplicate'
-  selectedProduct.value = p
-  initialFormTab.value = 'info'
-  showProductForm.value = true
-}
 
-const openImageModal = p => {
+const openImageModal = (p: any) => {
   selectedImageProduct.value = p
   showImageModal.value = true
 }
 
-// Bulk Actions
-const performBulkAction = async actionType => {
-  if (!selectedIds.value.size) return
-
-  const msg = actionType === 'archive' ? 'Arsipkan' : 'Pulihkan'
-  if (!(await swalConfirm(`${msg} ${selectionCount.value} produk terpilih?`))) return
-
-  isProcessingBulk.value = true
-  const ids = [...selectedIds.value]
-  const promises = []
-
-  try {
-    ids.forEach(id => {
-      if (actionType === 'archive') promises.push(productApi.deleteProduct(id))
-      else {
-        const product = products.value.find(p => p.id === id)
-        if (product) promises.push(productApi.updateProduct(id, { sku: product.sku, is_active: true }))
-      }
-    })
-    await Promise.all(promises)
-    toast(`Berhasil memproses ${ids.length} produk.`, 'success')
-    selectedIds.value.clear()
-    fetchProducts()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    isProcessingBulk.value = false
-  }
+// Bulk Actions (O(1) Map-based execution via useCatalogManagement)
+const performBulkAction = (actionType: 'archive' | 'restore') => {
+  return executeCatalogBulkAction(actionType, products.value, {
+    archiveFn: id => productApi.deleteProduct(id),
+    restoreFn: (id, item) => productApi.updateProduct(id, { sku: item?.sku, is_active: true })
+  })
 }
 
 const handleBulkPrintLabel = () => {

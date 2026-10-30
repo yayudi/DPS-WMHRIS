@@ -18,22 +18,51 @@ import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
 import { useMobile } from '@/core/presentation/composables/useMobile'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
 import { usePagination } from '@/core/presentation/composables/usePagination'
-
+import { useCatalogManagement } from '../composables/useCatalogManagement'
 
 const { toast } = useToast()
 const { isMobile } = useMobile()
 
+// --- CATALOG COMPOSABLE ---
+const {
+  selectedIds,
+  selectionCount,
+  isProcessingBulk,
+  showBatchEditModal,
+  showProductForm,
+  productFormMode,
+  selectedProduct,
+  tableKey,
+  searchQuery,
+  searchBy,
+  filterStatus,
+  sortBy,
+  sortOrder,
+  toggleSelection,
+  toggleSelectAll: baseToggleSelectAll,
+  openAddModal,
+  openEditModal,
+  openDuplicateModal,
+  handleDelete,
+  handleRestore,
+  performBulkAction: executeCatalogBulkAction,
+  handleSort
+} = useCatalogManagement({
+  entityLabel: 'paket',
+  initialSortBy: 'name',
+  initialSortOrder: 'asc',
+  onArchiveItem: id => apiDeleteProduct(id),
+  onRestoreItem: id => productApi.updateProduct(id, { is_active: true, is_package: true }),
+  onRefetch: () => fetchProducts()
+})
+
+const toggleSelectAll = () => baseToggleSelectAll(products.value)
+
 // --- STATE ---
 const products = ref([])
-const searchQuery = ref('')
 const debouncedSearchQuery = refDebounced(searchQuery, 300)
-const searchBy = ref('name')
-const filterStatus = ref('active')
-const sortBy = ref('name')
-const sortOrder = ref('asc')
-
 const packageTableRef = ref(null)
-const tableKey = ref(0)
+
 const {
   dirtyProducts,
   isSavingInline,
@@ -47,16 +76,6 @@ const {
   tableKeyRef: tableKey,
   afterSaveAction: () => packageTableRef.value?.clearComponentCache()
 })
-
-// Modal State
-const showBatchEditModal = ref(false)
-const showProductForm = ref(false)
-const productFormMode = ref('create')
-const selectedProduct = ref({})
-
-// Bulk Action State
-const selectedIds = ref(new Set())
-const isProcessingBulk = ref(false)
 
 // Pagination State
 const totalProducts = ref(0)
@@ -107,22 +126,10 @@ watch(
   { immediate: true }
 )
 
-const selectionCount = computed(() => selectedIds.value.size)
 const downloadStore = useDownloadStore()
 const isExporting = ref(false)
 
 // --- HANDLERS ---
-
-// Pagination & Sorting
-
-const handleSort = (field: string) => {
-  if (sortBy.value === field) sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
-  else {
-    sortBy.value = field
-    sortOrder.value = 'asc'
-  }
-  fetchProducts()
-}
 
 // Watch filter state changes to clear selection
 // TanStack Query automatically refetches when searchParams (the query key) changes
@@ -131,85 +138,12 @@ watch([debouncedSearchQuery, searchBy, filterStatus], () => {
   handlePageChange(1)
 })
 
-// Selection
-const toggleSelection = (id: number | string) => {
-  if (selectedIds.value.has(id)) selectedIds.value.delete(id)
-  else selectedIds.value.add(id)
-}
-
-const toggleSelectAll = () => {
-  const allSelected = products.value.length > 0 && products.value.every(p => selectedIds.value.has(p.id))
-  if (allSelected) products.value.forEach(p => selectedIds.value.delete(p.id))
-  else products.value.forEach(p => selectedIds.value.add(p.id))
-}
-
-// CRUD
-const handleDelete = async (product: any) => {
-  if (!(await swalConfirm(`Arsipkan paket "${product.name}"?`))) return
-  try {
-    await apiDeleteProduct(product.id)
-    toast('Paket berhasil diarsipkan.', 'success')
-    if (selectedIds.value.has(product.id)) selectedIds.value.delete(product.id)
-    fetchProducts()
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-const handleRestore = async product => {
-  if (!(await swalConfirm(`Pulihkan paket "${product.name}"?`))) return
-  try {
-    await productApi.updateProduct(product.id, { is_active: true })
-    toast('Paket dipulihkan.', 'success')
-    if (selectedIds.value.has(product.id)) selectedIds.value.delete(product.id)
-    fetchProducts()
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-// Modals
-const openAddModal = async () => {
-  productFormMode.value = 'create'
-  selectedProduct.value = {}
-  showProductForm.value = true
-}
-const openEditModal = p => {
-  productFormMode.value = 'edit'
-  selectedProduct.value = p
-  showProductForm.value = true
-}
-const openDuplicateModal = p => {
-  productFormMode.value = 'duplicate'
-  selectedProduct.value = p
-  showProductForm.value = true
-}
-
-// Bulk Actions
-const performBulkAction = async actionType => {
-  if (!selectedIds.value.size) return
-
-  const msg = actionType === 'archive' ? 'Arsipkan' : 'Pulihkan'
-  if (!(await swalConfirm(`${msg} ${selectionCount.value} paket terpilih?`))) return
-
-  isProcessingBulk.value = true
-  const ids = [...selectedIds.value]
-  const promises = []
-
-  try {
-    ids.forEach(id => {
-      if (actionType === 'archive') promises.push(productApi.deleteProduct(id))
-      else promises.push(productApi.updateProduct(id, { is_active: true, is_package: true }))
-    })
-    await Promise.all(promises)
-    toast(`Berhasil memproses ${ids.length} paket.`, 'success')
-    selectedIds.value.clear()
-    fetchProducts()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    isProcessingBulk.value = false
-  }
+// Bulk Actions (O(1) Map-based execution via useCatalogManagement)
+const performBulkAction = (actionType: 'archive' | 'restore') => {
+  return executeCatalogBulkAction(actionType, products.value, {
+    archiveFn: id => productApi.deleteProduct(id),
+    restoreFn: id => productApi.updateProduct(id, { is_active: true, is_package: true })
+  })
 }
 
 // Inline Edit logic is handled by useInlineSave

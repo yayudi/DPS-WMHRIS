@@ -65,7 +65,7 @@
 | WP-07 | Frontend API dedupe + `serializeFilterParams`                                             |    P1     | ✅ DONE                               | WP-03                    |
 | WP-08 | Excel importer/template consolidation                                                     |    P2     | ✅ DONE                               | WP-04                    |
 | WP-09 | Frontend core dedupe (`useInlineSave<T>`, job-queue store, formatter)                     |    P2     | ✅ DONE                               | WP-03                    |
-| WP-10 | Frontend view dedupe (Product/Package management, Job History)                            |    P2     | TODO                                  | WP-07, WP-09             |
+| WP-10 | Frontend view dedupe (Product/Package management, Job History)                            |    P2     | ✅ DONE                               | WP-07, WP-09             |
 | WP-11 | Test hardening (flaky test, coverage helper baru)                                         |    P2     | TODO                                  | —                        |
 
 ---
@@ -339,7 +339,7 @@ flowchart LR
 
 ---
 
-### WP-10 — Frontend View Dedupe (P2)
+### WP-10 — Frontend View Dedupe (DONE)
 
 - `ProductManagement.vue` (626 LOC) & `PackageManagement.vue` (485 LOC) ~75% identik → ekstrak composable `useCatalogManagement`; ganti `ids.forEach` + `products.value.find` (O(N²)) dengan `Map`.
 - `BatchEditModal.vue` & `PackageBatchEditModal.vue` (~85% identik) → satu komponen berparameter.
@@ -755,6 +755,44 @@ Tambahkan di bawah §8 (Log), satu blok per WP:
 | `npm run build` (Vite production build) | ✅ Build sukses dalam 13.42s (177 PWA precache entries) |
 | `git grep "label\.charCodeAt(2)"` | ✅ 0 temuan (exit code 1) |
 **Risiko tersisa:** `formatCurrency` menggunakan locale `id-ID` yang menambahkan prefix `"Rp "` secara default; komponen yang sebelumnya menambahkan prefix manual `"Rp "` di template harus menggunakan `formatNumber` jika tidak ingin terjadi duplikasi simbol `"Rp Rp"`.
+
+---
+
+### [WP-10] Frontend View Deduplication & Modal Parameterization — DONE (orchestrator, 2026-10-30)
+
+**Ringkasan:**
+- Membuat komponen serbaguna `JobHistoryTable.vue` di `frontend/src/core/presentation/components/ui/JobHistoryTable.vue` untuk standardisasi rendering status badge (`COMPLETED`, `FAILED`, `PROCESSING`, `PENDING`), format waktu, nama file, dan download trigger di seluruh aplikasi dalam varian layout `list` (modal/dropdown) maupun `table`.
+- Mengonsolidasi `BatchEditModal.vue` dan `PackageBatchEditModal.vue`:
+  - `BatchEditModal.vue` diparameterisasi dengan `entityType` (`'product' | 'package'`), `title`, `exportJobType`, dan `importJobType`.
+  - Mengintegrasikan `JobHistoryTable` di dalam tab Riwayat Ekspor.
+  - Merefaktor `PackageBatchEditModal.vue` menjadi thin wrapper delegasi ke `BatchEditModal.vue` dengan `entity-type="package"` (mengeliminasi 320+ baris duplikasi template dan script).
+- Mengekstrak composable `useCatalogManagement` di `frontend/src/modules/master_data/presentation/composables/useCatalogManagement.ts`:
+  - Mengelola state seleksi massal (`selectedIds`, `selectionCount`, `isProcessingBulk`), modal form (`showProductForm`, `productFormMode`, `selectedProduct`), tabel, filter pencarian, dan pengurutan (`sortBy`, `sortOrder`).
+  - Menggantikan operasi linier $O(N \times M)$ `ids.forEach` + `products.value.find` pada aksi massal dengan indexing $O(1)$ `Map`.
+  - Mengadopsi `useCatalogManagement` pada `ProductManagement.vue` dan `PackageManagement.vue`, mereduksi bundle size masing-masing komponen dari 41.50 kB & 35.57 kB menjadi 27.84 kB & 24.55 kB.
+- Menulis unit test komprehensif:
+  - `frontend/src/core/presentation/components/ui/JobHistoryTable.test.ts` (4 tests: empty state, list layout, table layout, download event emission).
+  - `frontend/src/modules/master_data/presentation/composables/useCatalogManagement.test.ts` (4 tests: seleksi tunggal & massal, modal opener & state, aksi massal $O(1)$ Map, sorting order toggle).
+
+**File diubah / dibuat:**
+- `frontend/src/core/presentation/components/ui/JobHistoryTable.vue` (baru)
+- `frontend/src/core/presentation/components/ui/JobHistoryTable.test.ts` (baru)
+- `frontend/src/modules/master_data/presentation/composables/useCatalogManagement.ts` (baru)
+- `frontend/src/modules/master_data/presentation/composables/useCatalogManagement.test.ts` (baru)
+- `frontend/src/modules/master_data/presentation/components/products/BatchEditModal.vue`
+- `frontend/src/modules/master_data/presentation/components/products/PackageBatchEditModal.vue`
+- `frontend/src/modules/master_data/presentation/views/ProductManagement.vue`
+- `frontend/src/modules/master_data/presentation/views/PackageManagement.vue`
+- `docs/dry_remediation_roadmap.md`
+
+**Verifikasi:**
+| Perintah | Hasil |
+| :-- | :-- |
+| `npm run test:run` (Vitest) | ✅ 100% Lulus (19 test suite, 98 tests) |
+| `npm run type-check` (`vue-tsc --noEmit`) | ✅ 0 type errors (exit code 0) |
+| `npm run build` (Vite production build) | ✅ Build sukses dalam 14.69s (177 PWA precache entries) |
+**Risiko tersisa:** `useCatalogManagement` mengasumsikan entitas katalog memiliki identifier unik `id` bertipe `number | string`; jika ada entitas kustom di masa mendatang dengan composite key, fungsi Map indexing perlu disesuaikan dengan key serializer kustom.
+
 
 
 
