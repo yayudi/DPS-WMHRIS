@@ -3,11 +3,11 @@ package http
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -27,7 +27,7 @@ func (h *StockRequestHandler) Create(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "UNAUTHORIZED")
 		return
@@ -53,20 +53,19 @@ func (h *StockRequestHandler) GetAll(c *gin.Context) {
 }
 
 func (h *StockRequestHandler) Approve(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID tidak valid", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	userID := getUserID(c)
-	roleID := c.GetInt("role_id")
+	userID := middleware.GetUserID(c)
+	roleID := middleware.GetRoleID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
-	err = h.stockRequestService.ApproveStockRequest(c.Request.Context(), id, userID, roleID)
+	err := h.stockRequestService.ApproveStockRequest(c.Request.Context(), id, userID, roleID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
 		return
@@ -76,20 +75,19 @@ func (h *StockRequestHandler) Approve(c *gin.Context) {
 }
 
 func (h *StockRequestHandler) Reject(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID tidak valid", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	userID := getUserID(c)
-	roleID := c.GetInt("role_id")
+	userID := middleware.GetUserID(c)
+	roleID := middleware.GetRoleID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
-	err = h.stockRequestService.RejectStockRequest(c.Request.Context(), id, userID, roleID)
+	err := h.stockRequestService.RejectStockRequest(c.Request.Context(), id, userID, roleID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
 		return
@@ -99,20 +97,19 @@ func (h *StockRequestHandler) Reject(c *gin.Context) {
 }
 
 func (h *StockRequestHandler) Dispatch(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID tidak valid", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	userID := getUserID(c)
-	roleID := c.GetInt("role_id")
+	userID := middleware.GetUserID(c)
+	roleID := middleware.GetRoleID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
-	err = h.stockRequestService.DispatchStockRequest(c.Request.Context(), id, userID, roleID)
+	err := h.stockRequestService.DispatchStockRequest(c.Request.Context(), id, userID, roleID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
 		return
@@ -122,9 +119,8 @@ func (h *StockRequestHandler) Dispatch(c *gin.Context) {
 }
 
 func (h *StockRequestHandler) Complete(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID tidak valid", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -134,14 +130,14 @@ func (h *StockRequestHandler) Complete(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := getUserID(c)
-	roleID := c.GetInt("role_id")
+	userID := middleware.GetUserID(c)
+	roleID := middleware.GetRoleID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
 
-	err = h.stockRequestService.CompleteStockRequest(c.Request.Context(), id, req, userID, roleID)
+	err := h.stockRequestService.CompleteStockRequest(c.Request.Context(), id, req, userID, roleID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
 		return
@@ -157,8 +153,8 @@ func (h *StockRequestHandler) BulkAction(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := getUserID(c)
-	roleID := c.GetInt("role_id")
+	userID := middleware.GetUserID(c)
+	roleID := middleware.GetRoleID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return

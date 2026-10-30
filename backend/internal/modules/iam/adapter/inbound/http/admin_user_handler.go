@@ -2,12 +2,11 @@ package http
 
 import (
 	"net/http"
-	"strconv"
-	"strings"
 
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
 
 	"github.com/dps-wmhris/backend/internal/modules/iam/port"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -54,14 +53,10 @@ func (h *AdminUserHandler) CreateUser(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	adminID := c.GetInt("user_id")
+	adminID := middleware.GetUserID(c)
 	newUser, err := h.adminUserUseCase.CreateUser(c.Request.Context(), req, adminID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		if strings.Contains(err.Error(), "1062") || strings.Contains(err.Error(), "Duplicate") {
-			utils.ErrorResponse(c, http.StatusConflict, "Username sudah digunakan.", "CONFLICT")
-			return
-		}
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal membuat pengguna", "CREATE_FAILED")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -69,9 +64,8 @@ func (h *AdminUserHandler) CreateUser(c *gin.Context) {
 }
 
 func (h *AdminUserHandler) UpdateUser(c *gin.Context) {
-	targetID, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID Pengguna tidak valid", "INVALID_ID")
+	targetID, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -81,14 +75,10 @@ func (h *AdminUserHandler) UpdateUser(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	adminID := c.GetInt("user_id")
-	err = h.adminUserUseCase.UpdateUser(c.Request.Context(), targetID, req, adminID, c.ClientIP(), c.Request.UserAgent())
+	adminID := middleware.GetUserID(c)
+	err := h.adminUserUseCase.UpdateUser(c.Request.Context(), targetID, req, adminID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		if strings.Contains(err.Error(), "1062") || strings.Contains(err.Error(), "Duplicate") {
-			utils.ErrorResponse(c, http.StatusConflict, "Username sudah digunakan.", "CONFLICT")
-			return
-		}
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui data pengguna: "+err.Error(), "UPDATE_FAILED")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -96,24 +86,15 @@ func (h *AdminUserHandler) UpdateUser(c *gin.Context) {
 }
 
 func (h *AdminUserHandler) DeleteUser(c *gin.Context) {
-	targetID, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID Pengguna tidak valid", "INVALID_ID")
+	targetID, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	adminID := c.GetInt("user_id")
-	err = h.adminUserUseCase.DeleteUser(c.Request.Context(), targetID, adminID, c.ClientIP(), c.Request.UserAgent())
+	adminID := middleware.GetUserID(c)
+	err := h.adminUserUseCase.DeleteUser(c.Request.Context(), targetID, adminID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		status := http.StatusInternalServerError
-		if err.Error() == "anda tidak bisa menghapus akun anda sendiri" || err.Error() == "user tidak ditemukan" {
-			status = http.StatusBadRequest
-		}
-		c.JSON(status, gin.H{
-			"success":    false,
-			"message":    err.Error(),
-			"error_code": "DELETE_FAILED",
-		})
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -121,9 +102,8 @@ func (h *AdminUserHandler) DeleteUser(c *gin.Context) {
 }
 
 func (h *AdminUserHandler) GetUserLocations(c *gin.Context) {
-	targetID, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID Pengguna tidak valid", "INVALID_ID")
+	targetID, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -137,9 +117,8 @@ func (h *AdminUserHandler) GetUserLocations(c *gin.Context) {
 }
 
 func (h *AdminUserHandler) UpdateUserLocations(c *gin.Context) {
-	targetID, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID Pengguna tidak valid", "INVALID_ID")
+	targetID, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -149,14 +128,10 @@ func (h *AdminUserHandler) UpdateUserLocations(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	adminID := c.GetInt("user_id")
-	err = h.adminUserUseCase.UpdateUserLocations(c.Request.Context(), targetID, req, adminID, c.ClientIP(), c.Request.UserAgent())
+	adminID := middleware.GetUserID(c)
+	err := h.adminUserUseCase.UpdateUserLocations(c.Request.Context(), targetID, req, adminID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		if strings.Contains(err.Error(), "1452") || strings.Contains(err.Error(), "foreign key") {
-			utils.ErrorResponse(c, http.StatusBadRequest, "Satu atau lebih ID lokasi tidak valid.", "INVALID_REFERENCE")
-			return
-		}
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui izin lokasi pengguna", "UPDATE_FAILED")
+		utils.HandleDomainError(c, err)
 		return
 	}
 

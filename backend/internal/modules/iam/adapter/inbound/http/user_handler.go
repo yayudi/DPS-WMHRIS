@@ -7,6 +7,7 @@ import (
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
 
 	"github.com/dps-wmhris/backend/internal/modules/iam/port"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -54,7 +55,7 @@ func (h *UserHandler) Logout(c *gin.Context) {
 }
 
 func (h *UserHandler) GetProfile(c *gin.Context) {
-	userID := c.GetInt("user_id")
+	userID := middleware.GetUserID(c)
 	log.Printf("[PROFILE] Fetching profile for user_id: %v", userID)
 
 	user, err := h.userUseCase.GetProfile(c.Request.Context(), userID)
@@ -70,7 +71,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 }
 
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
-	userID := c.GetInt("user_id")
+	userID := middleware.GetUserID(c)
 
 	req_ptr, ok := utils.BindAndValidate[iam_dto.UpdateProfileRequest](c)
 	if !ok {
@@ -88,7 +89,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 }
 
 func (h *UserHandler) GetMyLocations(c *gin.Context) {
-	userID := c.GetInt("user_id")
+	userID := middleware.GetUserID(c)
 
 	locations, err := h.userUseCase.GetMyLocations(c.Request.Context(), userID)
 	if err != nil {

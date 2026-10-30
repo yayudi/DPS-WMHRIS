@@ -2,19 +2,15 @@ package http
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
 
-	"github.com/dps-wmhris/backend/internal/shared/config"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/xuri/excelize/v2"
@@ -31,8 +27,7 @@ func NewMediaHandler(mediaService system_usecase.MediaService, storageService sy
 }
 
 func (h *MediaHandler) ListMedia(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	page, limit := utils.ParsePagination(c, 20)
 
 	var filter system_mysql.MediaFilter
 	if s := c.Query("search"); s != "" {
@@ -59,7 +54,10 @@ func (h *MediaHandler) ListMedia(c *gin.Context) {
 }
 
 func (h *MediaHandler) GetMediaByID(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
+		return
+	}
 	asset, err := h.mediaService.GetMediaDetailsWithProducts(c.Request.Context(), id)
 	if err != nil || asset == nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "Aset tidak ditemukan", "NOT_FOUND")
@@ -136,7 +134,7 @@ func (h *MediaHandler) ConfirmUpload(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetInt("userID")
+	userID := middleware.GetUserID(c)
 	var uploadedAssets []map[string]interface{}
 
 	uploadedAssets, err := h.mediaService.SaveMediaBatch(c.Request.Context(), req.Assets, req.Products, userID)
@@ -159,7 +157,10 @@ func (h *MediaHandler) ConfirmUpload(c *gin.Context) {
 }
 
 func (h *MediaHandler) DeleteMedia(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
+		return
+	}
 
 	err := h.mediaService.DeleteMediaAndQueueTrash(c.Request.Context(), id)
 
@@ -176,7 +177,10 @@ func (h *MediaHandler) DeleteMedia(c *gin.Context) {
 }
 
 func (h *MediaHandler) UpdateMediaTags(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
+		return
+	}
 	req_ptr, ok := utils.BindAndValidate[system_dto.UpdateMediaTagsRequest](c)
 	if !ok {
 		return
@@ -192,7 +196,10 @@ func (h *MediaHandler) UpdateMediaTags(c *gin.Context) {
 }
 
 func (h *MediaHandler) UpdateMediaTitle(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
+		return
+	}
 	req_ptr, ok := utils.BindAndValidate[system_dto.UpdateMediaTitleRequest](c)
 	if !ok {
 		return
@@ -236,27 +243,14 @@ func (h *MediaHandler) DownloadBulkLinkTemplate(c *gin.Context) {
 }
 
 func (h *MediaHandler) BulkLinkExcel(c *gin.Context) {
-	file, err := c.FormFile("file")
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Tidak ada file yang diunggah.", "VALIDATION_ERROR")
-		return
-	}
-
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
-	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "media_links") + string(filepath.Separator)
-	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
-
-	// Create a unique filename
-	filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
-	filePath := filepath.Join(uploadDir, filename)
-
-	if err := c.SaveUploadedFile(file, filePath); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menyimpan file", "INTERNAL_ERROR")
+	savedPath, origName, ok := utils.SaveImportUpload(c, "file", "media_links")
+	if !ok {
 		return
 	}
 
@@ -265,8 +259,8 @@ func (h *MediaHandler) BulkLinkExcel(c *gin.Context) {
 	req := system_dto.CreateImportJobRequest{
 		UserID:           userID,
 		JobType:          "IMPORT_MEDIA_BULK_LINK",
-		OriginalFilename: file.Filename,
-		FilePath:         filePath,
+		OriginalFilename: origName,
+		FilePath:         savedPath,
 		Notes:            &notes,
 	}
 
@@ -277,12 +271,4 @@ func (h *MediaHandler) BulkLinkExcel(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "File Bulk Link masuk antrian.", jobID)
-}
-
-func getUserID(c *gin.Context) int {
-	userID, _ := c.Get("user_id")
-	if id, ok := userID.(int); ok {
-		return id
-	}
-	return 0
 }

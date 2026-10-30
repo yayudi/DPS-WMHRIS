@@ -3,11 +3,11 @@ package http
 import (
 	"log"
 	"net/http"
-	"strconv"
 
 	misc_dto "github.com/dps-wmhris/backend/internal/modules/misc/application/dto"
 
 	misc_usecase "github.com/dps-wmhris/backend/internal/modules/misc/application/usecase"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -32,7 +32,10 @@ func (h *PaperSizeHandler) GetAllPaperSizes(c *gin.Context) {
 }
 
 func (h *PaperSizeHandler) GetPaperSizeByID(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
+		return
+	}
 	data, err := h.paperSizeService.GetPaperSizeByID(c.Request.Context(), id)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "Paper size tidak ditemukan", "NOT_FOUND")
@@ -49,7 +52,7 @@ func (h *PaperSizeHandler) CreatePaperSize(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := c.GetInt("userID")
+	userID := middleware.GetUserID(c)
 	ip := c.ClientIP()
 	userAgent := c.Request.UserAgent()
 
@@ -67,14 +70,17 @@ func (h *PaperSizeHandler) CreatePaperSize(c *gin.Context) {
 }
 
 func (h *PaperSizeHandler) UpdatePaperSize(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
+		return
+	}
 	req_ptr, ok := utils.BindAndValidate[misc_dto.UpdatePaperSizeRequest](c)
 	if !ok {
 		return
 	}
 	req := *req_ptr
 
-	userID := c.GetInt("userID")
+	userID := middleware.GetUserID(c)
 	ip := c.ClientIP()
 	userAgent := c.Request.UserAgent()
 
@@ -88,8 +94,11 @@ func (h *PaperSizeHandler) UpdatePaperSize(c *gin.Context) {
 }
 
 func (h *PaperSizeHandler) DeletePaperSize(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	userID := c.GetInt("userID")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
+		return
+	}
+	userID := middleware.GetUserID(c)
 	ip := c.ClientIP()
 	userAgent := c.Request.UserAgent()
 

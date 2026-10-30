@@ -7,19 +7,14 @@ import (
 
 	"encoding/json"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strconv"
+	"strings"
 
 	catalog_dto "github.com/dps-wmhris/backend/internal/modules/catalog/application/dto"
 
 	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
 
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
-
-	"strings"
-
-	"github.com/dps-wmhris/backend/internal/shared/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -42,7 +37,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "UNAUTHORIZED")
 		return
@@ -62,8 +57,7 @@ func (h *ProductHandler) SearchProducts(c *gin.Context) {
 	locationId := c.Query("locationId")
 	inStockOnly := c.Query("inStockOnly") == "true"
 
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	page, limit := utils.ParsePagination(c, 20)
 
 	results, err := h.productService.SearchProducts(c.Request.Context(), q, locationId, inStockOnly, page, limit)
 	if err != nil {
@@ -102,9 +96,8 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 }
 
 func (h *ProductHandler) GetProductById(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -118,9 +111,8 @@ func (h *ProductHandler) GetProductById(c *gin.Context) {
 }
 
 func (h *ProductHandler) GetProductStockDetails(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -134,9 +126,8 @@ func (h *ProductHandler) GetProductStockDetails(c *gin.Context) {
 }
 
 func (h *ProductHandler) GetProductHistory(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -150,9 +141,8 @@ func (h *ProductHandler) GetProductHistory(c *gin.Context) {
 }
 
 func (h *ProductHandler) GetProductLastPriceUpdate(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -168,9 +158,8 @@ func (h *ProductHandler) GetProductLastPriceUpdate(c *gin.Context) {
 }
 
 func (h *ProductHandler) Update(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -180,7 +169,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
 		return
@@ -205,13 +194,12 @@ func (h *ProductHandler) GetAll(c *gin.Context) {
 }
 
 func (h *ProductHandler) ImportBatchProductUpdate(c *gin.Context) {
-	file, err := c.FormFile("file")
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "File tidak ditemukan.", "VALIDATION_ERROR")
+	savedPath, origName, ok := utils.SaveImportUpload(c, "file", "product")
+	if !ok {
 		return
 	}
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	dryRun := c.PostForm("dryRun")
 	jobType := "BATCH_EDIT_PRODUCT"
 	if dryRun == "true" {
@@ -220,20 +208,11 @@ func (h *ProductHandler) ImportBatchProductUpdate(c *gin.Context) {
 
 	notes := "Mass Price Update via Web Upload"
 
-	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "product") + string(filepath.Separator)
-	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
-	filepath := uploadDir + file.Filename
-
-	if err := c.SaveUploadedFile(file, filepath); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save file", "INTERNAL_ERROR")
-		return
-	}
-
 	req := system_dto.CreateImportJobRequest{
 		UserID:           userID,
 		JobType:          jobType,
-		OriginalFilename: file.Filename,
-		FilePath:         filepath,
+		OriginalFilename: origName,
+		FilePath:         savedPath,
 		Notes:            &notes,
 	}
 
@@ -247,14 +226,12 @@ func (h *ProductHandler) ImportBatchProductUpdate(c *gin.Context) {
 }
 
 func (h *ProductHandler) Delete(c *gin.Context) {
-	idParam := c.Param("id")
-	productID, err := strconv.Atoi(idParam)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID Produk tidak valid", "VALIDATION_ERROR")
+	productID, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "UNAUTHORIZED")
 		return
@@ -270,7 +247,7 @@ func (h *ProductHandler) Delete(c *gin.Context) {
 
 // ExportProducts creates an export job for products. Matches GET /api/products/export.
 func (h *ProductHandler) ExportProducts(c *gin.Context) {
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
 		return
@@ -321,14 +298,12 @@ func (h *ProductHandler) ExportProducts(c *gin.Context) {
 
 // GetProductStockTimeline returns the paginated stock timeline. Matches GET /api/products/:id/stock-timeline.
 func (h *ProductHandler) GetProductStockTimeline(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	page, limit := utils.ParsePagination(c, 100)
 
 	var buildings []string
 	buildingParam := c.Query("building")
@@ -347,13 +322,12 @@ func (h *ProductHandler) GetProductStockTimeline(c *gin.Context) {
 
 // LinkMedia links media to a product. Matches POST /api/products/:id/link-media.
 func (h *ProductHandler) LinkMedia(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
 		return
@@ -375,19 +349,17 @@ func (h *ProductHandler) LinkMedia(c *gin.Context) {
 
 // SetPrimaryImage sets a specific image as primary. Matches PUT /api/products/:id/images/:imageId/primary.
 func (h *ProductHandler) SetPrimaryImage(c *gin.Context) {
-	productID, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid product ID", "")
+	productID, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	imageID, err := strconv.Atoi(c.Param("imageId"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid image ID", "")
+	imageID, ok := utils.ParseIntParam(c, "imageId")
+	if !ok {
 		return
 	}
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if err := h.productService.SetPrimaryImage(c.Request.Context(), productID, imageID, userID); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
@@ -398,13 +370,12 @@ func (h *ProductHandler) SetPrimaryImage(c *gin.Context) {
 
 // DeleteProductImage removes a specific product image. Matches DELETE /api/products/:id/images/:imageId.
 func (h *ProductHandler) DeleteProductImage(c *gin.Context) {
-	imageID, err := strconv.Atoi(c.Param("imageId"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid image ID", "")
+	imageID, ok := utils.ParseIntParam(c, "imageId")
+	if !ok {
 		return
 	}
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if err := h.productService.DeleteProductImage(c.Request.Context(), imageID, userID); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return

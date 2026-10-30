@@ -5,11 +5,11 @@ import (
 
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	analytics_usecase "github.com/dps-wmhris/backend/internal/modules/analytics/application/usecase"
 	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -31,7 +31,7 @@ func NewReportHandler(reportService analytics_usecase.ReportService, jobService 
 }
 
 func (h *ReportHandler) RequestStockReport(c *gin.Context) {
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
@@ -66,7 +66,7 @@ func (h *ReportHandler) RequestStockReport(c *gin.Context) {
 }
 
 func (h *ReportHandler) GetUserExportJobs(c *gin.Context) {
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
@@ -84,16 +84,14 @@ func (h *ReportHandler) GetUserExportJobs(c *gin.Context) {
 // DownloadExportJob menghasilkan presigned URL untuk mendownload file export,
 // lalu redirect browser ke URL tersebut. URL expire setelah 5 menit.
 func (h *ReportHandler) DownloadExportJob(c *gin.Context) {
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
-	idStr := c.Param("id")
-	jobID, err := strconv.Atoi(idStr)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID job tidak valid", "")
+	jobID, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -131,12 +129,4 @@ func (h *ReportHandler) FetchReportFilters(c *gin.Context) {
 	}
 
 	utils.SuccessDataResponse(c, http.StatusOK, filters)
-}
-
-func getUserID(c *gin.Context) int {
-	userID, _ := c.Get("user_id")
-	if id, ok := userID.(int); ok {
-		return id
-	}
-	return 0
 }

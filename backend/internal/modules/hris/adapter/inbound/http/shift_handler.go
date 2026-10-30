@@ -2,7 +2,6 @@ package http
 
 import (
 	"net/http"
-	"strconv"
 
 	hris_dto "github.com/dps-wmhris/backend/internal/modules/hris/application/dto"
 
@@ -30,9 +29,8 @@ func (h *ShiftHandler) GetAll(c *gin.Context) {
 }
 
 func (h *ShiftHandler) GetByID(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "VALIDATION_ERROR")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -61,9 +59,8 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 }
 
 func (h *ShiftHandler) Update(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "VALIDATION_ERROR")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -73,7 +70,7 @@ func (h *ShiftHandler) Update(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	err = h.shiftUseCase.Update(c.Request.Context(), id, req)
+	err := h.shiftUseCase.Update(c.Request.Context(), id, req)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "SERVICE_ERROR")
 		return
@@ -83,13 +80,12 @@ func (h *ShiftHandler) Update(c *gin.Context) {
 }
 
 func (h *ShiftHandler) Delete(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "VALIDATION_ERROR")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	err = h.shiftUseCase.Delete(c.Request.Context(), id)
+	err := h.shiftUseCase.Delete(c.Request.Context(), id)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "SERVICE_ERROR")
 		return

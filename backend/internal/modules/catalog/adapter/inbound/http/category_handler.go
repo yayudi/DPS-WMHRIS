@@ -2,7 +2,6 @@ package http
 
 import (
 	"net/http"
-	"strconv"
 
 	catalog_dto "github.com/dps-wmhris/backend/internal/modules/catalog/application/dto"
 
@@ -47,9 +46,8 @@ func (h *CategoryHandler) GetAllActive(c *gin.Context) {
 }
 
 func (h *CategoryHandler) Update(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID tidak valid", "VALIDATION_ERROR")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -59,7 +57,7 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	err = h.categoryService.UpdateCategory(c.Request.Context(), id, req)
+	err := h.categoryService.UpdateCategory(c.Request.Context(), id, req)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
@@ -69,25 +67,16 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 }
 
 func (h *CategoryHandler) Delete(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID tidak valid", "VALIDATION_ERROR")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	err = h.categoryService.DeleteCategory(c.Request.Context(), id)
+	err := h.categoryService.DeleteCategory(c.Request.Context(), id)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
 		return
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "Kategori berhasil dihapus", nil)
-}
-
-func getUserID(c *gin.Context) int {
-	userID, _ := c.Get("user_id")
-	if id, ok := userID.(int); ok {
-		return id
-	}
-	return 0
 }

@@ -4,16 +4,14 @@ import (
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
 
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
 
-	"github.com/dps-wmhris/backend/internal/shared/config"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -32,7 +30,7 @@ func (h *PackageHandler) ExportPackages(c *gin.Context) {
 	searchBy := c.Query("searchBy")
 	status := c.Query("status")
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
@@ -71,31 +69,21 @@ func (h *PackageHandler) ExportPackages(c *gin.Context) {
 }
 
 func (h *PackageHandler) ImportPackagesBatch(c *gin.Context) {
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
-	file, err := c.FormFile("file")
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "File tidak ditemukan", "")
+	savedPath, origName, ok := utils.SaveImportUpload(c, "file", "package")
+	if !ok {
 		return
 	}
 
-	ext := strings.ToLower(filepath.Ext(file.Filename))
+	ext := strings.ToLower(filepath.Ext(origName))
 	if ext != ".xlsx" && ext != ".xls" && ext != ".csv" {
+		_ = os.Remove(savedPath)
 		utils.ErrorResponse(c, http.StatusBadRequest, "Format file tidak didukung", "")
-		return
-	}
-
-	filename := fmt.Sprintf("import_%d%s", time.Now().UnixNano(), ext)
-	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "package")
-	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
-	savePath := filepath.Join(uploadDir, filename)
-
-	if err := c.SaveUploadedFile(file, savePath); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menyimpan file", "")
 		return
 	}
 
@@ -103,8 +91,8 @@ func (h *PackageHandler) ImportPackagesBatch(c *gin.Context) {
 	req := system_dto.CreateImportJobRequest{
 		UserID:           userID,
 		JobType:          "IMPORT_PACKAGES",
-		OriginalFilename: file.Filename,
-		FilePath:         savePath,
+		OriginalFilename: origName,
+		FilePath:         savedPath,
 		Notes:            &notes,
 	}
 

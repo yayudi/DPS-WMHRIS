@@ -6,8 +6,8 @@ import (
 
 	"log"
 	"net/http"
-	"strconv"
 
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -21,8 +21,7 @@ func NewReturnHandler(returnService inventory_port.ReturnUseCase) *ReturnHandler
 }
 
 func (h *ReturnHandler) GetPendingReturns(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	page, limit := utils.ParsePagination(c, 10)
 	search := c.Query("search")
 
 	offset := (page - 1) * limit
@@ -54,8 +53,7 @@ func (h *ReturnHandler) GetPendingReturns(c *gin.Context) {
 }
 
 func (h *ReturnHandler) GetReturnHistory(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	page, limit := utils.ParsePagination(c, 10)
 	search := c.Query("search")
 
 	marketplaceResult, err := h.returnService.GetMarketplaceReturnHistory(c.Request.Context(), page, limit, search)
@@ -94,7 +92,7 @@ func (h *ReturnHandler) ApproveReturn(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
@@ -116,7 +114,7 @@ func (h *ReturnHandler) CreateManualReturn(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return

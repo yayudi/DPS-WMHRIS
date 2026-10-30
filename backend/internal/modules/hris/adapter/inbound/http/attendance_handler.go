@@ -4,16 +4,13 @@ import (
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
 
 	"net/http"
-	"os"
-	"path/filepath"
-	"strconv"
 
 	hris_dto "github.com/dps-wmhris/backend/internal/modules/hris/application/dto"
 
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
 
 	hris_port "github.com/dps-wmhris/backend/internal/modules/hris/port"
-	"github.com/dps-wmhris/backend/internal/shared/config"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -70,17 +67,12 @@ func (h *AttendanceHandler) GetRangeData(c *gin.Context) {
 }
 
 func (h *AttendanceHandler) GetMonthlyData(c *gin.Context) {
-	yearStr := c.Param("year")
-	monthStr := c.Param("month")
-
-	year, err := strconv.Atoi(yearStr)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid year", "VALIDATION_ERROR")
+	year, ok := utils.ParseIntParam(c, "year")
+	if !ok {
 		return
 	}
-	month, err := strconv.Atoi(monthStr)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid month", "VALIDATION_ERROR")
+	month, ok := utils.ParseIntParam(c, "month")
+	if !ok {
 		return
 	}
 
@@ -108,13 +100,12 @@ func (h *AttendanceHandler) UpdateLog(c *gin.Context) {
 }
 
 func (h *AttendanceHandler) UploadLogs(c *gin.Context) {
-	file, err := c.FormFile("file")
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "No file uploaded", "VALIDATION_ERROR")
+	savedPath, origName, ok := utils.SaveImportUpload(c, "file", "attendance")
+	if !ok {
 		return
 	}
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 
 	dryRunStr := c.PostForm("dryRun")
 	isDryRun := dryRunStr == "true" || dryRunStr == "1"
@@ -134,22 +125,11 @@ func (h *AttendanceHandler) UploadLogs(c *gin.Context) {
 		finalNotes = defaultNotes + " | " + notes
 	}
 
-	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "attendance") + string(filepath.Separator)
-	// Ensure directory exists
-	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
-
-	filepath := uploadDir + file.Filename
-
-	if err := c.SaveUploadedFile(file, filepath); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save file", "INTERNAL_ERROR")
-		return
-	}
-
 	req := system_dto.CreateImportJobRequest{
 		UserID:           userID,
 		JobType:          jobType,
-		OriginalFilename: file.Filename,
-		FilePath:         filepath,
+		OriginalFilename: origName,
+		FilePath:         savedPath,
 		Notes:            &finalNotes,
 	}
 
@@ -169,12 +149,4 @@ func (h *AttendanceHandler) UploadLogs(c *gin.Context) {
 		"message": msg,
 		"jobId":   jobID,
 	})
-}
-
-func getUserID(c *gin.Context) int {
-	userID, _ := c.Get("user_id")
-	if id, ok := userID.(int); ok {
-		return id
-	}
-	return 0
 }
