@@ -10,6 +10,7 @@ import (
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/eventbus"
+	"github.com/dps-wmhris/backend/internal/shared/kernel"
 )
 
 type locationServiceImpl struct {
@@ -77,7 +78,7 @@ func (s *locationServiceImpl) UpdateLocation(ctx context.Context, userID int, lo
 		}
 
 		location := &domain.Location{
-			ID:                  locationID,
+			ImmutableEntity:     kernel.ImmutableEntity{ID: locationID},
 			Code:                req.Code,
 			Building:            req.Building,
 			Floor:               req.Floor,

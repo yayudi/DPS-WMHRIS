@@ -1,16 +1,29 @@
 package domain
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
+)
+
+const (
+	TransactionStatusPending           = "PENDING"
+	TransactionStatusReadyToPick       = "READY_TO_PICK"
+	TransactionStatusHoldReplenishment = "HOLD_REPLENISHMENT"
+	TransactionStatusOutOfStock        = "OUT_OF_STOCK"
+	TransactionStatusCompleted         = "COMPLETED"
+	TransactionStatusCancelled         = "CANCELLED"
+	TransactionStatusVoid              = "VOID"
 )
 
 var (
 	ErrInvalidQuantity        = errors.New("invalid quantity")
 	ErrCrossBuildingProcess   = errors.New("cross building process is not allowed for this transaction")
 	ErrInvalidLocationPurpose = errors.New("location purpose is not allowed for processing")
+	ErrCannotReleaseNotHeld   = errors.New("transaction is not currently held and cannot be released")
 )
 
+// keep: domain model uses uint IDs for Kelja fulfillment aggregate and operations
 type TransactionMovementLine struct {
 	ID                uint
 	MovementID        uint
@@ -21,26 +34,27 @@ type TransactionMovementLine struct {
 }
 
 type TransactionMovement struct {
-	ID             uint
-	TransactionID  uint
-	ProductID      uint
-	TargetQuantity int
-	Status         string // PENDING, COMPLETED
-	CreatedAt      time.Time
+	ID             uint      `db:"id"`
+	TransactionID  uint      `db:"transaction_id"`
+	ProductID      uint      `db:"product_id"`
+	TargetQuantity int       `db:"target_quantity"`
+	Status         string    `db:"status"` // PENDING, COMPLETED
+	CreatedAt      time.Time `db:"created_at"`
 	Lines          []*TransactionMovementLine
 }
 
+// keep: domain model uses uint IDs for Kelja fulfillment aggregate and operations
 type StockTransaction struct {
-	ID               uint
-	TransactionNo    string
-	ReferenceType    string
-	ReferenceID      string
-	AssignedBuilding string
-	Status           string // PENDING, PROCESSING, COMPLETED, CANCELLED
-	Notes            *string
-	CreatedBy        *uint
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	ID               uint      `db:"id"`
+	TransactionNo    string    `db:"transaction_number"`
+	ReferenceType    string    `db:"reference_type"`
+	ReferenceID      string    `db:"reference_id"`
+	AssignedBuilding string    `db:"assigned_building"`
+	Status           string    `db:"status"` // PENDING, READY_TO_PICK, HOLD_REPLENISHMENT, OUT_OF_STOCK, COMPLETED, CANCELLED, VOID
+	Notes            *string   `db:"notes"`
+	CreatedBy        *uint     `db:"created_by"`
+	CreatedAt        time.Time `db:"created_at"`
+	UpdatedAt        time.Time `db:"updated_at"`
 	Movements        []*TransactionMovement
 }
 
@@ -62,13 +76,8 @@ func (st *StockTransaction) ProcessLine(movementID uint, scannedLoc *Location, q
 		return ErrInvalidQuantity
 	}
 
-	// Guard Clause: Prevent cross building process
-	if scannedLoc.Building != st.AssignedBuilding {
-		return ErrCrossBuildingProcess
-	}
-
-	// Guard Clause: Only allow processing from WAREHOUSE or DISPLAY
-	if scannedLoc.Purpose != "WAREHOUSE" && scannedLoc.Purpose != "DISPLAY" {
+	// Guard Clause: Only allow processing from fulfillment source locations
+	if !scannedLoc.IsFulfillmentSource {
 		return ErrInvalidLocationPurpose
 	}
 
@@ -120,4 +129,31 @@ func (st *StockTransaction) IsCompleted() bool {
 		}
 	}
 	return len(st.Movements) > 0
+}
+
+// MarkOnHoldForReplenishment holds the transaction while serializing deficit details into notes.
+func (st *StockTransaction) MarkOnHoldForReplenishment(deficits []ReplenishmentDeficit) error {
+	st.Status = TransactionStatusHoldReplenishment
+	if len(deficits) > 0 {
+		data, err := json.Marshal(deficits)
+		if err != nil {
+			return err
+		}
+		notes := string(data)
+		st.Notes = &notes
+	}
+	return nil
+}
+
+// MarkOutOfStock sets the transaction status to OUT_OF_STOCK with an optional explanatory note.
+func (st *StockTransaction) MarkOutOfStock(reason string) {
+	st.Status = TransactionStatusOutOfStock
+	if reason != "" {
+		st.Notes = &reason
+	}
+}
+
+// CanBeReleased checks whether this transaction is currently in a held state eligible for release.
+func (st *StockTransaction) CanBeReleased() bool {
+	return st.Status == TransactionStatusHoldReplenishment || st.Status == TransactionStatusOutOfStock
 }

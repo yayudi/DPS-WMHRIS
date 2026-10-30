@@ -1,11 +1,11 @@
 package domain
 
 import (
-	database "github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/kernel"
 )
 
 type User struct {
-	database.BaseEntity
+	kernel.BaseEntity
 	Username              string `db:"username" json:"username"`
 	Nickname              string `db:"nickname" json:"nickname"`
 	IsActive              bool   `db:"is_active" json:"is_active"`

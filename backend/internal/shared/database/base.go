@@ -1,10 +1,15 @@
 package database
 
-import "time"
+import "github.com/dps-wmhris/backend/internal/shared/kernel"
 
-// BaseEntity menyimpan field umum yang ada di sebagian besar tabel
-type BaseEntity struct {
-	ID        int       `db:"id" json:"id"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
-}
+// Type alias agar kode repository dan infrastruktur database tetap kompatibel jika masih merujuk database.*
+type (
+	// BaseEntity menyimpan field umum yang ada di sebagian besar tabel
+	BaseEntity = kernel.BaseEntity
+
+	// ImmutableEntity menyimpan field untuk tabel append-only tanpa updated_at
+	ImmutableEntity = kernel.ImmutableEntity
+
+	// SoftDeletable menyimpan timestamp deleted_at untuk tabel dengan fitur soft delete
+	SoftDeletable = kernel.SoftDeletable
+)
