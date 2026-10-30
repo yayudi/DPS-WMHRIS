@@ -63,7 +63,7 @@
 | WP-05 | Kernel completion (entity drift & append-only)                                            |    P1     | ✅ DONE                               | —                        |
 | WP-06 | Repository consolidation (`FetchPaginated`, `BaseRepository`, `GetExt`)                   |    P1     | ✅ DONE                               | WP-01, WP-05             |
 | WP-07 | Frontend API dedupe + `serializeFilterParams`                                             |    P1     | ✅ DONE                               | WP-03                    |
-| WP-08 | Excel importer/template consolidation                                                     |    P2     | TODO                                  | WP-04                    |
+| WP-08 | Excel importer/template consolidation                                                     |    P2     | ✅ DONE                               | WP-04                    |
 | WP-09 | Frontend core dedupe (`useInlineSave<T>`, job-queue store, formatter)                     |    P2     | TODO                                  | WP-03                    |
 | WP-10 | Frontend view dedupe (Product/Package management, Job History)                            |    P2     | TODO                                  | WP-07, WP-09             |
 | WP-11 | Test hardening (flaky test, coverage helper baru)                                         |    P2     | TODO                                  | —                        |
@@ -318,7 +318,7 @@ flowchart LR
 
 ---
 
-### WP-08 — Excel Importer/Template Consolidation (P2)
+### WP-08 — Excel Importer/Template Consolidation (DONE)
 
 - `schedule_parser.go`, `stock_service.go` (×2), `media_service.go` → pakai `internal/parser/base_parser.go` `ReadExcel` (L62-101).
 - `stock_service.go:472-545` `GenerateAdjustmentTemplate` & `GenerateInboundTemplate` (95% identik) → satu fungsi berparameter (header, sheet name, contoh baris).
@@ -673,5 +673,34 @@ Tambahkan di bawah §8 (Log), satu blok per WP:
 | `npx vue-tsc --noEmit` | ✅ 0 type errors (exit code 0) |
 | `npm run build` | ✅ Build sukses dalam 26.00s (177 PWA precache entries) |
 **Risiko tersisa:** Gin query parameter binding untuk TriState filter kini secara ketat mengharapkan JSON string valid untuk field yang memiliki filter include/exclude; pastikan query params kustom manual di luar FilterBar tetap mengikuti schema ini.
+
+---
+
+### [WP-08] Excel Importer & Template Consolidation — DONE (orchestrator, 2026-10-30)
+
+**Ringkasan:**
+- Menambahkan utilitas `parser.ReadExcelFile(filePath)` dan `parser.GetField(record, keys...)` di `backend/internal/parser/base_parser.go` serta mengekstrak helper internal `rowsToMaps` untuk unifikasi pembacaan file Excel.
+- Menambahkan helper terpusat `utils.GenerateTemplateWithDropdown(cfg)` di `backend/internal/shared/utils/excel.go` untuk pembuatan template Excel berstandar dengan dropdown data validation tersembunyi (`DataValidasi`).
+- Mengadopsi `parser.ReadExcelFile` dan `parser.GetField` pada seluruh 4 titik pemrosesan file Excel:
+  - `backend/internal/modules/inventory/application/usecase/stock_service.go` (`ProcessStockImport` & `ProcessImportBatchInbound`)
+  - `backend/internal/modules/hris/application/parser/schedule_parser.go` (`ParseScheduleExcel`)
+  - `backend/internal/modules/system/application/usecase/media_service.go` (`ProcessMediaLinkImport`)
+- Menyatukan `GenerateAdjustmentTemplate` dan `GenerateInboundTemplate` di `stock_service.go` menggunakan `utils.GenerateTemplateWithDropdown`.
+- Mengeliminasi panggilan langsung `excelize.OpenFile` dari service/parser layer (`git grep` menunjukkan `excelize.OpenFile` tersisa tepat 1 titik di `base_parser.go`).
+- Membuat unit test table-driven dengan file `.xlsx` dinamis di `t.TempDir()`:
+  - `backend/internal/parser/base_parser_test.go`
+  - `backend/internal/shared/utils/excel_test.go`
+  - `backend/internal/modules/hris/application/parser/schedule_parser_test.go`
+
+**Verifikasi:**
+| Perintah | Hasil |
+| :-- | :-- |
+| `go build ./...` | ✅ Lulus (exit code 0) |
+| `go vet ./...` | ✅ Lulus (exit code 0) |
+| `go test -v ./internal/parser/... ./internal/shared/utils/... ./internal/modules/hris/application/parser/...` | ✅ 100% Lulus (seluruh test suite) |
+| `go test ./internal/...` | ✅ 100% Lulus seluruh paket internal |
+| `git grep "excelize\.OpenFile" backend/` | ✅ Tepat 1 temuan di `internal/parser/base_parser.go` |
+**Risiko tersisa:** `ReadExcelFile` membaca sheet pertama (sheet index 0) secara default; jika ada workflow baru di masa mendatang yang menyimpan data di sheet sekunder, perlu ditambahkan parameter opsional `sheetIndex/sheetName`.
+
 
 

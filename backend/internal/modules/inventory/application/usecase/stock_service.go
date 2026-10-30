@@ -16,6 +16,7 @@ import (
 
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	"github.com/dps-wmhris/backend/internal/parser"
 
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/eventbus"
@@ -75,7 +76,7 @@ func (s *stockServiceImpl) MoveStock(ctx context.Context, userID int, req invent
 			stockTo, err := s.stockRepo.GetStockByLocation(ctx, req.ProductID, *req.ToLocationID)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
-					// Jika barang belum pernah ada di rak ini, siapkan struktur baru
+					// Jika barang belum pernah ada di lokasi lantai ini, siapkan struktur baru
 					stockTo = &domain.StockLocation{
 						ProductID:  req.ProductID,
 						LocationID: *req.ToLocationID,
@@ -476,35 +477,20 @@ func (s *stockServiceImpl) GenerateAdjustmentTemplate(ctx context.Context) (*exc
 		return nil, err
 	}
 
-	f := excelize.NewFile()
-	mainSheet := "Input Stok"
-	_ = f.SetSheetName("Sheet1", mainSheet) // #nosec G104
-
-	// DataValidasi sheet for dropdown
-	validSheet := "DataValidasi"
-	_, _ = f.NewSheet(validSheet)            // #nosec G104
-	_ = f.SetSheetVisible(validSheet, false) // #nosec G104
-
+	locCodes := make([]string, len(locations))
 	for i, loc := range locations {
-		cell, _ := excelize.CoordinatesToCellName(1, i+1)
-		_ = f.SetCellValue(validSheet, cell, loc.Code) // #nosec G104
+		locCodes[i] = loc.Code
 	}
 
-	styles := utils.InitExcelStyles(f)
-	utils.SetHeaders(f, mainSheet, []string{"SKU", "LT (Lokasi)", "ACTUAL", "NOTES"}, styles.Header)
-	utils.SetColWidths(f, mainSheet, map[string]float64{"A": 25, "B": 20, "C": 10, "D": 35})
-
-	// Add data validation for Location column (B)
-	if len(locations) > 0 {
-		dv := excelize.NewDataValidation(true)
-		dv.Sqref = "B2:B1002"
-		dv.SetError(excelize.DataValidationErrorStyleWarning, "Lokasi Tidak Valid", "Silakan pilih lokasi yang valid dari daftar dropdown.")
-		formula := fmt.Sprintf("DataValidasi!$A$1:$A$%d", len(locations))
-		dv.SetSqrefDropList(formula)
-		_ = f.AddDataValidation(mainSheet, dv) // #nosec G104
-	}
-
-	return f, nil
+	return utils.GenerateTemplateWithDropdown(utils.TemplateConfig{
+		SheetName:       "Input Stok",
+		Headers:         []string{"SKU", "LT (Lokasi)", "ACTUAL", "NOTES"},
+		ColWidths:       map[string]float64{"A": 25, "B": 20, "C": 10, "D": 35},
+		ValidationCol:   "B",
+		ValidationList:  locCodes,
+		ValidationTitle: "Lokasi Tidak Valid",
+		ValidationMsg:   "Silakan pilih lokasi yang valid dari daftar dropdown.",
+	}), nil
 }
 
 func (s *stockServiceImpl) GenerateInboundTemplate(ctx context.Context) (*excelize.File, error) {
@@ -513,35 +499,20 @@ func (s *stockServiceImpl) GenerateInboundTemplate(ctx context.Context) (*exceli
 		return nil, err
 	}
 
-	f := excelize.NewFile()
-	mainSheet := "Inbound Stok"
-	_ = f.SetSheetName("Sheet1", mainSheet) // #nosec G104
-
-	// DataValidasi sheet for dropdown
-	validSheet := "DataValidasi"
-	_, _ = f.NewSheet(validSheet)            // #nosec G104
-	_ = f.SetSheetVisible(validSheet, false) // #nosec G104
-
+	locCodes := make([]string, len(locations))
 	for i, loc := range locations {
-		cell, _ := excelize.CoordinatesToCellName(1, i+1)
-		_ = f.SetCellValue(validSheet, cell, loc.Code) // #nosec G104
+		locCodes[i] = loc.Code
 	}
 
-	styles := utils.InitExcelStyles(f)
-	utils.SetHeaders(f, mainSheet, []string{"SKU", "LT (Lokasi)", "QTY", "NOTES"}, styles.Header)
-	utils.SetColWidths(f, mainSheet, map[string]float64{"A": 25, "B": 20, "C": 10, "D": 35})
-
-	// Add data validation for Location column (B)
-	if len(locations) > 0 {
-		dv := excelize.NewDataValidation(true)
-		dv.Sqref = "B2:B1002"
-		dv.SetError(excelize.DataValidationErrorStyleWarning, "Lokasi Tidak Valid", "Silakan pilih lokasi yang valid dari daftar dropdown.")
-		formula := fmt.Sprintf("DataValidasi!$A$1:$A$%d", len(locations))
-		dv.SetSqrefDropList(formula)
-		_ = f.AddDataValidation(mainSheet, dv) // #nosec G104
-	}
-
-	return f, nil
+	return utils.GenerateTemplateWithDropdown(utils.TemplateConfig{
+		SheetName:       "Inbound Stok",
+		Headers:         []string{"SKU", "LT (Lokasi)", "QTY", "NOTES"},
+		ColWidths:       map[string]float64{"A": 25, "B": 20, "C": 10, "D": 35},
+		ValidationCol:   "B",
+		ValidationList:  locCodes,
+		ValidationTitle: "Lokasi Tidak Valid",
+		ValidationMsg:   "Silakan pilih lokasi yang valid dari daftar dropdown.",
+	}), nil
 }
 
 func (s *stockServiceImpl) ValidateReturn(ctx context.Context, req inventory_dto.ValidateReturnRequest, userID int) error {
@@ -550,23 +521,12 @@ func (s *stockServiceImpl) ValidateReturn(ctx context.Context, req inventory_dto
 
 func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) error {
 	log.Printf("[ProcessStockImport] Memulai Job %d. File: %s, DryRun: %v", jobID, filePath, isDryRun)
-	f, err := excelize.OpenFile(filePath)
+	records, err := parser.ReadExcelFile(filePath)
 	if err != nil {
-		return fmt.Errorf("gagal membuka file excel: %w", err)
-	}
-	defer f.Close()
-
-	sheetName := f.GetSheetName(0)
-	if sheetName == "" {
-		return errors.New("file excel tidak memiliki sheet atau tidak valid")
+		return err
 	}
 
-	rows, err := f.GetRows(sheetName)
-	if err != nil {
-		return fmt.Errorf("gagal membaca baris: %w", err)
-	}
-
-	if len(rows) < 2 {
+	if len(records) == 0 {
 		return errors.New("file excel kosong atau tidak ada data (hanya header)")
 	}
 
@@ -585,43 +545,32 @@ func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, fi
 
 	var validationErrors []string
 
-	for i, row := range rows {
-		if i == 0 {
-			continue // skip header
-		}
+	for i, row := range records {
+		lineNum := i + 2 // row 1 was header
 
-		var sku, locCode, actualStr, notes string
-		if len(row) > 0 {
-			sku = strings.TrimSpace(row[0])
-		}
-		if len(row) > 1 {
-			locCode = strings.TrimSpace(row[1])
-		}
-		if len(row) > 2 {
-			actualStr = strings.TrimSpace(row[2])
-		}
-		if len(row) > 3 {
-			notes = strings.TrimSpace(row[3])
-		}
+		sku := parser.GetField(row, "SKU", "sku")
+		locCode := parser.GetField(row, "LT (Lokasi)", "LT", "Lokasi", "Location", "location")
+		actualStr := parser.GetField(row, "ACTUAL", "Actual", "actual", "Qty", "QTY", "qty")
+		notes := parser.GetField(row, "NOTES", "Notes", "notes", "Keterangan", "keterangan")
 
 		if sku == "" && locCode == "" && actualStr == "" {
 			continue
 		}
 
 		if sku == "" {
-			validationErrors = append(validationErrors, fmt.Sprintf("Baris %d: SKU kosong", i+1))
+			validationErrors = append(validationErrors, fmt.Sprintf("Baris %d: SKU kosong", lineNum))
 			continue
 		}
 
 		locID, ok := locMap[strings.ToUpper(locCode)]
 		if !ok {
-			validationErrors = append(validationErrors, fmt.Sprintf("Baris %d: Lokasi '%s' tidak valid", i+1, locCode))
+			validationErrors = append(validationErrors, fmt.Sprintf("Baris %d: Lokasi '%s' tidak valid", lineNum, locCode))
 			continue
 		}
 
 		actual, err := strconv.Atoi(actualStr)
 		if err != nil || actual < 0 {
-			validationErrors = append(validationErrors, fmt.Sprintf("Baris %d: Stok Aktual '%s' tidak valid (harus angka >= 0)", i+1, actualStr))
+			validationErrors = append(validationErrors, fmt.Sprintf("Baris %d: Stok Aktual '%s' tidak valid (harus angka >= 0)", lineNum, actualStr))
 			continue
 		}
 
@@ -734,23 +683,12 @@ func (s *stockServiceImpl) ProcessBatchOpname(ctx context.Context, movements []i
 
 func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error) {
 	log.Printf("[ProcessImportBatchInbound] Memulai Job %d. File: %s, DryRun: %v", jobID, filePath, isDryRun)
-	f, err := excelize.OpenFile(filePath)
+	records, err := parser.ReadExcelFile(filePath)
 	if err != nil {
-		return "", fmt.Errorf("gagal membuka file excel: %w", err)
-	}
-	defer f.Close()
-
-	sheetName := f.GetSheetName(0)
-	if sheetName == "" {
-		return "", errors.New("file excel tidak memiliki sheet atau tidak valid")
+		return "", err
 	}
 
-	rows, err := f.GetRows(sheetName)
-	if err != nil {
-		return "", fmt.Errorf("gagal membaca baris: %w", err)
-	}
-
-	if len(rows) < 2 {
+	if len(records) == 0 {
 		return "", errors.New("file excel kosong atau tidak ada data (hanya header)")
 	}
 
@@ -771,34 +709,20 @@ func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID 
 	skuSet := make(map[string]bool)
 	var uniqueSKUs []string
 
-	for i, row := range rows {
-		if i == 0 {
-			continue // skip header
-		}
+	for i, row := range records {
+		lineNum := i + 2 // row 1 was header
 
-		sku := ""
-		if len(row) > 0 {
-			sku = strings.TrimSpace(row[0])
-		}
-		locCode := ""
-		if len(row) > 1 {
-			locCode = strings.TrimSpace(row[1])
-		}
-		qtyRaw := ""
-		if len(row) > 2 {
-			qtyRaw = strings.TrimSpace(row[2])
-		}
-		notes := ""
-		if len(row) > 3 {
-			notes = strings.TrimSpace(row[3])
-		}
+		sku := parser.GetField(row, "SKU", "sku")
+		locCode := parser.GetField(row, "LT (Lokasi)", "LT", "Lokasi", "Location", "location")
+		qtyRaw := parser.GetField(row, "QTY", "Qty", "qty", "Jumlah", "jumlah")
+		notes := parser.GetField(row, "NOTES", "Notes", "notes", "Keterangan", "keterangan")
 
 		if sku == "" && locCode == "" && qtyRaw == "" {
 			continue
 		}
 
 		if sku == "" {
-			return "", fmt.Errorf("Baris %d: SKU wajib diisi", i+1)
+			return "", fmt.Errorf("Baris %d: SKU wajib diisi", lineNum)
 		}
 
 		if !skuSet[sku] {
@@ -808,12 +732,12 @@ func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID 
 
 		locID, ok := locMap[strings.ToUpper(locCode)]
 		if !ok {
-			return "", fmt.Errorf("Baris %d: Lokasi '%s' tidak ditemukan", i+1, locCode)
+			return "", fmt.Errorf("Baris %d: Lokasi '%s' tidak ditemukan", lineNum, locCode)
 		}
 
 		qty, err := strconv.Atoi(qtyRaw)
 		if err != nil || qty <= 0 {
-			return "", fmt.Errorf("Baris %d: Quantity harus angka positif", i+1)
+			return "", fmt.Errorf("Baris %d: Quantity harus angka positif", lineNum)
 		}
 
 		movNotes := notes

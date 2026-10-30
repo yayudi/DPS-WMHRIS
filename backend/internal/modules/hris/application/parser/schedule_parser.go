@@ -2,10 +2,9 @@ package hris_parser
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/xuri/excelize/v2"
+	"github.com/dps-wmhris/backend/internal/parser"
 )
 
 type ScheduleRow struct {
@@ -16,44 +15,27 @@ type ScheduleRow struct {
 }
 
 func ParseScheduleExcel(filepath string) ([]ScheduleRow, []string, error) {
-	f, err := excelize.OpenFile(filepath)
+	records, err := parser.ReadExcelFile(filepath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("file Excel tidak valid atau rusak: %v", err)
 	}
-	defer f.Close()
 
-	// Assuming data is on the first sheet
-	sheetList := f.GetSheetList()
-	if len(sheetList) == 0 {
+	if len(records) == 0 {
 		return nil, nil, fmt.Errorf("file Excel kosong")
-	}
-	sheetName := sheetList[0]
-
-	rows, err := f.GetRows(sheetName)
-	if err != nil {
-		return nil, nil, err
 	}
 
 	var schedules []ScheduleRow
 	var errors []string
 
-	for i, row := range rows {
-		rowNum := i + 1
-		if rowNum <= 2 { // Skip header and example row
+	for i, record := range records {
+		rowNum := i + 2 // i=0 corresponds to row 2 in Excel (example row in template)
+		if rowNum <= 2 { // Skip example row
 			continue
 		}
 
-		// Ensure row has enough columns
-		var username, dateStr, shiftName string
-		if len(row) > 0 {
-			username = strings.TrimSpace(row[0])
-		}
-		if len(row) > 1 {
-			dateStr = strings.TrimSpace(row[1])
-		}
-		if len(row) > 2 {
-			shiftName = strings.TrimSpace(row[2])
-		}
+		username := parser.GetField(record, "Username", "username", "User", "user")
+		dateStr := parser.GetField(record, "Date (YYYY-MM-DD)", "Date", "date", "Tanggal", "tanggal")
+		shiftName := parser.GetField(record, "Shift Name", "Shift", "shift", "Nama Shift", "nama_shift")
 
 		if username == "" && dateStr == "" && shiftName == "" {
 			continue // Skip completely empty rows

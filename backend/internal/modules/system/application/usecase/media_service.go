@@ -17,9 +17,9 @@ import (
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
 
 	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
+	"github.com/dps-wmhris/backend/internal/parser"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
-	"github.com/xuri/excelize/v2"
 )
 
 type MediaService interface {
@@ -140,42 +140,28 @@ func (s *mediaServiceImpl) UpdateMediaTitle(ctx context.Context, mediaID int, ti
 }
 
 func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath string, userID int) (string, error) {
-	f, err := excelize.OpenFile(filePath)
+	records, err := parser.ReadExcelFile(filePath)
 	if err != nil {
-		return "", fmt.Errorf("gagal membuka file excel: %w", err)
-	}
-	defer f.Close()
-
-	sheets := f.GetSheetList()
-	if len(sheets) == 0 {
-		return "", fmt.Errorf("file excel tidak memiliki sheet")
+		return "", err
 	}
 
-	sheetName := sheets[0]
-	rows, err := f.GetRows(sheetName)
-	if err != nil {
-		return "", fmt.Errorf("gagal membaca baris: %w", err)
-	}
-
-	if len(rows) < 2 {
+	if len(records) == 0 {
 		return "", fmt.Errorf("format kolom tidak sesuai (kosong)")
 	}
 
-	skuCol := -1
-	titleCol := -1
-
-	for colIndex, cellValue := range rows[0] {
-		val := strings.ToLower(strings.TrimSpace(cellValue))
+	var skuKey, titleKey string
+	for k := range records[0] {
+		val := strings.ToLower(strings.TrimSpace(k))
 		if val == "sku" {
-			skuCol = colIndex
+			skuKey = k
 		}
 		if val == "image_title" || val == "image_filename" || val == "image" ||
 			val == "media_title" || val == "image_url" || val == "image_link" || val == "url" {
-			titleCol = colIndex
+			titleKey = k
 		}
 	}
 
-	if skuCol == -1 || titleCol == -1 {
+	if skuKey == "" || titleKey == "" {
 		return "", fmt.Errorf("format kolom tidak sesuai. Pastikan ada kolom 'SKU' dan 'Image_URL'")
 	}
 
@@ -183,23 +169,20 @@ func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath 
 	failCount := 0
 	var errorsList []string
 
-	for rowIndex := 1; rowIndex < len(rows); rowIndex++ {
-		row := rows[rowIndex]
-		if len(row) <= skuCol || len(row) <= titleCol {
-			continue
-		}
+	for rowIndex, record := range records {
+		lineNum := rowIndex + 2 // row 1 was header
 
-		sku := strings.TrimSpace(row[skuCol])
-		imageRef := strings.TrimSpace(row[titleCol])
+		sku := strings.TrimSpace(record[skuKey])
+		imageRef := strings.TrimSpace(record[titleKey])
 
 		if sku == "" || imageRef == "" {
-			errorsList = append(errorsList, fmt.Sprintf("Baris %d dilewati: SKU atau Link kosong", rowIndex+1))
+			errorsList = append(errorsList, fmt.Sprintf("Baris %d dilewati: SKU atau Link kosong", lineNum))
 			continue
 		}
 
 		products, err := s.productRepo.GetBySKUs(ctx, []string{sku})
 		if err != nil || len(products) == 0 {
-			errorsList = append(errorsList, fmt.Sprintf("Baris %d: Produk dengan SKU %s tidak ditemukan", rowIndex+1, sku))
+			errorsList = append(errorsList, fmt.Sprintf("Baris %d: Produk dengan SKU %s tidak ditemukan", lineNum, sku))
 			failCount++
 			continue
 		}
