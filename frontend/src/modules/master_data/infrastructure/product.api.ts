@@ -44,7 +44,7 @@ export const productApi = {
   },
 
   async exportProducts(params: Record<string, any>): Promise<any> {
-    const response = await http.get('/products/export', { params, responseType: 'blob' }) // Assuming blob for export
+    const response = await http.get('/products/export', { params })
     return response
   },
 

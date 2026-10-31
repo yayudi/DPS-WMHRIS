@@ -23,7 +23,9 @@ import ProductImageModal from '@/modules/master_data/presentation/components/pro
 import HistoryModal from '@/modules/wms/presentation/components/shared/HistoryModal.vue'
 import { defineAsyncComponent } from 'vue'
 
-const StickerGeneratorModal = defineAsyncComponent(() => import('@/modules/master_data/presentation/components/stickers/StickerGeneratorModal.vue'))
+const StickerGeneratorModal = defineAsyncComponent(
+  () => import('@/modules/master_data/presentation/components/stickers/StickerGeneratorModal.vue')
+)
 import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
 import SegmentedControl from '@/core/presentation/components/ui/SegmentedControl.vue'
 import BaseSwitch from '@/core/presentation/components/ui/BaseSwitch.vue'
@@ -115,7 +117,6 @@ const {
 
 // --- API ACTIONS (TanStack Vue Query) ---
 
-
 const {
   meta: paginationState,
   changePage: handlePageChange,
@@ -140,11 +141,7 @@ const searchParams = computed(() => ({
 }))
 
 const { useProductSearchQuery, deleteProduct: apiDeleteProduct, bulkAction: apiBulkAction } = useProducts()
-const {
-  data: productsData,
-  isLoading: loading,
-  refetch: fetchProducts
-} = useProductSearchQuery(searchParams)
+const { data: productsData, isLoading: loading, refetch: fetchProducts } = useProductSearchQuery(searchParams)
 
 watch(
   productsData,
@@ -239,7 +236,7 @@ const handleExport = async ({ format, includeImages, columns }) => {
     // Request Job Creation
     const response = await productApi.exportProducts(params)
 
-    if (response.data.success) {
+    if (response?.success) {
       toast('Permintaan export produk diterima.', 'success')
       downloadStore.notifyNewJob()
     }
@@ -277,7 +274,9 @@ const handleImageSaved = () => {
 const fetchCategories = async () => {
   try {
     const categories = await masterStore.getCategories()
-    categoryOptions.value = categories.map(c => ({ id: c.id, label: c.name }))
+    categoryOptions.value = Array.isArray(categories)
+      ? categories.map(c => ({ id: c.id, label: c.name }))
+      : []
   } catch (err) {
     console.error('Gagal memuat kategori', err)
   }

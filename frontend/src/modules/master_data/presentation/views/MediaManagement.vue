@@ -228,11 +228,12 @@ const fetchMedia = async (page = 1, silent = false) => {
 
     // res replaced
     const res = await useMedia().fetchMedia(params)
-    if (res.data.success) {
-      mediaList.value = res.data.data
-      if (res.data.pagination) {
-        totalMedia.value = res.data.pagination.total
-        currentPage.value = res.data.pagination.page
+    if (res?.success || res?.data) {
+      mediaList.value = res.data || (Array.isArray(res) ? res : [])
+      const pag = res.pagination || res.data?.pagination
+      if (pag) {
+        totalMedia.value = pag.total
+        currentPage.value = pag.page
       }
     }
   } catch (error) {
@@ -432,13 +433,11 @@ const deleteMedia = async (id, usageCount) => {
   if (!(await swalConfirm('Yakin ingin menghapus aset media ini?'))) return
 
   try {
-    const res = await useMedia().deleteMedia(id)
-    if (res.data.success) {
-      fetchMedia(pagination.value.page)
-    }
-  } catch (error) {
+    await useMedia().deleteMedia(id)
+    fetchMedia(pagination.value.page)
+  } catch (error: any) {
     console.error('Delete Error:', error)
-    await swalAlert(error.response?.data?.message || 'Gagal menghapus gambar.')
+    await swalAlert(error.response?.data?.message || error.message || 'Gagal menghapus gambar.')
   }
 }
 

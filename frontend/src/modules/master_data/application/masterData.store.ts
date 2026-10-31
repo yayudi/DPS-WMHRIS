@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia'
 import { userApi } from '@/modules/settings/infrastructure/user.api'
 import { stockApi } from '@/modules/wms/infrastructure/stock.api'
-import { fetchReportFilters } from '@/modules/analytics/application/utils/stats'
+import { analyticsApi } from '@/modules/analytics/infrastructure/analytics.api'
 import { categoryApi } from '@/modules/master_data/infrastructure/category.api'
 
 export const useMasterDataStore = defineStore('masterData', {
@@ -31,10 +31,11 @@ export const useMasterDataStore = defineStore('masterData', {
 
       // Start new fetch and store the promise
       this._usersPromise = userApi.fetchAllUsers()
-        .then(users => {
-          this.users = users
+        .then(res => {
+          const userList = Array.isArray(res) ? res : (res?.users || res?.data?.users || res?.data || [])
+          this.users = userList
           this._usersPromise = null
-          return users
+          return userList
         })
         .catch(err => {
           this._usersPromise = null
@@ -54,10 +55,11 @@ export const useMasterDataStore = defineStore('masterData', {
       if (this._locationsPromise && !forceRefresh) return this._locationsPromise
 
       this._locationsPromise = stockApi.fetchAllLocations()
-        .then(locs => {
-          this.locations = locs
+        .then(res => {
+          const locList = Array.isArray(res) ? res : (res?.data || [])
+          this.locations = locList
           this._locationsPromise = null
-          return locs
+          return locList
         })
         .catch(err => {
           this._locationsPromise = null
@@ -72,10 +74,11 @@ export const useMasterDataStore = defineStore('masterData', {
       if (this._categoriesPromise && !forceRefresh) return this._categoriesPromise
 
       this._categoriesPromise = categoryApi.fetchCategories(search)
-        .then(categories => {
-          this.categories = categories
+        .then(res => {
+          const catList = Array.isArray(res) ? res : (res?.data || [])
+          this.categories = catList
           this._categoriesPromise = null
-          return categories
+          return catList
         })
         .catch(err => {
           this._categoriesPromise = null
@@ -94,7 +97,7 @@ export const useMasterDataStore = defineStore('masterData', {
       if (this.reportFilters && !forceRefresh) return Promise.resolve(this.reportFilters)
       if (this._filtersPromise && !forceRefresh) return this._filtersPromise
 
-      this._filtersPromise = fetchReportFilters()
+      this._filtersPromise = analyticsApi.fetchReportFilters()
         .then(filters => {
           this.reportFilters = filters
           this._filtersPromise = null

@@ -198,8 +198,8 @@ const fetchData = async () => {
     }
 
     const response = await analyticsApi.fetchLocationAnalysis(params)
-    if (response.data.success) {
-      locationLoads.value = response.data.data.locationLoads || []
+    if (response?.success) {
+      locationLoads.value = response.data?.locationLoads || []
 
       // Update filter options only on initial load
       if (!initialLoaded.value) {
@@ -266,8 +266,8 @@ const fetchDetails = async locId => {
       params.searchQuery = filters.value.searchQuery
     }
     const response = await analyticsApi.fetchLocationAnalysisDetails(locId, params)
-    if (response.data.success) {
-      detailData.value[locId] = response.data.data
+    if (response?.success) {
+      detailData.value[locId] = response.data
     }
   } catch (error) {
     console.error('Failed to fetch details:', error)

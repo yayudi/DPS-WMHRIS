@@ -106,11 +106,7 @@ const searchParams = computed(() => ({
 const { usePackageSearchQuery, exportPackages, uploadPackageUpdate } = usePackages()
 const { deleteProduct: apiDeleteProduct, bulkAction: apiBulkAction } = useProducts()
 
-const {
-  data: productsData,
-  isLoading: loading,
-  refetch: fetchProducts
-} = usePackageSearchQuery(searchParams)
+const { data: productsData, isLoading: loading, refetch: fetchProducts } = usePackageSearchQuery(searchParams)
 
 watch(
   productsData,
@@ -167,7 +163,7 @@ const handleExport = async ({ format }) => {
     // Request Job Creation
     const response = await exportPackages(params)
 
-    if (response.data.success) {
+    if (response?.success) {
       toast('Permintaan export paket diterima.', 'success')
       downloadStore.notifyNewJob()
     }
