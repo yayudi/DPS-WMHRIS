@@ -53,9 +53,9 @@ async function login() {
       // Force hard navigation untuk memastikan PWA update terbaru diambil dari server
       window.location.href = '/'
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error(err)
-    const message = err?.response?.data?.message || 'Username atau password salah.'
+    const message = err?.response?.data?.message || err?.message || 'Username atau password salah.'
     error.value = message
   } finally {
     loading.value = false

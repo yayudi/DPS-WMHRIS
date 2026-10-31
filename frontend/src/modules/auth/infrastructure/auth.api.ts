@@ -14,7 +14,7 @@ export const authApi = {
    * Mengirim kredensial login ke server
    */
   login(payload: LoginPayload): Promise<LoginRawResponse> {
-    return http.post<LoginRawResponse>('/auth/login', payload).then(res => res.data as LoginRawResponse)
+    return http.post<LoginRawResponse>('/auth/login', payload) as unknown as Promise<LoginRawResponse>
   },
 
   /**
