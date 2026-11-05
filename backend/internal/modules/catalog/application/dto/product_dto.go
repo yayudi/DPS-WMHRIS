@@ -34,7 +34,8 @@ type ProductFilterRequest struct {
 	Status          string   `form:"status,default=active"`
 	IsPackage       *bool    `form:"is_package"`
 	PackageOnly     *bool    `form:"packageOnly"`
-	StockStatus     string   `form:"stockStatus,default=all"`
+	StockStatus     string   `form:"stockStatus,default=all" binding:"omitempty,oneof=all nonzero positive zero negative minus"`
+	SlottingStatus  string   `form:"slottingStatus,default=all" binding:"omitempty,oneof=all unslotted slotted"`
 	CategoryInclude []string `form:"categoryInclude"`
 	CategoryExclude []string `form:"categoryExclude"`
 	BuildingInclude []string `form:"buildingInclude"`
@@ -78,13 +79,24 @@ type ProductImage struct {
 	Title         *string `json:"title" db:"title"`
 }
 
+// ProductSlotSummary represents a summarized rack coordinate assigned to a product at a specific location.
+type ProductSlotSummary struct {
+	ID                  int    `json:"id" db:"id"`
+	Room                string `json:"room" db:"room"`
+	Rack                string `json:"rack" db:"rack"`
+	Tier                string `json:"tier" db:"tier"`
+	FormattedCoordinate string `json:"formatted_coordinate" db:"formatted_coordinate"`
+	IsPrimary           bool   `json:"is_primary" db:"is_primary"`
+}
+
 type ProductStockLocation struct {
-	LocationID   int    `json:"location_id" db:"location_id"`
-	LocationCode string `json:"location_code" db:"location_code"`
-	Purpose      string `json:"purpose" db:"purpose"`
-	Building     string `json:"building" db:"building"`
-	Floor        string `json:"floor" db:"floor"`
-	Quantity     int    `json:"quantity" db:"quantity"`
+	LocationID   int                  `json:"location_id" db:"location_id"`
+	LocationCode string               `json:"location_code" db:"location_code"`
+	Purpose      string               `json:"purpose" db:"purpose"`
+	Building     string               `json:"building" db:"building"`
+	Floor        string               `json:"floor" db:"floor"`
+	Quantity     int                  `json:"quantity" db:"quantity"`
+	Slots        []ProductSlotSummary `json:"slots" db:"-"`
 }
 
 type ProductComponent struct {
@@ -96,13 +108,14 @@ type ProductComponent struct {
 }
 
 type ProductStockDetailResponse struct {
-	LocationID   int    `json:"location_id" db:"location_id"`
-	LocationCode string `json:"location_code" db:"location_code"`
-	LocationName string `json:"location_name" db:"location_name"`
-	Purpose      string `json:"purpose" db:"purpose"`
-	Building     string `json:"building" db:"building"`
-	Floor        string `json:"floor" db:"floor"`
-	Quantity     int    `json:"quantity" db:"quantity"`
+	LocationID   int                  `json:"location_id" db:"location_id"`
+	LocationCode string               `json:"location_code" db:"location_code"`
+	LocationName string               `json:"location_name" db:"location_name"`
+	Purpose      string               `json:"purpose" db:"purpose"`
+	Building     string               `json:"building" db:"building"`
+	Floor        string               `json:"floor" db:"floor"`
+	Quantity     int                  `json:"quantity" db:"quantity"`
+	Slots        []ProductSlotSummary `json:"slots" db:"-"`
 }
 
 type ProductHistoryResponse struct {

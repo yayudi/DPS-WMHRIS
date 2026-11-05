@@ -6,6 +6,7 @@ import { stockApi } from '@/modules/wms/infrastructure/stock.api'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import { useMobile } from '@/core/presentation/composables/useMobile'
 import { onMounted } from 'vue'
+import { formatDate } from '@/core/utils/formatters'
 import { usePagination } from '@/core/presentation/composables/usePagination'
 import DateRangeFilter from '@/core/presentation/components/ui/DateRangeFilter.vue'
 
@@ -177,7 +178,7 @@ watch(
               "
             >
               <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Tanggal</span>
-              <span>{{ new Date(item.created_at).toLocaleString('id-ID') }}</span>
+              <span>{{ formatDate(item.created_at) }}</span>
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-1.5 border-b border-secondary/10' : 'p-2'">
               <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Tipe</span>

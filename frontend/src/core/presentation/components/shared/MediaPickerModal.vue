@@ -2,9 +2,8 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
-import axios from '@/core/infrastructure/http.client'
+import { mediaApi } from '@/modules/master_data/infrastructure/media.api'
 import { uploadMediaToR2 } from '@/modules/master_data/application/utils/mediaUploader'
-import apiClient from '@/core/infrastructure/http.client'
 import { resolveUrl } from '@/modules/master_data/presentation/composables/useImageUrl'
 import MediaCard from '@/core/presentation/components/common/MediaCard.vue'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
@@ -35,16 +34,13 @@ const canUpload = computed(() => authStore.hasPermission('product.image.upload')
 const fetchImages = async () => {
   fetching.value = true
   try {
-    const { data } = await axios.get('/media', {
-      params: {
-        page: 1,
-        limit: 100, // Fetch up to 100 recent assets for the picker
-        search: searchQuery.value
-      }
+    const data = await mediaApi.getMedia({
+      page: 1,
+      limit: 100, // Fetch up to 100 recent assets for the picker
+      search: searchQuery.value
     })
-    if (data.success && data.data) {
-      existingImages.value = data.data
-    }
+    const list = Array.isArray(data) ? data : data?.data || []
+    existingImages.value = list
   } catch (error) {
     console.error('Fetch Media Error:', error)
   } finally {
@@ -147,14 +143,14 @@ async function saveNewImages() {
   loading.value = true
   try {
     const data = await uploadMediaToR2(
-      apiClient,
+      mediaApi,
       selectedImages.value,
       fileTitles.value,
       props.defaultTags.length > 0 ? props.defaultTags : [],
       []
     );
 
-    if (data.success) {
+    if (data && (data.success || data.id)) {
       toast(`${selectedImages.value.length} gambar berhasil diunggah.`, 'success')
       selectedImages.value = []
       fileTitles.value = []

@@ -1,13 +1,21 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { onClickOutside } from '@vueuse/core'
 import { useMobile } from '@/core/presentation/composables/useMobile'
+import { useReplenishment } from '@/modules/wms/application/useReplenishment'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const route = useRoute()
 const auth = useAuthStore()
 const { isMobile } = useMobile()
+const { onHoldCount, loadOnHoldFulfillments } = useReplenishment()
+const { t } = useI18n()
+
+onMounted(() => {
+  loadOnHoldFulfillments()
+})
 
 const sidebarRef = ref(null)
 
@@ -57,30 +65,32 @@ const menuConfig = computed(() => {
   // WMS
   menus.push({
     id: 'wms',
-    label: 'WMS',
+    label: t('nav.wms'),
     icon: 'fa-warehouse',
     route: '/wms',
+    badge: onHoldCount.value,
     items: [
-      { to: '/wms', label: 'Dashboard', icon: 'fa-chart-line' },
-      { to: '/wms/batch-movement', label: 'Pindah Lokasi', icon: 'fa-truck-ramp-box' },
-      { to: '/wms/spreadsheet', label: 'Proses Excel', icon: 'fa-table-cells' },
-      { to: '/wms/return', label: 'Retur Barang', icon: 'fa-rotate-left' },
-      { to: '/wms/batch-log', label: 'Log Pergerakan', icon: 'fa-clock-rotate-left' },
-      { to: '/wms/batch-adjustment', label: 'Penyesuaian Stok', icon: 'fa-clipboard-list' },
-      { to: '/wms/stock-requests', label: 'Permintaan Stok', icon: 'fa-file-import' },
-      { to: '/wms/investigation-stock', label: 'Investigasi Stok', icon: 'fa-search' }
+      { to: '/wms', label: t('nav.dashboard'), icon: 'fa-chart-line' },
+      { to: '/wms/replenishment', label: t('nav.replenishment'), icon: 'fa-boxes-packing', badge: onHoldCount.value },
+      { to: '/wms/batch-movement', label: t('nav.batch_movement'), icon: 'fa-truck-ramp-box' },
+      { to: '/wms/spreadsheet', label: t('nav.spreadsheet'), icon: 'fa-table-cells' },
+      { to: '/wms/return', label: t('nav.return'), icon: 'fa-rotate-left' },
+      { to: '/wms/batch-log', label: t('nav.batch_log'), icon: 'fa-clock-rotate-left' },
+      { to: '/wms/batch-adjustment', label: t('nav.batch_adjustment'), icon: 'fa-clipboard-list' },
+      { to: '/wms/stock-requests', label: t('nav.stock_requests'), icon: 'fa-file-import' },
+      { to: '/wms/investigation-stock', label: t('nav.investigation'), icon: 'fa-search' }
     ]
   })
 
   // HR
   menus.push({
     id: 'hr',
-    label: 'Sumber Daya Manusia',
+    label: t('nav.hr'),
     icon: 'fa-users-gear',
     items: [
-      { to: '/hr/attendance', label: 'Absensi', icon: 'fa-user-clock' },
-      { to: '/hr/shifts', label: 'Master Shift', icon: 'fa-clock' },
-      { to: '/hr/schedules', label: 'Kalender Shift', icon: 'fa-calendar-alt' }
+      { to: '/hr/attendance', label: t('nav.attendance'), icon: 'fa-user-clock' },
+      { to: '/hr/shifts', label: t('nav.shifts'), icon: 'fa-clock' },
+      { to: '/hr/schedules', label: t('nav.schedules'), icon: 'fa-calendar-alt' }
     ]
   })
 
@@ -88,15 +98,15 @@ const menuConfig = computed(() => {
   if (auth.hasPermission('product.manage') || auth.hasPermission('location.manage')) {
     menus.push({
       id: 'master-data',
-      label: 'Inventaris & Master',
+      label: t('nav.master_data'),
       icon: 'fa-database',
       items: [
-        { to: '/master-data/products', label: 'Produk', icon: 'fa-tags' },
-        { to: '/master-data/packages', label: 'Paket', icon: 'fa-boxes-stacked' },
-        { to: '/master-data/categories', label: 'Kategori', icon: 'fa-layer-group' },
-        { to: '/master-data/media', label: 'Media Produk', icon: 'fa-images' },
-        { to: '/master-data/locations', label: 'Lokasi Gudang', icon: 'fa-map-marker-alt' },
-        { to: '/master-data/sales-channels', label: 'Saluran Penjualan', icon: 'fa-store' }
+        { to: '/master-data/products', label: t('nav.products'), icon: 'fa-tags' },
+        { to: '/master-data/packages', label: t('nav.packages'), icon: 'fa-boxes-stacked' },
+        { to: '/master-data/categories', label: t('nav.categories'), icon: 'fa-layer-group' },
+        { to: '/master-data/media', label: t('nav.media'), icon: 'fa-images' },
+        { to: '/master-data/locations', label: t('nav.locations'), icon: 'fa-map-marker-alt' },
+        { to: '/master-data/sales-channels', label: t('nav.sales_channels'), icon: 'fa-store' }
       ]
     })
   }
@@ -105,35 +115,45 @@ const menuConfig = computed(() => {
   if (auth.hasPermission('report.view')) {
     menus.push({
       id: 'analytics',
-      label: 'Laporan & Statistik',
+      label: t('nav.analytics'),
       icon: 'fa-chart-pie',
       items: [
-        { to: '/analytics/dashboard', label: 'Dashboard', icon: 'fa-chart-line' },
-        { to: '/analytics/inventory-value', label: 'Nilai Inventaris', icon: 'fa-coins' },
-        { to: '/analytics/stock-movement', label: 'Pergerakan Stok', icon: 'fa-arrow-right-arrow-left' },
-        { to: '/analytics/stock-timeline', label: 'Timeline Stok', icon: 'fa-timeline' },
-        { to: '/analytics/time-performance', label: 'Performa Waktu', icon: 'fa-stopwatch' },
-        { to: '/analytics/package-analysis', label: 'Analisa Produk Paket', icon: 'fa-box-open' },
-        { to: '/analytics/channel-performance', label: 'Penjualan Toko', icon: 'fa-shop' },
-        { to: '/analytics/stock-distribution', label: 'Sebaran Stok', icon: 'fa-map-location-dot' },
-        { to: '/analytics/location-capacity', label: 'Statistik Kapasitas', icon: 'fa-chart-simple' },
-        { to: '/analytics/export-stock', label: 'Ekspor Stok', icon: 'fa-file-export' },
-        { to: '/analytics/reports', label: 'Laporan Khusus', icon: 'fa-file-invoice' }
+        { to: '/analytics/dashboard', label: t('nav.dashboard'), icon: 'fa-chart-line' },
+        { to: '/analytics/inventory-value', label: t('nav.inventory_value'), icon: 'fa-coins' },
+        { to: '/analytics/stock-movement', label: t('nav.stock_movement'), icon: 'fa-arrow-right-arrow-left' },
+        { to: '/analytics/stock-timeline', label: t('nav.stock_timeline'), icon: 'fa-timeline' },
+        { to: '/analytics/time-performance', label: t('nav.time_performance'), icon: 'fa-stopwatch' },
+        { to: '/analytics/package-analysis', label: t('nav.package_analysis'), icon: 'fa-box-open' },
+        { to: '/analytics/channel-performance', label: t('nav.channel_performance'), icon: 'fa-shop' },
+        { to: '/analytics/stock-distribution', label: t('nav.stock_distribution'), icon: 'fa-map-location-dot' },
+        { to: '/analytics/location-capacity', label: t('nav.location_capacity'), icon: 'fa-chart-simple' },
+        { to: '/analytics/export-stock', label: t('nav.export_stock'), icon: 'fa-file-export' },
+        { to: '/analytics/reports', label: t('nav.reports'), icon: 'fa-file-invoice' }
       ]
     })
   }
 
   // Settings
-  if (auth.hasPermission('user.manage')) {
+  if (auth.hasPermission('user.manage') || auth.hasPermission('system.localization.manage')) {
+    const settingItems = []
+    if (auth.hasPermission('user.manage')) {
+      settingItems.push(
+        { to: '/settings/users', label: t('nav.users'), icon: 'fa-users' },
+        { to: '/settings/roles', label: t('nav.roles'), icon: 'fa-user-shield' },
+        { to: '/settings/logs', label: t('nav.logs'), icon: 'fa-history' }
+      )
+    }
+    if (auth.hasPermission('system.localization.manage')) {
+      settingItems.push(
+        { to: '/settings/localization', label: t('nav.localization') || 'Bahasa & Lokalisasi', icon: 'fa-language' }
+      )
+    }
+
     menus.push({
       id: 'settings',
-      label: 'Pengaturan Sistem',
+      label: t('nav.settings'),
       icon: 'fa-cog',
-      items: [
-        { to: '/settings/users', label: 'Pengguna', icon: 'fa-users' },
-        { to: '/settings/roles', label: 'Peran & Izin', icon: 'fa-user-shield' },
-        { to: '/settings/logs', label: 'Log Aktivitas', icon: 'fa-history' }
-      ]
+      items: settingItems
     })
   }
 
@@ -188,6 +208,12 @@ const menuConfig = computed(() => {
               :class="activeAccordion === menu.id ? 'text-primary' : 'text-text/60'"
             />
             <span v-if="!props.isCollapsed" class="font-bold text-sm tracking-wide">{{ menu.label }}</span>
+            <span
+              v-if="menu.badge && menu.badge > 0 && !props.isCollapsed"
+              class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-warning text-white"
+            >
+              {{ menu.badge }}
+            </span>
           </div>
           <font-awesome-icon
             v-if="!props.isCollapsed"
@@ -206,11 +232,19 @@ const menuConfig = computed(() => {
             v-for="item in menu.items"
             :key="item.to"
             :to="item.to"
-            class="sub-nav-item flex items-center gap-3"
+            class="sub-nav-item flex items-center justify-between gap-2"
             active-class="active"
           >
-            <font-awesome-icon v-if="item.icon" :icon="`fa-solid ${item.icon}`" class="w-4 text-center opacity-70" />
-            <span>{{ item.label }}</span>
+            <div class="flex items-center gap-3">
+              <font-awesome-icon v-if="item.icon" :icon="`fa-solid ${item.icon}`" class="w-4 text-center opacity-70" />
+              <span>{{ item.label }}</span>
+            </div>
+            <span
+              v-if="item.badge && item.badge > 0"
+              class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-warning/20 border border-warning/40 text-warning"
+            >
+              {{ item.badge }}
+            </span>
           </router-link>
         </div>
       </div>

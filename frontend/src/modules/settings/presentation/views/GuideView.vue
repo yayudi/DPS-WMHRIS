@@ -465,7 +465,7 @@ const faqCategories = [
 
               <div class="prose prose-sm max-w-none text-text/80 leading-relaxed">
                 <p class="mb-4">
-                  Sistem WMS menyediakan dua metode untuk memindahkan stok barang antar rak, lantai, atau gedung,
+                  Sistem WMS menyediakan dua metode untuk memindahkan stok barang antar lantai atau gedung,
                   tergantung dari skala pekerjaan Anda.
                 </p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
@@ -638,13 +638,13 @@ const faqCategories = [
                   </li>
                   <li>
                     <strong>Validasi Stok:</strong> Begitu form disubmit, barang tersebut akan
-                    <em>secara otomatis ditambahkan kembali</em> ke stok rak yang dipilih.
+                    <em>secara otomatis ditambahkan kembali</em> ke stok lantai/lokasi yang dipilih.
                   </li>
                 </ol>
                 <div class="bg-primary/5 border border-primary/20 p-4 rounded-xl mt-6">
                   <h4 class="font-bold text-primary mb-2">Tips</h4>
                   <p class="text-sm">
-                    Biasakan membuat rak khusus (misalnya "Rak Retur/Karantina") untuk menampung barang-barang yang
+                    Biasakan membuat lokasi khusus (misalnya "Lokasi Retur/Karantina") untuk menampung barang-barang yang
                     belum jelas status kelayakannya, sebelum dicampur dengan barang dagangan normal.
                   </p>
                 </div>
@@ -759,7 +759,7 @@ const faqCategories = [
                   </li>
                   <li>
                     <strong>Dari Batch Movement:</strong> Saat memindahkan stok atau menerima barang masuk (Inbound),
-                    Anda bisa menekan tombol cetak untuk melabeli ulang produk sebelum dimasukkan ke dalam rak.
+                    Anda bisa menekan tombol cetak untuk melabeli ulang produk sebelum dimasukkan ke lantai/lokasi penyimpanan.
                   </li>
                 </ul>
 

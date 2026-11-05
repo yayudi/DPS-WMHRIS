@@ -1,7 +1,7 @@
 <script setup>
 import { swalAlert } from '@/core/presentation/composables/useSweetAlert'
 import { ref, watch } from 'vue'
-import api from '@/core/infrastructure/http.client'
+import { stickerApi } from '@/modules/master_data/infrastructure/sticker.api'
 import MediaPickerModal from '@/core/presentation/components/shared/MediaPickerModal.vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { useStickerFabric } from '@/modules/master_data/presentation/composables/sticker-builder/useStickerFabric'
@@ -187,10 +187,8 @@ useStickerHotkeys({
 // --- API & Template Saving ---
 const fetchPaperSizes = async () => {
   try {
-    const res = await api.get('/paper-sizes')
-    if (res.data.success) {
-      paperSizes.value = res.data.data
-    }
+    const data = await stickerApi.fetchPaperSizes()
+    paperSizes.value = Array.isArray(data) ? data : data?.data || []
   } catch (error) {
     console.error('Gagal memuat ukuran kertas', error)
   }
@@ -235,31 +233,22 @@ const saveTemplate = async () => {
 
     if (paperBg) fabricCanvas.insertAt(0, paperBg)
 
-    let url = '/sticker-templates'
-    let method = 'POST'
+    const payload = {
+      name: templateName.value,
+      paper_size: `${paperWidth.value}x${paperHeight.value}`,
+      config_json: designData
+    }
+
+    let savedId = props.initialTemplate?.id
     if (props.initialTemplate && props.initialTemplate.id) {
-      url = `/sticker-templates/${props.initialTemplate.id}`
-      method = 'PUT'
-    }
-
-    const response = await api({
-      method: method.toLowerCase(),
-      url,
-      data: {
-        name: templateName.value,
-        paper_size: `${paperWidth.value}x${paperHeight.value}`,
-        config_json: designData
-      }
-    })
-
-    const result = response.data
-    if (result.success) {
-      const savedId = props.initialTemplate?.id || result.data?.id
-      emit('saved', { id: savedId, name: templateName.value })
-      emit('close')
+      await stickerApi.updateStickerTemplate(props.initialTemplate.id, payload)
     } else {
-      await swalAlert('Gagal menyimpan: ' + result.message)
+      const result = await stickerApi.createStickerTemplate(payload)
+      savedId = result?.id || result?.data?.id
     }
+
+    emit('saved', { id: savedId, name: templateName.value })
+    emit('close')
   } catch (err) {
     console.error('Save error', err)
     await swalAlert('Terjadi kesalahan jaringan.')

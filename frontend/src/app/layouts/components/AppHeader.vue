@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import ThemeSwitcher from '@/core/presentation/components/ui/ThemeSwitcher.vue'
+import LanguageSwitcher from '@/core/presentation/components/ui/LanguageSwitcher.vue'
 import NotificationQuickView from './NotificationQuickView.vue'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { usePwaInstall } from '@/core/presentation/composables/usePwaInstall'
@@ -9,6 +10,9 @@ import { useAppHotkeys, isCheatSheetOpen } from '@/core/presentation/composables
 import HotkeyCheatSheet from '@/core/presentation/components/ui/HotkeyCheatSheet.vue'
 import { defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 const StickerGeneratorModal = defineAsyncComponent(() => import('@/modules/master_data/presentation/components/stickers/StickerGeneratorModal.vue'))
 const SalesSimulationModal = defineAsyncComponent(() => import('@/modules/wms/presentation/components/shared/SalesSimulationModal.vue'))
@@ -50,7 +54,7 @@ const displayName = computed(() => {
     const nickname = auth.user.nickname
     return nickname.charAt(0).toUpperCase() + nickname.slice(1)
   }
-  return 'Akun Saya'
+  return t('auth.profile.my_account')
 })
 
 function handleLogout() {
@@ -123,6 +127,7 @@ onUnmounted(() => {
         >
           <font-awesome-icon icon="fa-solid fa-keyboard" class="text-xl" />
         </button>
+        <LanguageSwitcher />
         <NotificationQuickView />
         <div class="relative" ref="dropdownContainer">
           <button
@@ -148,7 +153,7 @@ onUnmounted(() => {
               class="w-full text-left px-4 py-2 text-sm text-text/90 hover:bg-secondary/20 flex items-center gap-3"
             >
               <font-awesome-icon icon="fa-solid fa-user-cog" class="w-4" />
-              <span>Akun Saya</span>
+              <span>{{ t('auth.profile.title') }}</span>
             </RouterLink>
 
             <RouterLink
@@ -157,7 +162,7 @@ onUnmounted(() => {
               class="w-full text-left px-4 py-2 text-sm text-text/90 hover:bg-secondary/20 flex items-center gap-3"
             >
               <font-awesome-icon icon="fa-solid fa-book" class="w-4" />
-              <span>Fitur & Panduan</span>
+              <span>{{ t('auth.guide.title') }}</span>
             </RouterLink>
 
             <div class="px-4 py-2 border-t border-secondary/20 mt-2 flex flex-col gap-2">
@@ -168,7 +173,7 @@ onUnmounted(() => {
                 class="w-full text-left px-2 py-1.5 text-sm font-semibold text-white bg-primary rounded-md hover:bg-primary/90 flex items-center gap-3"
               >
                 <font-awesome-icon icon="fa-solid fa-download" class="w-4" />
-                <span>Install Aplikasi</span>
+                <span>{{ t('common.pwa.install') }}</span>
               </button>
               <ThemeSwitcher />
             </div>
@@ -179,7 +184,7 @@ onUnmounted(() => {
                 class="w-full text-left px-4 py-2 text-sm text-accent hover:bg-accent/10 flex items-center gap-3"
               >
                 <font-awesome-icon icon="fa-solid fa-sign-out-alt" class="w-4" />
-                <span>Logout</span>
+                <span>{{ t('auth.logout.btn') }}</span>
               </button>
             </div>
           </div>

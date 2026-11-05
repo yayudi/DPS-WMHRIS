@@ -4,7 +4,7 @@ import (
 	"context"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
-
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -17,22 +17,27 @@ type SalesChannelRepository interface {
 }
 
 type salesChannelRepositoryImpl struct {
+	database.BaseRepository[inventory_dto.SalesChannelResponse]
 	db *sqlx.DB
 }
 
 func NewSalesChannelRepository(db *sqlx.DB) SalesChannelRepository {
-	return &salesChannelRepositoryImpl{db: db}
+	base := database.NewBaseRepository[inventory_dto.SalesChannelResponse](db, "sales_channels")
+	return &salesChannelRepositoryImpl{
+		BaseRepository: base,
+		db:             db,
+	}
 }
 
 func (r *salesChannelRepositoryImpl) FindAll(ctx context.Context, activeOnly bool) ([]inventory_dto.SalesChannelResponse, error) {
-	query := "SELECT id, platform, name, description, is_active, created_at, updated_at FROM sales_channels"
 	if activeOnly {
-		query += " WHERE is_active = 1"
+		return r.BaseRepository.FindAll(ctx)
 	}
-	query += " ORDER BY id DESC"
 
+	query := "SELECT id, platform, name, description, is_active, created_at, updated_at FROM sales_channels ORDER BY id DESC"
+	ext := database.GetExt(ctx, r.db)
 	var channels []inventory_dto.SalesChannelResponse
-	err := r.db.SelectContext(ctx, &channels, query)
+	err := ext.SelectContext(ctx, &channels, query)
 	if err != nil {
 		return nil, err
 	}
@@ -43,13 +48,7 @@ func (r *salesChannelRepositoryImpl) FindAll(ctx context.Context, activeOnly boo
 }
 
 func (r *salesChannelRepositoryImpl) FindByID(ctx context.Context, id int) (*inventory_dto.SalesChannelResponse, error) {
-	query := "SELECT id, platform, name, description, is_active, created_at, updated_at FROM sales_channels WHERE id = ?"
-	var channel inventory_dto.SalesChannelResponse
-	err := r.db.GetContext(ctx, &channel, query, id)
-	if err != nil {
-		return nil, err
-	}
-	return &channel, nil
+	return r.BaseRepository.FindByID(ctx, id)
 }
 
 func (r *salesChannelRepositoryImpl) Insert(ctx context.Context, req inventory_dto.CreateSalesChannelRequest) (int, error) {
@@ -59,7 +58,8 @@ func (r *salesChannelRepositoryImpl) Insert(ctx context.Context, req inventory_d
 	}
 
 	query := "INSERT INTO sales_channels (platform, name, description, is_active) VALUES (?, ?, ?, ?)"
-	res, err := r.db.ExecContext(ctx, query, req.Platform, req.Name, req.Description, isActive)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query, req.Platform, req.Name, req.Description, isActive)
 	if err != nil {
 		return 0, err
 	}
@@ -79,7 +79,8 @@ func (r *salesChannelRepositoryImpl) Update(ctx context.Context, id int, req inv
 	query += " WHERE id = ?"
 	args = append(args, id)
 
-	res, err := r.db.ExecContext(ctx, query, args...)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -89,7 +90,8 @@ func (r *salesChannelRepositoryImpl) Update(ctx context.Context, id int, req inv
 
 func (r *salesChannelRepositoryImpl) Delete(ctx context.Context, id int) (int, error) {
 	query := "DELETE FROM sales_channels WHERE id = ?"
-	res, err := r.db.ExecContext(ctx, query, id)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query, id)
 	if err != nil {
 		return 0, err
 	}

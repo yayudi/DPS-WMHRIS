@@ -1,18 +1,18 @@
 package domain
 
-import "time"
+import (
+	"github.com/dps-wmhris/backend/internal/shared/kernel"
+)
 
 type StockRequest struct {
-	ID             int       `db:"id" json:"id"`
-	RequestNumber  string    `db:"request_number" json:"request_number"`
-	Type           string    `db:"type" json:"type"`
-	RequesterID    int       `db:"requester_id" json:"requester_id"`
-	FromLocationID *int      `db:"from_location_id" json:"from_location_id"` // Pointer for NULL (external source)
-	ToLocationID   *int      `db:"to_location_id" json:"to_location_id"`     // Pointer for NULL (external destination)
-	Status         string    `db:"status" json:"status"`
-	Notes          string    `db:"notes" json:"notes"`
-	CreatedAt      time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt      time.Time `db:"updated_at" json:"updated_at"`
+	kernel.BaseEntity
+	RequestNumber  string `db:"request_number" json:"request_number"`
+	Type           string `db:"type" json:"type"`
+	RequesterID    int    `db:"requester_id" json:"requester_id"`
+	FromLocationID *int   `db:"from_location_id" json:"from_location_id"` // Pointer for NULL (external source)
+	ToLocationID   *int   `db:"to_location_id" json:"to_location_id"`     // Pointer for NULL (external destination)
+	Status         string `db:"status" json:"status"`
+	Notes          string `db:"notes" json:"notes"`
 
 	Items []StockRequestItem `json:"items" db:"-"` // Explicitly ignored by sqlx
 

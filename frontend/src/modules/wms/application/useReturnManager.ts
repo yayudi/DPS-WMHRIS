@@ -207,11 +207,11 @@ export function useReturnManager() {
 
     // Validasi Lokasi
     if (good.qty > 0 && !good.locationId) {
-      toast('Pilih lokasi rak untuk barang kondisi Bagus', 'warning')
+      toast('Pilih lokasi lantai untuk barang kondisi Bagus', 'warning')
       return
     }
     if (bad.qty > 0 && !bad.locationId) {
-      toast('Pilih lokasi rak untuk barang kondisi Rusak', 'warning')
+      toast('Pilih lokasi lantai untuk barang kondisi Rusak', 'warning')
       return
     }
 

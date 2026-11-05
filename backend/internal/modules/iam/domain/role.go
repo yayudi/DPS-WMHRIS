@@ -1,5 +1,7 @@
 package domain
 
+// Role represents the roles table.
+// keep: roles table has no audit timestamp columns (created_at/updated_at).
 type Role struct {
 	ID          int    `db:"id" json:"id"`
 	Name        string `db:"name" json:"name"`

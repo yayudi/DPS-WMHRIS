@@ -2,7 +2,8 @@
 import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
 import { ref, computed, watch } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
-import instance from '@/core/infrastructure/http.client'
+import { mediaApi } from '@/modules/master_data/infrastructure/media.api'
+import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { useProductSearch } from '@/modules/wms/application/useProductSearch'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
@@ -40,10 +41,8 @@ async function fetchMediaDetails() {
   if (!props.mediaId) return
   fetching.value = true
   try {
-    const { data } = await instance.get(`/media/${props.mediaId}`)
-    if (data.success) {
-      mediaData.value = data.data
-    }
+    const data = await mediaApi.getMediaById(props.mediaId)
+    mediaData.value = data?.data || data
   } catch (error) {
     console.error('Fetch Media Failed', error)
   } finally {
@@ -84,15 +83,11 @@ async function saveTags() {
 
   loadingTags.value = true
   try {
-    const { data } = await instance.put(`/media/${props.mediaId}/tags`, {
-      tags: rawTags
-    })
-    if (data.success) {
-      toast('Tag berhasil diperbarui', 'success')
-      isEditingTags.value = false
-      await fetchMediaDetails()
-      emit('refresh')
-    }
+    await mediaApi.updateMediaTags(props.mediaId, rawTags)
+    toast('Tag berhasil diperbarui', 'success')
+    isEditingTags.value = false
+    await fetchMediaDetails()
+    emit('refresh')
   } catch (err) {
     console.error('Update Tags Error', err)
   } finally {
@@ -139,13 +134,11 @@ async function linkProduct(product) {
   loading.value = true
   try {
     const payload = { mediaIds: [Number(props.mediaId)] }
-    const { data } = await instance.post(`/products/${product.id}/link-media`, payload)
-    if (data.success) {
-      toast('Produk berhasil disematkan!', 'success')
-      clearSearch()
-      await fetchMediaDetails() // Refresh within the modal to show newly linked
-      emit('refresh') // Refresh the list underneath
-    }
+    await productApi.linkMedia(product.id, payload)
+    toast('Produk berhasil disematkan!', 'success')
+    clearSearch()
+    await fetchMediaDetails() // Refresh within the modal to show newly linked
+    emit('refresh') // Refresh the list underneath
   } catch (err) {
     console.error(err)
   } finally {
@@ -157,12 +150,10 @@ async function unlinkProduct(productRaw) {
   if (!(await swalConfirm(`Lepaskan gambar dari produk ${productRaw.sku}?`))) return
   loading.value = true
   try {
-    const { data } = await instance.delete(`/products/${productRaw.id}/images/${productRaw.pivot_id}`)
-    if (data.success) {
-      toast('Tautan produk dilepaskan.', 'success')
-      await fetchMediaDetails()
-      emit('refresh')
-    }
+    await productApi.deleteProductImage(productRaw.id, productRaw.pivot_id)
+    toast('Tautan produk dilepaskan.', 'success')
+    await fetchMediaDetails()
+    emit('refresh')
   } catch (err) {
     console.error(err)
   } finally {
@@ -187,13 +178,11 @@ const saveTitle = async () => {
   }
   loadingTitle.value = true
   try {
-    const { data } = await instance.put(`/media/${props.mediaId}/title`, { title: editTitle.value })
-    if (data.success) {
-      toast('Judul berhasil diperbarui', 'success')
-      isEditingTitle.value = false
-      await fetchMediaDetails()
-      emit('refresh')
-    }
+    await mediaApi.updateMediaTitle(props.mediaId, editTitle.value)
+    toast('Judul berhasil diperbarui', 'success')
+    isEditingTitle.value = false
+    await fetchMediaDetails()
+    emit('refresh')
   } catch (err) {
     console.error(err)
   } finally {

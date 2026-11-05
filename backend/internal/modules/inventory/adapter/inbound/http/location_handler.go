@@ -6,9 +6,8 @@ import (
 
 	"net/http"
 
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
-
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,7 +27,7 @@ func (h *LocationHandler) Create(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
 		return
@@ -54,9 +53,8 @@ func (h *LocationHandler) GetAll(c *gin.Context) {
 }
 
 func (h *LocationHandler) Update(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -66,7 +64,7 @@ func (h *LocationHandler) Update(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
 		return
@@ -81,13 +79,12 @@ func (h *LocationHandler) Update(c *gin.Context) {
 }
 
 func (h *LocationHandler) Delete(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
 		return
@@ -102,9 +99,8 @@ func (h *LocationHandler) Delete(c *gin.Context) {
 }
 
 func (h *LocationHandler) GetStockSample(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -115,4 +111,32 @@ func (h *LocationHandler) GetStockSample(c *gin.Context) {
 	}
 
 	utils.SuccessDataResponse(c, http.StatusOK, results)
+}
+
+func (h *LocationHandler) ToggleFulfillmentSource(c *gin.Context) {
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
+		return
+	}
+
+	userID := middleware.GetUserID(c)
+	if userID == 0 {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
+		return
+	}
+
+	var req struct {
+		IsFulfillmentSource bool `json:"is_fulfillment_source"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Request body tidak valid", "INVALID_REQUEST")
+		return
+	}
+
+	if err := h.locationService.ToggleFulfillmentSource(c.Request.Context(), userID, id, req.IsFulfillmentSource); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "TOGGLE_FULFILLMENT_SOURCE_ERROR")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Status sumber fulfillment berhasil diubah", nil)
 }

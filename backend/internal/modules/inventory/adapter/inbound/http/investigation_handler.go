@@ -5,8 +5,8 @@ import (
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
 
 	"net/http"
-	"strconv"
 
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -49,20 +49,18 @@ func (h *InvestigationHandler) GetDuplicateTransactions(c *gin.Context) {
 }
 
 func (h *InvestigationHandler) RevertTransaction(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID tidak valid", "")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
 	}
 
-	err = h.investigationService.RevertTransaction(c.Request.Context(), id, userID)
+	err := h.investigationService.RevertTransaction(c.Request.Context(), id, userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return

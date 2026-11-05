@@ -2,6 +2,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { formatJamMenit } from "@/core/utils/time";
+import { formatCurrency } from "@/core/utils/formatters";
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue';
 
 const props = defineProps({
@@ -97,9 +98,9 @@ watch(weeklyDetails, (newDetails) => {
         <section>
           <h4 class="font-semibold mb-2 text-text/90">Rincian Uang Lembur</h4>
           <div class="text-xs space-y-1 text-text/80 bg-secondary/10 p-3 rounded-md">
-            <p class="flex justify-between"><span>Uang Lembur Kotor:</span> <span class="font-mono">Rp {{ summary.uangLemburKotor.toLocaleString('id-ID') }}</span></p>
-            <p class="flex justify-between"><span>Potongan Denda Telat:</span> <span class="font-mono text-accent">- Rp {{ summary.dendaTelat.toLocaleString('id-ID') }}</span></p>
-            <p class="font-bold border-t border-secondary/20 pt-2 mt-2 flex justify-between text-text"><span>Uang Lembur Diterima:</span> <span class="font-mono text-primary">Rp {{ summary.uangLembur.toLocaleString('id-ID') }}</span></p>
+            <p class="flex justify-between"><span>Uang Lembur Kotor:</span> <span class="font-mono">{{ formatCurrency(summary.uangLemburKotor) }}</span></p>
+            <p class="flex justify-between"><span>Potongan Denda Telat:</span> <span class="font-mono text-accent">- {{ formatCurrency(summary.dendaTelat) }}</span></p>
+            <p class="font-bold border-t border-secondary/20 pt-2 mt-2 flex justify-between text-text"><span>Uang Lembur Diterima:</span> <span class="font-mono text-primary">{{ formatCurrency(summary.uangLembur) }}</span></p>
           </div>
         </section>
 
@@ -138,7 +139,7 @@ watch(weeklyDetails, (newDetails) => {
                 <h5 class="text-xs font-bold text-text/80 mb-1">Telat ({{ weeklyDetails[activeWeek].late.length }} hari)</h5>
                 <ul class="text-xs space-y-1 list-disc pl-4 text-text/80">
                   <li v-for="item in weeklyDetails[activeWeek].late" :key="item.tanggal">
-                    Tgl {{ item.tanggal }}: <span class="font-mono font-semibold">{{ item.telat }} mnt</span> (Denda Rp {{ item.denda.toLocaleString('id-ID') }})
+                    Tgl {{ item.tanggal }}: <span class="font-mono font-semibold">{{ item.telat }} mnt</span> (Denda {{ formatCurrency(item.denda) }})
                   </li>
                 </ul>
               </div>

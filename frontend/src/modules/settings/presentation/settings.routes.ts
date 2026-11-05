@@ -47,6 +47,12 @@ export const settingsRoutes: RouteRecordRaw[] = [
         name: 'Logs',
         component: () => import('./views/LogsView.vue'),
         meta: { requiresPermission: 'system_log.view' }
+      },
+      {
+        path: 'localization',
+        name: 'LocalizationManagement',
+        component: () => import('./views/LocalizationManagement.vue'),
+        meta: { requiresPermission: 'system.localization.manage' }
       }
     ]
   }

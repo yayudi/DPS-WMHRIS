@@ -7,7 +7,7 @@ export const mediaApi = {
    */
   async getMedia(params?: Record<string, any>): Promise<any> {
     const response = await http.get('/media', { params })
-    return response.data
+    return response
   },
 
   /**

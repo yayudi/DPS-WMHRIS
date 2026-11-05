@@ -2,11 +2,11 @@ package http
 
 import (
 	"net/http"
-	"strconv"
 
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
 
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -23,13 +23,8 @@ func NewNotificationHandler(notificationService system_usecase.NotificationServi
 
 // GetRecentPending handles GET /notifications/recent
 func (h *NotificationHandler) GetRecentPending(c *gin.Context) {
-	userID := c.GetInt("userID")
-	limit := 5
-	if l := c.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
-			limit = parsed
-		}
-	}
+	userID := middleware.GetUserID(c)
+	_, limit := utils.ParsePagination(c, 5)
 
 	data, err := h.notificationService.FetchRecentPending(c.Request.Context(), userID, limit)
 	if err != nil {
@@ -42,7 +37,7 @@ func (h *NotificationHandler) GetRecentPending(c *gin.Context) {
 
 // GetAll handles GET /notifications
 func (h *NotificationHandler) GetAll(c *gin.Context) {
-	userID := c.GetInt("userID")
+	userID := middleware.GetUserID(c)
 	filterType := c.DefaultQuery("type", "ALL")
 
 	data, err := h.notificationService.FetchAll(c.Request.Context(), userID, filterType)
@@ -56,22 +51,19 @@ func (h *NotificationHandler) GetAll(c *gin.Context) {
 
 // MarkAsDone handles PUT /notifications/:id/done
 func (h *NotificationHandler) MarkAsDone(c *gin.Context) {
-	userID := c.GetInt("userID")
-	notificationIDStr := c.Param("id")
-
-	if notificationIDStr == "all" {
+	userID := middleware.GetUserID(c)
+	if c.Param("id") == "all" {
 		err := h.notificationService.MarkAllNotificationsAsDone(c.Request.Context(), userID)
 		if err != nil {
 			utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menandai semua notifikasi sebagai selesai", "INTERNAL_SERVER_ERROR")
 			return
 		}
 	} else {
-		notificationID, err := strconv.Atoi(notificationIDStr)
-		if err != nil {
-			utils.ErrorResponse(c, http.StatusBadRequest, "ID notifikasi tidak valid", "VALIDATION_ERROR")
+		notificationID, ok := utils.ParseIntParam(c, "id")
+		if !ok {
 			return
 		}
-		err = h.notificationService.MarkNotificationAsDone(c.Request.Context(), notificationID, userID)
+		err := h.notificationService.MarkNotificationAsDone(c.Request.Context(), notificationID, userID)
 		if err != nil {
 			utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menandai notifikasi sebagai selesai", "INTERNAL_SERVER_ERROR")
 			return
@@ -83,7 +75,7 @@ func (h *NotificationHandler) MarkAsDone(c *gin.Context) {
 
 // GetPreferences handles GET /notifications/preferences
 func (h *NotificationHandler) GetPreferences(c *gin.Context) {
-	userID := c.GetInt("userID")
+	userID := middleware.GetUserID(c)
 
 	data, err := h.notificationService.FetchPreferences(c.Request.Context(), userID)
 	if err != nil {
@@ -96,7 +88,7 @@ func (h *NotificationHandler) GetPreferences(c *gin.Context) {
 
 // UpdatePreferences handles PUT /notifications/preferences
 func (h *NotificationHandler) UpdatePreferences(c *gin.Context) {
-	userID := c.GetInt("userID")
+	userID := middleware.GetUserID(c)
 	req_ptr, ok := utils.BindAndValidate[system_dto.UpdatePreferencesRequest](c)
 	if !ok {
 		return
@@ -114,10 +106,9 @@ func (h *NotificationHandler) UpdatePreferences(c *gin.Context) {
 
 // ClaimNotification handles PUT /notifications/:id/claim
 func (h *NotificationHandler) ClaimNotification(c *gin.Context) {
-	userID := c.GetInt("userID")
-	notificationID, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID notifikasi tidak valid", "VALIDATION_ERROR")
+	userID := middleware.GetUserID(c)
+	notificationID, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 

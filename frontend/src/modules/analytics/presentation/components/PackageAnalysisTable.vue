@@ -1,18 +1,19 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { dayjs } from '@/core/utils/time'
 import FilterBar from '@/core/presentation/components/ui/FilterBar.vue'
 import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
 import { usePagination } from '@/core/presentation/composables/usePagination'
-import { fetchPackageAnalysis } from '@/modules/analytics/application/utils/stats'
+import { analyticsApi } from '@/modules/analytics/infrastructure/analytics.api'
+import { serializeFilterParams } from '@/core/utils/filterParams'
 import { formatNumber } from '@/core/utils/formatters'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 
 const masterStore = useMasterDataStore()
 const isDataLoading = ref(false)
-const analysisData = ref([])
-const expandedRows = ref([])
+const analysisData = ref<any[]>([])
+const expandedRows = ref<(string | number)[]>([])
 const showFilters = ref(false)
 
 const filterValues = ref({
@@ -22,9 +23,9 @@ const filterValues = ref({
   startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
   endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
   searchQuery: '',
-  packageCategoryId: { include: [], exclude: [] },
-  componentCategoryId: { include: [], exclude: [] },
-  stockStatus: { include: [], exclude: [] }
+  packageCategoryId: { include: [] as string[], exclude: [] as string[] },
+  componentCategoryId: { include: [] as string[], exclude: [] as string[] },
+  stockStatus: { include: [] as string[], exclude: [] as string[] }
 })
 
 
@@ -67,15 +68,15 @@ const getApiPayload = () => {
     startDate = filterValues.value.startDate
     endDate = filterValues.value.endDate
   }
-  return {
+  return serializeFilterParams({
     startDate,
     endDate,
-    categoryId: JSON.stringify(filterValues.value.componentCategoryId),
-    packageCategoryId: JSON.stringify(filterValues.value.packageCategoryId),
-    stockStatus: JSON.stringify(filterValues.value.stockStatus),
+    categoryId: filterValues.value.componentCategoryId,
+    packageCategoryId: filterValues.value.packageCategoryId,
+    stockStatus: filterValues.value.stockStatus,
     searchQuery: filterValues.value.searchQuery,
     limit: 1000 // Get a large amount of data for client-side pagination
-  }
+  })
 }
 
 const mainFilters = computed(() => {
@@ -155,7 +156,7 @@ const fetchStatistics = async () => {
   if (!payload.startDate || !payload.endDate) return
   isDataLoading.value = true
   try {
-    const data = await fetchPackageAnalysis(payload)
+    const data = await analyticsApi.fetchPackageAnalysis(payload)
     analysisData.value = data || []
     expandedRows.value = []
   } catch (error) {
@@ -175,7 +176,7 @@ const applyFilters = () => {
   fetchStatistics()
 }
 
-const toggleRow = id => {
+const toggleRow = (id: string | number) => {
   const index = expandedRows.value.indexOf(id)
   if (index === -1) {
     expandedRows.value.push(id)

@@ -76,21 +76,46 @@ func ReadExcel(r io.Reader) ([]map[string]string, error) {
 		return nil, err
 	}
 
-	var headers []string
+	return rowsToMaps(rows)
+}
+
+// ReadExcelFile opens an Excel file by path and parses the first sheet into a slice of maps.
+func ReadExcelFile(filePath string) ([]map[string]string, error) {
+	f, err := excelize.OpenFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("gagal membuka file excel: %w", err)
+	}
+	defer f.Close()
+
+	sheets := f.GetSheetList()
+	if len(sheets) == 0 {
+		return nil, fmt.Errorf("file excel tidak memiliki sheet atau tidak valid")
+	}
+
+	rows, err := f.GetRows(sheets[0])
+	if err != nil {
+		return nil, fmt.Errorf("gagal membaca baris excel: %w", err)
+	}
+
+	return rowsToMaps(rows)
+}
+
+func rowsToMaps(rows [][]string) ([]map[string]string, error) {
+	if len(rows) == 0 {
+		return []map[string]string{}, nil
+	}
+
+	headers := make([]string, len(rows[0]))
+	for j, h := range rows[0] {
+		headers[j] = strings.TrimSpace(h)
+	}
+
 	var results []map[string]string
-
-	for i, row := range rows {
-		if i == 0 {
-			headers = row
-			for j, h := range headers {
-				headers[j] = strings.TrimSpace(h)
-			}
-			continue
-		}
-
-		rowData := make(map[string]string)
+	for i := 1; i < len(rows); i++ {
+		row := rows[i]
+		rowData := make(map[string]string, len(headers))
 		for j, val := range row {
-			if j < len(headers) {
+			if j < len(headers) && headers[j] != "" {
 				rowData[headers[j]] = strings.TrimSpace(val)
 			}
 		}
@@ -98,4 +123,27 @@ func ReadExcel(r io.Reader) ([]map[string]string, error) {
 	}
 
 	return results, nil
+}
+
+// GetField returns the first non-empty trimmed value corresponding to any of the candidate keys (exact match first, then case-insensitive).
+func GetField(record map[string]string, keys ...string) string {
+	for _, k := range keys {
+		if v, ok := record[k]; ok {
+			trimmed := strings.TrimSpace(v)
+			if trimmed != "" {
+				return trimmed
+			}
+		}
+	}
+	for _, k := range keys {
+		for rk, rv := range record {
+			if strings.EqualFold(rk, k) {
+				trimmed := strings.TrimSpace(rv)
+				if trimmed != "" {
+					return trimmed
+				}
+			}
+		}
+	}
+	return ""
 }

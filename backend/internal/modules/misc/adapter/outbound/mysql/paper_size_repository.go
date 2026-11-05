@@ -4,7 +4,7 @@ import (
 	"context"
 
 	misc_dto "github.com/dps-wmhris/backend/internal/modules/misc/application/dto"
-
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -17,34 +17,24 @@ type PaperSizeRepository interface {
 }
 
 type paperSizeRepositoryImpl struct {
+	database.BaseRepository[misc_dto.PaperSizeResponse]
 	db *sqlx.DB
 }
 
 func NewPaperSizeRepository(db *sqlx.DB) PaperSizeRepository {
-	return &paperSizeRepositoryImpl{db: db}
+	base := database.NewBaseRepository[misc_dto.PaperSizeResponse](db, "paper_sizes")
+	return &paperSizeRepositoryImpl{
+		BaseRepository: base,
+		db:             db,
+	}
 }
 
 func (r *paperSizeRepositoryImpl) FindAll(ctx context.Context) ([]misc_dto.PaperSizeResponse, error) {
-	query := "SELECT id, name, top_margin, side_margin, vertical_pitch, horizontal_pitch, label_width, label_height, number_across, number_down, page_width, page_height, is_active FROM paper_sizes ORDER BY id DESC"
-	var sizes []misc_dto.PaperSizeResponse
-	err := r.db.SelectContext(ctx, &sizes, query)
-	if err != nil {
-		return nil, err
-	}
-	if sizes == nil {
-		sizes = []misc_dto.PaperSizeResponse{}
-	}
-	return sizes, nil
+	return r.BaseRepository.FindAll(ctx)
 }
 
 func (r *paperSizeRepositoryImpl) FindByID(ctx context.Context, id int) (*misc_dto.PaperSizeResponse, error) {
-	query := "SELECT id, name, top_margin, side_margin, vertical_pitch, horizontal_pitch, label_width, label_height, number_across, number_down, page_width, page_height, is_active FROM paper_sizes WHERE id = ?"
-	var size misc_dto.PaperSizeResponse
-	err := r.db.GetContext(ctx, &size, query, id)
-	if err != nil {
-		return nil, err
-	}
-	return &size, nil
+	return r.BaseRepository.FindByID(ctx, id)
 }
 
 func (r *paperSizeRepositoryImpl) Insert(ctx context.Context, req misc_dto.CreatePaperSizeRequest) (int, error) {
@@ -54,7 +44,8 @@ func (r *paperSizeRepositoryImpl) Insert(ctx context.Context, req misc_dto.Creat
 			label_width, label_height, number_across, number_down, page_width, page_height
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	res, err := r.db.ExecContext(ctx, query,
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query,
 		req.Name, req.TopMargin, req.SideMargin, req.VerticalPitch, req.HorizontalPitch,
 		req.LabelWidth, req.LabelHeight, req.NumberAcross, req.NumberDown, req.PageWidth, req.PageHeight,
 	)
@@ -72,7 +63,8 @@ func (r *paperSizeRepositoryImpl) Update(ctx context.Context, id int, req misc_d
 			label_width = ?, label_height = ?, number_across = ?, number_down = ?, page_width = ?, page_height = ?
 		WHERE id = ?
 	`
-	res, err := r.db.ExecContext(ctx, query,
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query,
 		req.Name, req.TopMargin, req.SideMargin, req.VerticalPitch, req.HorizontalPitch,
 		req.LabelWidth, req.LabelHeight, req.NumberAcross, req.NumberDown, req.PageWidth, req.PageHeight,
 		id,
@@ -86,7 +78,8 @@ func (r *paperSizeRepositoryImpl) Update(ctx context.Context, id int, req misc_d
 
 func (r *paperSizeRepositoryImpl) Delete(ctx context.Context, id int) (int, error) {
 	query := "DELETE FROM paper_sizes WHERE id = ?"
-	res, err := r.db.ExecContext(ctx, query, id)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query, id)
 	if err != nil {
 		return 0, err
 	}

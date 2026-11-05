@@ -22,7 +22,8 @@ type roleRepositoryImpl struct {
 func (r *roleRepositoryImpl) GetRoles(ctx context.Context) ([]iam_dto.RoleResponse, error) {
 	query := "SELECT id, name, description FROM roles ORDER BY name"
 	var roles []iam_dto.RoleResponse
-	err := r.db.SelectContext(ctx, &roles, query)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &roles, query)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +36,8 @@ func (r *roleRepositoryImpl) GetRoles(ctx context.Context) ([]iam_dto.RoleRespon
 func (r *roleRepositoryImpl) GetPermissions(ctx context.Context) ([]iam_dto.PermissionResponse, error) {
 	query := "SELECT id, name, description, `group` FROM permissions ORDER BY `group`, name"
 	var permissions []iam_dto.PermissionResponse
-	err := r.db.SelectContext(ctx, &permissions, query)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &permissions, query)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +50,8 @@ func (r *roleRepositoryImpl) GetPermissions(ctx context.Context) ([]iam_dto.Perm
 func (r *roleRepositoryImpl) GetRolePermissions(ctx context.Context, roleID int) ([]int, error) {
 	query := "SELECT permission_id FROM role_permission WHERE role_id = ?"
 	var permissionIDs []int
-	err := r.db.SelectContext(ctx, &permissionIDs, query, roleID)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &permissionIDs, query, roleID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +90,8 @@ func (r *roleRepositoryImpl) InsertRolePermissions(ctx context.Context, roleID i
 
 func (r *roleRepositoryImpl) CreateRole(ctx context.Context, name string, description *string) (int, error) {
 	query := "INSERT INTO roles (name, description) VALUES (?, ?)"
-	res, err := r.db.ExecContext(ctx, query, name, description)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query, name, description)
 	if err != nil {
 		return 0, err
 	}
@@ -97,7 +101,8 @@ func (r *roleRepositoryImpl) CreateRole(ctx context.Context, name string, descri
 
 func (r *roleRepositoryImpl) UpdateRole(ctx context.Context, id int, name string, description *string) (bool, error) {
 	query := "UPDATE roles SET name = ?, description = ? WHERE id = ?"
-	res, err := r.db.ExecContext(ctx, query, name, description, id)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query, name, description, id)
 	if err != nil {
 		return false, err
 	}
@@ -110,7 +115,8 @@ func (r *roleRepositoryImpl) UpdateRole(ctx context.Context, id int, name string
 
 func (r *roleRepositoryImpl) DeleteRole(ctx context.Context, id int) (bool, error) {
 	query := "DELETE FROM roles WHERE id = ?"
-	res, err := r.db.ExecContext(ctx, query, id)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query, id)
 	if err != nil {
 		return false, err
 	}

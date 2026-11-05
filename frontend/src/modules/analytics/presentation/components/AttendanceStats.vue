@@ -4,6 +4,7 @@ const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
 import { calculateSummaryForUser } from '@/modules/hr/application/utils/summary'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { formatJamMenit } from '@/core/utils/time'
+import { formatCurrency } from '@/core/utils/formatters'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 
 const props = defineProps({
@@ -564,7 +565,7 @@ const userOvertimeChartOptions = computed(() => ({
                   class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-right font-mono text-text/70 border-t border-secondary/10 md:border-none mt-2 md:mt-0 pt-2 md:pt-4"
                 >
                   <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Denda</span>
-                  <span>Rp {{ u.stats.dendaTelat.toLocaleString('id-ID') }}</span>
+                  <span>{{ formatCurrency(u.stats.dendaTelat) }}</span>
                 </td>
               </tr>
               <tr v-if="!filteredUserSummaries.length" class="block md:table-row">
@@ -610,7 +611,7 @@ const userOvertimeChartOptions = computed(() => ({
           <div class="bg-secondary/5 rounded-lg p-3 border border-secondary/10">
             <div class="text-xs text-text/50 uppercase font-bold">Estimasi Denda</div>
             <div class="text-lg font-bold text-danger">
-              Rp {{ selectedUser.stats.dendaTelat.toLocaleString('id-ID') }}
+              {{ formatCurrency(selectedUser.stats.dendaTelat) }}
             </div>
           </div>
         </div>

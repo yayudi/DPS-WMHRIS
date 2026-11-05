@@ -58,7 +58,7 @@ describe('TriStateSelect.vue', () => {
     
     // 1. Klik Include -> Adds to include
     await includeBtn.trigger('click')
-    let emitted = wrapper.emitted('update:modelValue')
+    const emitted = wrapper.emitted('update:modelValue')
     expect(emitted[0][0].include).toContain(1)
     expect(emitted[0][0].exclude).not.toContain(1)
 

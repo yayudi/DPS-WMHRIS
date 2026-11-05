@@ -4,7 +4,9 @@ dist/
 *.generated.py
 .git/
 .vscode/
-.agent/
+.agent/*
+!.agent/context
+!.agent/context/**
 .agents/
 backend/uploads/
 backend-node/

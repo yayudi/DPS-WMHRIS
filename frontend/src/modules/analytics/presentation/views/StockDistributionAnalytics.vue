@@ -276,9 +276,9 @@ const fetchData = async () => {
     }
 
     const response = await analyticsApi.fetchLocationAnalysis(params)
-    if (response.data.success) {
-      locationLoads.value = response.data.data.locationLoads || []
-      duplicateProducts.value = response.data.data.duplicateProducts || []
+    if (response?.success) {
+      locationLoads.value = response.data?.locationLoads || []
+      duplicateProducts.value = response.data?.duplicateProducts || []
 
       // Update filter options only on initial load
       if (!initialLoaded.value) {

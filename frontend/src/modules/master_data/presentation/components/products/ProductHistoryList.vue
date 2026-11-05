@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
-import axios from '@/core/infrastructure/http.client'
-import { formatCurrency } from '@/core/utils/formatters'
+import { productApi } from '@/modules/master_data/infrastructure/product.api'
+import { formatCurrency, formatDate } from '@/core/utils/formatters'
 
 const props = defineProps({
   productId: { type: Number, required: true },
@@ -13,10 +13,8 @@ const loading = ref(false)
 const fetchHistory = async () => {
   loading.value = true
   try {
-    const { data } = await axios.get(`/products/${props.productId}/history`)
-    if (data.success) {
-      history.value = data.data || []
-    }
+    const data = await productApi.fetchProductHistory(props.productId)
+    history.value = Array.isArray(data) ? data : data?.data || []
   } catch (e) {
     console.error('Gagal load history', e)
   } finally {
@@ -83,7 +81,7 @@ function getBadgeColor(action) {
           <tr v-for="log in history" :key="log.id" class="hover:bg-secondary/5 transition-colors">
             <!-- Waktu -->
             <td class="px-4 py-2 text-text/70 whitespace-nowrap">
-              {{ new Date(log.created_at).toLocaleString('id-ID') }}
+              {{ formatDate(log.created_at) }}
             </td>
             <!-- User -->
             <td class="px-4 py-2 font-medium text-text">

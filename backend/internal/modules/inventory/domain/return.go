@@ -2,6 +2,8 @@ package domain
 
 import "time"
 
+// ManualReturn represents manual customer return records.
+// keep: JSON contract camelCase (userId, productId, createdAt, updatedAt) for frontend compatibility.
 type ManualReturn struct {
 	ID        int       `db:"id" json:"id"`
 	UserID    int       `db:"user_id" json:"userId"`

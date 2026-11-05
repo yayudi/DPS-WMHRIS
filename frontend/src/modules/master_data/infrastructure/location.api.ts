@@ -32,5 +32,15 @@ export const locationApi = {
   async deleteLocation(id: number | string): Promise<any> {
     const response = await http.delete(`/locations/${id}`)
     return response.data
+  },
+
+  /**
+   * Mengubah status sumber fulfillment untuk lokasi.
+   */
+  async toggleFulfillmentSource(id: number | string, isFulfillmentSource: boolean): Promise<any> {
+    const response = await http.put(`/locations/${id}/fulfillment-source`, {
+      is_fulfillment_source: isFulfillmentSource
+    })
+    return response.data
   }
 }

@@ -60,6 +60,81 @@ func (r *locationRepositoryImpl) FindBestStock(ctx context.Context, productID in
 	return &locationID, nil
 }
 
+// FindAvailableStockLocations retrieves all locations having available stock for a product,
+// filtered by purpose and building, ordered descending by available stock (greedy).
+func (r *locationRepositoryImpl) FindAvailableStockLocations(ctx context.Context, productID int, purpose string, building string) ([]domain.AvailableLocationStock, error) {
+	query := `
+		SELECT sl.location_id, (sl.quantity - sl.reserved_quantity) AS available_quantity
+		FROM stock_locations sl
+		JOIN locations l ON sl.location_id = l.id
+		WHERE sl.product_id = ?
+		  AND l.purpose = ?
+		  AND (? = '' OR l.building = ?)
+		  AND (sl.quantity - sl.reserved_quantity) > 0
+		ORDER BY (sl.quantity - sl.reserved_quantity) DESC, sl.location_id ASC
+	`
+	var results []domain.AvailableLocationStock
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &results, query, productID, purpose, building, building)
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// FindFulfillmentSourceStock returns stock from locations marked as fulfillment sources.
+func (r *locationRepositoryImpl) FindFulfillmentSourceStock(ctx context.Context, productID int) ([]domain.AvailableLocationStock, error) {
+	query := `
+		SELECT sl.location_id, (sl.quantity - sl.reserved_quantity) AS available_quantity
+		FROM stock_locations sl
+		JOIN locations l ON sl.location_id = l.id
+		WHERE sl.product_id = ?
+		  AND l.is_fulfillment_source = 1
+		  AND l.is_active = 1
+		  AND l.deleted_at IS NULL
+		  AND (sl.quantity - sl.reserved_quantity) > 0
+		ORDER BY (sl.quantity - sl.reserved_quantity) DESC, sl.location_id ASC
+	`
+	var results []domain.AvailableLocationStock
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &results, query, productID)
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// FindReplenishmentCandidateStock returns stock from non-fulfillment locations for replenishment.
+func (r *locationRepositoryImpl) FindReplenishmentCandidateStock(ctx context.Context, productID int) ([]domain.AvailableLocationStock, error) {
+	query := `
+		SELECT sl.location_id, (sl.quantity - sl.reserved_quantity) AS available_quantity
+		FROM stock_locations sl
+		JOIN locations l ON sl.location_id = l.id
+		WHERE sl.product_id = ?
+		  AND l.is_fulfillment_source = 0
+		  AND l.is_active = 1
+		  AND l.deleted_at IS NULL
+		  AND l.purpose NOT IN ('BAD_STOCK', 'WORKSHOP', 'BRANCH')
+		  AND (sl.quantity - sl.reserved_quantity) > 0
+		ORDER BY (sl.quantity - sl.reserved_quantity) DESC, sl.location_id ASC
+	`
+	var results []domain.AvailableLocationStock
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &results, query, productID)
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// UpdateFulfillmentSourceFlag toggles is_fulfillment_source flag for a location.
+func (r *locationRepositoryImpl) UpdateFulfillmentSourceFlag(ctx context.Context, locationID int, isFulfillmentSource bool) error {
+	query := `UPDATE locations SET is_fulfillment_source = ? WHERE id = ?`
+	ext := database.GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, query, isFulfillmentSource, locationID)
+	return err
+}
+
 func (r *locationRepositoryImpl) IncrementStock(ctx context.Context, productID int, locationID int, qty int) error {
 	query := `
 		INSERT INTO stock_locations (product_id, location_id, quantity)
@@ -97,12 +172,12 @@ func (r *locationRepositoryImpl) ReleaseStock(ctx context.Context, productID int
 func (r *locationRepositoryImpl) Update(ctx context.Context, location *domain.Location) error {
 	query := `
 		UPDATE locations 
-		SET code = ?, building = ?, floor = ?, name = ?, purpose = ?, is_active = ?
+		SET code = ?, building = ?, floor = ?, name = ?, purpose = ?, is_active = ?, is_fulfillment_source = ?
 		WHERE id = ?`
 
 	var err error
 	ext := database.GetExt(ctx, r.db)
-	_, err = ext.ExecContext(ctx, query, location.Code, location.Building, location.Floor, location.Name, location.Purpose, location.IsActive, location.ID)
+	_, err = ext.ExecContext(ctx, query, location.Code, location.Building, location.Floor, location.Name, location.Purpose, location.IsActive, location.IsFulfillmentSource, location.ID)
 	return err
 }
 
@@ -122,12 +197,12 @@ func (r *locationRepositoryImpl) GetStockSample(ctx context.Context, locationID 
 
 func (r *locationRepositoryImpl) Create(ctx context.Context, location *domain.Location) error {
 	query := `
-		INSERT INTO locations (code, building, floor, name, purpose, is_active) 
-		VALUES (?, ?, ?, ?, ?, ?)`
+		INSERT INTO locations (code, building, floor, name, purpose, is_active, is_fulfillment_source) 
+		VALUES (?, ?, ?, ?, ?, ?, ?)`
 
 	res, err := r.db.ExecContext(ctx, query,
 		location.Code, location.Building, location.Floor,
-		location.Name, location.Purpose, location.IsActive,
+		location.Name, location.Purpose, location.IsActive, location.IsFulfillmentSource,
 	)
 
 	if err != nil {

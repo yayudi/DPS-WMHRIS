@@ -1,15 +1,22 @@
 package domain
 
-import "time"
+import (
+	"github.com/dps-wmhris/backend/internal/shared/kernel"
+)
 
 type Location struct {
-	ID        int        `db:"id" json:"id"`
-	Code      string     `db:"code" json:"code"`
-	Building  string     `db:"building" json:"building"`
-	Floor     *int       `db:"floor" json:"floor"` // Menggunakan pointer karena 0 berarti lantai dasar, berbeda dengan NULL
-	Name      string     `db:"name" json:"name"`
-	CreatedAt time.Time  `db:"created_at" json:"created_at"`
-	Purpose   string     `db:"purpose" json:"purpose"`
-	IsActive  bool       `db:"is_active" json:"is_active"`
-	DeletedAt *time.Time `db:"deleted_at" json:"deleted_at"` // Pointer untuk penanganan soft delete NULL
+	kernel.ImmutableEntity
+	kernel.SoftDeletable
+	Code                string `db:"code" json:"code"`
+	Building            string `db:"building" json:"building"`
+	Floor               *int   `db:"floor" json:"floor"` // Menggunakan pointer karena 0 berarti lantai dasar, berbeda dengan NULL
+	Name                string `db:"name" json:"name"`
+	Purpose             string `db:"purpose" json:"purpose"`
+	IsActive            bool   `db:"is_active" json:"is_active"`
+	IsFulfillmentSource bool   `db:"is_fulfillment_source" json:"is_fulfillment_source"` // Flag sumber stok fulfillment otomatis
+}
+
+type AvailableLocationStock struct {
+	LocationID        int `db:"location_id" json:"location_id"`
+	AvailableQuantity int `db:"available_quantity" json:"available_quantity"`
 }

@@ -1,25 +1,55 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import dayjs from 'dayjs'
 
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import BaseTabs from '@/core/presentation/components/ui/BaseTabs.vue'
 import ImportJobHistory from '@/core/presentation/components/shared/ImportJobHistory.vue'
+import JobHistoryTable, { type JobItem } from '@/core/presentation/components/ui/JobHistoryTable.vue'
 import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
 import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
-import { useDownload } from '@/core/presentation/composables/useDownload'
-
-const { openDownloadUrl } = useDownload()
 
 const downloadStore = useDownloadStore()
 
-const props = defineProps({
-  isOpen: Boolean,
-  isExporting: Boolean,
-  isImporting: Boolean
-})
+const props = withDefaults(
+  defineProps<{
+    isOpen: boolean
+    isExporting?: boolean
+    isImporting?: boolean
+    entityType?: 'product' | 'package'
+    title?: string
+    exportJobType?: string
+    importJobType?: string
+    showColumnsSelector?: boolean
+  }>(),
+  {
+    isExporting: false,
+    isImporting: false,
+    entityType: 'product'
+  }
+)
 
-const emit = defineEmits(['close', 'export', 'import'])
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'export', payload: any): void
+  (e: 'import', payload: FormData): void
+}>()
+
+// Dynamic Titles & Job Types
+const modalTitle = computed(
+  () => props.title || (props.entityType === 'package' ? 'Batch Edit Paket' : 'Batch Edit Produk')
+)
+
+const effectiveExportJobType = computed(
+  () => props.exportJobType || (props.entityType === 'package' ? 'EXPORT_PACKAGES' : 'PRODUCT_MASTER')
+)
+
+const effectiveImportJobType = computed(
+  () => props.importJobType || (props.entityType === 'package' ? 'IMPORT_PACKAGES' : 'IMPORT_PRODUCT')
+)
+
+const shouldShowColumns = computed(() =>
+  props.showColumnsSelector !== undefined ? props.showColumnsSelector : props.entityType !== 'package'
+)
 
 // Tabs
 const activeTab = ref('export')
@@ -31,8 +61,8 @@ const tabOptions = [
 
 const exportFormat = ref('xlsx')
 const includeImages = ref(false)
-const fileInput = ref(null)
-const selectedFile = ref(null)
+const fileInput = ref<HTMLInputElement | null>(null)
+const selectedFile = ref<File | null>(null)
 const isDryRun = ref(false)
 
 // --- Export Columns Logic ---
@@ -50,12 +80,12 @@ const availableColumns = [
 
 const selectedColumnsState = ref({
   include: availableColumns.map(c => c.key),
-  exclude: []
+  exclude: [] as string[]
 })
 
 // --- Export Jobs Logic ---
-const exportJobs = computed(() => {
-  return downloadStore.jobs.filter(job => job.type === 'PRODUCT_MASTER').slice(0, 5)
+const exportJobs = computed<JobItem[]>(() => {
+  return (downloadStore.jobs as JobItem[]).filter(job => job.type === effectiveExportJobType.value).slice(0, 5)
 })
 const loadingExports = ref(false)
 
@@ -73,45 +103,28 @@ watch(
   }
 )
 
-const formatStatus = status => {
-  const map = {
-    PENDING: 'Menunggu',
-    PROCESSING: 'Memproses',
-    COMPLETED: 'Selesai',
-    FAILED: 'Gagal'
-  }
-  return map[status] || status
-}
-
-const getStatusClass = status => {
-  const map = {
-    PENDING: 'bg-warning/10 text-warning',
-    PROCESSING: 'bg-accent/10 text-accent animate-pulse',
-    COMPLETED: 'bg-success/10 text-success',
-    FAILED: 'bg-danger/10 text-danger'
-  }
-  return map[status] || 'bg-secondary/10 text-text/60'
-}
-
-const formatDate = date => dayjs(date).format('DD MMM YYYY, HH:mm')
-
 // Actions
 const handleExport = () => {
-  const finalColumns = ['sku', ...selectedColumnsState.value.include]
-  emit('export', {
-    format: exportFormat.value,
-    includeImages: includeImages.value,
-    columns: finalColumns
-  })
+  if (props.entityType === 'package') {
+    emit('export', { format: exportFormat.value })
+  } else {
+    const finalColumns = ['sku', ...selectedColumnsState.value.include]
+    emit('export', {
+      format: exportFormat.value,
+      includeImages: includeImages.value,
+      columns: finalColumns
+    })
+  }
 }
 
-const handleFileSelect = event => {
-  const file = event.target.files[0]
+const handleFileSelect = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
   if (file) selectedFile.value = file
 }
 
-const handleDrop = event => {
-  const file = event.dataTransfer.files[0]
+const handleDrop = (event: DragEvent) => {
+  const file = event.dataTransfer?.files?.[0]
   if (file) selectedFile.value = file
 }
 
@@ -119,7 +132,7 @@ const handleImport = () => {
   if (!selectedFile.value) return
   const formData = new FormData()
   formData.append('file', selectedFile.value)
-  formData.append('dryRun', isDryRun.value)
+  formData.append('dryRun', String(isDryRun.value))
   emit('import', formData)
 
   // Clear file input to prevent double upload
@@ -135,7 +148,7 @@ const close = () => {
 </script>
 
 <template>
-  <BaseModal :show="isOpen" @close="close" title="Batch Edit Produk" maxWidth="max-w-4xl">
+  <BaseModal :show="isOpen" @close="close" :title="modalTitle" maxWidth="max-w-4xl">
     <div class="flex flex-col h-[750px] md:h-[650px]">
       <!-- TABS -->
       <div class="mb-6 shrink-0 mt-2">
@@ -185,6 +198,7 @@ const close = () => {
           </div>
 
           <div
+            v-if="shouldShowColumns"
             class="mb-4 flex items-center justify-between p-4 bg-primary/5 rounded-xl border border-primary/20 shrink-0"
           >
             <div>
@@ -202,7 +216,7 @@ const close = () => {
           </div>
 
           <!-- COLUMN SELECTION -->
-          <div class="mb-6 shrink-0 bg-background border border-secondary/20 rounded-xl p-4">
+          <div v-if="shouldShowColumns" class="mb-6 shrink-0 bg-background border border-secondary/20 rounded-xl p-4">
             <h6 class="font-bold text-sm text-text mb-2 flex items-center gap-2">
               Kolom yang Diexport
               <span class="text-[11px] font-normal text-text/50 bg-secondary/10 px-2 py-0.5 rounded"
@@ -228,68 +242,12 @@ const close = () => {
               Riwayat Ekspor (File Siap Diunduh)
             </h5>
 
-            <div
-              v-if="loadingExports && exportJobs.length === 0"
-              class="flex-1 flex flex-col items-center justify-center text-text/40"
-            >
-              <font-awesome-icon icon="fa-solid fa-circle-notch" spin size="2x" />
-              <p class="mt-3 text-xs font-medium">Memuat riwayat...</p>
-            </div>
-
-            <div v-else-if="exportJobs.length === 0" class="flex-1 flex flex-col items-center justify-center">
-              <div class="w-16 h-16 bg-secondary/20 rounded-full flex items-center justify-center mb-3">
-                <font-awesome-icon icon="fa-solid fa-folder-open" class="text-2xl text-text/30" />
-              </div>
-              <p class="text-sm text-text/60 font-medium">Belum ada file ekspor terbaru.</p>
-            </div>
-
-            <div v-else class="space-y-3 shrink-0">
-              <div
-                v-for="job in exportJobs"
-                :key="job.id"
-                class="flex items-center justify-between p-3.5 border border-secondary/20 rounded-xl bg-background hover:border-primary/30 transition-colors shadow-sm group"
-              >
-                <div>
-                  <div class="flex items-center gap-2.5 mb-1.5">
-                    <span
-                      class="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-widest"
-                      :class="getStatusClass(job.status)"
-                    >
-                      {{ formatStatus(job.status) }}
-                    </span>
-                    <span class="text-xs text-text/50 font-medium flex items-center gap-1">
-                      <font-awesome-icon icon="fa-solid fa-clock" />
-                      {{ formatDate(job.created_at) }}
-                    </span>
-                  </div>
-                  <p v-if="job.status === 'FAILED'" class="text-xs text-danger font-bold flex items-center gap-1">
-                    <font-awesome-icon icon="fa-solid fa-circle-exclamation" />
-                    {{ job.error_message || 'Gagal mengekspor data' }}
-                  </p>
-                  <p v-else class="text-xs text-text/80 font-bold flex items-center gap-1.5">
-                    <font-awesome-icon icon="fa-solid fa-file-lines" class="text-text/40" />
-                    Data Master Produk ({{
-                      job.filters ? (JSON.parse(job.filters).format || 'xlsx').toUpperCase() : 'XLSX'
-                    }})
-                  </p>
-                </div>
-
-                <a
-                  v-if="job.status === 'COMPLETED' && job.download_url"
-                  href="#"
-                  @click.prevent="openDownloadUrl(job.download_url)"
-                  class="shrink-0 px-4 py-2 bg-primary/10 text-primary hover:bg-primary hover:text-secondary rounded-xl text-sm font-bold transition-all flex items-center gap-2 border border-transparent hover:shadow-md hover:-translate-y-0.5"
-                >
-                  <font-awesome-icon icon="fa-solid fa-download" /> Unduh
-                </a>
-                <div
-                  v-else-if="job.status === 'PROCESSING' || job.status === 'PENDING'"
-                  class="shrink-0 px-4 py-2 text-text/40 flex items-center gap-2"
-                >
-                  <font-awesome-icon icon="fa-solid fa-circle-notch" spin />
-                </div>
-              </div>
-            </div>
+            <JobHistoryTable
+              :jobs="exportJobs"
+              :loading="loadingExports"
+              empty-text="Belum ada file ekspor terbaru."
+              layout="list"
+            />
           </div>
 
           <div class="mt-auto shrink-0">
@@ -311,89 +269,76 @@ const close = () => {
         <!-- STEP 2: IMPORT -->
         <div v-if="activeTab === 'import'" class="flex-1 flex flex-col h-full overflow-hidden">
           <p class="text-sm text-text/70 mb-4 shrink-0 font-medium">
-            Upload file master produk yang sudah Anda edit. Sistem akan memproses pembaruan secara massal.
+            Upload file master {{ entityType === 'package' ? 'paket' : 'produk' }} yang sudah Anda edit. Sistem akan
+            memproses pembaruan secara massal.
           </p>
 
           <div
             class="flex-1 border-2 border-dashed border-secondary/40 rounded-3xl flex flex-col items-center justify-center py-4 px-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group relative mb-6"
-            @click="$refs.fileInput.click()"
+            @click="fileInput?.click()"
             @dragover.prevent
             @drop.prevent="handleDrop"
           >
-            <input type="file" ref="fileInput" class="hidden" accept=".csv, .xlsx, .xls" @change="handleFileSelect" />
+            <input type="file" ref="fileInput" class="hidden" accept=".xlsx, .csv" @change="handleFileSelect" />
 
-            <div v-if="selectedFile" class="z-10 flex flex-col items-center">
-              <div
-                class="w-20 h-20 bg-success/10 rounded-full flex items-center justify-center mb-5 text-success shadow-inner"
-              >
-                <font-awesome-icon icon="fa-solid fa-file-circle-check" class="text-4xl" />
-              </div>
-              <p class="font-bold text-lg text-text max-w-[250px] truncate">
-                {{ selectedFile.name }}
-              </p>
-              <p class="text-sm text-text/50 mt-1 font-medium">{{ (selectedFile.size / 1024).toFixed(1) }} KB</p>
-              <div
-                class="mt-6 px-5 py-2 bg-background rounded-full text-xs font-bold text-text/70 border border-secondary/20 shadow-sm group-hover:text-primary group-hover:border-primary/30 transition-colors"
-              >
-                Klik untuk mengganti file
-              </div>
+            <div
+              class="w-16 h-16 rounded-2xl bg-secondary/10 flex items-center justify-center mb-3 group-hover:scale-110 group-hover:bg-primary/10 transition-all text-text/40 group-hover:text-primary"
+            >
+              <font-awesome-icon icon="fa-solid fa-cloud-arrow-up" class="text-2xl" />
             </div>
 
-            <div v-else class="z-10 flex flex-col items-center">
-              <div
-                class="w-24 h-24 bg-secondary/10 rounded-full flex items-center justify-center mb-5 text-text/30 group-hover:bg-primary/10 group-hover:text-primary transition-all duration-300"
-              >
-                <font-awesome-icon
-                  icon="fa-solid fa-cloud-arrow-up"
-                  class="text-5xl group-hover:-translate-y-1 transition-transform"
-                />
-              </div>
-              <p class="font-bold text-text text-lg mb-1.5">Pilih File atau Drag & Drop</p>
-              <p class="text-sm text-text/50 font-medium">Mendukung file format .xlsx, .xls, dan .csv</p>
+            <h4 class="font-bold text-base text-text mb-1">
+              {{ selectedFile ? selectedFile.name : 'Pilih file atau tarik ke sini' }}
+            </h4>
+            <p class="text-xs text-text/50 max-w-sm mb-3">
+              Mendukung format .XLSX dan .CSV. Pastikan kolom SKU sesuai dengan data master produk.
+            </p>
+
+            <div
+              v-if="selectedFile"
+              class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 text-success text-xs font-semibold"
+            >
+              <font-awesome-icon icon="fa-solid fa-check" />
+              <span>File Terpilih ({{ (selectedFile.size / 1024).toFixed(1) }} KB)</span>
             </div>
           </div>
 
-          <!-- Dry Run Option -->
-          <label
-            class="shrink-0 mb-6 bg-warning/5 border border-warning/20 rounded-2xl p-4 flex items-start gap-4 cursor-pointer hover:bg-warning/10 transition-colors"
+          <div
+            class="mb-6 flex items-center justify-between p-4 bg-secondary/5 rounded-2xl border border-secondary/20 shrink-0"
           >
-            <div class="pt-0.5">
-              <div
-                class="relative flex items-center justify-center w-5 h-5 border-2 rounded-md border-warning bg-background transition-colors"
-                :class="isDryRun ? 'bg-warning border-warning' : ''"
-              >
-                <input type="checkbox" v-model="isDryRun" class="hidden" />
-                <font-awesome-icon v-if="isDryRun" icon="fa-solid fa-check" class="text-xs text-white" />
+            <div>
+              <div class="font-bold text-text text-sm">Mode Simulasi (Dry Run)</div>
+              <div class="text-xs text-text/50 mt-0.5">
+                Cek validasi data dan format tanpa menyimpan perubahan ke database
               </div>
             </div>
-            <div class="flex-1">
-              <h6 class="font-bold text-sm text-text">Test Import (Dry Run)</h6>
-              <p class="text-xs text-text/70 mt-1.5 leading-relaxed font-medium">
-                Sistem akan melakukan simulasi upload untuk mengecek validitas data dan menampilkan error jika ada,
-                <strong>tanpa menyimpan perubahan apapun</strong> ke database.
-              </p>
-            </div>
-          </label>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" v-model="isDryRun" class="sr-only peer" />
+              <div
+                class="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-secondary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-primary after:border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-checked:after:bg-secondary"
+              ></div>
+            </label>
+          </div>
 
           <div class="mt-auto shrink-0">
             <button
               @click="handleImport"
               :disabled="!selectedFile || isImporting"
-              class="w-full px-5 py-4 bg-primary text-secondary rounded-2xl font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20 flex justify-center items-center gap-2 transition-all text-[15px]"
+              class="w-full px-5 py-4 bg-primary text-secondary rounded-2xl font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20 transition-all flex justify-center items-center gap-2 text-[15px]"
             >
               <font-awesome-icon v-if="isImporting" icon="fa-solid fa-spinner" spin />
-              <font-awesome-icon v-else icon="fa-solid fa-upload" />
-              <span>{{ isImporting ? 'Mengunggah...' : 'Upload & Terapkan Perubahan' }}</span>
+              <font-awesome-icon v-else icon="fa-solid fa-cloud-arrow-up" />
+              <span>{{ isImporting ? 'Mengupload File...' : 'Mulai Proses Import' }}</span>
             </button>
+            <p class="text-xs text-center mt-3.5 text-text/50 font-medium">
+              Data akan diimpor melalui antrean latar belakang untuk menghindari waktu tunggu browser.
+            </p>
           </div>
         </div>
 
         <!-- STEP 3: LOGS -->
-        <div
-          v-if="activeTab === 'logs'"
-          class="flex-1 flex flex-col h-full overflow-hidden bg-secondary/5 rounded-2xl border border-secondary/10 p-3"
-        >
-          <ImportJobHistory :job-types="['BATCH_EDIT_PRODUCT', 'BATCH_EDIT_PRODUCT_DRY_RUN']" />
+        <div v-if="activeTab === 'logs'" class="flex-1 flex flex-col h-full overflow-hidden">
+          <ImportJobHistory :job-type="effectiveImportJobType" />
         </div>
       </div>
     </div>

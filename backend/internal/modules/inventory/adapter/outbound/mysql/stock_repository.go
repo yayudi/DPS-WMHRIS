@@ -199,7 +199,7 @@ func (r *stockRepositoryImpl) GetBatchLogs(ctx context.Context, filter inventory
 	}
 	selectQuery = r.db.Rebind(selectQuery)
 
-	return utils.FetchPaginated[inventory_dto.BatchLogResponse](ctx, r.db, selectQuery, filter.Page, filter.Limit, args...)
+	return database.FetchPaginated[inventory_dto.BatchLogResponse](ctx, r.db, selectQuery, filter.Page, filter.Limit, args...)
 }
 
 func (r *stockRepositoryImpl) GetStockHistory(ctx context.Context, filter inventory_dto.StockHistoryFilter) (utils.PaginatedResult[inventory_dto.StockHistoryResponse], error) {
@@ -248,5 +248,5 @@ func (r *stockRepositoryImpl) GetStockHistory(ctx context.Context, filter invent
 
 	query += " ORDER BY sm.created_at DESC"
 
-	return utils.FetchPaginated[inventory_dto.StockHistoryResponse](ctx, r.db, query, filter.Page, filter.Limit, args...)
+	return database.FetchPaginated[inventory_dto.StockHistoryResponse](ctx, r.db, query, filter.Page, filter.Limit, args...)
 }

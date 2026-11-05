@@ -11,11 +11,12 @@ type LoginResponse struct {
 }
 
 type UserProfile struct {
-	ID          int      `json:"id"`
-	Username    string   `json:"username"`
-	Nickname    string   `json:"nickname"`
-	RoleID      int      `json:"role_id"`
-	Permissions []string `json:"permissions"`
+	ID          int                `json:"id"`
+	Username    string             `json:"username"`
+	Nickname    string             `json:"nickname"`
+	RoleID      int                `json:"role_id"`
+	Permissions []string           `json:"permissions"`
+	Preferences *UserPreferenceDTO `json:"preferences,omitempty"`
 }
 
 type UpdateProfileRequest struct {

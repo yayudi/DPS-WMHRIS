@@ -5,90 +5,126 @@ trigger: always_on
 # SYSTEM CONTEXT: WMS & HRIS PROJECT RULES
 
 ## 1. SYSTEM IDENTITY & TECH STACK
+
 **Role:** Expert Full Stack Developer (Vue.js + Golang).
 **Environment:** VPS (Virtual Private Server).
 
 ### Technology Stack
+
 * **Frontend:** Vue.js 3 (Composition API, `<script setup>`), Tailwind CSS.
 * **Backend:** Golang (Gin Framework), MySQL (Library: `database/sql` + `sqlx`).
 * **Message Broker / Event Bus:** RabbitMQ.
+
+### Technology Stack & Current Phase
+
+* **Current Focus:** Active implementation of **Golang Backend (Hexagonal/DDD)** and real-time **Kelja.id Synchronization** (RabbitMQ Event Bus + REST API Pull Model for Slotting/Fulfillment). Legacy Node.js migration is complete.
+* **Frontend:** Vue.js 3 (Composition API, `<script setup>`), Tailwind CSS, TanStack Query.
+* **Backend:** Golang (Gin Framework, Go 1.25+), MySQL (Library: `database/sql` + `sqlx`), DI via `google/wire`.
+* **Message Broker / Event Bus:** RabbitMQ (`amqp091-go`) with strict event idempotency via `processed_events`.
 * **Testing:** Go `testing` package.
 * **Execution Constraint:** Heavy data processing **MUST** run via CLI Workers/Goroutines, never blocking HTTP requests to avoid timeouts.
 
 ---
 
 ## 2. BACKEND ARCHITECTURE (HEXAGONAL / PORTS & ADAPTERS)
+
 Adhere strictly to the **Domain-Driven Design (Hexagonal Architecture)** pattern.
 The backend code must be grouped by **Domain / Bounded Context** inside `backend/internal/modules/` (e.g., `iam`, `hris`, `catalog`, `inventory`).
 Within each domain folder, the standard layers are maintained:
 
 ### A. Domain Layer (`.../domain/`)
+
 **Role:** The Core Business Logic.
+
 * **DO:**
-    * Define Entities, Value Objects, and Domain Services.
-    * Implement pure business logic without depending on ANY external libraries, database frameworks, or HTTP context.
-    * Define Custom Domain Errors.
+  * Define Entities, Value Objects, and Domain Services.
+  * Implement pure business logic without depending on ANY external libraries, database frameworks, or HTTP context.
+  * Define Custom Domain Errors.
 
 ### B. Port Layer (`.../port/`)
+
 **Role:** Interfaces connecting the Application to the Outside World.
+
 * **DO:**
-    * Define **Inbound Ports** (Interfaces implemented by Use Cases).
-    * Define **Outbound Ports** (Interfaces for Repositories, EventBus, external APIs).
+  * Define **Inbound Ports** (Interfaces implemented by Use Cases).
+  * Define **Outbound Ports** (Interfaces for Repositories, EventBus, external APIs).
 
 ### C. Application Layer (`.../application/`)
+
 **Role:** Application Use Cases (formerly Service layer).
+
 * **DO:**
-    * Implement Inbound Ports.
-    * Orchestrate domain logic using Entities and Outbound Ports (e.g., calling Repositories).
-    * **Manage Transactions:** Use `database.TransactionManager` injected via DI. Wrap operations in `s.txManager.WithTransaction(ctx, func(ctx context.Context) error { ... })`. **NEVER** inject `*sqlx.DB` directly into UseCases.
-    * Accept and return simple DTOs or domain models (NO `gin.Context` or HTTP Request structures).
+  * Implement Inbound Ports.
+  * Orchestrate domain logic using Entities and Outbound Ports (e.g., calling Repositories).
+  * **Manage Transactions:** Use `database.TransactionManager` injected via DI. Wrap operations in `s.txManager.WithTransaction(ctx, func(ctx context.Context) error { ... })`. **NEVER** inject `*sqlx.DB` directly into UseCases.
+  * Accept and return simple DTOs or domain models (NO `gin.Context` or HTTP Request structures).
 
 ### D. Adapter Layer (`.../adapter/`)
+
 **Role:** External integration (HTTP, Database, Event Listeners).
+
 * **DO:**
-    * **Inbound (`adapter/inbound/http`)**: HTTP Handlers. Parse HTTP requests (Gin), perform structural validation, map to Application DTOs, and call Application Use Cases. **NEVER** inject raw database connections here.
-    * **Outbound (`adapter/outbound/mysql`)**: Repositories implementing Outbound Ports using `database/sql` + `sqlx`. Handle SQL execution here ONLY. Extract active transactions gracefully using `database.GetExt(ctx, r.db)`.
+  * **Inbound (`adapter/inbound/http`)**: HTTP Handlers. Parse HTTP requests (Gin), perform structural validation, map to Application DTOs, and call Application Use Cases. **NEVER** inject raw database connections here.
+  * **Outbound (`adapter/outbound/mysql`)**: Repositories implementing Outbound Ports using `database/sql` + `sqlx`. Handle SQL execution here ONLY. Extract active transactions gracefully using `database.GetExt(ctx, r.db)`.
 
 ### E. Cross-Domain Communication (CRITICAL)
+
 * **Rule:** A domain MUST NOT directly query the database tables, Repositories, or Application Use Cases of another domain.
 * **Practice:** Use **RabbitMQ (Event Bus)** to publish and consume Domain Events to communicate state changes asynchronously across domains.
 
 ### F. Boilerplate vs. DRY
+
 * **Rule:** Hexagonal Architecture introduces boilerplate (e.g., interface definitions, DTO-to-Entity mappers). This boilerplate is **ALLOWED** and expected for loose coupling.
 * **Practice:** Even with boilerplate, apply **DRY (Don't Repeat Yourself)** principles within each layer where possible (e.g., generic repository helpers, shared validation logic).
 
 ---
 
 ## 3. SINGLE SOURCE OF TRUTH (CRITICAL)
+
 The Agent **MUST** read these files before generating code to prevent hallucinations.
 
+## 3. SINGLE SOURCE OF TRUTH & MCP WORKFLOW (CRITICAL)
+
+The Agent **MUST** consult these authoritative sources and active MCP tools before generating code to prevent hallucinations.
+
 | Context Type | File Path | Instruction |
+
+| Context Type | Source / MCP Tool | Instruction |
 | :--- | :--- | :--- |
 | **DB Schema** | `.agent/context/schema.sql` | **READ FIRST.** Verify table names, columns, types, and FKs before writing SQL. |
 | **API Contract** | `.agent/context/api_docs.md` | Ensure Handlers output JSON matching these contracts. |
 | **Business Logic** | `.agent/context/architecture.md` | Check specific WMS rules (e.g., FIFO, Stock validation). |
+| **DB Schema** | `.agent/context/schema.sql` & **MySQL MCP** (`mysql_query`) | **READ FIRST.** Verify live tables, columns, types, and FKs in `db_wms_dev` before writing SQL. |
+| **API Contract** | `docs/openapi.json` & **OpenAPI MCP** (`openapi_*`) | Ensure Gin Handlers and DTOs match standard contracts and `docs/postman/DPS_WMHRIS.postman_collection.json`. |
+| **Kelja.id Sync & WMS Logic** | `docs/wms_kelja_fulfillment_flow.md` & `docs/wms_locational_metadata_slotting_master_plan.md` | Follow Kelja.id fulfillment/reservation rules, idempotency (`processed_events`), Greedy Display allocation, and `Ruang - Rak - Tingkat` slotting metadata. |
+| **Replenishment & System Overview** | `docs/wms_manual_replenishment_master_plan.md` & `.agent/context/project_summary.md` | Check manual replenishment rules and module boundaries. |
+| **Broker, Containers & Docs** | **RabbitMQ MCP**, **Docker MCP**, **Context7 MCP**, **MarkItDown/DuckDB MCP** | Use RabbitMQ MCP to inspect exchanges/queues/DLQs for Kelja.id events, Docker MCP for container logs, Context7 for up-to-date Go/Vue docs, and MarkItDown/DuckDB for `.xlsx`/`.csv` analysis. |
 
 ---
 
 ## 4. CODE STYLE & CONVENTIONS
+
 * **Language:** Golang (Go 1.21+).
 * **Documentation:** **Godoc is Mandatory** for all exported packages, functions, and structs.
 * **Guard Clauses:** Use early returns (`if err != nil`) to avoid deep nesting.
 * **Naming Conventions:**
-    * **Database Columns:** `snake_case` (e.g., `is_active`, `created_at`)
-    * **Go Variables/Structs:** `camelCase` for unexported, `PascalCase` for exported (e.g., `isActive`, `CreatedAt`)
-    * **Files:** `snake_case` (e.g., `product_service.go`, `user_repository.go`)
+  * **Database Columns:** `snake_case` (e.g., `is_active`, `created_at`)
+  * **Go Variables/Structs:** `camelCase` for unexported, `PascalCase` for exported (e.g., `isActive`, `CreatedAt`)
+  * **Files:** `snake_case` (e.g., `product_service.go`, `user_repository.go`)
 * **Environment Variables & Hardcoding:** NEVER hardcode URLs, credentials, or environment-specific values in the source code. All URLs (like `MEDIA_URL`, `R2_PUBLIC_URL`, `RABBITMQ_URL`) MUST be fetched from the `.env` file via the `config` package.
 
 ---
 
 ## 5. API RESPONSE STRUCTURE
+
 All Handlers **MUST** return JSON in this exact format.
 
 ### Frontend Integration Rule
+
 Frontend API fetchers **MUST** inspect `response.success`. If `false`, throw the `message` to the UI error handler. Do not blindly assume 200 OK means success.
 
 **Success:**
+
 ```json
 {
   "success": true,
@@ -98,6 +134,7 @@ Frontend API fetchers **MUST** inspect `response.success`. If `false`, throw the
 ```
 
 **Error:**
+
 ```json
 {
   "success": false,
@@ -109,38 +146,48 @@ Frontend API fetchers **MUST** inspect `response.success`. If `false`, throw the
 ---
 
 ## 6. TESTING STRATEGY (GO TESTING)
+
 The project uses the standard Go `testing` package.
 
 ### A. Environment Configuration
+
 * **File Extension:** Test files must end in `_test.go`.
 * **Execution:** Run tests using `go test ./...`.
 
 ### B. Mocking Strategy
+
 * **Method:** Use interfaces for Repositories and Services. Generate mocks using `mockgen` or write manual mock structs to satisfy interfaces.
 * **Pattern:** Inject mock dependencies into the Service/Handler during test initialization.
 
 ### C. Isolation Rules
-1.  **NO Real Database:** For unit tests, mock the Repository interface entirely. Integration tests can use isolated DB instances (e.g., testcontainers).
-2.  **File System:** Use `afero` or standard Go `testing/fstest` to mock file systems during tests to prevent creating junk files.
+
+1. **NO Real Database:** For unit tests, mock the Repository interface entirely. Integration tests can use isolated DB instances (e.g., testcontainers).
+2. **File System:** Use `afero` or standard Go `testing/fstest` to mock file systems during tests to prevent creating junk files.
 
 ---
 
 ## 7. WORKER SYSTEM (CLI & BACKGROUND JOBS)
+
 **Context:** VPS. Heavy processes (e.g., Payroll calculation, Stock Opname) **MUST** run as CLI scripts or Daemon, not blocking HTTP requests.
 
 ### A. Execution Context
+
 * **Entry Point:** Goroutines for in-process background tasks, or separate CLI binaries in `cmd/worker/`.
 * **Trigger:** Executed via CRON jobs invoking the CLI binary, or internal task queues.
 
 ### B. Path Safety (CRITICAL)
+
 **Problem:** Relative paths (`./file`) break in CLI/Worker environments because the execution directory varies.
 **Rule:** Use absolute paths based on configuration or executable location.
 
 * **DO NOT:**
+
     ```go
     file, err := os.Open("./data/export.csv") // WILL FAIL if executed from different dir
     ```
+
 * **DO:**
+
     ```go
     execPath, _ := os.Executable()
     baseDir := filepath.Dir(execPath)
@@ -150,21 +197,25 @@ The project uses the standard Go `testing` package.
 ---
 
 ## 8. DEPENDENCY MANAGEMENT (STRICT)
+
 **Context:** To prevent bloat, security risks, and compatibility issues, no new modules should be added without explicit approval.
 
 ### A. No Silent Installs
+
 * **Rule:** The Agent **MUST NOT** install any new Go module (e.g., `go get x`) without first asking for permission.
 * **Procedure:**
-    1.  Check if an existing package can solve the problem (Read `go.mod`).
-    2.  If not, propose the new package with a justification.
-    3.  Wait for user confirmation (Yes/No).
+    1. Check if an existing package can solve the problem (Read `go.mod`).
+    2. If not, propose the new package with a justification.
+    3. Wait for user confirmation (Yes/No).
 
 ### B. Verification First
+
 * **Proof of Awareness:** Before suggesting a new library, the Agent must prove it has read `go.mod` to verify the library doesn't already exist or a similar one isn't available.
 
 ---
 
 ## 9. GIT & SECURITY DISCIPLINE (CRITICAL)
+
 **Context:** To prevent sensitive data leaks and keep the repository clean.
 
 * **Rule:** You MUST NOT track or commit sensitive files, credentials, or large local backups.
@@ -177,7 +228,9 @@ The project uses the standard Go `testing` package.
 ---
 
 ## 10. MAINTAINING DDD PURITY (CRITICAL)
+
 **Context:** The project has achieved 100% Hexagonal Architecture (DDD) compliance. We must maintain this purity.
+
 * **Rule:** Do not introduce ANY leaking abstractions under any circumstances.
 * **Procedure:**
     1. **Dependency Injection:** Use `google/wire` exclusively in `cmd/api` and `cmd/worker`. Never construct services manually inside handlers.
@@ -188,11 +241,12 @@ The project uses the standard Go `testing` package.
 ---
 
 ## 11. AGENT WORKFLOW & EXPERIMENTATION (VIBECODER GUIDELINES)
+
 **Context:** To keep the repository clean from temporary scripts, unused logic, and misplaced files generated during AI pair programming.
 
-* **Rule 1: Scratchpad for Experiments (Explicit Pathing)** 
+* **Rule 1: Scratchpad for Experiments (Explicit Pathing)**
   NEVER generate temporary scripts, regex sandbox files, or throwaway experiments in the project root (`./`) or source directories. ALWAYS specify the path explicitly and place temporary files ONLY inside `scratch/`.
-* **Rule 2: Test-Driven Utility Creation** 
+* **Rule 2: Test-Driven Utility Creation**
   When creating complex logic (like Regex, Data Parsing, etc.) intended for permanent use, do NOT create standalone script files to test them. Use a Test-Driven approach: implement the function in the correct package (e.g., `pkg/utils/regex.go`) and immediately create its corresponding unit test (e.g., `pkg/utils/regex_test.go`).
-* **Rule 3: Explicit Paths for Permanent Scripts** 
+* **Rule 3: Explicit Paths for Permanent Scripts**
   If a permanent utility or worker script must be created, do not guess the location. Place it in explicit designated folders (e.g., `scripts/` for bash/python/node utilities, or `cmd/worker/` for Go workers).

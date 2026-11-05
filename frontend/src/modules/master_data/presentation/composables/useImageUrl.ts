@@ -1,5 +1,4 @@
 import { ref } from 'vue'
-import apiClient from '@/core/infrastructure/http.client'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 
 /**
@@ -8,7 +7,7 @@ import { useAuthStore } from '@/modules/auth/application/auth.store'
  * MediaInfoModal, and MediaLightbox.
  */
 
-const baseUrl = apiClient.defaults.baseURL || import.meta.env.VITE_API_BASE_URL || ''
+const baseUrl = import.meta.env.VITE_API_BASE_URL || ''
 
 /** Backend root URL (without /api suffix) */
 export const backendUrl = import.meta.env.VITE_API_MEDIA_URL || baseUrl.replace(/\/api\/?$/, '')

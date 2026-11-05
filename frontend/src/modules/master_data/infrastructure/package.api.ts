@@ -1,5 +1,4 @@
 import { http } from '@/core/infrastructure/http.client'
-import type { ProductSearchFilter } from '../domain/product.entity'
 
 export const packageApi = {
   /**
@@ -15,7 +14,7 @@ export const packageApi = {
    * Export daftar paket ke file
    */
   async exportPackages(params: Record<string, any>): Promise<any> {
-    const response = await http.get('/packages/export', { params, responseType: 'blob' })
+    const response = await http.get('/packages/export', { params })
     return response
   },
 

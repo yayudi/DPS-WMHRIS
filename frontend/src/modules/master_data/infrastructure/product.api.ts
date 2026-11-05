@@ -1,5 +1,6 @@
 import { http } from '@/core/infrastructure/http.client'
 import type { ProductSearchFilter } from '../domain/product.entity'
+import { packageApi } from './package.api'
 
 export const productApi = {
   /**
@@ -10,10 +11,15 @@ export const productApi = {
     return response.data
   },
 
+  async createProduct(payload: any): Promise<any> {
+    const response = await http.post('/products', payload)
+    return response.data
+  },
+
   /**
    * Mencari produk berdasarkan nama/SKU.
    */
-  async searchProducts(filter: ProductSearchFilter): Promise<any> {
+  async searchProducts(filter: ProductSearchFilter | { q: string; [key: string]: any }): Promise<any> {
     const params: Record<string, any> = { q: filter.q, page: filter.page || 1, limit: filter.limit || 20 }
     if (filter.locationId) params.locationId = filter.locationId
     if (filter.inStockOnly) params.inStockOnly = true
@@ -38,21 +44,22 @@ export const productApi = {
   },
 
   async exportProducts(params: Record<string, any>): Promise<any> {
-    const response = await http.get('/products/export', { params, responseType: 'blob' }) // Assuming blob for export
+    const response = await http.get('/products/export', { params })
     return response
   },
 
+  /**
+   * @deprecated Pindah ke packageApi.exportPackages
+   */
   async exportPackages(params: Record<string, any>): Promise<any> {
-    const response = await http.get('/packages/export', { params, responseType: 'blob' })
-    return response
+    return packageApi.exportPackages(params)
   },
 
+  /**
+   * @deprecated Pindah ke packageApi.uploadPackageUpdate
+   */
   async uploadPackageUpdate(formData: FormData): Promise<any> {
-    return http.post('/packages/batch/update', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+    return packageApi.uploadPackageUpdate(formData)
   },
 
   /**
@@ -60,6 +67,46 @@ export const productApi = {
    */
   async fetchProductById(id: number | string): Promise<any> {
     const response = await http.get(`/products/${id}`)
+    return response.data
+  },
+
+  /**
+   * Menghubungkan media asset ke produk.
+   */
+  async linkMedia(productId: number | string, payload: { mediaId?: number; mediaIds?: number[]; isPrimary?: boolean }): Promise<any> {
+    const response = await http.post(`/products/${productId}/link-media`, payload)
+    return response.data
+  },
+
+  /**
+   * Menghapus gambar produk (relasi pivot).
+   */
+  async deleteProductImage(productId: number | string, imageId: number | string): Promise<any> {
+    const response = await http.delete(`/products/${productId}/images/${imageId}`)
+    return response.data
+  },
+
+  /**
+   * Menjadikan gambar produk sebagai gambar utama.
+   */
+  async setPrimaryImage(productId: number | string, imageId: number | string): Promise<any> {
+    const response = await http.put(`/products/${productId}/images/${imageId}/primary`)
+    return response.data
+  },
+
+  /**
+   * Mengambil riwayat audit log produk.
+   */
+  async fetchProductHistory(productId: number | string): Promise<any> {
+    const response = await http.get(`/products/${productId}/history`)
+    return response.data
+  },
+
+  /**
+   * Mengambil daftar produk untuk dropdown admin inbound.
+   */
+  async fetchAllProductsAdminList(): Promise<any> {
+    const response = await http.get('/products/admin-list')
     return response.data
   },
 

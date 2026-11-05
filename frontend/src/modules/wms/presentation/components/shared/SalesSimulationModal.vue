@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useToast } from '@/core/presentation/composables/useToast'
-import axios from '@/core/infrastructure/http.client'
+import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import debounce from 'lodash/debounce'
@@ -82,10 +82,8 @@ const handleSearch = debounce(async () => {
 
   isSearching.value = true
   try {
-    const response = await axios.get('/products/search', {
-      params: { q: searchQuery.value }
-    })
-    searchResults.value = response.data
+    const data = await productApi.searchProducts({ q: searchQuery.value })
+    searchResults.value = Array.isArray(data) ? data : data?.data || []
     showSearchResults.value = true
   } catch (err) {
     console.error(err)

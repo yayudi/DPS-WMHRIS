@@ -49,7 +49,7 @@ export function normalizeLogs(allUsers, logRows, holidayMap, arg4, arg5) {
 
   // DETEKSI MODE: Range (String) atau Month (Number)
   const isRangeMode = typeof arg4 === 'string' && arg4.includes('-')
-  let dateList = []
+  const dateList = []
   let startDateObj, endDateObj
 
   if (isRangeMode) {

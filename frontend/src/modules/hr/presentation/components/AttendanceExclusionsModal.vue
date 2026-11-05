@@ -2,7 +2,7 @@
 import { ref, watch, computed } from 'vue'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
-import api from '@/core/infrastructure/http.client'
+import { userApi } from '@/modules/settings/infrastructure/user.api'
 import { useToast } from '@/core/presentation/composables/useToast'
 const masterData = useMasterDataStore()
 
@@ -65,7 +65,7 @@ async function toggleExclusion(user) {
       exclude_from_attendance: newValue
     }
 
-    await api.put(`/admin/users/${user.id}`, payload)
+    await userApi.updateUser(user.id, payload)
 
     // Update local state to reflect UI change instantly
     user.exclude_from_attendance = newValue

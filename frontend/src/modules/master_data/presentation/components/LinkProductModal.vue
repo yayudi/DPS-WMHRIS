@@ -2,7 +2,7 @@
 import { swalAlert } from '@/core/presentation/composables/useSweetAlert'
 import { ref, watch } from 'vue'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
-import axios from '@/core/infrastructure/http.client'
+import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { useProductSearch } from '@/modules/wms/application/useProductSearch'
 
 const props = defineProps({
@@ -54,8 +54,8 @@ const submitAll = async () => {
 
   try {
     const promises = selectedProducts.value.map((prod) =>
-      axios
-        .post(`/products/${prod.id}/link-media`, {
+      productApi
+        .linkMedia(prod.id, {
           mediaIds: props.selectedMediaIds,
         })
         .then(() => successCount++)

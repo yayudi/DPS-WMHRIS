@@ -34,11 +34,16 @@ type MediaRepository interface {
 }
 
 type mediaRepositoryImpl struct {
+	database.BaseRepository[system_dto.MediaAssetResponse]
 	db *sqlx.DB
 }
 
 func NewMediaRepository(db *sqlx.DB) MediaRepository {
-	return &mediaRepositoryImpl{db: db}
+	base := database.NewBaseRepository[system_dto.MediaAssetResponse](db, "media_assets")
+	return &mediaRepositoryImpl{
+		BaseRepository: base,
+		db:             db,
+	}
 }
 
 func buildFilterClause(filter MediaFilter) (string, []interface{}) {
@@ -103,23 +108,6 @@ func buildFilterClause(filter MediaFilter) (string, []interface{}) {
 func (r *mediaRepositoryImpl) GetMediaAssets(ctx context.Context, page, limit int, filter MediaFilter) (utils.PaginatedResult[system_dto.MediaAssetResponse], error) {
 	clause, params := buildFilterClause(filter)
 
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 {
-		limit = 20
-	}
-
-	var total int
-	err := r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM media_assets m "+clause, params...)
-	if err != nil {
-		return utils.PaginatedResult[system_dto.MediaAssetResponse]{}, err
-	}
-
-	if total == 0 {
-		return utils.PaginatedResult[system_dto.MediaAssetResponse]{Data: []system_dto.MediaAssetResponse{}, Page: page, Limit: limit, Total: 0}, nil
-	}
-
 	query := `
 		SELECT m.*,
 			(SELECT COUNT(p.id) FROM product_images p WHERE p.media_id = m.id) AS usage_count,
@@ -127,34 +115,15 @@ func (r *mediaRepositoryImpl) GetMediaAssets(ctx context.Context, page, limit in
 		FROM media_assets m
 		` + clause + `
 		ORDER BY m.created_at DESC
-		LIMIT ? OFFSET ?
 	`
 
-	offset := (page - 1) * limit
-	fetchParams := append(params, limit, offset)
-
-	var data []system_dto.MediaAssetResponse
-	if err := r.db.SelectContext(ctx, &data, query, fetchParams...); err != nil {
-		return utils.PaginatedResult[system_dto.MediaAssetResponse]{}, err
-	}
-
-	totalPages := total / limit
-	if total%limit != 0 {
-		totalPages++
-	}
-
-	return utils.PaginatedResult[system_dto.MediaAssetResponse]{
-		Data:       data,
-		Total:      total,
-		Page:       page,
-		Limit:      limit,
-		TotalPages: totalPages,
-	}, nil
+	return database.FetchPaginated[system_dto.MediaAssetResponse](ctx, r.db, query, page, limit, params...)
 }
 
 func (r *mediaRepositoryImpl) GetMediaDetailsWithProducts(ctx context.Context, mediaID int) (*system_dto.MediaAssetResponse, error) {
+	ext := database.GetExt(ctx, r.db)
 	var media system_dto.MediaAssetResponse
-	err := r.db.GetContext(ctx, &media, "SELECT * FROM media_assets WHERE id = ?", mediaID)
+	err := ext.GetContext(ctx, &media, "SELECT * FROM media_assets WHERE id = ?", mediaID)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +145,7 @@ func (r *mediaRepositoryImpl) GetMediaDetailsWithProducts(ctx context.Context, m
 		WHERE pi.media_id = ?
 		ORDER BY pi.id DESC
 	`
-	err = r.db.SelectContext(ctx, &products, query, mediaID)
+	err = ext.SelectContext(ctx, &products, query, mediaID)
 	if err == nil {
 		if products == nil {
 			products = []ProductItem{}
@@ -216,8 +185,9 @@ func (r *mediaRepositoryImpl) CreateMediaAsset(ctx context.Context, payload map[
 }
 
 func (r *mediaRepositoryImpl) GetMediaAssetByHash(ctx context.Context, hash string) (*int, error) {
+	ext := database.GetExt(ctx, r.db)
 	var id int
-	err := r.db.GetContext(ctx, &id, "SELECT id FROM media_assets WHERE hash = ?", hash)
+	err := ext.GetContext(ctx, &id, "SELECT id FROM media_assets WHERE hash = ?", hash)
 	if err != nil {
 		return nil, nil // Return nil, nil if not found (or error)
 	}
@@ -228,22 +198,17 @@ func (r *mediaRepositoryImpl) InsertTrashQueue(ctx context.Context, r2Key string
 	if r2Key == "" {
 		return nil
 	}
-	_, err := r.db.ExecContext(ctx, "INSERT INTO r2_trash_queue (r2_key) VALUES (?)", r2Key)
+	ext := database.GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, "INSERT INTO r2_trash_queue (r2_key) VALUES (?)", r2Key)
 	return err
 }
 
 func (r *mediaRepositoryImpl) DeleteMediaAsset(ctx context.Context, mediaID int) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM media_assets WHERE id = ?", mediaID)
-	return err
+	return r.SoftDelete(ctx, mediaID)
 }
 
 func (r *mediaRepositoryImpl) GetMediaAssetByID(ctx context.Context, mediaID int) (*system_dto.MediaAssetResponse, error) {
-	var media system_dto.MediaAssetResponse
-	err := r.db.GetContext(ctx, &media, "SELECT * FROM media_assets WHERE id = ?", mediaID)
-	if err != nil {
-		return nil, err
-	}
-	return &media, nil
+	return r.FindByID(ctx, mediaID)
 }
 
 func (r *mediaRepositoryImpl) GetMediaAssetsByIDs(ctx context.Context, mediaIDs []int) ([]system_dto.MediaAssetResponse, error) {
@@ -255,9 +220,10 @@ func (r *mediaRepositoryImpl) GetMediaAssetsByIDs(ctx context.Context, mediaIDs 
 		return nil, err
 	}
 	log.Println("DEBUG queryMediaAssetsByIDs:", query, "with params:", args)
+	ext := database.GetExt(ctx, r.db)
 	query = r.db.Rebind(query)
 	var rows []system_dto.MediaAssetResponse
-	err = r.db.SelectContext(ctx, &rows, query, args...)
+	err = ext.SelectContext(ctx, &rows, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -278,11 +244,13 @@ func (r *mediaRepositoryImpl) UpdateMediaTags(ctx context.Context, mediaID int, 
 		tagsStr = &s
 	}
 
-	_, err := r.db.ExecContext(ctx, "UPDATE media_assets SET tags = ? WHERE id = ?", tagsStr, mediaID)
+	ext := database.GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, "UPDATE media_assets SET tags = ? WHERE id = ?", tagsStr, mediaID)
 	return err
 }
 
 func (r *mediaRepositoryImpl) UpdateMediaTitle(ctx context.Context, mediaID int, title string) error {
-	_, err := r.db.ExecContext(ctx, "UPDATE media_assets SET title = ? WHERE id = ?", title, mediaID)
+	ext := database.GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, "UPDATE media_assets SET title = ? WHERE id = ?", title, mediaID)
 	return err
 }

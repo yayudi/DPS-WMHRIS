@@ -2,6 +2,8 @@ package domain
 
 import "time"
 
+// SystemSetting represents system-wide runtime configuration key-values.
+// keep: settings table only has updated_at, without created_at.
 type SystemSetting struct {
 	ID          int       `db:"id" json:"id"`
 	SettingKey  string    `db:"setting_key" json:"setting_key"`

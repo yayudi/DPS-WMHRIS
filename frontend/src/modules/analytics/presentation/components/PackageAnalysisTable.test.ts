@@ -4,9 +4,9 @@ import { createTestingPinia } from '@pinia/testing'
 import PackageAnalysisTable from '@/modules/analytics/presentation/components/PackageAnalysisTable.vue'
 
 // --- Mocking ---
-vi.mock('@/modules/analytics/application/utils/stats.js', () => ({
-  fetchPackageAnalysis: vi.fn().mockResolvedValue({
-    data: [
+vi.mock('@/modules/analytics/infrastructure/analytics.api', () => ({
+  analyticsApi: {
+    fetchPackageAnalysis: vi.fn().mockResolvedValue([
       {
         id: 1,
         packageSku: 'PKG-001',
@@ -20,11 +20,8 @@ vi.mock('@/modules/analytics/application/utils/stats.js', () => ({
         subTotalCost: 20000,
         stockStatus: 'SAFE'
       }
-    ],
-    meta: {
-      totalItems: 1
-    }
-  })
+    ])
+  }
 }))
 
 vi.mock('@/core/presentation/composables/useToast', () => ({
@@ -83,13 +80,13 @@ describe('PackageAnalysisTable.vue', () => {
   })
 
   it('calls fetchPackageAnalysis API on mount', async () => {
-    const { fetchPackageAnalysis } = await import('@/modules/analytics/application/utils/stats')
+    const { analyticsApi } = await import('@/modules/analytics/infrastructure/analytics.api')
     mountComponent() // mount the component
     
     // API is called inside usePagination's fetchPaginatedData, which is triggered after setup
     // wait for next tick or promises
     await new Promise(resolve => setTimeout(resolve, 0))
     
-    expect(fetchPackageAnalysis).toHaveBeenCalled()
+    expect(analyticsApi.fetchPackageAnalysis).toHaveBeenCalled()
   })
 })

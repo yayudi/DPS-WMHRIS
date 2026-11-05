@@ -61,7 +61,8 @@ func (r *notificationRepositoryImpl) GetRecentPending(ctx context.Context, userI
 		LIMIT ?
 	`
 	var rows []system_dto.NotificationResponse
-	err := r.db.SelectContext(ctx, &rows, query, userID, userID, userID, limit)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &rows, query, userID, userID, userID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +99,8 @@ func (r *notificationRepositoryImpl) GetAll(ctx context.Context, userID int, fil
 	query += " ORDER BY n.created_at DESC LIMIT 50"
 
 	var rows []system_dto.NotificationResponse
-	err := r.db.SelectContext(ctx, &rows, query, args...)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &rows, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +179,8 @@ func (r *notificationRepositoryImpl) ClaimTask(ctx context.Context, notification
 func (r *notificationRepositoryImpl) GetPreferences(ctx context.Context, userID int) ([]system_dto.NotificationPreference, error) {
 	query := "SELECT type, is_enabled FROM user_notification_preferences WHERE user_id = ?"
 	var prefs []system_dto.NotificationPreference
-	err := r.db.SelectContext(ctx, &prefs, query, userID)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &prefs, query, userID)
 	if err != nil {
 		return nil, err
 	}

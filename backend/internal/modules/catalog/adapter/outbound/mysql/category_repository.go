@@ -16,15 +16,13 @@ type categoryRepositoryImpl struct {
 }
 
 func (r *categoryRepositoryImpl) FindAllActive(ctx context.Context) ([]domain.Category, error) {
-	var categories []domain.Category
-	query := "SELECT id, name, is_active, created_at, updated_at FROM categories WHERE is_active = 1"
-	err := r.db.SelectContext(ctx, &categories, query)
-	return categories, err
+	return r.FindAll(ctx)
 }
 
 func (r *categoryRepositoryImpl) Create(ctx context.Context, category *domain.Category) error {
 	query := "INSERT INTO categories (name, is_active) VALUES (?, ?)"
-	res, err := r.db.ExecContext(ctx, query, category.Name, category.IsActive)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, query, category.Name, category.IsActive)
 	if err != nil {
 		return err
 	}
@@ -37,14 +35,13 @@ func (r *categoryRepositoryImpl) Create(ctx context.Context, category *domain.Ca
 
 func (r *categoryRepositoryImpl) Update(ctx context.Context, id int, name string) error {
 	query := "UPDATE categories SET name = ? WHERE id = ?"
-	_, err := r.db.ExecContext(ctx, query, name, id)
+	ext := database.GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, query, name, id)
 	return err
 }
 
 func (r *categoryRepositoryImpl) Delete(ctx context.Context, id int) error {
-	query := "UPDATE categories SET is_active = 0 WHERE id = ?"
-	_, err := r.db.ExecContext(ctx, query, id)
-	return err
+	return r.SoftDelete(ctx, id)
 }
 
 func NewCategoryRepository(db *sqlx.DB) catalog_port.CategoryRepository {

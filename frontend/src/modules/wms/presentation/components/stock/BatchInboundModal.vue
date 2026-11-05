@@ -458,7 +458,7 @@ import { useToast } from '@/core/presentation/composables/useToast'
 import { useDownload } from '@/core/presentation/composables/useDownload'
 import { useUpload } from '@/core/presentation/composables/useUpload'
 import { useMobile } from '@/core/presentation/composables/useMobile'
-import axios from '@/core/infrastructure/http.client'
+import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { stockApi } from '@/modules/wms/infrastructure/stock.api'
 import ImportJobHistory from '@/core/presentation/components/shared/ImportJobHistory.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
@@ -549,8 +549,8 @@ const close = () => {
 // Load dynamic data on modal load
 const loadInboundContext = async () => {
   try {
-    const prodRes = await axios.get('/products/admin-list')
-    activeProducts.value = prodRes.data.data || []
+    const prodRes = await productApi.fetchAllProductsAdminList()
+    activeProducts.value = Array.isArray(prodRes) ? prodRes : prodRes?.data || []
 
     const masterData = useMasterDataStore()
     locations.value = await masterData.getLocations()

@@ -91,16 +91,20 @@ async function handleSearch() {
   hasSearched.value = true
 
   try {
-    const filters = {
+    const params = {
+      startDate: startDate.value,
+      endDate: endDate.value,
+      page: currentPage.value,
+      limit: currentLimit.value,
       productName: searchProduct.value,
       movementType: JSON.stringify(searchType.value),
       sourceLocation: JSON.stringify(searchSourceLocation.value),
       destinationLocation: JSON.stringify(searchDestinationLocation.value),
-      user: searchUser.value,
+      userId: searchUser.value,
       notes: searchNotes.value
     }
 
-    const res = await stockApi.fetchBatchLogs(startDate.value, endDate.value, filters, currentPage.value, currentLimit.value)
+    const res = await stockApi.fetchBatchLogs(params)
     logs.value = res.data || []
     if (res.pagination) {
       totalLogs.value = res.pagination.total
@@ -149,18 +153,20 @@ async function handleExport() {
     ]
     const exportName = generateDynamicExportName('batch_log', parts)
 
-    const filters = {
+    const payload = {
+      startDate: startDate.value,
+      endDate: endDate.value,
       productName: searchProduct.value,
       movementType: JSON.stringify(searchType.value),
       sourceLocation: JSON.stringify(searchSourceLocation.value),
       destinationLocation: JSON.stringify(searchDestinationLocation.value),
-      user: searchUser.value,
+      userId: searchUser.value,
       notes: searchNotes.value,
       format: 'xlsx',
       exportName: exportName
     }
 
-    await stockApi.requestBatchLogExport(startDate.value, endDate.value, filters)
+    await stockApi.requestBatchLogExport(payload)
     downloadStore.notifyNewJob()
     toast('Permintaan ekspor berhasil! Proses berjalan di latar belakang.', 'success')
   } catch (error) {

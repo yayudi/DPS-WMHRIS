@@ -19,6 +19,7 @@ import WmsHistoryModal from '@/modules/wms/presentation/components/shared/Histor
 import WmsProductFormModal from '@/modules/wms/presentation/components/shared/ProductFormModal.vue'
 import ProductImageModal from '@/modules/master_data/presentation/components/products/ProductImageModal.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
+import SlottingModal from '@/modules/wms/presentation/components/slotting/SlottingModal.vue'
 import { defineAsyncComponent } from 'vue'
 
 const StickerGeneratorModal = defineAsyncComponent(() => import('@/modules/master_data/presentation/components/stickers/StickerGeneratorModal.vue'))
@@ -36,6 +37,7 @@ const {
   loader,
   searchBy,
   stockStatusFilter,
+  slottingStatusFilter,
   productTypeFilter,
   hasMoreData,
   searchPlaceholder,
@@ -66,6 +68,8 @@ const { toast } = useToast()
 const { copyToClipboard } = useClipboard()
 const isHistoryModalOpen = ref(false)
 const isTransferModalOpen = ref(false)
+const isSlottingModalOpen = ref(false)
+const selectedSlottingLocationId = ref(null)
 const isUploadModalOpen = ref(false)
 const isAdjustModalOpen = ref(false)
 const selectedProduct = ref(null)
@@ -174,16 +178,23 @@ function handleProductSaved() {
   resetAndRefetch() // Refresh list after create/edit
 }
 
+function openSlottingModal(product, locationId = null) {
+  selectedProduct.value = product
+  selectedSlottingLocationId.value = locationId ? Number(locationId) : null
+  isSlottingModalOpen.value = true
+}
+
 function closeModal() {
   isHistoryModalOpen.value = false
   isTransferModalOpen.value = false
+  isSlottingModalOpen.value = false
   isUploadModalOpen.value = false
   isAdjustModalOpen.value = false
-  isProductFormOpen.value = false
   isProductFormOpen.value = false
   isImageModalOpen.value = false
   isStickerModalOpen.value = false
   selectedProduct.value = null
+  selectedSlottingLocationId.value = null
   selectedStickerProduct.value = null
 }
 
@@ -221,6 +232,7 @@ const anyModalOpen = computed(() => {
   return (
     isHistoryModalOpen.value ||
     isTransferModalOpen.value ||
+    isSlottingModalOpen.value ||
     isUploadModalOpen.value ||
     isAdjustModalOpen.value ||
     isProductFormOpen.value ||
@@ -273,6 +285,7 @@ watch(Escape, pressed => {
           }
         "
         v-model:stock-status-filter="stockStatusFilter"
+        v-model:slotting-status-filter="slottingStatusFilter"
         v-model:product-type-filter="productTypeFilter"
         :selected-building="selectedBuilding"
         @update:selected-building="
@@ -311,6 +324,7 @@ watch(Escape, pressed => {
           :mobile-layout="mobileLayout"
           @copy="copyToClipboard"
           @openTransfer="openTransferModal"
+          @openSlotting="openSlottingModal"
           @openAdjust="openAdjustModal"
           @openHistory="openHistoryModal"
           @openEdit="openEditProductModal"
@@ -320,6 +334,29 @@ watch(Escape, pressed => {
           @view-image="openImageModal"
           @openSticker="openStickerModal"
         >
+          <template #empty-action>
+            <div class="flex items-center gap-2 flex-wrap justify-center">
+              <button
+                v-if="stockStatusFilter !== 'all'"
+                type="button"
+                @click="stockStatusFilter = 'all'"
+                class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 active:scale-95 transition-all flex items-center gap-1.5"
+              >
+                <font-awesome-icon icon="fa-solid fa-rotate-right" />
+                <span>Tampilkan semua status stok</span>
+              </button>
+
+              <button
+                v-if="slottingStatusFilter !== 'all'"
+                type="button"
+                @click="slottingStatusFilter = 'all'"
+                class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 active:scale-95 transition-all flex items-center gap-1.5"
+              >
+                <font-awesome-icon icon="fa-solid fa-rotate-right" />
+                <span>Tampilkan semua status rak</span>
+              </button>
+            </div>
+          </template>
           <template #footer>
             <div
               v-if="viewMode === 'pagination'"
@@ -398,6 +435,15 @@ watch(Escape, pressed => {
   />
 
   <StickerGeneratorModal :show="isStickerModalOpen" :initialProduct="selectedStickerProduct" @close="closeModal" />
+
+  <SlottingModal
+    :show="isSlottingModalOpen"
+    :product="selectedProduct"
+    :locations="allLocations"
+    :initial-location-id="selectedSlottingLocationId"
+    @close="closeModal"
+    @saved="resetAndRefetch"
+  />
 </template>
 
 <style scoped>

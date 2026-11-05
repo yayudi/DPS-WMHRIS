@@ -8,13 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
-	"github.com/dps-wmhris/backend/internal/shared/config"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -32,33 +30,23 @@ func NewStockHandler(stockService inventory_port.StockUseCase, jobService system
 }
 
 func (h *StockHandler) ImportBatchInbound(c *gin.Context) {
-	file, err := c.FormFile("file")
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Tidak ada file yang diunggah.", "VALIDATION_ERROR")
+	savedPath, origName, ok := utils.SaveImportUpload(c, "file", "stock")
+	if !ok {
 		return
 	}
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	notes := c.PostForm("notes")
 	finalNotes := "Batch Stock Inbound"
 	if notes != "" {
 		finalNotes += " | " + notes
 	}
 
-	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "stock") + string(filepath.Separator)
-	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
-	filepath := uploadDir + file.Filename
-
-	if err := c.SaveUploadedFile(file, filepath); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save file", "INTERNAL_ERROR")
-		return
-	}
-
 	req := system_dto.CreateImportJobRequest{
 		UserID:           userID,
 		JobType:          "IMPORT_STOCK_INBOUND",
-		OriginalFilename: file.Filename,
-		FilePath:         filepath,
+		OriginalFilename: origName,
+		FilePath:         savedPath,
 		Notes:            &finalNotes,
 	}
 
@@ -87,7 +75,7 @@ func (h *StockHandler) TransferStock(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
@@ -118,7 +106,7 @@ func (h *StockHandler) AdjustStock(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
 		return
@@ -181,8 +169,8 @@ func (h *StockHandler) BatchProcess(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := c.GetInt("user_id")
-	userRoleID := c.GetInt("role_id")
+	userID := middleware.GetUserID(c)
+	userRoleID := middleware.GetRoleID(c)
 
 	err := h.stockService.ProcessBatchMovements(c.Request.Context(), req, userID, userRoleID)
 	if err != nil {
@@ -250,8 +238,8 @@ func (h *StockHandler) BatchTransfer(c *gin.Context) {
 		return
 	}
 	req := *req_ptr
-	userID := getUserID(c)
-	roleID := c.GetInt("role_id")
+	userID := middleware.GetUserID(c)
+	roleID := middleware.GetRoleID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
@@ -278,7 +266,7 @@ func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {
 		return
 	}
 	req := *req_ptr
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
@@ -339,14 +327,14 @@ func (h *StockHandler) DownloadAdjustmentTemplate(c *gin.Context) {
 }
 
 func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
-	file, err := c.FormFile("adjustmentFile")
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Tidak ada file yang diunggah.", "")
-		return
-	}
-	userID := getUserID(c)
+	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+		return
+	}
+
+	savedPath, origName, ok := utils.SaveImportUpload(c, "adjustmentFile", "stock")
+	if !ok {
 		return
 	}
 
@@ -363,19 +351,11 @@ func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
 		notes = userNotes
 	}
 
-	uploadDir := filepath.Join(config.AppConfig.StoragePath, "uploads", "stock") + string(filepath.Separator)
-	_ = os.MkdirAll(uploadDir, 0750) // #nosec G104
-	filepath := uploadDir + file.Filename
-	if err := c.SaveUploadedFile(file, filepath); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menyimpan file", "")
-		return
-	}
-
 	req := system_dto.CreateImportJobRequest{
 		UserID:           userID,
 		JobType:          jobType,
-		OriginalFilename: file.Filename,
-		FilePath:         filepath,
+		OriginalFilename: origName,
+		FilePath:         savedPath,
 		Notes:            &notes,
 	}
 
@@ -390,12 +370,4 @@ func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
 		"message": msg,
 		"jobId":   jobID,
 	})
-}
-
-func getUserID(c *gin.Context) int {
-	userID, _ := c.Get("user_id")
-	if id, ok := userID.(int); ok {
-		return id
-	}
-	return 0
 }

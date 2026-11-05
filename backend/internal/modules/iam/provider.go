@@ -11,6 +11,7 @@ var ProviderSet = wire.NewSet(
 	mysql.NewAdminUserRepository,
 	mysql.NewRoleRepository,
 	mysql.NewUserRepository,
+	mysql.NewUserPreferenceRepository,
 	http.NewAdminUserHandler,
 	http.NewRoleHandler,
 	http.NewUserHandler,

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
-import axios from '@/core/infrastructure/http.client'
+import { attendanceApi } from '@/modules/hr/infrastructure/attendance.api'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 
@@ -96,9 +96,9 @@ async function handleSave() {
       notes: form.value.notes
     }
 
-    const { data } = await axios.post('/attendance/update', payload)
+    const data = await attendanceApi.updateAttendance(payload)
 
-    if (data.success) {
+    if (data && (data.success !== false)) {
       emit('update')
       emit('close')
     }

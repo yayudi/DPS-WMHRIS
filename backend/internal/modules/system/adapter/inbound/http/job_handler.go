@@ -2,7 +2,6 @@ package http
 
 import (
 	"net/http"
-	"strconv"
 
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
 
@@ -20,8 +19,7 @@ func NewJobHandler(jobService system_usecase.JobService) *JobHandler {
 }
 
 func (h *JobHandler) GetImportJobs(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	page, limit := utils.ParsePagination(c, 50)
 
 	result, err := h.jobService.GetImportJobs(c.Request.Context(), page, limit)
 	if err != nil {
@@ -32,13 +30,12 @@ func (h *JobHandler) GetImportJobs(c *gin.Context) {
 }
 
 func (h *JobHandler) CancelImportJob(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "VALIDATION_ERROR")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	err = h.jobService.CancelImportJob(c.Request.Context(), id)
+	err := h.jobService.CancelImportJob(c.Request.Context(), id)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "BAD_REQUEST")
 		return
@@ -47,8 +44,7 @@ func (h *JobHandler) CancelImportJob(c *gin.Context) {
 }
 
 func (h *JobHandler) GetExportJobs(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	page, limit := utils.ParsePagination(c, 50)
 
 	result, err := h.jobService.GetExportJobs(c.Request.Context(), page, limit)
 	if err != nil {
@@ -59,13 +55,12 @@ func (h *JobHandler) GetExportJobs(c *gin.Context) {
 }
 
 func (h *JobHandler) CancelExportJob(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID", "VALIDATION_ERROR")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
-	err = h.jobService.CancelExportJob(c.Request.Context(), id)
+	err := h.jobService.CancelExportJob(c.Request.Context(), id)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "BAD_REQUEST")
 		return

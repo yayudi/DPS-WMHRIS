@@ -3,9 +3,7 @@ import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
 import { ref, computed, watch, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
-import axios from '@/core/infrastructure/http.client'
 import { uploadMediaToR2 } from '@/modules/master_data/application/utils/mediaUploader'
-import apiClient from '@/core/infrastructure/http.client'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { resolveUrl } from '@/modules/master_data/presentation/composables/useImageUrl'
 import MediaCard from '@/core/presentation/components/common/MediaCard.vue'
@@ -39,14 +37,12 @@ const isMediaPickerOpen = ref(false)
 const handleMediaSelect = async (media) => {
   loading.value = true
   try {
-    const { data } = await axios.post(`/products/${props.productData.id}/link-media`, {
+    await productApi.linkMedia(props.productData.id, {
       mediaIds: [media.id]
     })
-    if (data.success) {
-      toast('Media berhasil ditautkan.', 'success')
-      await fetchImages()
-      emit('refresh')
-    }
+    toast('Media berhasil ditautkan.', 'success')
+    await fetchImages()
+    emit('refresh')
   } catch (error) {
     console.error(error)
     const msg = error.response?.data?.message || 'Gagal menautkan media.'
@@ -217,13 +213,11 @@ async function saveNewImages() {
   }
 
   try {
-    const data = await uploadMediaToR2(apiClient, selectedImages.value, fileTitles.value, tags, [props.productData.id])
+    const data = await uploadMediaToR2(selectedImages.value, fileTitles.value, tags, [props.productData.id])
 
-    if (data.success) {
+    if (data && (data.success || data.id)) {
       toast(`${selectedImages.value.length} gambar berhasil diunggah.`, 'success')
       selectedImages.value = []
-      fileTitles.value = []
-      uploadTagsStr.value = ''
       fileTitles.value = []
       uploadTagsStr.value = ''
 
@@ -250,12 +244,10 @@ async function deleteImage(imageId) {
 
   loading.value = true
   try {
-    const { data } = await axios.delete(`/products/${props.productData.id}/images/${imageId}`)
-    if (data.success) {
-      toast('Gambar dihapus.', 'success')
-      await fetchImages()
-      emit('refresh')
-    }
+    await productApi.deleteProductImage(props.productData.id, imageId)
+    toast('Gambar dihapus.', 'success')
+    await fetchImages()
+    emit('refresh')
   } catch (error) {
     console.error(error)
   } finally {
@@ -266,12 +258,10 @@ async function deleteImage(imageId) {
 async function setPrimary(imageId) {
   loading.value = true
   try {
-    const { data } = await axios.put(`/products/${props.productData.id}/images/${imageId}/primary`)
-    if (data.success) {
-      toast('Gambar utama diperbarui.', 'success')
-      await fetchImages()
-      emit('refresh')
-    }
+    await productApi.setPrimaryImage(props.productData.id, imageId)
+    toast('Gambar utama diperbarui.', 'success')
+    await fetchImages()
+    emit('refresh')
   } catch (error) {
     console.error(error)
   } finally {

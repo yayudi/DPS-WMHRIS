@@ -15,6 +15,7 @@ import (
 
 	"github.com/dps-wmhris/backend/internal/modules/catalog/domain"
 	database "github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/kernel"
 )
 
 type productServiceImpl struct {
@@ -84,7 +85,7 @@ func (s *productServiceImpl) UpdateProduct(ctx context.Context, userID int, prod
 
 		// Normal Update
 		product := &domain.Product{
-			BaseEntity: database.BaseEntity{ID: productID},
+			BaseEntity: kernel.BaseEntity{ID: productID},
 			SKU:        req.SKU,
 			Name:       req.Name,
 			CategoryID: req.CategoryID,

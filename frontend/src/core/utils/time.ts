@@ -31,7 +31,7 @@ export function formatJamMenit(menit) {
 export function toYmd(input) {
   if (!input) return ''
   
-  let s = String(input).trim()
+  const s = String(input).trim()
   
   // Handle manual DD/MM/YYYY pattern to YYYY-MM-DD for consistency
   if (s.includes('/')) {

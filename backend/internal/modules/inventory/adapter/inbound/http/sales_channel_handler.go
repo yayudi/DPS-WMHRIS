@@ -2,11 +2,11 @@ package http
 
 import (
 	"net/http"
-	"strconv"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 
 	inventory_usecase "github.com/dps-wmhris/backend/internal/modules/inventory/application/usecase"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -31,7 +31,10 @@ func (h *SalesChannelHandler) GetAllChannels(c *gin.Context) {
 }
 
 func (h *SalesChannelHandler) GetChannelByID(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
+		return
+	}
 	data, err := h.salesChannelService.GetChannelByID(c.Request.Context(), id)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "Sales channel tidak ditemukan", "NOT_FOUND")
@@ -48,7 +51,7 @@ func (h *SalesChannelHandler) CreateChannel(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := c.GetInt("userID")
+	userID := middleware.GetUserID(c)
 	ip := c.ClientIP()
 	userAgent := c.Request.UserAgent()
 
@@ -66,14 +69,17 @@ func (h *SalesChannelHandler) CreateChannel(c *gin.Context) {
 }
 
 func (h *SalesChannelHandler) UpdateChannel(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
+		return
+	}
 	req_ptr, ok := utils.BindAndValidate[inventory_dto.UpdateSalesChannelRequest](c)
 	if !ok {
 		return
 	}
 	req := *req_ptr
 
-	userID := c.GetInt("userID")
+	userID := middleware.GetUserID(c)
 	ip := c.ClientIP()
 	userAgent := c.Request.UserAgent()
 
@@ -87,8 +93,11 @@ func (h *SalesChannelHandler) UpdateChannel(c *gin.Context) {
 }
 
 func (h *SalesChannelHandler) DeleteChannel(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	userID := c.GetInt("userID")
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
+		return
+	}
+	userID := middleware.GetUserID(c)
 	ip := c.ClientIP()
 	userAgent := c.Request.UserAgent()
 

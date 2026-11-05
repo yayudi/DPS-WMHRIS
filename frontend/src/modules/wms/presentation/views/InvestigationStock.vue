@@ -567,7 +567,7 @@
 <script setup>
 import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
 import { ref, onMounted } from 'vue'
-import api from '@/core/infrastructure/http.client' // Asumsi letak axios setup
+import { investigationApi } from '../../infrastructure/investigation.api'
 import { useToast } from '@/core/presentation/composables/useToast'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
 import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
@@ -611,15 +611,11 @@ const confirmRevert = async trx => {
   if (isConfirmed) {
     try {
       loading.value = true
-      const response = await api.post(`/investigation/revert/${trx.id}`)
-      if (response.data.success) {
-        toast('Transaksi berhasil di-revert', 'success')
-        fetchData() // Refresh data
-      } else {
-        toast(response.data.message || 'Gagal revert transaksi', 'error')
-      }
+      await investigationApi.revertDuplicateTransaction(trx.id)
+      toast('Transaksi berhasil di-revert', 'success')
+      fetchData() // Refresh data
     } catch (error) {
-      toast(error.response?.data?.message || 'Terjadi kesalahan sistem', 'error')
+      toast(error?.response?.data?.message || 'Terjadi kesalahan sistem', 'error')
     } finally {
       loading.value = false
     }

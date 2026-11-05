@@ -1,11 +1,12 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
 import { dayjs } from '@/core/utils/time'
 import { useTheme } from '@/core/presentation/composables/useTheme'
 import FilterBar from '@/core/presentation/components/ui/FilterBar.vue'
 import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
-import { fetchShopPerformance } from '@/modules/analytics/application/utils/stats'
-import api from '@/core/infrastructure/http.client'
+import { analyticsApi } from '@/modules/analytics/infrastructure/analytics.api'
+import { salesChannelApi } from '@/modules/master_data/infrastructure/sales_channel.api'
+import { serializeFilterParams } from '@/core/utils/filterParams'
 const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
 import { formatNumber, formatCurrency } from '@/core/utils/formatters'
 
@@ -16,11 +17,11 @@ const activeTab = ref('summary')
 const showFilters = ref(false)
 
 // Data from API
-const summaryData = ref([])
-const dailyTrendData = ref([])
-const topProductsData = ref([])
-const comparisonData = ref({ current: {}, previous: {}, delta: {} })
-const shopOptions = ref([])
+const summaryData = ref<any[]>([])
+const dailyTrendData = ref<any[]>([])
+const topProductsData = ref<any[]>([])
+const comparisonData = ref<any>({ current: {}, previous: {}, delta: {} })
+const shopOptions = ref<Array<{ id: string; label: string }>>([])
 
 const filterValues = ref({
   reportType: 'monthly',
@@ -28,8 +29,8 @@ const filterValues = ref({
   selectedMonth: ('0' + (new Date().getMonth() + 1)).slice(-2),
   startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
   endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
-  source: { include: [], exclude: [] },
-  shopName: { include: [], exclude: [] }
+  source: { include: [] as string[], exclude: [] as string[] },
+  shopName: { include: [] as string[], exclude: [] as string[] }
 })
 
 const tabs = [
@@ -172,7 +173,7 @@ const fetchStatistics = async () => {
   if (!payload.startDate || !payload.endDate) return
   isDataLoading.value = true
   try {
-    const response = await fetchShopPerformance(payload)
+    const response = await analyticsApi.fetchShopPerformance(serializeFilterParams(payload))
     summaryData.value = response.summary || []
     dailyTrendData.value = response.dailyTrend || []
     topProductsData.value = response.topProducts || []
@@ -187,11 +188,9 @@ const fetchStatistics = async () => {
 onMounted(async () => {
   // Fetch shop names for filter
   try {
-    const res = await api.get('/sales-channels?activeOnly=true')
-    if (res.data?.success) {
-      const channels = res.data.data || []
-      shopOptions.value = channels.map(ch => ({ id: ch.name, label: `${ch.name} (${ch.platform})` }))
-    }
+    const channels = await salesChannelApi.fetchAllSalesChannels(true)
+    const list = Array.isArray(channels) ? channels : channels?.data || []
+    shopOptions.value = list.map((ch: any) => ({ id: ch.name, label: `${ch.name} (${ch.platform})` }))
   } catch {
     /* silently fail, dropdown stays with 'All' */
   }

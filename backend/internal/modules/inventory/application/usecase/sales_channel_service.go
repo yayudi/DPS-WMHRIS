@@ -1,18 +1,13 @@
 package usecase
 
 import (
-	"github.com/dps-wmhris/backend/internal/shared/database"
-	"github.com/dps-wmhris/backend/internal/shared/eventbus"
-
 	"context"
-	"encoding/json"
 	"strconv"
 
-	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
-
 	inventory_mysql "github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/mysql"
-
-	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
+	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
+	"github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/eventbus"
 )
 
 type SalesChannelService interface {
@@ -47,20 +42,15 @@ func (s *salesChannelServiceImpl) CreateChannel(ctx context.Context, req invento
 		return 0, err
 	}
 
-	changesBytes, _ := json.Marshal(req)
-	changesStr := string(changesBytes)
-	_ = s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "CREATE",
-			TargetType: "SALES_CHANNEL",
-			TargetID:   strconv.Itoa(id),
-			Changes:    &changesStr,
-			IP:         &ip,
-			UserAgent:  &userAgent,
-		},
-		userID,
-	))
+	_ = eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     userID,
+		Action:     "CREATE",
+		TargetType: "SALES_CHANNEL",
+		TargetID:   strconv.Itoa(id),
+		Changes:    req,
+		IP:         ip,
+		UserAgent:  userAgent,
+	})
 
 	return id, nil
 }
@@ -71,20 +61,15 @@ func (s *salesChannelServiceImpl) UpdateChannel(ctx context.Context, id int, req
 		return err
 	}
 
-	changesBytes, _ := json.Marshal(req)
-	changesStr := string(changesBytes)
-	_ = s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "UPDATE",
-			TargetType: "SALES_CHANNEL",
-			TargetID:   strconv.Itoa(id),
-			Changes:    &changesStr,
-			IP:         &ip,
-			UserAgent:  &userAgent,
-		},
-		userID,
-	))
+	_ = eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     userID,
+		Action:     "UPDATE",
+		TargetType: "SALES_CHANNEL",
+		TargetID:   strconv.Itoa(id),
+		Changes:    req,
+		IP:         ip,
+		UserAgent:  userAgent,
+	})
 
 	return nil
 }
@@ -95,19 +80,15 @@ func (s *salesChannelServiceImpl) DeleteChannel(ctx context.Context, id int, use
 		return err
 	}
 
-	changesStr := `{"note": "Sales Channel Deleted"}`
-	_ = s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "DELETE",
-			TargetType: "SALES_CHANNEL",
-			TargetID:   strconv.Itoa(id),
-			Changes:    &changesStr,
-			IP:         &ip,
-			UserAgent:  &userAgent,
-		},
-		userID,
-	))
+	_ = eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     userID,
+		Action:     "DELETE",
+		TargetType: "SALES_CHANNEL",
+		TargetID:   strconv.Itoa(id),
+		Changes:    `{"note": "Sales Channel Deleted"}`,
+		IP:         ip,
+		UserAgent:  userAgent,
+	})
 
 	return nil
 }

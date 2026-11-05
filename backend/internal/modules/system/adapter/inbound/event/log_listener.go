@@ -28,20 +28,13 @@ func (l *LogListener) Register(bus eventbus.EventBus) error {
 }
 
 func (l *LogListener) HandleSystemLog(ctx context.Context, event eventbus.Event) error {
-	// Re-marshal map[string]interface{} to JSON and then to SystemLogPayload
-	// Since event.Payload comes from JSON unmarshaling, it's a map.
-	payloadBytes, err := json.Marshal(event.Payload)
-	if err != nil {
-		return fmt.Errorf("failed to marshal payload: %w", err)
-	}
-
 	var payload domain.SystemLogPayload
-	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
-		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		return fmt.Errorf("failed to unmarshal log payload: %w", err)
 	}
 
 	// Create the log entry
-	err = l.logService.CreateLog(ctx, system_dto.CreateLogRequest{
+	err := l.logService.CreateLog(ctx, system_dto.CreateLogRequest{
 		UserID:     event.UserID,
 		Action:     payload.Action,
 		TargetType: payload.TargetType,

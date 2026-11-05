@@ -1,21 +1,16 @@
 package usecase
 
 import (
-	"github.com/dps-wmhris/backend/internal/shared/database"
-	"github.com/dps-wmhris/backend/internal/shared/eventbus"
-
-	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
-
 	"context"
-	"encoding/json"
 	"errors"
 	"log"
 	"strconv"
 	"strings"
 
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
-
 	"github.com/dps-wmhris/backend/internal/modules/iam/port"
+	"github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/eventbus"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -68,29 +63,15 @@ func (s *adminUserServiceImpl) CreateUser(ctx context.Context, req iam_dto.Admin
 		ExcludeFromAttendance: req.ExcludeFromAttendance,
 	}
 
-	changesBytes, _ := json.Marshal(newUser)
-	changesStr := string(changesBytes)
-
-	var ipPtr, uaPtr *string
-	if ip != "" {
-		ipPtr = &ip
-	}
-	if userAgent != "" {
-		uaPtr = &userAgent
-	}
-
-	if errLog := s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "CREATE",
-			TargetType: "USER",
-			TargetID:   strconv.Itoa(insertID),
-			Changes:    &changesStr,
-			IP:         ipPtr,
-			UserAgent:  uaPtr,
-		},
-		adminID,
-	)); errLog != nil {
+	if errLog := eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     adminID,
+		Action:     "CREATE",
+		TargetType: "USER",
+		TargetID:   strconv.Itoa(insertID),
+		Changes:    newUser,
+		IP:         ip,
+		UserAgent:  userAgent,
+	}); errLog != nil {
 		log.Printf("Failed to save system log: %v", errLog)
 	}
 
@@ -167,29 +148,15 @@ func (s *adminUserServiceImpl) UpdateUser(ctx context.Context, targetID int, req
 
 	if len(changesRecord) > 0 {
 		changesRecord["note"] = "Updated User Profile"
-		changesBytes, _ := json.Marshal(changesRecord)
-		changesStr := string(changesBytes)
-
-		var ipPtr, uaPtr *string
-		if ip != "" {
-			ipPtr = &ip
-		}
-		if userAgent != "" {
-			uaPtr = &userAgent
-		}
-
-		if errLog := s.eventBus.Publish(ctx, eventbus.NewEvent(
-			system_domain.EventSystemLog,
-			system_domain.SystemLogPayload{
-				Action:     "UPDATE",
-				TargetType: "USER",
-				TargetID:   strconv.Itoa(targetID),
-				Changes:    &changesStr,
-				IP:         ipPtr,
-				UserAgent:  uaPtr,
-			},
-			adminID,
-		)); errLog != nil {
+		if errLog := eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+			UserID:     adminID,
+			Action:     "UPDATE",
+			TargetType: "USER",
+			TargetID:   strconv.Itoa(targetID),
+			Changes:    changesRecord,
+			IP:         ip,
+			UserAgent:  userAgent,
+		}); errLog != nil {
 			log.Printf("Failed to save system log: %v", errLog)
 		}
 	}
@@ -210,32 +177,15 @@ func (s *adminUserServiceImpl) DeleteUser(ctx context.Context, targetID int, adm
 		return errors.New("user tidak ditemukan")
 	}
 
-	changes := map[string]interface{}{
-		"note": "Soft Deleted User",
-	}
-	changesBytes, _ := json.Marshal(changes)
-	changesStr := string(changesBytes)
-
-	var ipPtr, uaPtr *string
-	if ip != "" {
-		ipPtr = &ip
-	}
-	if userAgent != "" {
-		uaPtr = &userAgent
-	}
-
-	if errLog := s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "DELETE",
-			TargetType: "USER",
-			TargetID:   strconv.Itoa(targetID),
-			Changes:    &changesStr,
-			IP:         ipPtr,
-			UserAgent:  uaPtr,
-		},
-		adminID,
-	)); errLog != nil {
+	if errLog := eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     adminID,
+		Action:     "DELETE",
+		TargetType: "USER",
+		TargetID:   strconv.Itoa(targetID),
+		Changes:    `{"note": "Soft Deleted User"}`,
+		IP:         ip,
+		UserAgent:  userAgent,
+	}); errLog != nil {
 		log.Printf("Failed to save system log: %v", errLog)
 	}
 
@@ -264,33 +214,18 @@ func (s *adminUserServiceImpl) UpdateUserLocations(ctx context.Context, targetID
 		return err
 	}
 
-	changes := map[string]interface{}{
-		"note":        "Updated User Locations",
-		"locationIds": req.LocationIDs,
-	}
-	changesBytes, _ := json.Marshal(changes)
-	changesStr := string(changesBytes)
-
-	var ipPtr, uaPtr *string
-	if ip != "" {
-		ipPtr = &ip
-	}
-	if userAgent != "" {
-		uaPtr = &userAgent
-	}
-
-	if errLog := s.eventBus.Publish(ctx, eventbus.NewEvent(
-		system_domain.EventSystemLog,
-		system_domain.SystemLogPayload{
-			Action:     "UPDATE",
-			TargetType: "USER",
-			TargetID:   strconv.Itoa(targetID),
-			Changes:    &changesStr,
-			IP:         ipPtr,
-			UserAgent:  uaPtr,
+	if errLog := eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
+		UserID:     adminID,
+		Action:     "UPDATE",
+		TargetType: "USER",
+		TargetID:   strconv.Itoa(targetID),
+		Changes: map[string]interface{}{
+			"note":        "Updated User Locations",
+			"locationIds": req.LocationIDs,
 		},
-		adminID,
-	)); errLog != nil {
+		IP:        ip,
+		UserAgent: userAgent,
+	}); errLog != nil {
 		log.Printf("Failed to save system log: %v", errLog)
 	}
 

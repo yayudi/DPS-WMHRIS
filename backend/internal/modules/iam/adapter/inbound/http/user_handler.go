@@ -1,12 +1,14 @@
 package http
 
 import (
+	"errors"
 	"log"
 	"net/http"
 
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
-
+	"github.com/dps-wmhris/backend/internal/modules/iam/domain"
 	"github.com/dps-wmhris/backend/internal/modules/iam/port"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -54,7 +56,7 @@ func (h *UserHandler) Logout(c *gin.Context) {
 }
 
 func (h *UserHandler) GetProfile(c *gin.Context) {
-	userID := c.GetInt("user_id")
+	userID := middleware.GetUserID(c)
 	log.Printf("[PROFILE] Fetching profile for user_id: %v", userID)
 
 	user, err := h.userUseCase.GetProfile(c.Request.Context(), userID)
@@ -70,7 +72,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 }
 
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
-	userID := c.GetInt("user_id")
+	userID := middleware.GetUserID(c)
 
 	req_ptr, ok := utils.BindAndValidate[iam_dto.UpdateProfileRequest](c)
 	if !ok {
@@ -88,7 +90,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 }
 
 func (h *UserHandler) GetMyLocations(c *gin.Context) {
-	userID := c.GetInt("user_id")
+	userID := middleware.GetUserID(c)
 
 	locations, err := h.userUseCase.GetMyLocations(c.Request.Context(), userID)
 	if err != nil {
@@ -97,4 +99,51 @@ func (h *UserHandler) GetMyLocations(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "Data lokasi berhasil diambil.", locations)
+}
+
+func (h *UserHandler) GetPreferences(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	if userID == 0 {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Sesi tidak valid.", "UNAUTHORIZED")
+		return
+	}
+
+	pref, err := h.userUseCase.GetPreferences(c.Request.Context(), userID)
+	if err != nil {
+		log.Printf("[USER] GetPreferences failed for user %d: %v", userID, err)
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil preferensi pengguna.", "INTERNAL_SERVER_ERROR")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Preferensi pengguna berhasil diambil.", pref)
+}
+
+func (h *UserHandler) UpdatePreferences(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	if userID == 0 {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Sesi tidak valid.", "UNAUTHORIZED")
+		return
+	}
+
+	reqPtr, ok := utils.BindAndValidate[iam_dto.UpdatePreferenceRequest](c)
+	if !ok {
+		return
+	}
+
+	updated, err := h.userUseCase.UpdatePreferences(c.Request.Context(), userID, *reqPtr)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidPreferenceLocale) ||
+			errors.Is(err, domain.ErrInvalidPreferenceTimezone) ||
+			errors.Is(err, domain.ErrInvalidPreferenceDateFormat) {
+			utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "VALIDATION_ERROR")
+			return
+		}
+
+		// Mask unexpected database/system errors
+		log.Printf("[USER] UpdatePreferences failed for user %d: %v", userID, err)
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui preferensi pengguna.", "INTERNAL_SERVER_ERROR")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Preferensi pengguna berhasil diperbarui.", updated)
 }

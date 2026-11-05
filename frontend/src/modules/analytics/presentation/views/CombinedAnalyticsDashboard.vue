@@ -7,6 +7,7 @@ import FilterBar from '@/core/presentation/components/ui/FilterBar.vue'
 import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { formatCurrency, formatNumber } from '@/core/utils/formatters'
 import dayjs from 'dayjs'
 
 const masterData = useMasterDataStore()
@@ -100,8 +101,7 @@ const inventoryValueChartOptions = ref({
   },
   tooltip: {
     y: {
-      formatter: val =>
-        new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val)
+      formatter: val => formatCurrency(val)
     }
   },
   theme: { mode: 'light' },
@@ -243,14 +243,6 @@ const processPackageAnalysisChart = packages => {
       data: sorted.map(p => Number(p.total_needed) || 0)
     }
   ]
-}
-
-const formatCurrency = val => {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val)
-}
-
-const formatNumber = val => {
-  return new Intl.NumberFormat('id-ID').format(val)
 }
 
 // Watch for dark mode changes (assuming standard tailwind 'dark' class on html)

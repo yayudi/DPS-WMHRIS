@@ -21,6 +21,7 @@ type LocationUseCase interface {
 	UpdateLocation(ctx context.Context, userID int, locationID int, req inventory_dto.UpdateLocationRequest) error
 	DeleteLocation(ctx context.Context, userID int, locationID int) error
 	GetStockSample(ctx context.Context, locationID int) ([]inventory_dto.StockSampleResponse, error)
+	ToggleFulfillmentSource(ctx context.Context, userID int, locationID int, isFulfillmentSource bool) error
 }
 
 type ReturnUseCase interface {
@@ -58,8 +59,23 @@ type StockUseCase interface {
 type StockTransactionUseCase interface {
 	CreateTransaction(ctx context.Context, req inventory_dto.CreateTransactionRequest) (*domain.StockTransaction, error)
 	ExecuteTransaction(ctx context.Context, req inventory_dto.ExecuteTransactionRequest, userID uint) error
+	BatchExecuteTransactions(ctx context.Context, req inventory_dto.BatchExecuteTransactionRequest, userID uint) (*inventory_dto.BatchExecuteResult, error)
+	DispatchPendingOutboxEvents(ctx context.Context) (int, error)
+	ReconcileMissingFulfillments(ctx context.Context) (int, error)
+	GetOnHoldFulfillments(ctx context.Context, building string) ([]domain.OnHoldFulfillmentSummary, error)
+	ReleaseHeldFulfillment(ctx context.Context, transactionID uint) (*domain.StockTransaction, error)
 }
 
 type StockQueryUseCase interface {
 	GetStockBalances(ctx context.Context, locationID *int, productID *int) ([]inventory_dto.StockBalanceResponse, error)
+}
+
+// SlotUseCase defines application use case operations for locational metadata slots and Kelja picking.
+type SlotUseCase interface {
+	AddSlot(ctx context.Context, userID int, req inventory_dto.UpsertSlotRequest) (*inventory_dto.SlotResponse, error)
+	DeleteSlot(ctx context.Context, userID int, slotID int, notes *string) error
+	SetPrimarySlot(ctx context.Context, userID int, productID int, locationID int, slotID int) error
+	GetSlots(ctx context.Context, productID int, locationID int) ([]inventory_dto.SlotResponse, error)
+	GetSlotLogs(ctx context.Context, productID int, locationID int, page int, limit int) (utils.PaginatedResult[domain.ProductLocationSlotLog], error)
+	GetPickingLocationsForKelja(ctx context.Context, referenceID string) (*inventory_dto.KeljaPickingLocationsResponse, error)
 }

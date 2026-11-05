@@ -58,6 +58,12 @@ export const wmsRoutes: RouteRecordRaw[] = [
         name: 'InvestigationStock',
         component: () => import('./views/InvestigationStock.vue'),
         meta: { requiresPermission: 'system_log.view', title: 'Investigasi Stok' }
+      },
+      {
+        path: 'replenishment',
+        name: 'WMSReplenishmentQueue',
+        component: () => import('./views/ReplenishmentQueue.vue'),
+        meta: { title: 'Antrean Replenishment' }
       }
     ]
   },

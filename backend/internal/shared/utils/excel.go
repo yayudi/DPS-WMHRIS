@@ -75,6 +75,79 @@ func SetColStyles(f *excelize.File, sheetName string, styles map[string]int) {
 	}
 }
 
+// TemplateConfig defines configuration options for generating dropdown-validated Excel templates.
+type TemplateConfig struct {
+	SheetName        string
+	Headers          []string
+	ColWidths        map[string]float64
+	ValidationSheet  string
+	ValidationCol    string // e.g., "B"
+	ValidationList   []string
+	ValidationTitle  string
+	ValidationMsg    string
+	ValidationMaxRow int // default 1002
+}
+
+// GenerateTemplateWithDropdown generates an Excel file containing a main sheet with styling and headers,
+// plus a hidden validation sheet with dropdown data validation applied to the target column.
+func GenerateTemplateWithDropdown(cfg TemplateConfig) *excelize.File {
+	f := excelize.NewFile()
+	mainSheet := cfg.SheetName
+	if mainSheet == "" {
+		mainSheet = "Sheet1"
+	}
+	_ = f.SetSheetName("Sheet1", mainSheet) // #nosec G104
+
+	validSheet := cfg.ValidationSheet
+	if validSheet == "" {
+		validSheet = "DataValidasi"
+	}
+
+	if len(cfg.ValidationList) > 0 {
+		_, _ = f.NewSheet(validSheet)            // #nosec G104
+		_ = f.SetSheetVisible(validSheet, false) // #nosec G104
+
+		for i, val := range cfg.ValidationList {
+			cell, _ := excelize.CoordinatesToCellName(1, i+1)
+			_ = f.SetCellValue(validSheet, cell, val) // #nosec G104
+		}
+
+		col := cfg.ValidationCol
+		if col == "" {
+			col = "B"
+		}
+		maxRow := cfg.ValidationMaxRow
+		if maxRow <= 0 {
+			maxRow = 1002
+		}
+
+		dv := excelize.NewDataValidation(true)
+		dv.Sqref = fmt.Sprintf("%s2:%s%d", col, col, maxRow)
+
+		title := cfg.ValidationTitle
+		if title == "" {
+			title = "Pilihan Tidak Valid"
+		}
+		msg := cfg.ValidationMsg
+		if msg == "" {
+			msg = "Silakan pilih nilai yang valid dari daftar dropdown."
+		}
+		dv.SetError(excelize.DataValidationErrorStyleWarning, title, msg)
+
+		formula := fmt.Sprintf("%s!$A$1:$A$%d", validSheet, len(cfg.ValidationList))
+		dv.SetSqrefDropList(formula)
+		_ = f.AddDataValidation(mainSheet, dv) // #nosec G104
+	}
+
+	styles := InitExcelStyles(f)
+	SetHeaders(f, mainSheet, cfg.Headers, styles.Header)
+	if len(cfg.ColWidths) > 0 {
+		SetColWidths(f, mainSheet, cfg.ColWidths)
+	}
+
+	return f
+}
+
 // GenerateExportFileName returns the customName with .xlsx extension if provided,
 // otherwise it generates a filename using defaultPrefix and the current timestamp.
 func GenerateExportFileName(customName, defaultPrefix string) string {

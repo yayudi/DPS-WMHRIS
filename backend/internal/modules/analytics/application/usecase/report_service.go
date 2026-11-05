@@ -95,7 +95,7 @@ func (s *reportServiceImpl) GetUserExportJobs(ctx context.Context, userID int) (
 			Status:       job.Status,
 			FilePath:     job.FilePath,
 			ErrorMessage: job.ErrorMessage,
-			CreatedAt:    job.CreatedAt,
+			CreatedAt:    &job.CreatedAt,
 			Filters:      job.Filters,
 			Type:         exportType,
 			DownloadURL:  downloadURL,

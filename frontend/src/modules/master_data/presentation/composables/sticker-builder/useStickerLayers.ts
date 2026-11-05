@@ -136,7 +136,7 @@ export function useStickerLayers(getFabricCanvas, getActiveObject, saveHistory) 
     const isCtrl = e && (e.ctrlKey || e.metaKey)
     const isShift = e && e.shiftKey
 
-    let currentSelection = canvas.getActiveObjects()
+    const currentSelection = canvas.getActiveObjects()
 
     if (isCtrl) {
       if (currentSelection.includes(layer.obj)) {

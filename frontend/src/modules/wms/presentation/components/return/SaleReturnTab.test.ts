@@ -15,7 +15,7 @@ vi.mock('vue-router', () => ({
 const mockFetchData = vi.fn()
 const mockHandleClearFilters = vi.fn()
 
-vi.mock('@/core/presentation/composables/useReturnManager', () => ({
+vi.mock('@/modules/wms/application/useReturnManager', () => ({
   useReturnManager: () => ({
     activeTab: ref('pending'),
     showProcessModal: ref(false),
@@ -73,17 +73,14 @@ describe('SaleReturnTab.vue', () => {
     expect(mockFetchData).toHaveBeenCalled()
   })
 
-  it('merender slot #actions dari FilterBar dengan tombol Retur Manual', () => {
-    const actionsSlot = wrapper.find('.filter-actions')
-    expect(actionsSlot.exists()).toBe(true)
-    
-    // Tombol Retur Manual harus ada
-    expect(actionsSlot.text()).toContain('Retur Manual')
+  it('merender tombol Retur Manual', () => {
+    const manualBtn = wrapper.findAll('button').find(b => b.text().includes('Retur Manual'))
+    expect(manualBtn?.exists()).toBe(true)
   })
 
   it('menavigasi ke halaman retur manual saat tombol diklik', async () => {
-    const manualBtn = wrapper.find('.filter-actions button')
-    expect(manualBtn.exists()).toBe(true)
+    const manualBtn = wrapper.findAll('button').find(b => b.text().includes('Retur Manual'))
+    expect(manualBtn?.exists()).toBe(true)
     
     await manualBtn.trigger('click')
     

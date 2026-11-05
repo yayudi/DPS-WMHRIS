@@ -11,6 +11,10 @@ import { resolveProductImageUrl } from '@/modules/master_data/presentation/compo
 import ProductThumbnail from '@/core/presentation/components/common/ProductThumbnail.vue'
 import { useMobile } from '@/core/presentation/composables/useMobile'
 import { useClipboard } from '@/core/presentation/composables/useClipboard'
+import { filterLocationsByView, joinLocationCodes } from '@/modules/wms/application/useWmsTransform'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   products: { type: Array, required: true },
@@ -31,6 +35,7 @@ const emit = defineEmits([
   'copy',
   'openAdjust',
   'openTransfer',
+  'openSlotting',
   'sort',
   'openHistory',
   'openEdit',
@@ -87,11 +92,8 @@ function getImageUrl(product) {
 }
 
 function getCurrentLocation(product) {
-  if (props.activeView === 'all') return product.allLocationsCode || '-'
-  if (props.activeView === 'gudang') return product.lokasiGudang || '-'
-  if (props.activeView === 'pajangan') return product.lokasiPajangan || '-'
-  if (props.activeView === 'ltc') return product.lokasiLTC || '-'
-  return '-'
+  const visibleLocations = filterLocationsByView(product.stock_locations || [], props.activeView)
+  return joinLocationCodes(visibleLocations, true) || '-'
 }
 
 function getVirtualStock(product) {
@@ -126,41 +128,42 @@ function getDisplayWeight(product) {
   return 0
 }
 
+function getVisibleLocations(product) {
+  return filterLocationsByView(product?.stock_locations || [], props.activeView).filter(
+    loc => loc.quantity !== 0
+  )
+}
+
+function hasLocations(product) {
+  return getVisibleLocations(product).length > 0
+}
+
 function hasMultipleLocations(product) {
-  const allLocations = product.stock_locations || []
-  let count = 0
-  if (props.activeView === 'all') count = allLocations.filter(loc => loc.quantity !== 0).length
-  else if (props.activeView === 'gudang')
-    count = allLocations.filter(loc => loc.purpose === 'WAREHOUSE' && loc.quantity !== 0).length
-  else if (props.activeView === 'pajangan')
-    count = allLocations.filter(loc => loc.purpose === 'DISPLAY' && loc.quantity !== 0).length
-  return count > 1
+  return getVisibleLocations(product).length > 1
 }
 
 // --- TOOLTIP & MENU HANDLERS ---
 const locationsForTooltip = computed(() => {
   if (!activeProduct.value) return []
-  const allLocations = activeProduct.value.stock_locations || []
-  if (props.activeView === 'all') return allLocations.filter(loc => loc.quantity !== 0)
-  if (props.activeView === 'gudang')
-    return allLocations.filter(loc => loc.purpose === 'WAREHOUSE' && loc.quantity !== 0)
-  if (props.activeView === 'pajangan')
-    return allLocations.filter(loc => loc.purpose === 'DISPLAY' && loc.quantity !== 0)
-  return []
+  return getVisibleLocations(activeProduct.value)
 })
 
 function toggleLocationTooltip(event, product) {
-  if (hasMultipleLocations(product)) {
-    if (activeProduct.value?.id === product.id && isLocationTooltipVisible.value) {
-      isLocationTooltipVisible.value = false
-      return
-    }
-    activeProduct.value = product
-    locationTargetRef.value = event.currentTarget
-    isLocationTooltipVisible.value = true
-    isPackageTooltipVisible.value = false
-    isMenuVisible.value = false
+  if (!hasLocations(product)) return
+  if (activeProduct.value?.id === product.id && isLocationTooltipVisible.value) {
+    isLocationTooltipVisible.value = false
+    return
   }
+  activeProduct.value = product
+  locationTargetRef.value = event.currentTarget
+  isLocationTooltipVisible.value = true
+  isPackageTooltipVisible.value = false
+  isMenuVisible.value = false
+}
+
+function handleOpenSlotting(product, locationId = null) {
+  isLocationTooltipVisible.value = false
+  emit('openSlotting', product, locationId)
 }
 
 async function togglePackageTooltip(event, product) {
@@ -229,6 +232,11 @@ function toggleMenu(event, product) {
 }
 
 function handleMenuAction(action) {
+  if (action === 'openSlotting') {
+    handleOpenSlotting(activeProduct.value)
+    isMenuVisible.value = false
+    return
+  }
   emit(action, activeProduct.value)
   isMenuVisible.value = false
 }
@@ -272,14 +280,14 @@ onUnmounted(() => {
             class="px-6 py-3 md:sticky md:left-16 md:border-r md:border-secondary/50 z-10 bg-background md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)] text-left cursor-pointer hover:text-primary transition-colors min-w-[250px] md:w-[350px]"
             @click="handleSort('name')"
           >
-            <div class="flex items-center gap-2">Produk <font-awesome-icon :icon="sortIcon('name')" /></div>
+            <div class="flex items-center gap-2">{{ t('wms.table.product_name') }} <font-awesome-icon :icon="sortIcon('name')" /></div>
           </th>
           <th
             v-if="visibleColumns.has('sku')"
             class="px-6 py-3 text-left md:border-r md:border-secondary/50 cursor-pointer hover:text-primary transition-colors"
             @click="handleSort('sku')"
           >
-            <div class="flex items-center gap-2">SKU <font-awesome-icon :icon="sortIcon('sku')" /></div>
+            <div class="flex items-center gap-2">{{ t('wms.table.sku') }} <font-awesome-icon :icon="sortIcon('sku')" /></div>
           </th>
           <th
             v-if="visibleColumns.has('category')"
@@ -308,15 +316,15 @@ onUnmounted(() => {
             <div class="flex items-center justify-end gap-2">Harga <font-awesome-icon :icon="sortIcon('price')" /></div>
           </th>
           <th v-if="visibleColumns.has('location')" class="px-6 py-3 text-center md:border-r md:border-secondary/50">
-            Lokasi
+            {{ t('wms.table.locations') }}
           </th>
           <th v-if="visibleColumns.has('stock')" class="px-6 py-3 text-center md:border-r md:border-secondary/50">
-            Stok
+            {{ t('wms.table.stock') }}
           </th>
           <th
             class="p-3 md:sticky md:right-0 z-10 bg-background md:border-r md:border-secondary/50 md:shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)] text-center w-[40px]"
           >
-            Aksi
+            {{ t('wms.table.actions') }}
           </th>
         </tr>
       </thead>
@@ -340,8 +348,11 @@ onUnmounted(() => {
         </template>
 
         <tr v-else-if="!products.length" key="empty">
-          <td :colspan="auth.canViewPrices ? 9 : 8" class="py-12 text-center text-text/50 italic">
-            Tidak ada produk yang ditemukan.
+          <td :colspan="auth.canViewPrices ? 9 : 8" class="py-12 text-center text-text/50">
+            <div class="flex flex-col items-center justify-center gap-3">
+              <span class="italic">{{ t('common.label.no_data') }}</span>
+              <slot name="empty-action" />
+            </div>
           </td>
         </tr>
 
@@ -484,19 +495,49 @@ onUnmounted(() => {
             class="md:table-cell flex justify-between items-center px-4 py-2 md:px-3 md:py-2 text-center whitespace-nowrap location-cell relative border-b border-secondary/10 md:border-secondary/80"
             :class="[
               {
-                'cursor-pointer hover:text-primary text-primary font-bold': hasMultipleLocations(product)
+                'cursor-pointer': hasLocations(product)
               },
               { 'hidden md:flex': mobileLayout === 'compact' }
             ]"
             @click.stop="toggleLocationTooltip($event, product)"
           >
             <span class="md:hidden text-[10px] font-bold text-text/50 uppercase tracking-wide">Lokasi</span>
-            <span
-              class="text-xs text-text/70 font-mono truncate block max-w-[150px] mx-auto"
-              :title="getCurrentLocation(product)"
+            <div
+              v-if="getVisibleLocations(product).length > 0"
+              class="flex items-center gap-1.5 flex-wrap ml-auto md:mx-auto justify-end md:justify-center max-w-[200px]"
             >
-              {{ getCurrentLocation(product) }}
-            </span>
+              <span
+                v-for="loc in getVisibleLocations(product).slice(0, 2)"
+                :key="loc.location_code"
+                class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-mono font-medium transition-all border"
+                :class="[
+                  loc.quantity < 0
+                    ? 'bg-accent/10 border-accent/30 text-accent font-bold'
+                    : 'bg-secondary/25 hover:bg-primary/10 border-secondary/40 hover:border-primary/40 text-text/90'
+                ]"
+                :title="`Stok: ${loc.quantity}${loc.slots?.length ? ' (' + loc.slots.length + ' ambalan)' : ' (Belum ada rak)'}`"
+              >
+                <span>{{ loc.location_code }}</span>
+                <button
+                  v-if="!loc.slots || loc.slots.length === 0"
+                  type="button"
+                  @click.stop="handleOpenSlotting(product, loc.location_id)"
+                  class="inline-flex items-center text-amber-500 hover:text-amber-600 transition-colors cursor-pointer"
+                  title="Belum ada ambalan/rak! Klik untuk atur sekarang"
+                >
+                  <font-awesome-icon icon="fa-solid fa-exclamation-triangle" class="text-[9px]" />
+                </button>
+              </span>
+
+              <span
+                v-if="getVisibleLocations(product).length > 2"
+                class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-secondary/40 text-text/60 border border-secondary/30"
+                :title="`${getVisibleLocations(product).length - 2} lokasi lainnya`"
+              >
+                +{{ getVisibleLocations(product).length - 2 }}
+              </span>
+            </div>
+            <span v-else class="text-xs text-text/40 font-mono block ml-auto md:mx-auto">-</span>
           </td>
 
           <!-- STOCK -->
@@ -574,17 +615,89 @@ onUnmounted(() => {
       class="tooltip-teleported"
       :show="isLocationTooltipVisible"
       :reference-el="locationTargetRef"
-      title="Detail Lokasi"
+      title="Detail Lokasi & Rak"
       interactive
     >
-      <ul class="space-y-1.5">
-        <li v-for="loc in locationsForTooltip" :key="loc.location_code" class="flex justify-between items-center gap-4">
-          <span class="font-mono text-primary-light">{{ loc.location_code }}</span>
-          <span class="font-bold bg-primary/10 text-primary px-1.5 rounded">
-            {{ loc.quantity }}
-          </span>
-        </li>
-      </ul>
+      <div v-if="locationsForTooltip.length > 0" class="space-y-3 min-w-[260px] max-w-[340px] py-1 text-xs">
+        <div
+          v-for="loc in locationsForTooltip"
+          :key="loc.location_code"
+          class="border-b border-secondary/15 pb-2.5 last:border-b-0 last:pb-0"
+        >
+          <!-- Level 1: Induk Lokasi (Lantai + Qty) -->
+          <div class="flex items-center justify-between gap-2 mb-1.5">
+            <span class="font-bold text-text flex items-center gap-1.5">
+              <font-awesome-icon icon="fa-solid fa-building" class="text-text/40 text-[11px]" />
+              <span class="font-mono">{{ loc.location_code }}</span>
+            </span>
+            <div class="flex items-center gap-1">
+              <span class="text-[10px] text-text/50 font-medium">Stok:</span>
+              <span
+                class="font-mono font-bold px-1.5 py-0.5 rounded text-[11px]"
+                :class="loc.quantity < 0 ? 'bg-accent/15 text-accent' : 'bg-primary/10 text-primary'"
+              >
+                {{ loc.quantity }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Level 2: Anak Lokasi (Ruang - Rak - Tingkat) -->
+          <div v-if="loc.slots && loc.slots.length > 0" class="pl-3.5 space-y-1">
+            <div
+              v-for="s in loc.slots"
+              :key="s.id"
+              class="flex items-center justify-between gap-2 text-[11px] text-text/80 bg-secondary/15 hover:bg-secondary/25 px-2 py-1 rounded transition-colors"
+            >
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="text-text/30 font-mono">↳</span>
+                <span class="font-mono truncate" :title="s.formatted_coordinate">
+                  {{ s.formatted_coordinate }}
+                </span>
+              </div>
+              <span
+                v-if="s.is_primary"
+                class="shrink-0 text-[9px] font-bold px-1 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+              >
+                UTAMA
+              </span>
+              <span
+                v-else
+                class="shrink-0 text-[9px] font-semibold px-1 py-0.5 rounded bg-secondary/30 text-text/50"
+              >
+                BUFFER
+              </span>
+            </div>
+            <!-- Quick Link to manage -->
+            <button
+              type="button"
+              @click.stop="handleOpenSlotting(activeProduct, loc.location_id)"
+              class="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary-focus font-medium pt-0.5 transition-colors cursor-pointer"
+            >
+              <font-awesome-icon icon="fa-solid fa-pencil" class="text-[9px]" />
+              <span>Kelola Rak</span>
+            </button>
+          </div>
+
+          <!-- Unslotted State -->
+          <div v-else class="pl-3.5 pt-0.5 flex flex-col items-start gap-1">
+            <span class="text-[11px] text-amber-500 dark:text-amber-400 flex items-center gap-1 font-medium">
+              <font-awesome-icon icon="fa-solid fa-exclamation-triangle" class="text-[10px]" />
+              <span>Belum ada rak terdaftar</span>
+            </span>
+            <button
+              type="button"
+              @click.stop="handleOpenSlotting(activeProduct, loc.location_id)"
+              class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-semibold transition-all border border-primary/20 active:scale-95 cursor-pointer"
+            >
+              <font-awesome-icon icon="fa-solid fa-plus" class="text-[9px]" />
+              <span>Atur Rak Sekarang</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div v-else class="text-center py-2 text-text/50 italic text-xs">
+        Tidak ada lokasi aktif
+      </div>
     </FloatingTooltip>
 
     <!-- Package Components Tooltip -->
@@ -660,21 +773,28 @@ onUnmounted(() => {
             @click="handleMenuAction('openAdjust')"
             class="w-full text-left px-4 py-2.5 hover:bg-primary/10 hover:text-primary flex items-center gap-3 transition-colors"
           >
-            <font-awesome-icon icon="fa-solid fa-calculator" class="w-4 text-center" /> Sesuaikan Stok
+            <font-awesome-icon icon="fa-solid fa-calculator" class="w-4 text-center" /> {{ t('wms.action.adjust_stock') }}
           </button>
 
           <button
             @click="handleMenuAction('openTransfer')"
             class="w-full text-left px-4 py-2.5 hover:bg-primary/10 hover:text-primary flex items-center gap-3 transition-colors"
           >
-            <font-awesome-icon icon="fa-solid fa-right-left" class="w-4 text-center" /> Transfer Stok
+            <font-awesome-icon icon="fa-solid fa-right-left" class="w-4 text-center" /> {{ t('wms.action.transfer_stock') }}
+          </button>
+
+          <button
+            @click="handleMenuAction('openSlotting')"
+            class="w-full text-left px-4 py-2.5 hover:bg-primary/10 hover:text-primary flex items-center gap-3 transition-colors"
+          >
+            <font-awesome-icon icon="fa-solid fa-boxes-stacked" class="w-4 text-center" /> {{ t('wms.action.slotting') }}
           </button>
 
           <button
             @click="handleMenuAction('openSticker')"
             class="w-full text-left px-4 py-2.5 hover:bg-primary/10 hover:text-primary flex items-center gap-3 transition-colors"
           >
-            <font-awesome-icon icon="fa-solid fa-print" class="w-4 text-center" /> Cetak Sticker
+            <font-awesome-icon icon="fa-solid fa-print" class="w-4 text-center" /> {{ t('wms.action.print_sticker') }}
           </button>
 
           <div class="h-px bg-primary/10 my-1"></div>
@@ -684,7 +804,7 @@ onUnmounted(() => {
             @click="handleMenuAction('openEdit')"
             class="w-full text-left px-4 py-2.5 hover:bg-warning/10 hover:text-warning flex items-center gap-3 transition-colors"
           >
-            <font-awesome-icon icon="fa-solid fa-pencil" class="w-4 text-center" /> Edit Produk
+            <font-awesome-icon icon="fa-solid fa-pencil" class="w-4 text-center" /> {{ t('wms.action.edit_product') }}
           </button>
 
           <button
@@ -692,7 +812,7 @@ onUnmounted(() => {
             class="w-full text-left px-4 py-2.5 hover:bg-accent/10 hover:text-accent flex items-center gap-3 transition-colors"
           >
             <font-awesome-icon icon="fa-solid fa-clock-rotate-left" class="w-4 text-center" />
-            Riwayat
+            {{ t('wms.action.history') }}
           </button>
 
           <div v-if="auth.hasPermission('product.image.delete')" class="h-px bg-secondary/10 my-1"></div>
@@ -702,7 +822,7 @@ onUnmounted(() => {
             @click="handleMenuAction('delete')"
             class="w-full text-left px-4 py-2.5 text-danger hover:bg-danger/10 flex items-center gap-3 transition-colors"
           >
-            <font-awesome-icon icon="fa-solid fa-trash" class="w-4 text-center" /> Hapus Produk
+            <font-awesome-icon icon="fa-solid fa-trash" class="w-4 text-center" /> {{ t('wms.action.delete_product') }}
           </button>
         </div>
       </Transition>

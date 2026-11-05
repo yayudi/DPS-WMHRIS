@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { stockApi } from '../infrastructure/stock.api'
 import type { StockFilter, ProductStock } from '../domain/stock.entity'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useDownload } from '@/core/presentation/composables/useDownload'
 
 export function useStock() {
   const stocks = ref<ProductStock[]>([])
@@ -9,6 +10,7 @@ export function useStock() {
   const error = ref<string | null>(null)
   const totalItems = ref(0)
   const { toast } = useToast()
+  const { downloadBlob } = useDownload()
 
   async function fetchStocks(filter: StockFilter) {
     isLoading.value = true
@@ -20,7 +22,6 @@ export function useStock() {
       return response
     } catch (err: any) {
       error.value = err?.message || 'Gagal mengambil data stok'
-      toast(error.value || 'Error', 'error')
       throw err
     } finally {
       isLoading.value = false
@@ -31,14 +32,7 @@ export function useStock() {
     isLoading.value = true
     try {
       const blob = await stockApi.exportStock(filter)
-      // Create a URL for the blob and trigger download
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `Stock_Export_${new Date().toISOString()}.xlsx`)
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      downloadBlob(blob, `Stock_Export_${new Date().toISOString()}.xlsx`)
     } catch (err: any) {
       toast('Gagal mengekspor data stok', 'error')
       throw err

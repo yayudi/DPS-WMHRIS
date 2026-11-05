@@ -12,7 +12,7 @@ import ProductSearchSelector from '@/modules/wms/presentation/components/transfe
 import ScannerToggle from '@/modules/wms/presentation/components/scanner/ScannerToggle.vue'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { formatCurrency } from '@/core/utils/formatters'
-import api from '@/core/infrastructure/http.client'
+import { stickerApi } from '@/modules/master_data/infrastructure/sticker.api'
 const props = defineProps({
   show: { type: Boolean, required: true },
   initialProduct: { type: Object, default: null },
@@ -42,13 +42,11 @@ const authStore = useAuthStore()
 
 const fetchTemplates = async () => {
   try {
-    const res = await api.get('/sticker-templates')
-    const data = res.data
-    if (data.success && data.data) {
-      templates.value = data.data
-      if (templates.value.length > 0 && !selectedTemplate.value) {
-        selectedTemplate.value = templates.value[0]
-      }
+    const data = await stickerApi.fetchStickerTemplates()
+    const list = Array.isArray(data) ? data : data?.data || []
+    templates.value = list
+    if (templates.value.length > 0 && !selectedTemplate.value) {
+      selectedTemplate.value = templates.value[0]
     }
   } catch (e) {
     console.error('Gagal memuat template', e)
@@ -137,16 +135,12 @@ const deleteTemplate = async id => {
   }
   if (!(await swalConfirm(`Hapus template ini (ID: ${id})?`))) return
   try {
-    const res = await api.delete(`/sticker-templates/${id}`)
-    const data = res.data
-    if (data.success) {
-      if (selectedTemplate.value?.id === id) selectedTemplate.value = null
-      fetchTemplates()
-    } else {
-      await swalAlert(data.message)
-    }
+    await stickerApi.deleteStickerTemplate(id)
+    if (selectedTemplate.value?.id === id) selectedTemplate.value = null
+    fetchTemplates()
   } catch (e) {
     console.error(e)
+    await swalAlert(e?.response?.data?.message || 'Gagal menghapus template')
   }
 }
 
@@ -171,15 +165,14 @@ const applyTemplatePaperSize = () => {
 
 const fetchPaperSizes = async () => {
   try {
-    const res = await api.get('/paper-sizes')
-    if (res.data.success && res.data.data) {
-      paperSizes.value = res.data.data
-      if (paperSizes.value.length > 0 && !selectedPaperSize.value) {
-        selectedPaperSize.value = paperSizes.value[0]
-      }
-      // Re-apply template paper size in case templates loaded before paper sizes
-      applyTemplatePaperSize()
+    const data = await stickerApi.fetchPaperSizes()
+    const list = Array.isArray(data) ? data : data?.data || []
+    paperSizes.value = list
+    if (paperSizes.value.length > 0 && !selectedPaperSize.value) {
+      selectedPaperSize.value = paperSizes.value[0]
     }
+    // Re-apply template paper size in case templates loaded before paper sizes
+    applyTemplatePaperSize()
   } catch (e) {
     console.error('Gagal memuat ukuran kertas', e)
   }

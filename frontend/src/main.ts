@@ -5,6 +5,7 @@ import router from './app/router'
 import './assets/main.css'
 import FontAwesomeIcon from './plugins/fontawesome'
 import vueQueryPlugin from './plugins/vueQuery'
+import { useLocaleStore } from './core/presentation/stores/localeStore'
 
 const app = createApp(App)
 
@@ -16,7 +17,13 @@ app.config.errorHandler = (err, instance, info) => {
 }
 
 app.use(createPinia())
+
+// Initialize locale catalog and cache verification
+const localeStore = useLocaleStore()
+void localeStore.initLocale()
+
 app.use(router)
 app.use(vueQueryPlugin)
 app.component('font-awesome-icon', FontAwesomeIcon)
+
 app.mount('#app')

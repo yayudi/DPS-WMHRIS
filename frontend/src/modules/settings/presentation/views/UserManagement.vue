@@ -21,6 +21,7 @@ import { useInstantInlineEdit } from '@/core/presentation/composables/useInstant
 import { useMobile } from '@/core/presentation/composables/useMobile'
 import { useUsers } from '../../application/useUsers'
 import { useRoles } from '../../application/useRoles'
+import { shiftApi } from '@/modules/hr/infrastructure/shift.api'
 import type { UserManagementUser } from '../../domain/user.entity'
 
 const masterData = useMasterDataStore()
@@ -107,9 +108,8 @@ async function fetchData() {
           // or we must restore the API call for shifts. Let's assume masterData handles it.
           // Actually, let's just use dynamic import for legacy API if still needed or fetch directly.
           // For now, I'll mock it if not available, or use the existing backend route.
-          const { http } = await import('@/core/infrastructure/http.client')
-          const res = await http.get<any>('/shifts')
-          allShifts.value = res.data || []
+          const res = await shiftApi.fetchShifts()
+          allShifts.value = res || []
         } catch (e) {
           allShifts.value = []
         }

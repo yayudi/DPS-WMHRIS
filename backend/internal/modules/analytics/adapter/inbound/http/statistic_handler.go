@@ -6,8 +6,7 @@ import (
 	analytics_dto "github.com/dps-wmhris/backend/internal/modules/analytics/application/dto"
 	analytics_usecase "github.com/dps-wmhris/backend/internal/modules/analytics/application/usecase"
 
-	"strconv"
-
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -18,22 +17,6 @@ type StatisticHandler struct {
 
 func NewStatisticHandler(statisticService analytics_usecase.StatisticService) *StatisticHandler {
 	return &StatisticHandler{statisticService: statisticService}
-}
-
-// helper untuk mengekstrak user_id dari gin context (JWT map claims parses numbers as float64)
-func getStatUserID(c *gin.Context) int {
-	val, exists := c.Get("user_id")
-	if !exists {
-		return 0
-	}
-	switch v := val.(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	default:
-		return 0
-	}
 }
 
 func (h *StatisticHandler) GetStockMovements(c *gin.Context) {
@@ -53,8 +36,8 @@ func (h *StatisticHandler) GetStockMovements(c *gin.Context) {
 }
 
 func (h *StatisticHandler) RequestStockMovementsExport(c *gin.Context) {
-	_, exists := c.Get("user_id")
-	if !exists {
+	userID := middleware.GetUserID(c)
+	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
@@ -65,7 +48,7 @@ func (h *StatisticHandler) RequestStockMovementsExport(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	jobID, err := h.statisticService.RequestStockMovementsExport(c.Request.Context(), getStatUserID(c), req)
+	jobID, err := h.statisticService.RequestStockMovementsExport(c.Request.Context(), userID, req)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
@@ -91,8 +74,8 @@ func (h *StatisticHandler) GetStockTimeline(c *gin.Context) {
 }
 
 func (h *StatisticHandler) RequestStockTimelineExport(c *gin.Context) {
-	_, exists := c.Get("user_id")
-	if !exists {
+	userID := middleware.GetUserID(c)
+	if userID == 0 {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
 		return
 	}
@@ -103,7 +86,7 @@ func (h *StatisticHandler) RequestStockTimelineExport(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	jobID, err := h.statisticService.RequestStockTimelineExport(c.Request.Context(), getStatUserID(c), req)
+	jobID, err := h.statisticService.RequestStockTimelineExport(c.Request.Context(), userID, req)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
@@ -182,10 +165,8 @@ func (h *StatisticHandler) GetLocationAnalysis(c *gin.Context) {
 }
 
 func (h *StatisticHandler) GetLocationCapacityDetails(c *gin.Context) {
-	locationIdStr := c.Param("id")
-	locationId, err := strconv.Atoi(locationIdStr)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid location ID", "")
+	locationId, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -205,7 +186,11 @@ func (h *StatisticHandler) GetLocationCapacityDetails(c *gin.Context) {
 }
 
 func (h *StatisticHandler) ExportLocationCapacity(c *gin.Context) {
-	userId, _ := c.Get("user_id")
+	userID := middleware.GetUserID(c)
+	if userID == 0 {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+		return
+	}
 
 	var req analytics_dto.ExportLocationCapacityRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -213,7 +198,7 @@ func (h *StatisticHandler) ExportLocationCapacity(c *gin.Context) {
 		return
 	}
 
-	jobID, err := h.statisticService.RequestLocationCapacityExport(c.Request.Context(), userId.(int), req)
+	jobID, err := h.statisticService.RequestLocationCapacityExport(c.Request.Context(), userID, req)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal membuat job export", err.Error())
 		return
@@ -227,10 +212,8 @@ func (h *StatisticHandler) ExportLocationCapacity(c *gin.Context) {
 
 // GetStockBuildingBreakdown handles GET /statistics/stock-movements/:productId/breakdown
 func (h *StatisticHandler) GetStockBuildingBreakdown(c *gin.Context) {
-	productIdStr := c.Param("productId")
-	productId, err := strconv.Atoi(productIdStr)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid product ID", "")
+	productId, ok := utils.ParseIntParam(c, "productId")
+	if !ok {
 		return
 	}
 
