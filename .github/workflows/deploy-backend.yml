@@ -80,4 +80,9 @@ jobs:
 
             chmod +x api worker
 
+            docker compose down
             docker compose up -d --remove-orphans
+
+            # Cleanup file sisa scp dan docker image dangling
+            rm -f /tmp/*.tar.gz
+            docker image prune -f
