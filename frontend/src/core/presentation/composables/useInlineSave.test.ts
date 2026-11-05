@@ -89,3 +89,4 @@ describe('useInlineSave composable', () => {
     expect(mockFetchProducts).toHaveBeenCalledTimes(1)
   })
 })
+

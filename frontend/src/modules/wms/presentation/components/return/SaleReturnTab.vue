@@ -114,7 +114,7 @@ const returnFilters = computed(() => {
     baseFilters.push({
       type: 'select',
       key: 'locationId',
-      label: 'Lokasi Rak',
+      label: 'Lokasi Lantai',
       placeholder: 'Semua Lokasi',
       options: [{ value: '', label: 'Semua Lokasi' }, ...locations.value.map(l => ({ value: l.id, label: l.code }))],
       searchable: true,
@@ -457,7 +457,7 @@ watch(Slash, pressed => {
                   />
                 </div>
                 <div>
-                  <label class="label-input !text-success/70">Masuk Rak</label>
+                  <label class="label-input !text-success/70">Masuk Lantai</label>
                   <div class="relative">
                     <BaseSelect
                       v-model="processForm.good.locationId"
@@ -465,7 +465,7 @@ watch(Slash, pressed => {
                       label="code"
                       track-by="id"
                       emit-value
-                      placeholder="-- Pilih Rak --"
+                      placeholder="-- Pilih Lantai --"
                       :searchable="true"
                     />
                   </div>
@@ -493,7 +493,7 @@ watch(Slash, pressed => {
                   />
                 </div>
                 <div>
-                  <label class="label-input !text-danger/70">Masuk Rak (Karantina)</label>
+                  <label class="label-input !text-danger/70">Masuk Lantai (Karantina)</label>
                   <!-- TAMPILAN FIXED UNTUK SAKRUK -->
                   <div
                     class="input-field !bg-danger/5 !border-danger/30 text-danger font-bold flex items-center justify-between cursor-not-allowed select-none"

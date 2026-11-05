@@ -11,6 +11,8 @@ type UserUseCase interface {
 	GetProfile(ctx context.Context, userID int) (*iam_dto.UserProfile, error)
 	UpdateProfile(ctx context.Context, userID int, req iam_dto.UpdateProfileRequest, ip, userAgent string) (*iam_dto.UserProfile, error)
 	GetMyLocations(ctx context.Context, userID int) ([]iam_dto.UserLocationResponse, error)
+	GetPreferences(ctx context.Context, userID int) (*iam_dto.UserPreferenceDTO, error)
+	UpdatePreferences(ctx context.Context, userID int, req iam_dto.UpdatePreferenceRequest) (*iam_dto.UserPreferenceDTO, error)
 }
 
 type RoleUseCase interface {

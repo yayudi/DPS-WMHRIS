@@ -1,5 +1,6 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import debounce from 'lodash/debounce'
+import { useLocalStorage } from '@vueuse/core'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { wmsApi } from '@/modules/wms/infrastructure/wms.api'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
@@ -7,7 +8,8 @@ import { useFirebaseSync } from '@/core/presentation/composables/useFirebaseSync
 import { useColumnVisibility } from '@/core/presentation/composables/useColumnVisibility'
 import { transformProduct } from '@/modules/wms/application/useWmsTransform'
 import { usePagination } from '@/core/presentation/composables/usePagination'
-import type { Product } from '../domain/product.entity'
+
+const VALID_STOCK_STATUSES = new Set(['all', 'nonzero', 'positive', 'zero', 'negative'])
 
 const AVAILABLE_COLUMNS = [
   { id: 'sku', label: 'SKU' },
@@ -46,7 +48,13 @@ export function useWms() {
   const loader = ref<HTMLElement | null>(null)
   const searchTerm = ref('')
   const searchBy = ref('name')
-  const stockStatusFilter = ref('all')
+  const stockStatusFilter = useLocalStorage<string>('wms-stock-status-filter', 'nonzero')
+  if (stockStatusFilter.value === 'minus') {
+    stockStatusFilter.value = 'negative'
+  } else if (!VALID_STOCK_STATUSES.has(stockStatusFilter.value)) {
+    stockStatusFilter.value = 'nonzero'
+  }
+  const slottingStatusFilter = ref<string>('all')
   const productTypeFilter = ref('all')
   const selectedBuilding = ref<{ include: string[]; exclude: string[] }>({ include: [], exclude: [] })
   const selectedFloor = ref<{ include: string[]; exclude: string[] }>({ include: [], exclude: [] })
@@ -132,6 +140,7 @@ export function useWms() {
         searchBy: searchBy.value,
         location: activeView.value,
         stockStatus: stockStatusFilter.value,
+        slottingStatus: slottingStatusFilter.value,
         is_package: productTypeFilter.value === 'all' ? undefined : productTypeFilter.value === 'package',
 
         buildingInclude: JSON.stringify(selectedBuilding.value.include),
@@ -160,7 +169,7 @@ export function useWms() {
       const newProducts = response.products || []
       const total = response.total || 0
 
-      let transformed = newProducts.map(p => transformProduct(p, selectedBuilding.value, selectedFloor.value))
+      const transformed = newProducts.map(p => transformProduct(p, selectedBuilding.value, selectedFloor.value))
 
       if (!auth.canViewPrices) {
         transformed.forEach(product => delete product.price)
@@ -291,6 +300,7 @@ export function useWms() {
       searchBy,
       activeView,
       stockStatusFilter,
+      slottingStatusFilter,
       productTypeFilter,
       selectedBuilding,
       selectedFloor,
@@ -316,6 +326,7 @@ export function useWms() {
     loader,
     searchBy,
     stockStatusFilter,
+    slottingStatusFilter,
     productTypeFilter,
     searchTerm,
     currentPage,

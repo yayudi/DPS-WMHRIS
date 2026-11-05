@@ -169,3 +169,4 @@ func TestReadCSV(t *testing.T) {
 		t.Errorf("unexpected CSV parsed data: %+v", records)
 	}
 }
+

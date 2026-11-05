@@ -46,17 +46,17 @@ const updateThemeColors = () => {
   updateTimer = setTimeout(() => {
     const style = getComputedStyle(document.documentElement)
     const getHex = (varName) => {
-      let val = style.getPropertyValue(varName).trim()
+      const val = style.getPropertyValue(varName).trim()
       if (!val) return '#888888'
       const parts = val.replace(/%/g, '').split(/\s+/)
       if (parts.length < 3) return '#888888'
 
-      let h = parseFloat(parts[0])
-      let s = parseFloat(parts[1]) / 100
-      let l = parseFloat(parts[2]) / 100
+      const h = parseFloat(parts[0])
+      const s = parseFloat(parts[1]) / 100
+      const l = parseFloat(parts[2]) / 100
 
-      let a = s * Math.min(l, 1 - l)
-      let f = (n, k = (n + h / 30) % 12) => l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1)
+      const a = s * Math.min(l, 1 - l)
+      const f = (n, k = (n + h / 30) % 12) => l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1)
 
       const toHex = x => {
         const hex = Math.round(x * 255).toString(16)
@@ -109,9 +109,9 @@ const updateThemeColors = () => {
 
 const getBrightness = (hex) => {
   if (!hex || hex.length < 7) return 255
-  let r = parseInt(hex.slice(1, 3), 16)
-  let g = parseInt(hex.slice(3, 5), 16)
-  let b = parseInt(hex.slice(5, 7), 16)
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
   if (isNaN(r) || isNaN(g) || isNaN(b)) return 255
   return (r * 299 + g * 587 + b * 114) / 1000
 }

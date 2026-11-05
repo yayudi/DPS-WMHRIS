@@ -87,3 +87,4 @@ describe('createJobQueueStore factory', () => {
     consoleSpy.mockRestore()
   })
 })
+

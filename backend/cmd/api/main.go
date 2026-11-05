@@ -41,6 +41,7 @@ func main() {
 	jobHandler := container.JobHandler
 	uploadHandler := container.UploadHandler
 	mediaHandler := container.MediaHandler
+	localizationHandler := container.LocalizationHandler
 	categoryHandler := container.CategoryHandler
 	productHandler := container.ProductHandler
 	locationHandler := container.LocationHandler
@@ -48,6 +49,7 @@ func main() {
 	stockRequestHandler := container.StockRequestHandler
 	stockTransactionHandler := container.StockTransactionHandler
 	stockQueryHandler := container.StockQueryHandler
+	slotHandler := container.SlotHandler
 	packageHandler := container.PackageHandler
 	returnHandler := container.ReturnHandler
 	investigationHandler := container.InvestigationHandler
@@ -76,14 +78,17 @@ func main() {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		}
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-User-Locale, If-None-Match")
+		c.Writer.Header().Set("Access-Control-Expose-Headers", "ETag")
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
 		}
 		c.Next()
 	})
+
+	r.Use(middleware.LocaleContextMiddleware())
 
 	api := r.Group("/api")
 	{
@@ -96,6 +101,13 @@ func main() {
 		api.POST("/auth/login", userHandler.Login)
 		api.POST("/auth/logout", userHandler.Logout)
 
+		// Localization routes (unprotected)
+		api.GET("/system/localization/locales", localizationHandler.GetLocales)
+		api.GET("/system/localization/dictionaries/:locale", localizationHandler.GetDictionary)
+
+		// Kelja ERP picking resolution endpoint (accessible by Kelja service)
+		api.GET("/wms/fulfillments/:reference_id/picking-locations", slotHandler.GetPickingLocationsForKelja)
+
 		// Protected routes
 		protected := api.Group("/")
 		protected.Use(middleware.AuthMiddleware())
@@ -106,6 +118,8 @@ func main() {
 				user.GET("/profile", userHandler.GetProfile)
 				user.PUT("/profile", userHandler.UpdateProfile)
 				user.GET("/my-locations", userHandler.GetMyLocations)
+				user.GET("/preferences", userHandler.GetPreferences)
+				user.PATCH("/preferences", userHandler.UpdatePreferences)
 			}
 			// Categories
 			protected.GET("/categories", categoryHandler.GetAllActive)
@@ -119,6 +133,7 @@ func main() {
 				locations.GET("", locationHandler.GetAll)
 				locations.POST("", locationHandler.Create)
 				locations.PUT("/:id", locationHandler.Update)
+				locations.PUT("/:id/fulfillment-source", locationHandler.ToggleFulfillmentSource)
 				locations.DELETE("/:id", locationHandler.Delete)
 				locations.GET("/:id/stock-sample", locationHandler.GetStockSample)
 			}
@@ -139,6 +154,21 @@ func main() {
 			{
 				wms.GET("/stock-balances", stockQueryHandler.GetBalances)
 				wms.POST("/transactions/create", stockTransactionHandler.CreateTransaction)
+				wms.POST("/transactions/execute", stockTransactionHandler.ExecuteTransaction)
+				wms.POST("/transactions/batch-execute", stockTransactionHandler.BatchExecuteTransactions)
+				wms.GET("/fulfillments/on-hold", stockTransactionHandler.GetOnHoldFulfillments)
+				wms.POST("/fulfillments/:id/release", stockTransactionHandler.ReleaseHeldFulfillment)
+			}
+
+			// Locational Metadata Slotting
+			slots := protected.Group("/inventory/slots")
+			{
+				slots.POST("", slotHandler.AddSlot)
+				slots.GET("", slotHandler.GetSlots)
+				slots.DELETE("/:id", slotHandler.DeleteSlot)
+				slots.PUT("/:id/primary", slotHandler.SetPrimarySlot)
+				slots.PATCH("/:id/primary", slotHandler.SetPrimarySlot)
+				slots.GET("/logs", slotHandler.GetSlotLogs)
 			}
 
 			// Stock Movements
@@ -349,6 +379,10 @@ func main() {
 			protected.DELETE("/jobs/import/:id", jobHandler.CancelImportJob)
 			protected.GET("/jobs/export", jobHandler.GetExportJobs)
 			protected.DELETE("/jobs/export/:id", jobHandler.CancelExportJob)
+
+			// System: Localization Management (Admin)
+			protected.GET("/system/localization/admin/matrix", middleware.RequirePermission(db, "system.localization.manage"), localizationHandler.GetTranslationMatrix)
+			protected.POST("/system/localization/translations", middleware.RequirePermission(db, "system.localization.manage"), localizationHandler.SaveTranslations)
 
 			statistics := protected.Group("/statistics")
 			{

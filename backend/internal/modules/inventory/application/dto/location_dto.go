@@ -1,21 +1,23 @@
 package inventory_dto
 
 type CreateLocationRequest struct {
-	Code     string `json:"code" binding:"required"`
-	Building string `json:"building" binding:"required"`
-	Floor    *int   `json:"floor"`
-	Name     string `json:"name"`
-	Purpose  string `json:"purpose"`
-	IsActive *bool  `json:"is_active" binding:"required"`
+	Code                string `json:"code" binding:"required"`
+	Building            string `json:"building" binding:"required"`
+	Floor               *int   `json:"floor"`
+	Name                string `json:"name"`
+	Purpose             string `json:"purpose"`
+	IsActive            *bool  `json:"is_active" binding:"required"`
+	IsFulfillmentSource *bool  `json:"is_fulfillment_source"`
 }
 
 type UpdateLocationRequest struct {
-	Code     string `json:"code" binding:"required"`
-	Building string `json:"building" binding:"required"`
-	Floor    *int   `json:"floor"`
-	Name     string `json:"name"`
-	Purpose  string `json:"purpose"`
-	IsActive *bool  `json:"is_active" binding:"required"`
+	Code                string `json:"code" binding:"required"`
+	Building            string `json:"building" binding:"required"`
+	Floor               *int   `json:"floor"`
+	Name                string `json:"name"`
+	Purpose             string `json:"purpose"`
+	IsActive            *bool  `json:"is_active" binding:"required"`
+	IsFulfillmentSource *bool  `json:"is_fulfillment_source"`
 }
 
 type StockSampleResponse struct {

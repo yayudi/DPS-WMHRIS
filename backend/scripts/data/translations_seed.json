@@ -1,0 +1,1019 @@
+[
+  {
+    "module": "common",
+    "key": "btn.save",
+    "translations": {
+      "id-ID": "Simpan",
+      "en-US": "Save"
+    }
+  },
+  {
+    "module": "common",
+    "key": "btn.cancel",
+    "translations": {
+      "id-ID": "Batal",
+      "en-US": "Cancel"
+    }
+  },
+  {
+    "module": "common",
+    "key": "btn.delete",
+    "translations": {
+      "id-ID": "Hapus",
+      "en-US": "Delete"
+    }
+  },
+  {
+    "module": "common",
+    "key": "btn.edit",
+    "translations": {
+      "id-ID": "Ubah",
+      "en-US": "Edit"
+    }
+  },
+  {
+    "module": "common",
+    "key": "btn.add",
+    "translations": {
+      "id-ID": "Tambah",
+      "en-US": "Add"
+    }
+  },
+  {
+    "module": "common",
+    "key": "btn.search",
+    "translations": {
+      "id-ID": "Cari",
+      "en-US": "Search"
+    }
+  },
+  {
+    "module": "common",
+    "key": "btn.reset",
+    "translations": {
+      "id-ID": "Reset",
+      "en-US": "Reset"
+    }
+  },
+  {
+    "module": "common",
+    "key": "btn.export",
+    "translations": {
+      "id-ID": "Ekspor",
+      "en-US": "Export"
+    }
+  },
+  {
+    "module": "common",
+    "key": "btn.import",
+    "translations": {
+      "id-ID": "Impor",
+      "en-US": "Import"
+    }
+  },
+  {
+    "module": "common",
+    "key": "btn.refresh",
+    "translations": {
+      "id-ID": "Segarkan",
+      "en-US": "Refresh"
+    }
+  },
+  {
+    "module": "common",
+    "key": "btn.close",
+    "translations": {
+      "id-ID": "Tutup",
+      "en-US": "Close"
+    }
+  },
+  {
+    "module": "common",
+    "key": "status.active",
+    "translations": {
+      "id-ID": "Aktif",
+      "en-US": "Active"
+    }
+  },
+  {
+    "module": "common",
+    "key": "status.inactive",
+    "translations": {
+      "id-ID": "Tidak Aktif",
+      "en-US": "Inactive"
+    }
+  },
+  {
+    "module": "common",
+    "key": "status.success",
+    "translations": {
+      "id-ID": "Berhasil",
+      "en-US": "Success"
+    }
+  },
+  {
+    "module": "common",
+    "key": "status.failed",
+    "translations": {
+      "id-ID": "Gagal",
+      "en-US": "Failed"
+    }
+  },
+  {
+    "module": "common",
+    "key": "status.loading",
+    "translations": {
+      "id-ID": "Memuat...",
+      "en-US": "Loading..."
+    }
+  },
+  {
+    "module": "common",
+    "key": "label.actions",
+    "translations": {
+      "id-ID": "Aksi",
+      "en-US": "Actions"
+    }
+  },
+  {
+    "module": "common",
+    "key": "label.created_at",
+    "translations": {
+      "id-ID": "Dibuat Pada",
+      "en-US": "Created At"
+    }
+  },
+  {
+    "module": "common",
+    "key": "label.updated_at",
+    "translations": {
+      "id-ID": "Diperbarui Pada",
+      "en-US": "Updated At"
+    }
+  },
+  {
+    "module": "common",
+    "key": "label.no_data",
+    "translations": {
+      "id-ID": "Tidak ada data ditemukan",
+      "en-US": "No data found"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "control.stock_status",
+    "translations": {
+      "id-ID": "Status Stok",
+      "en-US": "Stock Status"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "control.location_view",
+    "translations": {
+      "id-ID": "Tampilan Lokasi",
+      "en-US": "Location View"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "control.building",
+    "translations": {
+      "id-ID": "Gedung",
+      "en-US": "Building"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "control.floor",
+    "translations": {
+      "id-ID": "Lantai",
+      "en-US": "Floor"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "stock.all",
+    "translations": {
+      "id-ID": "Semua",
+      "en-US": "All"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "stock.nonzero",
+    "translations": {
+      "id-ID": "Tidak Kosong",
+      "en-US": "Non Zero"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "stock.positive",
+    "translations": {
+      "id-ID": "Positif",
+      "en-US": "Positive"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "stock.zero",
+    "translations": {
+      "id-ID": "Kosong",
+      "en-US": "Zero / Empty"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "stock.negative",
+    "translations": {
+      "id-ID": "Minus",
+      "en-US": "Negative"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "location.room",
+    "translations": {
+      "id-ID": "Ruang",
+      "en-US": "Room"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "location.rack",
+    "translations": {
+      "id-ID": "Rak",
+      "en-US": "Rack"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "location.tier",
+    "translations": {
+      "id-ID": "Tingkat",
+      "en-US": "Tier / Level"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "table.sku",
+    "translations": {
+      "id-ID": "SKU",
+      "en-US": "SKU"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "table.barcode",
+    "translations": {
+      "id-ID": "Barcode",
+      "en-US": "Barcode"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "table.product_name",
+    "translations": {
+      "id-ID": "Nama Produk",
+      "en-US": "Product Name"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "table.stock",
+    "translations": {
+      "id-ID": "Stok",
+      "en-US": "Stock"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "table.locations",
+    "translations": {
+      "id-ID": "Lokasi",
+      "en-US": "Locations"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "login.title",
+    "translations": {
+      "id-ID": "Masuk ke Sistem",
+      "en-US": "Sign In to System"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "login.username",
+    "translations": {
+      "id-ID": "Nama Pengguna",
+      "en-US": "Username"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "login.password",
+    "translations": {
+      "id-ID": "Kata Sandi",
+      "en-US": "Password"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "login.btn_submit",
+    "translations": {
+      "id-ID": "Masuk",
+      "en-US": "Sign In"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "logout.confirm",
+    "translations": {
+      "id-ID": "Apakah Anda yakin ingin keluar?",
+      "en-US": "Are you sure you want to log out?"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "profile.title",
+    "translations": {
+      "id-ID": "Profil Pengguna",
+      "en-US": "User Profile"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "profile.preferences",
+    "translations": {
+      "id-ID": "Preferensi Pengguna",
+      "en-US": "User Preferences"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "profile.language",
+    "translations": {
+      "id-ID": "Bahasa Antarmuka",
+      "en-US": "Interface Language"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "profile.theme",
+    "translations": {
+      "id-ID": "Tema Tampilan",
+      "en-US": "Display Theme"
+    }
+  },
+  {
+    "module": "errors",
+    "key": "validation_error",
+    "translations": {
+      "id-ID": "Data input tidak valid",
+      "en-US": "Invalid input data"
+    }
+  },
+  {
+    "module": "errors",
+    "key": "unauthorized",
+    "translations": {
+      "id-ID": "Sesi telah berakhir atau tidak memiliki izin",
+      "en-US": "Session expired or unauthorized"
+    }
+  },
+  {
+    "module": "errors",
+    "key": "forbidden",
+    "translations": {
+      "id-ID": "Anda tidak memiliki akses ke fitur ini",
+      "en-US": "You do not have access to this feature"
+    }
+  },
+  {
+    "module": "errors",
+    "key": "not_found",
+    "translations": {
+      "id-ID": "Data tidak ditemukan",
+      "en-US": "Data not found"
+    }
+  },
+  {
+    "module": "errors",
+    "key": "internal_server_error",
+    "translations": {
+      "id-ID": "Terjadi kesalahan internal pada server",
+      "en-US": "An internal server error occurred"
+    }
+  },
+  {
+    "module": "errors",
+    "key": "stock_insufficient",
+    "translations": {
+      "id-ID": "Stok barang tidak mencukupi untuk transaksi ini",
+      "en-US": "Insufficient item stock for this transaction"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "wms",
+    "translations": {
+      "id-ID": "WMS",
+      "en-US": "WMS"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "dashboard",
+    "translations": {
+      "id-ID": "Dashboard",
+      "en-US": "Dashboard"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "replenishment",
+    "translations": {
+      "id-ID": "Antrean Replenishment",
+      "en-US": "Replenishment Queue"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "batch_movement",
+    "translations": {
+      "id-ID": "Pindah Lokasi",
+      "en-US": "Location Transfer"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "spreadsheet",
+    "translations": {
+      "id-ID": "Proses Excel",
+      "en-US": "Process Excel"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "return",
+    "translations": {
+      "id-ID": "Retur Barang",
+      "en-US": "Goods Return"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "batch_log",
+    "translations": {
+      "id-ID": "Log Pergerakan",
+      "en-US": "Movement Log"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "batch_adjustment",
+    "translations": {
+      "id-ID": "Penyesuaian Stok",
+      "en-US": "Stock Adjustment"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "stock_requests",
+    "translations": {
+      "id-ID": "Permintaan Stok",
+      "en-US": "Stock Requests"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "investigation",
+    "translations": {
+      "id-ID": "Investigasi Stok",
+      "en-US": "Stock Investigation"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "hr",
+    "translations": {
+      "id-ID": "Sumber Daya Manusia",
+      "en-US": "Human Resources"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "attendance",
+    "translations": {
+      "id-ID": "Absensi",
+      "en-US": "Attendance"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "shifts",
+    "translations": {
+      "id-ID": "Master Shift",
+      "en-US": "Shift Master"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "schedules",
+    "translations": {
+      "id-ID": "Kalender Shift",
+      "en-US": "Shift Schedule"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "master_data",
+    "translations": {
+      "id-ID": "Inventaris & Master",
+      "en-US": "Inventory & Master"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "products",
+    "translations": {
+      "id-ID": "Produk",
+      "en-US": "Products"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "packages",
+    "translations": {
+      "id-ID": "Paket",
+      "en-US": "Packages"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "categories",
+    "translations": {
+      "id-ID": "Kategori",
+      "en-US": "Categories"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "media",
+    "translations": {
+      "id-ID": "Media Produk",
+      "en-US": "Product Media"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "locations",
+    "translations": {
+      "id-ID": "Lokasi Gudang",
+      "en-US": "Warehouse Locations"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "sales_channels",
+    "translations": {
+      "id-ID": "Saluran Penjualan",
+      "en-US": "Sales Channels"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "analytics",
+    "translations": {
+      "id-ID": "Laporan & Statistik",
+      "en-US": "Reports & Analytics"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "settings",
+    "translations": {
+      "id-ID": "Pengaturan Sistem",
+      "en-US": "System Settings"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "users",
+    "translations": {
+      "id-ID": "Pengguna",
+      "en-US": "Users"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "roles",
+    "translations": {
+      "id-ID": "Peran & Izin",
+      "en-US": "Roles & Permissions"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "logs",
+    "translations": {
+      "id-ID": "Log Aktivitas",
+      "en-US": "Activity Logs"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "localization",
+    "translations": {
+      "id-ID": "Bahasa & Lokalisasi",
+      "en-US": "Language & Localization"
+    }
+  },
+  {
+    "module": "localization",
+    "key": "title",
+    "translations": {
+      "id-ID": "Manajemen Bahasa & Lokalisasi",
+      "en-US": "Language & Localization Management"
+    }
+  },
+  {
+    "module": "localization",
+    "key": "subtitle",
+    "translations": {
+      "id-ID": "Kelola kamus terjemahan sistem lintas modul dan bahasa secara terpusat.",
+      "en-US": "Manage centralized system dictionaries and translations across modules."
+    }
+  },
+  {
+    "module": "localization",
+    "key": "untranslated_only",
+    "translations": {
+      "id-ID": "Belum Diterjemahkan Saja",
+      "en-US": "Untranslated Only"
+    }
+  },
+  {
+    "module": "localization",
+    "key": "add_key",
+    "translations": {
+      "id-ID": "Tambah Key Baru",
+      "en-US": "Add New Key"
+    }
+  },
+  {
+    "module": "localization",
+    "key": "save_changes",
+    "translations": {
+      "id-ID": "Simpan Perubahan",
+      "en-US": "Save Changes"
+    }
+  },
+  {
+    "module": "localization",
+    "key": "saved_success",
+    "translations": {
+      "id-ID": "Perubahan terjemahan berhasil disimpan",
+      "en-US": "Translation changes saved successfully"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "guide.title",
+    "translations": {
+      "id-ID": "Fitur & Panduan",
+      "en-US": "Features & Guide"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "logout.btn",
+    "translations": {
+      "id-ID": "Keluar",
+      "en-US": "Sign Out"
+    }
+  },
+  {
+    "module": "common",
+    "key": "pwa.install",
+    "translations": {
+      "id-ID": "Install Aplikasi",
+      "en-US": "Install App"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "stock.unslotted",
+    "translations": {
+      "id-ID": "Belum",
+      "en-US": "Unslotted"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "stock.slotted",
+    "translations": {
+      "id-ID": "Sudah",
+      "en-US": "Slotted"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "control.slotting_status",
+    "translations": {
+      "id-ID": "Status Rak",
+      "en-US": "Slotting Status"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "control.product_type",
+    "translations": {
+      "id-ID": "Tipe Produk",
+      "en-US": "Product Type"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "type.all",
+    "translations": {
+      "id-ID": "Semua Tipe",
+      "en-US": "All Types"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "type.single",
+    "translations": {
+      "id-ID": "Tunggal",
+      "en-US": "Single"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "type.package",
+    "translations": {
+      "id-ID": "Paket",
+      "en-US": "Package"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "view.gudang",
+    "translations": {
+      "id-ID": "Gudang",
+      "en-US": "Warehouse"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "view.pajangan",
+    "translations": {
+      "id-ID": "Pajangan",
+      "en-US": "Display"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "view.ltc",
+    "translations": {
+      "id-ID": "LTC",
+      "en-US": "LTC"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "table.actions",
+    "translations": {
+      "id-ID": "Aksi",
+      "en-US": "Actions"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "action.adjust_stock",
+    "translations": {
+      "id-ID": "Sesuaikan Stok",
+      "en-US": "Adjust Stock"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "action.transfer_stock",
+    "translations": {
+      "id-ID": "Transfer Stok",
+      "en-US": "Transfer Stock"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "action.edit_product",
+    "translations": {
+      "id-ID": "Edit Produk",
+      "en-US": "Edit Product"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "action.delete_product",
+    "translations": {
+      "id-ID": "Hapus Produk",
+      "en-US": "Delete Product"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "action.slotting",
+    "translations": {
+      "id-ID": "Atur Ambalan / Rak",
+      "en-US": "Rack / Shelf Slotting"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "action.print_sticker",
+    "translations": {
+      "id-ID": "Cetak Sticker",
+      "en-US": "Print Sticker"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "action.history",
+    "translations": {
+      "id-ID": "Riwayat",
+      "en-US": "History"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "login.subtitle",
+    "translations": {
+      "id-ID": "Silakan login untuk melanjutkan",
+      "en-US": "Please sign in to continue"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "login.server_offline",
+    "translations": {
+      "id-ID": "Server Offline / Terputus",
+      "en-US": "Server Offline / Disconnected"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "login.session_expired",
+    "translations": {
+      "id-ID": "Sesi Anda telah berakhir, silakan login kembali.",
+      "en-US": "Your session has expired, please sign in again."
+    }
+  },
+  {
+    "module": "common",
+    "key": "btn.retry",
+    "translations": {
+      "id-ID": "Coba Lagi",
+      "en-US": "Retry"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "inventory_value",
+    "translations": {
+      "id-ID": "Nilai Persediaan",
+      "en-US": "Inventory Value"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "stock_movement",
+    "translations": {
+      "id-ID": "Mutasi Stok",
+      "en-US": "Stock Movement"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "stock_timeline",
+    "translations": {
+      "id-ID": "Riwayat Pergerakan",
+      "en-US": "Movement Timeline"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "time_performance",
+    "translations": {
+      "id-ID": "Performa Waktu",
+      "en-US": "Time Performance"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "package_analysis",
+    "translations": {
+      "id-ID": "Analisa Produk Paket",
+      "en-US": "Package Analysis"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "channel_performance",
+    "translations": {
+      "id-ID": "Penjualan Toko",
+      "en-US": "Channel Performance"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "stock_distribution",
+    "translations": {
+      "id-ID": "Sebaran Stok",
+      "en-US": "Stock Distribution"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "location_capacity",
+    "translations": {
+      "id-ID": "Statistik Kapasitas",
+      "en-US": "Location Capacity"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "export_stock",
+    "translations": {
+      "id-ID": "Ekspor Stok",
+      "en-US": "Export Stock"
+    }
+  },
+  {
+    "module": "nav",
+    "key": "reports",
+    "translations": {
+      "id-ID": "Laporan Khusus",
+      "en-US": "Custom Reports"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "control.category",
+    "translations": {
+      "id-ID": "Kategori",
+      "en-US": "Category"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "control.display_mode",
+    "translations": {
+      "id-ID": "Mode Tampilan",
+      "en-US": "Display Mode"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "control.scroll",
+    "translations": {
+      "id-ID": "Scroll",
+      "en-US": "Scroll"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "control.page",
+    "translations": {
+      "id-ID": "Halaman",
+      "en-US": "Page"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "control.column_visibility",
+    "translations": {
+      "id-ID": "Visibilitas Kolom & Pengaturan",
+      "en-US": "Column Visibility & Settings"
+    }
+  },
+  {
+    "module": "common",
+    "key": "btn.clear_search",
+    "translations": {
+      "id-ID": "Bersihkan pencarian",
+      "en-US": "Clear search"
+    }
+  },
+  {
+    "module": "auth",
+    "key": "profile.my_account",
+    "translations": {
+      "id-ID": "Akun Saya",
+      "en-US": "My Account"
+    }
+  }
+]
+

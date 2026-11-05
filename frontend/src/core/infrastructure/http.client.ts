@@ -34,6 +34,10 @@ instance.interceptors.request.use(
       loadingStore.startLoading()
     }
 
+    // Attach current active locale for backend context
+    const userLocale = localStorage.getItem('user_locale') || 'id-ID'
+    config.headers['X-User-Locale'] = userLocale
+
     if (config.data instanceof FormData || config.responseType === 'blob') {
       config.timeout = 80000
     }
@@ -49,16 +53,40 @@ instance.interceptors.request.use(
   }
 )
 
+function getTranslation(key: string, fallback: string, localeStore?: { dictionary?: Record<string, string> } | null): string {
+  if (localeStore?.dictionary?.[key]) {
+    return localeStore.dictionary[key]
+  }
+  try {
+    const locale = typeof localStorage !== 'undefined' ? localStorage.getItem('user_locale') || 'id-ID' : 'id-ID'
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(`cached_dict_${locale}`) : null
+    if (raw) {
+      const dict = JSON.parse(raw)
+      if (dict?.[key]) return dict[key]
+    }
+  } catch {
+    // fallback
+  }
+  return fallback
+}
+
 instance.interceptors.response.use(
   async (response: AxiosResponse) => {
+    let localeStore: any = null
     if (getActivePinia()) {
       const loadingStore = useLoadingStore()
       loadingStore.stopLoading()
+      try {
+        const { useLocaleStore } = await import('@/core/presentation/stores/localeStore')
+        localeStore = useLocaleStore()
+      } catch {
+        // ignore
+      }
     }
 
     if (response.config.responseType !== 'blob' && response.data && typeof response.data === 'object') {
       if (response.data.success === false) {
-        const message = response.data.message || 'Operasi gagal diproses oleh server.'
+        const message = response.data.message || getTranslation('common.operation_failed', 'Operasi gagal diproses oleh server.', localeStore)
         if (!response.config?.silentErrorToast) {
           const { toast } = await import('@/core/presentation/composables/useToast').then(m => m.useToast())
           toast(message, 'error')
@@ -71,10 +99,17 @@ instance.interceptors.response.use(
   },
   async (error: AxiosError<any>) => {
     let authStore: ReturnType<typeof useAuthStore> | null = null
+    let localeStore: any = null
     if (getActivePinia()) {
       authStore = useAuthStore()
       const loadingStore = useLoadingStore()
       loadingStore.stopLoading()
+      try {
+        const { useLocaleStore } = await import('@/core/presentation/stores/localeStore')
+        localeStore = useLocaleStore()
+      } catch {
+        // ignore
+      }
     }
     const { toast } = await import('@/core/presentation/composables/useToast').then(m => m.useToast())
 
@@ -87,18 +122,20 @@ instance.interceptors.response.use(
           authStore.logout()
         }
         if (!error.config?.silentErrorToast) {
-          toast('Sesi Anda telah habis, silakan login kembali.', 'error')
+          toast(getTranslation('errors.unauthorized', 'Sesi Anda telah habis, silakan login kembali.', localeStore), 'error')
         }
         setTimeout(() => {
           window.location.href = '/login'
         }, 2000)
       } else if (status === 403) {
         if (!error.config?.silentErrorToast) {
-          toast(data?.message || 'Akses ditolak.', 'warning')
+          const fallbackForbidden = getTranslation('errors.forbidden', 'Akses ditolak.', localeStore)
+          toast(data?.message || fallbackForbidden, 'warning')
         }
       } else if (status >= 400 && status !== 401 && status !== 403) {
         if (!url.includes('/auth/login')) {
-          let serverMessage = data?.message || 'Terjadi kesalahan pada server.'
+          const fallbackServer = getTranslation('errors.internal_server_error', 'Terjadi kesalahan pada server.', localeStore)
+          let serverMessage = data?.message || fallbackServer
           if (data?.error_code === 'VALIDATION_ERROR' && data?.message) {
             serverMessage = serverMessage.replace(/(body\.|query\.|params\.)/g, '')
             data.message = serverMessage 
@@ -110,7 +147,7 @@ instance.interceptors.response.use(
       }
     } else {
       if (!error.config?.silentErrorToast) {
-        toast('Tidak dapat terhubung ke server (Network Error).', 'error')
+        toast(getTranslation('errors.network_error', 'Tidak dapat terhubung ke server (Network Error).', localeStore), 'error')
       }
     }
 
@@ -125,6 +162,8 @@ export const http = {
     instance.post(url, data, config).then(res => res.data),
   put: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> =>
     instance.put(url, data, config).then(res => res.data),
+  patch: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> =>
+    instance.patch(url, data, config).then(res => res.data),
   delete: <T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> =>
     instance.delete(url, config).then(res => res.data),
   blob: (url: string, config?: AxiosRequestConfig): Promise<Blob> =>

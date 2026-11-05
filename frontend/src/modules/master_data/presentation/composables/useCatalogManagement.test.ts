@@ -114,3 +114,4 @@ describe('useCatalogManagement composable', () => {
     expect(sortOrder.value).toBe('asc')
   })
 })
+

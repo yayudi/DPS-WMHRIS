@@ -2,12 +2,14 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { authApi } from '@/modules/auth/infrastructure/auth.api'
 import { loginSchema } from '@/modules/auth/domain/auth.validator'
+import LanguageSwitcher from '@/core/presentation/components/ui/LanguageSwitcher.vue'
 
 // --- Variabel untuk Form Login ---
-const usernameInput = ref(null)
+const usernameInput = ref<HTMLInputElement | null>(null)
 const username = ref('')
 const password = ref('')
 const error = ref('')
@@ -16,6 +18,7 @@ const loading = ref(false)
 const auth = useAuthStore()
 const route = useRoute()
 const { toast } = useToast()
+const { t } = useI18n()
 
 // --- Variabel untuk Tes Koneksi ---
 const testResult = ref(null)
@@ -25,7 +28,7 @@ const isTestLoading = ref(true)
 async function login() {
   loading.value = true
   error.value = ''
-  
+
   const payload = {
     username: username.value,
     password: password.value
@@ -80,7 +83,7 @@ async function runTest() {
 
 onMounted(() => {
   if (route.query.expired) {
-    toast('Sesi Anda telah berakhir, silakan login kembali.', 'info')
+    toast(t('auth.login.session_expired'), 'info')
   }
 
   runTest()
@@ -94,6 +97,11 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen flex items-center justify-center p-4 animate-fade-in relative">
+    <!-- Quick Language Switcher on Login Page -->
+    <div class="absolute top-4 right-4 z-20">
+      <LanguageSwitcher />
+    </div>
+
     <div class="w-full max-w-sm p-6 rounded-xl shadow-2xl relative z-10 bg-background border-2 border-primary/20">
       <!-- Indikator Tes Koneksi Server -->
       <div
@@ -102,9 +110,9 @@ onMounted(() => {
       >
         <span>
           <font-awesome-icon icon="fa-solid fa-triangle-exclamation" class="mr-1" />
-          Server Offline / Terputus
+          {{ t('auth.login.server_offline') }}
         </span>
-        <button @click="runTest" class="underline hover:text-text/80">Coba Lagi</button>
+        <button @click="runTest" class="underline hover:text-text/80">{{ t('common.btn.retry') }}</button>
       </div>
 
       <div class="text-center mb-6">
@@ -121,8 +129,8 @@ onMounted(() => {
           class="text-4xl mb-3 transition-colors duration-300"
           :class="{ 'text-primary': testResult === true, 'text-danger': testResult === false }"
         />
-        <h2 class="text-2xl font-bold text-text">Selamat Datang</h2>
-        <p class="text-sm text-text/70">Silakan login untuk melanjutkan</p>
+        <h2 class="text-2xl font-bold text-text">{{ t('auth.login.title') }}</h2>
+        <p class="text-sm text-text/70">{{ t('auth.login.subtitle') }}</p>
       </div>
 
       <form @submit.prevent="login" class="space-y-4">
@@ -130,14 +138,14 @@ onMounted(() => {
           ref="usernameInput"
           v-model="username"
           type="text"
-          placeholder="Username"
+          :placeholder="t('auth.login.username')"
           class="w-full px-3 py-2 bg-secondary/20 border-2 border-secondary/50 text-text rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition"
           required
         />
         <input
           v-model="password"
           type="password"
-          placeholder="Password"
+          :placeholder="t('auth.login.password')"
           class="w-full px-3 py-2 bg-secondary/20 border-2 border-secondary/50 text-text rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition"
           required
         />
@@ -148,7 +156,7 @@ onMounted(() => {
           class="w-full bg-primary text-secondary py-3 rounded-lg font-bold hover:bg-primary/90 transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2 shadow-lg shadow-primary/20"
         >
           <font-awesome-icon v-if="loading" icon="fa-solid fa-spinner" class="animate-spin" />
-          <span>{{ loading ? 'Memproses...' : testResult === false ? 'Server Offline' : 'Masuk' }}</span>
+          <span>{{ loading ? t('common.status.loading') : testResult === false ? t('auth.login.server_offline') : t('auth.login.btn_submit') }}</span>
         </button>
       </form>
 

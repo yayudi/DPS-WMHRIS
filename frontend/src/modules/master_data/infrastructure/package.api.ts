@@ -1,5 +1,4 @@
 import { http } from '@/core/infrastructure/http.client'
-import type { ProductSearchFilter } from '../domain/product.entity'
 
 export const packageApi = {
   /**

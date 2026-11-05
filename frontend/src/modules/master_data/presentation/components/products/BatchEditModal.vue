@@ -35,16 +35,16 @@ const emit = defineEmits<{
 }>()
 
 // Dynamic Titles & Job Types
-const modalTitle = computed(() =>
-  props.title || (props.entityType === 'package' ? 'Batch Edit Paket' : 'Batch Edit Produk')
+const modalTitle = computed(
+  () => props.title || (props.entityType === 'package' ? 'Batch Edit Paket' : 'Batch Edit Produk')
 )
 
-const effectiveExportJobType = computed(() =>
-  props.exportJobType || (props.entityType === 'package' ? 'EXPORT_PACKAGES' : 'PRODUCT_MASTER')
+const effectiveExportJobType = computed(
+  () => props.exportJobType || (props.entityType === 'package' ? 'EXPORT_PACKAGES' : 'PRODUCT_MASTER')
 )
 
-const effectiveImportJobType = computed(() =>
-  props.importJobType || (props.entityType === 'package' ? 'IMPORT_PACKAGES' : 'IMPORT_PRODUCT')
+const effectiveImportJobType = computed(
+  () => props.importJobType || (props.entityType === 'package' ? 'IMPORT_PACKAGES' : 'IMPORT_PRODUCT')
 )
 
 const shouldShowColumns = computed(() =>
@@ -85,9 +85,7 @@ const selectedColumnsState = ref({
 
 // --- Export Jobs Logic ---
 const exportJobs = computed<JobItem[]>(() => {
-  return (downloadStore.jobs as JobItem[])
-    .filter(job => job.type === effectiveExportJobType.value)
-    .slice(0, 5)
+  return (downloadStore.jobs as JobItem[]).filter(job => job.type === effectiveExportJobType.value).slice(0, 5)
 })
 const loadingExports = ref(false)
 
@@ -271,7 +269,8 @@ const close = () => {
         <!-- STEP 2: IMPORT -->
         <div v-if="activeTab === 'import'" class="flex-1 flex flex-col h-full overflow-hidden">
           <p class="text-sm text-text/70 mb-4 shrink-0 font-medium">
-            Upload file master {{ entityType === 'package' ? 'paket' : 'produk' }} yang sudah Anda edit. Sistem akan memproses pembaruan secara massal.
+            Upload file master {{ entityType === 'package' ? 'paket' : 'produk' }} yang sudah Anda edit. Sistem akan
+            memproses pembaruan secara massal.
           </p>
 
           <div
@@ -280,13 +279,7 @@ const close = () => {
             @dragover.prevent
             @drop.prevent="handleDrop"
           >
-            <input
-              type="file"
-              ref="fileInput"
-              class="hidden"
-              accept=".xlsx, .csv"
-              @change="handleFileSelect"
-            />
+            <input type="file" ref="fileInput" class="hidden" accept=".xlsx, .csv" @change="handleFileSelect" />
 
             <div
               class="w-16 h-16 rounded-2xl bg-secondary/10 flex items-center justify-center mb-3 group-hover:scale-110 group-hover:bg-primary/10 transition-all text-text/40 group-hover:text-primary"

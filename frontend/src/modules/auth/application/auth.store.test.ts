@@ -4,6 +4,18 @@ import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { http } from '@/core/infrastructure/http.client'
 import type { AuthUser } from '../domain/user.entity'
 
+const storage: Record<string, string> = {}
+if (typeof globalThis.localStorage === 'undefined') {
+  globalThis.localStorage = {
+    getItem: (key: string) => storage[key] || null,
+    setItem: (key: string, val: string) => { storage[key] = String(val) },
+    removeItem: (key: string) => { delete storage[key] },
+    clear: () => { for (const k in storage) delete storage[k] },
+    key: (i: number) => Object.keys(storage)[i] || null,
+    length: 0
+  } as any
+}
+
 // Mock http client
 vi.mock('@/core/infrastructure/http.client', () => ({
   http: {

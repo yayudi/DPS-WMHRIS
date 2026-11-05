@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 )
 
 // SuccessResponse mengirimkan respons JSON standar untuk operasi yang berhasil.
@@ -26,10 +28,44 @@ func SuccessResponse(c *gin.Context, statusCode int, message string, data any) {
 }
 
 // ErrorResponse mengirimkan respons JSON standar untuk operasi yang gagal.
+// Mendukung resolusi otomatis ke kamus "errors.*" jika locale aktif bukan default (id-ID).
 func ErrorResponse(c *gin.Context, statusCode int, message string, errorCode string) {
+	locale := c.GetString(i18n.GinLocaleKey)
+	if locale == "" && c.Request != nil {
+		locale = i18n.GetLocaleFromContext(c.Request.Context())
+	}
+	var ctx context.Context
+	if c.Request != nil {
+		ctx = c.Request.Context()
+	} else {
+		ctx = context.Background()
+	}
+	resolvedMsg := i18n.TranslateErrorCode(ctx, locale, errorCode, message)
+
 	c.JSON(statusCode, gin.H{
 		"success":    false,
-		"message":    message,
+		"message":    resolvedMsg,
+		"error_code": errorCode,
+	})
+}
+
+// LocalizedError mengirimkan respons error dengan key terjemahan custom dan interpolasi parameter dinamis.
+func LocalizedError(c *gin.Context, statusCode int, i18nKey string, params map[string]any, errorCode string) {
+	locale := c.GetString(i18n.GinLocaleKey)
+	if locale == "" && c.Request != nil {
+		locale = i18n.GetLocaleFromContext(c.Request.Context())
+	}
+	var ctx context.Context
+	if c.Request != nil {
+		ctx = c.Request.Context()
+	} else {
+		ctx = context.Background()
+	}
+	msg := i18n.TranslateByLocale(ctx, locale, i18nKey, params)
+
+	c.JSON(statusCode, gin.H{
+		"success":    false,
+		"message":    msg,
 		"error_code": errorCode,
 	})
 }
@@ -39,7 +75,7 @@ func ErrorResponse(c *gin.Context, statusCode int, message string, errorCode str
 func BindAndValidate[T any](c *gin.Context) (*T, bool) {
 	var req T
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Format input tidak valid: "+err.Error(), "VALIDATION_ERROR")
+		ErrorResponse(c, http.StatusBadRequest, fmt.Sprintf("Format input tidak valid: %s", err.Error()), "VALIDATION_ERROR")
 		return nil, false
 	}
 	return &req, true
@@ -49,7 +85,7 @@ func BindAndValidate[T any](c *gin.Context) (*T, bool) {
 func BindQueryAndValidate[T any](c *gin.Context) (*T, bool) {
 	var req T
 	if err := c.ShouldBindQuery(&req); err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Parameter tidak valid: "+err.Error(), "VALIDATION_ERROR")
+		ErrorResponse(c, http.StatusBadRequest, fmt.Sprintf("Parameter tidak valid: %s", err.Error()), "VALIDATION_ERROR")
 		return nil, false
 	}
 	return &req, true

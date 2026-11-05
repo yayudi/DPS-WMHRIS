@@ -1,13 +1,18 @@
 package utils
 
 import (
+	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 )
 
 func TestParseIntParam(t *testing.T) {
@@ -180,5 +185,162 @@ func TestHandleDomainError(t *testing.T) {
 			}
 		})
 	}
+}
+
+func setupI18nMockForUtils() {
+	i18n.RegisterLookupHook(func(ctx context.Context, locale, key string) (string, bool) {
+		if locale == "en-US" {
+			switch key {
+			case "errors.forbidden":
+				return "Access is forbidden", true
+			case "errors.validation_error":
+				return "Validation failed", true
+			case "inventory.stock_insufficient":
+				return "Insufficient stock for {sku} (only {available} left)", true
+			}
+		}
+		return "", false
+	})
+}
+
+func TestErrorResponse_Localization(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setupI18nMockForUtils()
+
+	t.Run("Translates FORBIDDEN error code when locale is en-US", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Set(i18n.GinLocaleKey, "en-US")
+
+		ErrorResponse(c, http.StatusForbidden, "Akses ditolak", "FORBIDDEN")
+
+		if w.Code != http.StatusForbidden {
+			t.Errorf("expected status %d, got %d", http.StatusForbidden, w.Code)
+		}
+
+		var resp map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to parse json response: %v", err)
+		}
+
+		if resp["success"] != false {
+			t.Errorf("expected success false, got %v", resp["success"])
+		}
+		if resp["error_code"] != "FORBIDDEN" {
+			t.Errorf("expected error_code FORBIDDEN, got %v", resp["error_code"])
+		}
+		if resp["message"] != "Access is forbidden" {
+			t.Errorf("expected translated message 'Access is forbidden', got %v", resp["message"])
+		}
+	})
+
+	t.Run("Preserves original message when locale is id-ID", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Set(i18n.GinLocaleKey, "id-ID")
+
+		ErrorResponse(c, http.StatusForbidden, "Akses ditolak", "FORBIDDEN")
+
+		var resp map[string]any
+		_ = json.Unmarshal(w.Body.Bytes(), &resp)
+
+		if resp["message"] != "Akses ditolak" {
+			t.Errorf("expected original message 'Akses ditolak', got %v", resp["message"])
+		}
+	})
+
+	t.Run("Falls back to original message when translation key is not found in en-US", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Set(i18n.GinLocaleKey, "en-US")
+
+		ErrorResponse(c, http.StatusBadRequest, "Custom unmapped business error", "CUSTOM_UNKNOWN_CODE")
+
+		var resp map[string]any
+		_ = json.Unmarshal(w.Body.Bytes(), &resp)
+
+		if resp["message"] != "Custom unmapped business error" {
+			t.Errorf("expected fallback message 'Custom unmapped business error', got %v", resp["message"])
+		}
+	})
+}
+
+func TestLocalizedError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setupI18nMockForUtils()
+
+	t.Run("Interpolates parameters correctly with en-US locale", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Set(i18n.GinLocaleKey, "en-US")
+
+		LocalizedError(c, http.StatusBadRequest, "inventory.stock_insufficient", map[string]any{
+			"sku":       "SKU-999",
+			"available": 3,
+		}, "STOCK_INSUFFICIENT")
+
+		var resp map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to parse json response: %v", err)
+		}
+
+		expected := "Insufficient stock for SKU-999 (only 3 left)"
+		if resp["message"] != expected {
+			t.Errorf("expected message %q, got %q", expected, resp["message"])
+		}
+		if resp["error_code"] != "STOCK_INSUFFICIENT" {
+			t.Errorf("expected error_code STOCK_INSUFFICIENT, got %v", resp["error_code"])
+		}
+	})
+}
+
+type testSampleReq struct {
+	Name string `json:"name" binding:"required"`
+}
+
+func TestBindAndValidate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setupI18nMockForUtils()
+
+	t.Run("Returns localized validation error prefix for en-US", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		req := httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		c.Request = req
+		c.Set(i18n.GinLocaleKey, "en-US")
+
+		val, ok := BindAndValidate[testSampleReq](c)
+		if ok {
+			t.Errorf("expected BindAndValidate to fail, but succeeded with %+v", val)
+		}
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d", w.Code)
+		}
+
+		var resp map[string]any
+		_ = json.Unmarshal(w.Body.Bytes(), &resp)
+
+		msg, _ := resp["message"].(string)
+		if !strings.HasPrefix(msg, "Validation failed:") {
+			t.Errorf("expected message prefix 'Validation failed:', got %q", msg)
+		}
+	})
+
+	t.Run("Succeeds when payload is valid", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		req := httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(`{"name":"test-item"}`))
+		req.Header.Set("Content-Type", "application/json")
+		c.Request = req
+
+		val, ok := BindAndValidate[testSampleReq](c)
+		if !ok || val == nil {
+			t.Fatalf("expected BindAndValidate to succeed, got ok=%v, val=%v", ok, val)
+		}
+		if val.Name != "test-item" {
+			t.Errorf("expected Name 'test-item', got %q", val.Name)
+		}
+	})
 }
 

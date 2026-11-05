@@ -97,6 +97,20 @@ func (r *stockTransactionRepositoryImpl) GetByTransactionNo(ctx context.Context,
 	return nil, nil 
 }
 
+func (r *stockTransactionRepositoryImpl) GetByReference(ctx context.Context, refType string, refID string) (*domain.StockTransaction, error) {
+	ext := database.GetExt(ctx, r.db)
+	var trx domain.StockTransaction
+	query := `SELECT id, transaction_number, reference_type, reference_id, assigned_building, status, notes, created_by, created_at, updated_at FROM inv_transactions WHERE reference_type = ? AND reference_id = ? LIMIT 1`
+	err := ext.QueryRowxContext(ctx, query, refType, refID).StructScan(&trx)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &trx, nil
+}
+
 func (r *stockTransactionRepositoryImpl) SaveFulfillmentTx(ctx context.Context, trx *domain.StockTransaction) error {
 	ext := database.GetExt(ctx, r.db)
 
@@ -122,5 +136,61 @@ func (r *stockTransactionRepositoryImpl) SaveFulfillmentTx(ctx context.Context, 
 			}
 		}
 	}
+	return nil
+}
+
+func (r *stockTransactionRepositoryImpl) GetHeldTransactions(ctx context.Context, building string) ([]domain.StockTransaction, error) {
+	ext := database.GetExt(ctx, r.db)
+	var transactions []domain.StockTransaction
+	var query string
+	var args []interface{}
+
+	if building != "" {
+		query = `SELECT id, transaction_number, reference_type, reference_id, assigned_building, status, notes, created_by, created_at, updated_at 
+		         FROM inv_transactions 
+		         WHERE status IN (?, ?) AND assigned_building = ? 
+		         ORDER BY id ASC`
+		args = []interface{}{domain.TransactionStatusHoldReplenishment, domain.TransactionStatusOutOfStock, building}
+	} else {
+		query = `SELECT id, transaction_number, reference_type, reference_id, assigned_building, status, notes, created_by, created_at, updated_at 
+		         FROM inv_transactions 
+		         WHERE status IN (?, ?) 
+		         ORDER BY id ASC`
+		args = []interface{}{domain.TransactionStatusHoldReplenishment, domain.TransactionStatusOutOfStock}
+	}
+
+	err := ext.SelectContext(ctx, &transactions, query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range transactions {
+		queryMov := `SELECT id, transaction_id, product_id, target_quantity, status, created_at FROM inv_movements WHERE transaction_id = ?`
+		var movs []*domain.TransactionMovement
+		if err := ext.SelectContext(ctx, &movs, queryMov, transactions[i].ID); err == nil {
+			transactions[i].Movements = movs
+		}
+	}
+
+	return transactions, nil
+}
+
+func (r *stockTransactionRepositoryImpl) UpdateTransactionTx(ctx context.Context, trx *domain.StockTransaction) error {
+	ext := database.GetExt(ctx, r.db)
+	query := `UPDATE inv_transactions SET status = ?, notes = ?, updated_at = NOW() WHERE id = ?`
+	_, err := ext.ExecContext(ctx, query, trx.Status, trx.Notes, trx.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, mov := range trx.Movements {
+		if mov.ID > 0 {
+			_, err := ext.ExecContext(ctx, `UPDATE inv_movements SET status = ? WHERE id = ?`, mov.Status, mov.ID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }

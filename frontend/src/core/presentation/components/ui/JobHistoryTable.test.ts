@@ -79,3 +79,4 @@ describe('JobHistoryTable.vue', () => {
     expect(wrapper.emitted('download')![0][0]).toEqual(sampleJobs[0])
   })
 })
+

@@ -68,6 +68,21 @@ export function useLocations() {
     }
   }
 
+  async function toggleFulfillmentSource(id: number | string, isFulfillmentSource: boolean) {
+    try {
+      await locationApi.toggleFulfillmentSource(id, isFulfillmentSource)
+      toast('Status sumber fulfillment berhasil diubah.', 'success')
+      const target = locations.value.find(l => l.id === id)
+      if (target) {
+        target.is_fulfillment_source = isFulfillmentSource
+      }
+      return true
+    } catch (err: any) {
+      toast(err?.response?.data?.message || err?.message || 'Gagal mengubah status sumber fulfillment.', 'error')
+      return false
+    }
+  }
+
   return {
     locations,
     isLoading,
@@ -75,6 +90,7 @@ export function useLocations() {
     fetchLocations,
     createLocation,
     updateLocation,
-    deleteLocation
+    deleteLocation,
+    toggleFulfillmentSource
   }
 }

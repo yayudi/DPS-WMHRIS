@@ -1,5 +1,3 @@
-import type { Product } from '../domain/product.entity'
-
 export interface FilterOptions {
   include: string[];
   exclude: string[];
@@ -37,6 +35,52 @@ export const matchesFilters = (loc: any, selectedBuilding: FilterOptions, select
 
   return buildingMatch && floorMatch
 }
+
+export interface SlotSummary {
+  id: number
+  room: string
+  rack: string
+  tier: string
+  formatted_coordinate: string
+  is_primary: boolean
+}
+
+/** Minimal shape of a stock location needed for display helpers. */
+export interface LocationLike {
+  location_id?: number
+  location_code: string
+  quantity: number
+  purpose?: string
+  building?: string
+  floor?: string | number
+  slots?: SlotSummary[]
+}
+
+const PURPOSE_BY_VIEW: Record<string, string> = {
+  gudang: 'WAREHOUSE',
+  pajangan: 'DISPLAY',
+  ltc: 'BRANCH'
+}
+
+/**
+ * Narrows locations to the active WMS view tab ('all' keeps everything, unknown views yield nothing).
+ */
+export const filterLocationsByView = <T extends LocationLike>(locations: T[], view: string): T[] => {
+  if (view === 'all') return locations
+  const purpose = PURPOSE_BY_VIEW[view]
+  if (!purpose) return []
+  return locations.filter(loc => loc.purpose === purpose)
+}
+
+/**
+ * Joins location codes for display. By default, locations with quantity 0 are skipped;
+ * negative quantities are kept on purpose because they signal a data anomaly users must see.
+ */
+export const joinLocationCodes = (locations: LocationLike[], hideEmpty = true): string =>
+  locations
+    .filter(loc => !hideEmpty || loc.quantity !== 0)
+    .map(loc => loc.location_code)
+    .join(', ')
 
 /**
  * Transforms an API product object, calculating stocks based on location purpose and filters

@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { authApi } from '../infrastructure/auth.api'
 import type { AuthUser } from '../domain/user.entity'
 import { triggerPwaUpdate, isPwaUpdateAvailable } from '@/core/presentation/composables/usePwaUpdate'
+import { useLocaleStore } from '@/core/presentation/stores/localeStore'
 
 export const useAuthStore = defineStore('auth', () => {
   // Coba muat user dari local storage saat inisialisasi
@@ -20,6 +21,9 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = newUser
     if (newUser) {
       localStorage.setItem('authUser', JSON.stringify(newUser))
+      if (newUser.preferences) {
+        useLocaleStore().syncUserPreferences(newUser.preferences)
+      }
     } else {
       localStorage.removeItem('authUser')
     }
@@ -28,6 +32,7 @@ export const useAuthStore = defineStore('auth', () => {
   function clearToken() {
     localStorage.removeItem('authUser')
     user.value = null
+    useLocaleStore().resetPreferences()
   }
 
   function logout() {

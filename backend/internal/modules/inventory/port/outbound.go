@@ -23,6 +23,10 @@ type LocationRepository interface {
 	// Stock Management Helpers
 	GetStockAtLocation(ctx context.Context, productID int, locationID int, lockForUpdate bool) (int, error)
 	FindBestStock(ctx context.Context, productID int, qtyNeeded int, purpose string) (*int, error)
+	FindAvailableStockLocations(ctx context.Context, productID int, purpose string, building string) ([]domain.AvailableLocationStock, error)
+	FindFulfillmentSourceStock(ctx context.Context, productID int) ([]domain.AvailableLocationStock, error)
+	FindReplenishmentCandidateStock(ctx context.Context, productID int) ([]domain.AvailableLocationStock, error)
+	UpdateFulfillmentSourceFlag(ctx context.Context, locationID int, isFulfillmentSource bool) error
 	IncrementStock(ctx context.Context, productID int, locationID int, qty int) error
 	DeductStock(ctx context.Context, productID int, locationID int, qty int) error
 	ReserveStock(ctx context.Context, productID int, locationID int, qty int) error
@@ -61,11 +65,39 @@ type StockTransactionRepository interface {
 	CreateTx(ctx context.Context, trx *domain.StockTransaction) error
 	GetByID(ctx context.Context, id uint) (*domain.StockTransaction, error)
 	GetByTransactionNo(ctx context.Context, trxNo string) (*domain.StockTransaction, error)
+	GetByReference(ctx context.Context, refType string, refID string) (*domain.StockTransaction, error)
+	GetHeldTransactions(ctx context.Context, building string) ([]domain.StockTransaction, error)
+	UpdateTransactionTx(ctx context.Context, trx *domain.StockTransaction) error
 	SaveFulfillmentTx(ctx context.Context, trx *domain.StockTransaction) error
 }
 
 type StockQueryRepository interface {
 	GetBalances(ctx context.Context, locationID *int, productID *int) ([]inventory_dto.StockBalanceResponse, error)
+}
+
+type OutboxRepository interface {
+	SaveTx(ctx context.Context, event *domain.OutboxEvent) error
+	GetPendingEvents(ctx context.Context, limit int) ([]domain.OutboxEvent, error)
+	MarkAsPublished(ctx context.Context, id int64) error
+	IncrementRetry(ctx context.Context, id int64) error
+}
+
+type KeljaClient interface {
+	FetchRecentFulfillments(ctx context.Context, page int, perPage int) ([]domain.KeljaFulfillmentSummary, error)
+	FetchFulfillmentDetail(ctx context.Context, fulfillmentID int) (*domain.KeljaFulfillmentDetail, error)
+}
+
+// SlotRepository defines outbound persistence operations for locational metadata slots and logs.
+type SlotRepository interface {
+	GetSlots(ctx context.Context, productID int, locationID int) ([]domain.ProductLocationSlot, error)
+	GetSlotByID(ctx context.Context, id int) (*domain.ProductLocationSlot, error)
+	CreateSlot(ctx context.Context, slot *domain.ProductLocationSlot) error
+	UpdateSlot(ctx context.Context, slot *domain.ProductLocationSlot) error
+	DeleteSlot(ctx context.Context, id int) error
+	SetPrimarySlot(ctx context.Context, productID int, locationID int, slotID int) error
+	CreateSlotLog(ctx context.Context, log *domain.ProductLocationSlotLog) error
+	GetSlotLogs(ctx context.Context, productID int, locationID int, limit int, offset int) ([]domain.ProductLocationSlotLog, int, error)
+	GetSlotsByProductAndLocations(ctx context.Context, productID int, locationIDs []int) (map[int][]domain.ProductLocationSlot, error)
 }
 
 

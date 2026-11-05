@@ -28,8 +28,23 @@ const {
   fetchLocations,
   createLocation,
   updateLocation,
-  deleteLocation
+  deleteLocation,
+  toggleFulfillmentSource
 } = useLocations()
+
+function isDisallowedFulfillmentPurpose(purpose?: string): boolean {
+  if (!purpose) return false
+  return ['BAD_STOCK', 'WORKSHOP', 'BRANCH'].includes(purpose.toUpperCase())
+}
+
+async function handleToggleFulfillment(loc: Location) {
+  if (isDisallowedFulfillmentPurpose(loc.purpose)) {
+    toast(`Lokasi dengan purpose ${loc.purpose} tidak dapat dijadikan sumber fulfillment`, 'warning')
+    return
+  }
+  const nextVal = !loc.is_fulfillment_source
+  await toggleFulfillmentSource(loc.id, nextVal)
+}
 
 const purposeOptions = computed(() => {
   const defaults = ['WAREHOUSE', 'DISPLAY', 'BRANCH', 'RECEIVING', 'WORKSHOP', 'TRANSIT']
@@ -93,7 +108,8 @@ const selectedLocation = ref<any>({
   floor: null,
   name: '',
   purpose: 'WAREHOUSE',
-  is_active: true
+  is_active: true,
+  is_fulfillment_source: false
 })
 
 async function loadLocations(silent = false) {
@@ -116,7 +132,8 @@ function openCreateModal() {
     floor: null,
     name: '',
     purpose: 'WAREHOUSE',
-    is_active: true
+    is_active: true,
+    is_fulfillment_source: false
   }
   isModalOpen.value = true
 }
@@ -261,6 +278,7 @@ watch(Alt_S, pressed => {
             <th class="px-6 py-3 border-b border-secondary/10">Lantai</th>
             <th class="px-6 py-3 border-b border-secondary/10">Nama/Deskripsi</th>
             <th class="px-6 py-3 border-b border-secondary/10">Purpose</th>
+            <th class="px-6 py-3 border-b border-secondary/10 text-center">Sumber Fulfillment</th>
           </tr>
         </thead>
         <TransitionGroup
@@ -276,15 +294,16 @@ watch(Alt_S, pressed => {
               <td class="px-6 py-4"><BaseSkeleton shape="text" className="w-1/4 h-4" /></td>
               <td class="px-6 py-4"><BaseSkeleton shape="text" className="w-3/4 h-4" /></td>
               <td class="px-6 py-4"><BaseSkeleton shape="rect" className="w-16 h-6 rounded-md" /></td>
+              <td class="px-6 py-4"><BaseSkeleton shape="rect" className="w-10 h-5 mx-auto rounded-full" /></td>
             </tr>
           </template>
 
           <tr v-else-if="allLocations.length === 0" key="empty">
-            <td colspan="5" class="py-12 text-center text-text/50 italic">Tidak ada data lokasi yang tersedia.</td>
+            <td colspan="6" class="py-12 text-center text-text/50 italic">Tidak ada data lokasi yang tersedia.</td>
           </tr>
 
           <tr v-else-if="filteredLocations.length === 0" key="not-found">
-            <td colspan="5" class="py-12 text-center text-text/50 italic">
+            <td colspan="6" class="py-12 text-center text-text/50 italic">
               Tidak ada lokasi yang cocok dengan filter.
             </td>
           </tr>
@@ -371,6 +390,33 @@ watch(Alt_S, pressed => {
                   </option>
                 </select>
               </span>
+            </td>
+            <td
+              class="text-center"
+              :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
+            >
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans font-semibold">Sumber Fulfillment</span>
+              <div class="inline-flex items-center gap-1.5 justify-center">
+                <button
+                  type="button"
+                  :disabled="isDisallowedFulfillmentPurpose(loc.purpose)"
+                  @click="handleToggleFulfillment(loc)"
+                  class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 disabled:opacity-30 disabled:cursor-not-allowed"
+                  :class="loc.is_fulfillment_source ? 'bg-primary' : 'bg-secondary/30'"
+                  :title="isDisallowedFulfillmentPurpose(loc.purpose) ? 'Purpose ini tidak dapat dijadikan sumber fulfillment' : (loc.is_fulfillment_source ? 'Aktif sebagai sumber fulfillment otomatis' : 'Klik untuk mengaktifkan sebagai sumber fulfillment')"
+                >
+                  <span
+                    class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out"
+                    :class="loc.is_fulfillment_source ? 'translate-x-4' : 'translate-x-0'"
+                  />
+                </button>
+                <span
+                  v-if="loc.is_fulfillment_source"
+                  class="text-[11px] font-semibold text-primary uppercase ml-0.5"
+                >
+                  Aktif
+                </span>
+              </div>
             </td>
           </tr>
         </TransitionGroup>
@@ -469,6 +515,18 @@ watch(Alt_S, pressed => {
             class="w-full input-field"
             placeholder="e.g., Gudang A19 Lantai 1"
           />
+        </div>
+        <div class="flex items-center gap-2 pt-2 border-t border-secondary/20">
+          <input
+            id="is_fulfillment_source"
+            v-model="selectedLocation.is_fulfillment_source"
+            type="checkbox"
+            :disabled="isDisallowedFulfillmentPurpose(selectedLocation.purpose)"
+            class="rounded border-secondary/50 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+          />
+          <label for="is_fulfillment_source" class="text-sm font-medium text-text/80 select-none cursor-pointer">
+            Jadikan Sumber Stok Fulfillment Otomatis (Marketplace / Kelja)
+          </label>
         </div>
       </form>
       <template #footer>

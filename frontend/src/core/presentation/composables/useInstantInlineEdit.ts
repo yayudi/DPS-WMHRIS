@@ -6,7 +6,7 @@
  */
 export function useInstantInlineEdit(updateApiCall, buildPayload, onSuccess = null) {
   const handleCellBlur = async (event, item, field, validate = null) => {
-    let newValue = event.target.innerText.trim()
+    const newValue = event.target.innerText.trim()
     
     if (item[field] !== newValue) {
       if (validate && !validate(newValue)) {

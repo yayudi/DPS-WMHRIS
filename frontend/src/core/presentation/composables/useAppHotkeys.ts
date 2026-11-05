@@ -61,7 +61,7 @@ export function useAppHotkeys(emitLogout) {
   // Logout
   watch(Alt_Shift_L, pressed => {
     if (pressed) {
-      emitLogout && emitLogout()
+      if (emitLogout) emitLogout()
     }
   })
 

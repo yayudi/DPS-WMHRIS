@@ -1,7 +1,7 @@
 ---
 trigger: glob
-description: **/*.vue
-globs: **/*.vue
+description: "Vue 3 WMS Architecture & Rules"
+globs: "**/*.vue"
 ---
 
 # VUE 3 WMS ARCHITECTURE & RULES

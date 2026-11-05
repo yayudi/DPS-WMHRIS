@@ -33,6 +33,7 @@ type Container struct {
 	JobHandler             *system_handler.JobHandler
 	UploadHandler          *system_handler.UploadHandler
 	MediaHandler           *system_handler.MediaHandler
+	LocalizationHandler    *system_handler.LocalizationHandler
 	CategoryHandler        *catalog_handler.CategoryHandler
 	ProductHandler         *catalog_handler.ProductHandler
 	LocationHandler        *inventory_http.LocationHandler
@@ -52,7 +53,7 @@ type Container struct {
 	AttendanceHandler      *hris_handler.AttendanceHandler
 }
 
-func NewContainer(systemLogHandler *system_handler.SystemLogHandler, roleHandler *iam_handler.RoleHandler, userHandler *iam_handler.UserHandler, adminUserHandler *iam_handler.AdminUserHandler, salesChannelHandler *inventory_http.SalesChannelHandler, paperSizeHandler *misc_handler.PaperSizeHandler, stickerTemplateHandler *misc_handler.StickerTemplateHandler, notificationHandler *system_handler.NotificationHandler, jobHandler *system_handler.JobHandler, uploadHandler *system_handler.UploadHandler, mediaHandler *system_handler.MediaHandler, categoryHandler *catalog_handler.CategoryHandler,
+func NewContainer(systemLogHandler *system_handler.SystemLogHandler, roleHandler *iam_handler.RoleHandler, userHandler *iam_handler.UserHandler, adminUserHandler *iam_handler.AdminUserHandler, salesChannelHandler *inventory_http.SalesChannelHandler, paperSizeHandler *misc_handler.PaperSizeHandler, stickerTemplateHandler *misc_handler.StickerTemplateHandler, notificationHandler *system_handler.NotificationHandler, jobHandler *system_handler.JobHandler, uploadHandler *system_handler.UploadHandler, mediaHandler *system_handler.MediaHandler, localizationHandler *system_handler.LocalizationHandler, categoryHandler *catalog_handler.CategoryHandler,
 	eventBus eventbus.EventBus,
 	logListener *system_event.LogListener, productHandler *catalog_handler.ProductHandler, locationHandler *inventory_http.LocationHandler, stockHandler *inventory_http.StockHandler, stockRequestHandler *inventory_http.StockRequestHandler, stockTransactionHandler *inventory_http.StockTransactionHandler, stockQueryHandler *inventory_http.StockQueryHandler, slotHandler *inventory_http.SlotHandler, packageHandler *catalog_handler.PackageHandler, returnHandler *inventory_http.ReturnHandler, investigationHandler *inventory_http.InvestigationHandler, statsHandler *analytics_handler.StatsHandler, reportHandler *analytics_handler.ReportHandler, statisticHandler *analytics_handler.StatisticHandler, shiftHandler *hris_handler.ShiftHandler, scheduleHandler *hris_handler.ScheduleHandler, attendanceHandler *hris_handler.AttendanceHandler) *Container {
 	return &Container{
@@ -67,6 +68,7 @@ func NewContainer(systemLogHandler *system_handler.SystemLogHandler, roleHandler
 		JobHandler:             jobHandler,
 		UploadHandler:          uploadHandler,
 		MediaHandler:           mediaHandler,
+		LocalizationHandler:    localizationHandler,
 		CategoryHandler:        categoryHandler,
 		EventBus:               eventBus,
 		LogListener:            logListener,

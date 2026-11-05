@@ -146,6 +146,7 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 			var pid int
 			var loc catalog_dto.ProductStockLocation
 			if err := rows.Scan(&pid, &loc.LocationID, &loc.LocationCode, &loc.Purpose, &loc.Building, &loc.Floor, &loc.Quantity); err == nil {
+				loc.Slots = []catalog_dto.ProductSlotSummary{}
 				if p, ok := productMap[pid]; ok {
 					if p.StockLocations == nil {
 						p.StockLocations = []catalog_dto.ProductStockLocation{}
@@ -154,6 +155,49 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 				}
 			} else {
 				log.Println("ERROR rows.Scan stock_locations:", err)
+			}
+		}
+	}
+
+	// Fetch product location slots (rack coordinates)
+	type prodLocKey struct {
+		productID  int
+		locationID int
+	}
+	slotsMap := make(map[prodLocKey][]catalog_dto.ProductSlotSummary)
+	slotQuery, slotArgs, slotErr := sqlx.In(`
+		SELECT id, product_id, location_id, room, rack, COALESCE(tier, '') as tier, formatted_coordinate, is_primary
+		FROM product_location_slots
+		WHERE product_id IN (?)
+		ORDER BY is_primary DESC, id ASC
+	`, productIDs)
+	if slotErr == nil {
+		slotQuery = ext.Rebind(slotQuery)
+		slotRows, err := ext.QueryContext(ctx, slotQuery, slotArgs...)
+		if err == nil {
+			defer slotRows.Close()
+			for slotRows.Next() {
+				var s struct {
+					catalog_dto.ProductSlotSummary
+					ProductID  int `db:"product_id"`
+					LocationID int `db:"location_id"`
+				}
+				if err := slotRows.Scan(&s.ID, &s.ProductID, &s.LocationID, &s.Room, &s.Rack, &s.Tier, &s.FormattedCoordinate, &s.IsPrimary); err == nil {
+					k := prodLocKey{productID: s.ProductID, locationID: s.LocationID}
+					slotsMap[k] = append(slotsMap[k], s.ProductSlotSummary)
+				}
+			}
+		}
+	}
+
+	// Attach slots to corresponding stock locations
+	for pid, p := range productMap {
+		for i := range p.StockLocations {
+			k := prodLocKey{productID: pid, locationID: p.StockLocations[i].LocationID}
+			if sList, ok := slotsMap[k]; ok {
+				p.StockLocations[i].Slots = sList
+			} else {
+				p.StockLocations[i].Slots = []catalog_dto.ProductSlotSummary{}
 			}
 		}
 	}
@@ -234,6 +278,87 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 	return nil
 }
 
+// stockStatusOperator maps a stockStatus filter value to its SQL comparison operator.
+// It returns ok=false for "all" or unknown values, meaning no stock condition is applied.
+func stockStatusOperator(status string) (op string, ok bool) {
+	switch status {
+	case "nonzero":
+		return "<>", true
+	case "positive":
+		return ">", true
+	case "zero":
+		return "=", true
+	case "negative", "minus":
+		return "<", true
+	default:
+		return "", false
+	}
+}
+
+// applyLocationScope narrows a stock_locations/locations subquery based on purpose and building/floor filters.
+func applyLocationScope(subq sq.SelectBuilder, purpose string, f catalog_dto.ProductFilterRequest) sq.SelectBuilder {
+	if purpose != "" {
+		subq = subq.Where(sq.Eq{"l.purpose": purpose})
+	}
+	if len(f.BuildingInclude) > 0 {
+		subq = subq.Where(sq.Eq{"l.building": f.BuildingInclude})
+	} else if f.Building != "" && f.Building != "all" {
+		subq = subq.Where(sq.Eq{"l.building": f.Building})
+	}
+	if len(f.BuildingExclude) > 0 {
+		subq = subq.Where(sq.NotEq{"l.building": f.BuildingExclude})
+	}
+
+	if len(f.FloorInclude) > 0 {
+		subq = subq.Where(sq.Eq{"l.floor": f.FloorInclude})
+	} else if f.Floor != "" && f.Floor != "all" {
+		subq = subq.Where(sq.Eq{"l.floor": f.Floor})
+	}
+	if len(f.FloorExclude) > 0 {
+		subq = subq.Where(sq.NotEq{"l.floor": f.FloorExclude})
+	}
+
+	return subq
+}
+
+// applySlottingStatusFilter appends conditions to filter products by their slotting status.
+// unslotted: products having at least 1 in-scope location with quantity > 0 missing a slot.
+// slotted: products having in-scope location with quantity > 0 and 0 locations missing a slot.
+func applySlottingStatusFilter(builder sq.SelectBuilder, purpose string, f catalog_dto.ProductFilterRequest) sq.SelectBuilder {
+	switch f.SlottingStatus {
+	case "unslotted":
+		subq := sq.Select("1").
+			From("stock_locations sl").
+			Join("locations l ON sl.location_id = l.id").
+			Where("sl.product_id = p.id AND sl.quantity > 0").
+			Where("NOT EXISTS (SELECT 1 FROM product_location_slots pls WHERE pls.product_id = p.id AND pls.location_id = sl.location_id)")
+		subq = applyLocationScope(subq, purpose, f)
+		subSql, subArgs, _ := subq.ToSql()
+		return builder.Where(fmt.Sprintf("EXISTS (%s)", subSql), subArgs...)
+
+	case "slotted":
+		hasStockSubq := sq.Select("1").
+			From("stock_locations sl").
+			Join("locations l ON sl.location_id = l.id").
+			Where("sl.product_id = p.id AND sl.quantity > 0")
+		hasStockSubq = applyLocationScope(hasStockSubq, purpose, f)
+		hasStockSql, hasStockArgs, _ := hasStockSubq.ToSql()
+		builder = builder.Where(fmt.Sprintf("EXISTS (%s)", hasStockSql), hasStockArgs...)
+
+		missingSlotSubq := sq.Select("1").
+			From("stock_locations sl").
+			Join("locations l ON sl.location_id = l.id").
+			Where("sl.product_id = p.id AND sl.quantity > 0").
+			Where("NOT EXISTS (SELECT 1 FROM product_location_slots pls WHERE pls.product_id = p.id AND pls.location_id = sl.location_id)")
+		missingSlotSubq = applyLocationScope(missingSlotSubq, purpose, f)
+		missingSql, missingArgs, _ := missingSlotSubq.ToSql()
+		return builder.Where(fmt.Sprintf("NOT EXISTS (%s)", missingSql), missingArgs...)
+
+	default:
+		return builder
+	}
+}
+
 func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filters catalog_dto.ProductFilterRequest) ([]catalog_dto.ProductDetailResponse, int, error) {
 	builder := sq.Select("p.id", "p.sku", "p.name", "p.price", "p.is_package", "p.is_active", "p.category_id", "c.name as category_name", "p.weight").
 		From("products p").
@@ -264,33 +389,6 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 	filters.BuildingExclude = cleanSlice(filters.BuildingExclude)
 	filters.FloorInclude = cleanSlice(filters.FloorInclude)
 	filters.FloorExclude = cleanSlice(filters.FloorExclude)
-
-	// Helper func to add EXISTS for location filter
-	addLocationExists := func(b sq.SelectBuilder, purpose string, bInclude, bExclude, fInclude, fExclude []string, building, floor string) sq.SelectBuilder {
-		subq := sq.Select("1").From("stock_locations sl").Join("locations l ON sl.location_id = l.id").
-			Where("sl.product_id = p.id").Where(sq.Eq{"l.purpose": purpose})
-
-		if len(bInclude) > 0 {
-			subq = subq.Where(sq.Eq{"l.building": bInclude})
-		} else if building != "all" {
-			subq = subq.Where(sq.Eq{"l.building": building})
-		}
-		if len(bExclude) > 0 {
-			subq = subq.Where(sq.NotEq{"l.building": bExclude})
-		}
-
-		if len(fInclude) > 0 {
-			subq = subq.Where(sq.Eq{"l.floor": fInclude})
-		} else if floor != "all" {
-			subq = subq.Where(sq.Eq{"l.floor": floor})
-		}
-		if len(fExclude) > 0 {
-			subq = subq.Where(sq.NotEq{"l.floor": fExclude})
-		}
-
-		sql, args, _ := subq.ToSql()
-		return b.Where(fmt.Sprintf("EXISTS (%s)", sql), args...)
-	}
 
 	// Filter Status
 	if filters.Status == "archived" {
@@ -333,7 +431,11 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 	}
 
 	if filters.Location != "all" {
-		builder = addLocationExists(builder, purpose, filters.BuildingInclude, filters.BuildingExclude, filters.FloorInclude, filters.FloorExclude, filters.Building, filters.Floor)
+		subq := sq.Select("1").From("stock_locations sl").Join("locations l ON sl.location_id = l.id").
+			Where("sl.product_id = p.id")
+		subq = applyLocationScope(subq, purpose, filters)
+		sql, args, _ := subq.ToSql()
+		builder = builder.Where(fmt.Sprintf("EXISTS (%s)", sql), args...)
 	}
 
 	// Search
@@ -353,38 +455,17 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 	}
 
 	// Stock Status logic
-	if filters.StockStatus != "all" {
+	if op, ok := stockStatusOperator(filters.StockStatus); ok {
 		subq := sq.Select("COALESCE(SUM(sl.quantity), 0)").From("stock_locations sl").Join("locations l ON sl.location_id = l.id").Where("sl.product_id = p.id")
-
 		if filters.Location != "all" {
-			subq = subq.Where(sq.Eq{"l.purpose": purpose})
-		}
-		if filters.Location == "gudang" {
-			if len(filters.BuildingInclude) > 0 {
-				subq = subq.Where(sq.Eq{"l.building": filters.BuildingInclude})
-			} else if filters.Building != "all" {
-				subq = subq.Where(sq.Eq{"l.building": filters.Building})
-			}
-			if len(filters.BuildingExclude) > 0 {
-				subq = subq.Where(sq.NotEq{"l.building": filters.BuildingExclude})
-			}
-			if len(filters.FloorInclude) > 0 {
-				subq = subq.Where(sq.Eq{"l.floor": filters.FloorInclude})
-			} else if filters.Floor != "all" {
-				subq = subq.Where(sq.Eq{"l.floor": filters.Floor})
-			}
-			if len(filters.FloorExclude) > 0 {
-				subq = subq.Where(sq.NotEq{"l.floor": filters.FloorExclude})
-			}
+			subq = applyLocationScope(subq, purpose, filters)
 		}
 		subSql, subArgs, _ := subq.ToSql()
-
-		operator := ">="
-		if filters.StockStatus == "minus" {
-			operator = "<"
-		}
-		builder = builder.Where(fmt.Sprintf("(%s) %s 0", subSql, operator), subArgs...)
+		builder = builder.Where(fmt.Sprintf("(%s) %s 0", subSql, op), subArgs...)
 	}
+
+	// Slotting Status logic
+	builder = applySlottingStatusFilter(builder, purpose, filters)
 
 	// We can't easily clear columns in Squirrel, so we just use the raw string replacement for count
 	querySql, args, _ := builder.ToSql()
@@ -549,8 +630,39 @@ func (r *productRepositoryImpl) GetProductStockDetails(ctx context.Context, id i
 	var results []catalog_dto.ProductStockDetailResponse
 	ext := database.GetExt(ctx, r.db)
 	err := ext.SelectContext(ctx, &results, query, id)
-	log.Printf("results %v\n", results)
-	return results, err
+	if err != nil {
+		return results, err
+	}
+
+	for i := range results {
+		results[i].Slots = []catalog_dto.ProductSlotSummary{}
+	}
+
+	slotQuery := `
+		SELECT id, product_id, location_id, room, rack, COALESCE(tier, '') as tier, formatted_coordinate, is_primary
+		FROM product_location_slots
+		WHERE product_id = ?
+		ORDER BY is_primary DESC, id ASC
+	`
+	type slotRow struct {
+		catalog_dto.ProductSlotSummary
+		ProductID  int `db:"product_id"`
+		LocationID int `db:"location_id"`
+	}
+	var slotRows []slotRow
+	if slotErr := ext.SelectContext(ctx, &slotRows, slotQuery, id); slotErr == nil {
+		slotsByLoc := make(map[int][]catalog_dto.ProductSlotSummary)
+		for _, s := range slotRows {
+			slotsByLoc[s.LocationID] = append(slotsByLoc[s.LocationID], s.ProductSlotSummary)
+		}
+		for i := range results {
+			if sList, ok := slotsByLoc[results[i].LocationID]; ok {
+				results[i].Slots = sList
+			}
+		}
+	}
+
+	return results, nil
 }
 
 func (r *productRepositoryImpl) GetProductHistory(ctx context.Context, id int) ([]catalog_dto.ProductHistoryResponse, error) {

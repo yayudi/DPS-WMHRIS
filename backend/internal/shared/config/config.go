@@ -19,6 +19,8 @@ type Config struct {
 	RabbitMQExchangeType string
 	RabbitMQPrefetchCount int
 	RabbitMQPrefetchSize  int
+	RabbitMQDLXExchangeName string
+	RabbitMQDLQName         string
 	KeljaApiURL    string
 	KeljaApiUsername  string
 	KeljaApiPass   string
@@ -43,6 +45,8 @@ func LoadConfig() {
 		RabbitMQExchangeType: getEnv("RABBITMQ_EXCHANGE_TYPE", "topic"),
 		RabbitMQPrefetchCount: getEnvAsInt("RABBITMQ_PREFETCH_COUNT", 3),
 		RabbitMQPrefetchSize:  getEnvAsInt("RABBITMQ_PREFETCH_SIZE", 0),
+		RabbitMQDLXExchangeName: getEnv("RABBITMQ_DLX_EXCHANGE_NAME", "dps.wmhris.dlx"),
+		RabbitMQDLQName:         getEnv("RABBITMQ_DLQ_NAME", "queue.wmhris.core.dlq"),
 		KeljaApiURL:    getEnv("KELJA_API_URL", "https://dev-api.kelja.id/api/v1"),
 		KeljaApiUsername:  getEnv("KELJA_API_USERNAME", ""),
 		KeljaApiPass:   getEnv("KELJA_API_PASSWORD", ""),

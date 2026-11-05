@@ -41,3 +41,8 @@ type UserRepository interface {
 	GetUserLocations(ctx context.Context, userID int) ([]iam_dto.UserLocationResponse, error)
 	CheckUserLocationPermission(ctx context.Context, userID int, locationID int) (bool, error)
 }
+
+type UserPreferenceRepository interface {
+	GetByUserID(ctx context.Context, userID int) (*domain.UserPreference, error)
+	Upsert(ctx context.Context, pref *domain.UserPreference) error
+}

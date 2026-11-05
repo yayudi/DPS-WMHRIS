@@ -3,7 +3,7 @@ package inventory_dto
 type CreateTransactionRequest struct {
 	ReferenceType    string                   `json:"reference_type" binding:"required"`
 	ReferenceID      string                   `json:"reference_id" binding:"required"`
-	AssignedBuilding string                   `json:"assigned_building" binding:"required"`
+	AssignedBuilding string                   `json:"assigned_building"` // Optional metadata, no longer used as hard stock allocation filter
 	Items            []TransactionItemRequest `json:"items" binding:"required,min=1"`
 	Notes            *string                  `json:"notes"`
 }
@@ -18,4 +18,15 @@ type ExecuteTransactionRequest struct {
 	MovementID    uint `json:"movement_id" binding:"required"`
 	LocationID    uint `json:"location_id" binding:"required"`
 	QtyDone       int  `json:"qty_done" binding:"required,gt=0"`
+}
+
+type BatchExecuteTransactionRequest struct {
+	Items []ExecuteTransactionRequest `json:"items" binding:"required,min=1"`
+}
+
+type BatchExecuteResult struct {
+	TotalProcessed int      `json:"total_processed"`
+	SuccessCount   int      `json:"success_count"`
+	FailureCount   int      `json:"failure_count"`
+	Errors         []string `json:"errors,omitempty"`
 }

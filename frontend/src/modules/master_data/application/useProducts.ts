@@ -1,6 +1,4 @@
-import { ref, computed } from 'vue'
 import { productApi } from '../infrastructure/product.api'
-import type { Product, ProductSearchFilter } from '../domain/product.entity'
 import { useQuery, keepPreviousData } from '@tanstack/vue-query'
 
 export function useProducts() {

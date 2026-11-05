@@ -5,12 +5,62 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/dps-wmhris/backend/internal/shared/utils"
-
 	"github.com/dps-wmhris/backend/internal/shared/config"
+	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+// Gin context key constants for authenticated user data.
+const (
+	ContextUserIDKey   = "user_id"
+	ContextUsernameKey = "username"
+	ContextRoleIDKey   = "role_id"
+)
+
+// GetUserID extracts the authenticated user ID from gin.Context.
+func GetUserID(c *gin.Context) int {
+	val, exists := c.Get(ContextUserIDKey)
+	if !exists {
+		return 0
+	}
+	switch v := val.(type) {
+	case int:
+		return v
+	case float64:
+		return int(v)
+	default:
+		return 0
+	}
+}
+
+// GetRoleID extracts the authenticated role ID from gin.Context.
+func GetRoleID(c *gin.Context) int {
+	val, exists := c.Get(ContextRoleIDKey)
+	if !exists {
+		return 0
+	}
+	switch v := val.(type) {
+	case int:
+		return v
+	case float64:
+		return int(v)
+	default:
+		return 0
+	}
+}
+
+// GetUsername extracts the authenticated username from gin.Context.
+func GetUsername(c *gin.Context) string {
+	val, exists := c.Get(ContextUsernameKey)
+	if !exists {
+		return ""
+	}
+	if s, ok := val.(string); ok {
+		return s
+	}
+	return ""
+}
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -67,9 +117,13 @@ func AuthMiddleware() gin.HandlerFunc {
 				roleID = 0
 			}
 
-			c.Set("user_id", userID)
-			c.Set("username", claims["username"])
-			c.Set("role_id", roleID)
+			c.Set(ContextUserIDKey, userID)
+			c.Set(ContextUsernameKey, claims["username"])
+			c.Set(ContextRoleIDKey, roleID)
+			if loc, ok := claims["locale"].(string); ok && loc != "" {
+				c.Set(GinJWTLocaleKey, loc)
+				ApplyResolvedLocale(c)
+			}
 		} else {
 			log.Printf("[AUTH] Failed to parse claims")
 		}

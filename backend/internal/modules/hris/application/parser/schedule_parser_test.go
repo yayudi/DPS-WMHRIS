@@ -65,3 +65,4 @@ func TestParseScheduleExcel(t *testing.T) {
 		t.Errorf("unexpected schedule 1: %+v", schedules[1])
 	}
 }
+

@@ -273,3 +273,4 @@ const handleDownload = (job: JobItem) => {
     </div>
   </div>
 </template>
+

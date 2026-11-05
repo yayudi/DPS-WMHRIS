@@ -260,7 +260,7 @@ export function useStickerWorkspace({
     })
 
     resizeObserver = new ResizeObserver(entries => {
-      for (let entry of entries) {
+      for (const entry of entries) {
         const width = Math.round(entry.contentRect.width)
         const height = Math.round(entry.contentRect.height)
         if (width > 0 && height > 0 && fabricCanvas) {

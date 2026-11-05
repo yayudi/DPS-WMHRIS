@@ -1,4 +1,4 @@
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed } from 'vue'
 import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
 import { useToast } from '@/core/presentation/composables/useToast'
 
@@ -235,3 +235,4 @@ export function useCatalogManagement<T extends CatalogItem = CatalogItem>(
     handleSort
   }
 }
+
