@@ -3,10 +3,19 @@ package database
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
 )
+
+var reTrailingOrderBy = regexp.MustCompile(`(?i)\s+ORDER\s+BY\s+[^()]+$`)
+
+// StripOrderByForCount menghapus klausa ORDER BY di level terluar query untuk mengoptimalkan SELECT COUNT(*),
+// mencegah MySQL melakukan filesort/temporary table pada query hitung total data.
+func StripOrderByForCount(query string) string {
+	return reTrailingOrderBy.ReplaceAllString(strings.TrimSpace(query), "")
+}
 
 // PaginatedResult merepresentasikan struktur data respon generik untuk paginasi.
 type PaginatedResult[T any] struct {
@@ -31,8 +40,9 @@ func FetchPaginated[T any](ctx context.Context, db *sqlx.DB, baseQuery string, p
 
 	ext := GetExt(ctx, db)
 
-	// 1. Hitung total data keseluruhan menggunakan subquery
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS sub_q", baseQuery)
+	// 1. Hitung total data keseluruhan menggunakan subquery tanpa ORDER BY terluar (hindari disk filesort)
+	countBaseQuery := StripOrderByForCount(baseQuery)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS sub_q", countBaseQuery)
 	var total int
 	err := ext.GetContext(ctx, &total, countQuery, args...)
 	if err != nil {

@@ -34,29 +34,28 @@ const formatDate = dateStr => {
 // Helpers untuk Label Tipe Job
 const JOB_TYPE_MAP = {
   STOCK_REPORT: { label: 'Laporan Stok', cls: 'bg-primary/5 text-primary border-primary/20' },
-  PRODUCT_MASTER: { label: 'Batch Produk', cls: 'bg-accent/5 text-accent border-accent/20' },
-  EXPORT_PACKAGES: { label: 'Batch Paket', cls: 'bg-warning/5 text-warning border-warning/20' },
+  PRODUCT_MASTER: { label: 'Data Master Produk', cls: 'bg-accent/5 text-accent border-accent/20' },
+  EXPORT_PACKAGES: { label: 'Data Master Paket', cls: 'bg-warning/5 text-warning border-warning/20' },
+  BATCH_LOG_EXPORT: { label: 'Log Perubahan Produk', cls: 'bg-info/5 text-info border-info/20' },
   STATISTICS_STOCK_MOVEMENT: { label: 'Pergerakan Stok', cls: 'bg-success/5 text-success border-success/20' },
-  IMPORT_STOCK_INBOUND: { label: 'Impor Inbound', cls: 'bg-primary/5 text-primary border-primary/20' },
-  IMPORT_STOCK_ADJUSTMENT: { label: 'Impor Adjustment', cls: 'bg-warning/5 text-warning border-warning/20' },
-  IMPORT_MEDIA_BULK_LINK: { label: 'Link Media', cls: 'bg-accent/5 text-accent border-accent/20' },
-  EXPORT_PRODUCT: { label: 'Ekspor Produk', cls: 'bg-primary/5 text-primary border-primary/20' },
+  STATISTICS_STOCK_TIMELINE: { label: 'Timeline Pergerakan Stok', cls: 'bg-accent/5 text-accent border-accent/20' },
+  STATISTICS_LOCATION_CAPACITY: { label: 'Analisis Kapasitas Lokasi', cls: 'bg-primary/5 text-primary border-primary/20' },
 }
 const DEFAULT_JOB = { label: '', cls: 'bg-secondary/5 text-text/60 border-secondary/20' }
 
-const getJobTypeLabel = type => (JOB_TYPE_MAP[type]?.label || type.replace(/_/g, ' '))
+const getJobTypeLabel = type => (JOB_TYPE_MAP[type]?.label || (type ? type.replace(/_/g, ' ') : '-'))
 const getJobTypeClass = type => (JOB_TYPE_MAP[type]?.cls || DEFAULT_JOB.cls)
 
 const STATUS_LABEL = { COMPLETED: 'Selesai', FAILED: 'Gagal', PROCESSING: 'Proses...', PENDING: 'Antrian' }
 const getStatusLabel = status => STATUS_LABEL[status] || status
 
-onMounted(() => {
-  // Hanya fetch jika store masih kosong (misal langsung buka halaman ini pertama kali tanpa refresh GlobalManager)
-  if (downloadStore.jobs.length === 0) {
-    loading.value = true
-    downloadStore.fetchJobs().finally(() => {
-      loading.value = false
-    })
+onMounted(async () => {
+  const showSkeleton = downloadStore.jobs.length === 0
+  if (showSkeleton) loading.value = true
+  try {
+    await downloadStore.fetchJobs()
+  } finally {
+    if (showSkeleton) loading.value = false
   }
 })
 </script>
@@ -142,15 +141,15 @@ onMounted(() => {
               <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Tipe</span>
               <span
                 class="font-bold text-xs uppercase tracking-wider px-2 py-1 rounded border"
-                :class="getJobTypeClass(job.type)"
+                :class="getJobTypeClass(job.job_type || job.type)"
               >
-                {{ getJobTypeLabel(job.type) }}
+                {{ getJobTypeLabel(job.job_type || job.type) }}
               </span>
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'p-4'">
               <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">File</span>
               <div class="flex flex-col" :class="isMobile ? 'items-end' : ''">
-                <div class="font-bold text-sm truncate max-w-xs" :title="job.file_path">{{ formatFileName(job.file_path, job.type) || 'Menunggu Proses...' }}</div>
+                <div class="font-bold text-sm truncate max-w-xs" :title="job.file_path">{{ formatFileName(job.file_path, job.job_type || job.type) || 'Menunggu Proses...' }}</div>
                 <div v-if="job.error_message" class="text-xs text-danger mt-1">Error: {{ job.error_message }}</div>
               </div>
             </td>

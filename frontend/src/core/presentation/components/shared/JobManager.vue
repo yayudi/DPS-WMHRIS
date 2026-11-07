@@ -49,7 +49,8 @@ useFirebaseSync(
     'EXPORT_FAILED',
     'EXPORT_STARTED',
     'JOB_PROGRESS',
-    'IMPORT_COMPLETED'
+    'IMPORT_COMPLETED',
+    'IMPORT_FAILED'
   ],
   signal => {
     // Download signals
@@ -57,7 +58,7 @@ useFirebaseSync(
       downloadStore.fetchJobs()
     }
     // Upload signals
-    if (signal.action === 'JOB_PROGRESS' || signal.action === 'IMPORT_COMPLETED') {
+    if (signal.action === 'JOB_PROGRESS' || signal.action === 'IMPORT_COMPLETED' || signal.action === 'IMPORT_FAILED') {
       uploadStore.fetchJobs()
     }
   }
@@ -74,7 +75,9 @@ const formatStatus = status => {
     PROCESSING: 'Memproses',
     COMPLETED: 'Selesai',
     COMPLETED_WITH_ERRORS: 'Selesai (Parsial)',
-    FAILED: 'Gagal'
+    FAILED: 'Gagal',
+    CANCELLED: 'Dibatalkan',
+    VOID: 'Void'
   }
   return map[status] || status
 }
@@ -85,7 +88,9 @@ const getStatusClass = status => {
     PROCESSING: 'text-accent bg-accent/10',
     COMPLETED: 'text-success bg-success/10',
     COMPLETED_WITH_ERRORS: 'text-warning bg-warning/10',
-    FAILED: 'text-danger bg-danger/10'
+    FAILED: 'text-danger bg-danger/10',
+    CANCELLED: 'text-text/60 bg-secondary/20',
+    VOID: 'text-text/60 bg-secondary/20'
   }
   return map[status] || 'text-text/60 bg-secondary/10'
 }
@@ -97,8 +102,9 @@ const recentUploads = computed(() => uploadStore.jobs.slice(0, 5))
 
 const getErrorUrl = job => {
   try {
-    if (!job.errorLog) return null
-    const log = typeof job.errorLog === 'string' ? JSON.parse(job.errorLog) : job.errorLog
+    const errorLogVal = job.error_log || job.errorLog
+    if (!errorLogVal) return null
+    const log = typeof errorLogVal === 'string' ? JSON.parse(errorLogVal) : errorLogVal
     if (!log.download_url) return null
     let baseUrl = import.meta.env.VITE_API_BASE_URL || ''
     baseUrl = baseUrl.replace(/\/api$/, '')
@@ -209,11 +215,11 @@ const getErrorUrl = job => {
               </div>
 
               <div class="text-xs font-bold text-text truncate mb-2" :title="job.file_path">
-                {{ formatFileName(job.file_path, job.type) }}
+                {{ formatFileName(job.file_path, job.job_type || job.type) }}
               </div>
 
               <div class="flex justify-between items-center">
-                <span class="text-[10px] text-text/50 capitalize">{{ job.type.replace(/_/g, ' ').toLowerCase() }}</span>
+                <span class="text-[10px] text-text/50 capitalize">{{ (job.job_type || job.type || '').replace(/_/g, ' ').toLowerCase() }}</span>
 
                 <a
                   v-if="job.status === 'COMPLETED' && job.download_url"

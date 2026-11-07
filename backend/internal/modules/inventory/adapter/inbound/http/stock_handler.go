@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 
@@ -36,15 +37,16 @@ func (h *StockHandler) ImportBatchInbound(c *gin.Context) {
 	}
 
 	userID := middleware.GetUserID(c)
-	notes := c.PostForm("notes")
-	finalNotes := "Batch Stock Inbound"
-	if notes != "" {
-		finalNotes += " | " + notes
-	}
+	jobType, finalNotes, isDryRun := utils.ParseImportJobMeta(
+		c,
+		"IMPORT_STOCK_INBOUND",
+		"Batch Stock Inbound",
+		"Simulasi Batch Stock Inbound",
+	)
 
 	req := system_dto.CreateImportJobRequest{
 		UserID:           userID,
-		JobType:          "IMPORT_STOCK_INBOUND",
+		JobType:          jobType,
 		OriginalFilename: origName,
 		FilePath:         savedPath,
 		Notes:            &finalNotes,
@@ -52,11 +54,16 @@ func (h *StockHandler) ImportBatchInbound(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
+		_ = os.Remove(savedPath)
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "File inbound masuk antrian.", jobID)
+	msg := "File inbound masuk antrian."
+	if isDryRun {
+		msg = "Simulasi validasi inbound berjalan..."
+	}
+	utils.JobCreatedResponse(c, http.StatusOK, msg, jobID)
 }
 
 func (h *StockHandler) GetAllStocks(c *gin.Context) {
@@ -282,6 +289,7 @@ func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {
 		"notes":               req.Notes,
 		"format":              req.Format,
 		"exportName":          req.ExportName,
+		"exportType":          "BATCH_LOG_EXPORT",
 	}
 
 	filterJSON, _ := json.Marshal(filterMap)
@@ -299,7 +307,7 @@ func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusAccepted, "Permintaan ekspor batch log diterima. File sedang diproses.", jobID)
+	utils.JobCreatedResponse(c, http.StatusAccepted, "Permintaan ekspor batch log diterima. File sedang diproses.", jobID)
 }
 
 func (h *StockHandler) GetInboundTemplate(c *gin.Context) {
@@ -309,9 +317,7 @@ func (h *StockHandler) GetInboundTemplate(c *gin.Context) {
 		return
 	}
 
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=Template_Inbound_Stok.xlsx")
-	_ = f.Write(c.Writer) // #nosec G104
+	utils.WriteExcelResponse(c, f, "Template_Inbound_Stok.xlsx")
 }
 
 func (h *StockHandler) DownloadAdjustmentTemplate(c *gin.Context) {
@@ -321,9 +327,7 @@ func (h *StockHandler) DownloadAdjustmentTemplate(c *gin.Context) {
 		return
 	}
 
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=Template_Adjustment_Stok.xlsx")
-	_ = f.Write(c.Writer) // #nosec G104
+	utils.WriteExcelResponse(c, f, "Template_Adjustment_Stok.xlsx")
 }
 
 func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
@@ -338,18 +342,12 @@ func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
 		return
 	}
 
-	isDryRun := c.PostForm("dryRun") == "true"
-	jobType := "ADJUST_STOCK"
-	msg := "File adjustment masuk antrian."
-	notes := "Stock Opname"
-	if isDryRun {
-		jobType = "ADJUST_STOCK_DRY_RUN"
-		msg = "Simulasi validasi stok berjalan..."
-		notes = "Simulasi Stock Opname"
-	}
-	if userNotes := c.PostForm("notes"); userNotes != "" {
-		notes = userNotes
-	}
+	jobType, notes, isDryRun := utils.ParseImportJobMeta(
+		c,
+		"ADJUST_STOCK",
+		"Stock Opname",
+		"Simulasi Stock Opname",
+	)
 
 	req := system_dto.CreateImportJobRequest{
 		UserID:           userID,
@@ -361,13 +359,14 @@ func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
+		_ = os.Remove(savedPath)
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	utils.RawResponse(c, http.StatusOK, gin.H{
-		"success": true,
-		"message": msg,
-		"jobId":   jobID,
-	})
+	msg := "File adjustment masuk antrian."
+	if isDryRun {
+		msg = "Simulasi validasi stok berjalan..."
+	}
+	utils.JobCreatedResponse(c, http.StatusOK, msg, jobID)
 }

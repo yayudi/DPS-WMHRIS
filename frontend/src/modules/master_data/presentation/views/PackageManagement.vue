@@ -15,6 +15,7 @@ import BaseFilterPanel from '@/core/presentation/components/ui/BaseFilterPanel.v
 import BaseSwitch from '@/core/presentation/components/ui/BaseSwitch.vue'
 import { useInlineSave } from '@/core/presentation/composables/useInlineSave'
 import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
+import { useUploadStore } from '@/core/presentation/stores/uploadStore'
 import { useMobile } from '@/core/presentation/composables/useMobile'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
 import { usePagination } from '@/core/presentation/composables/usePagination'
@@ -123,7 +124,9 @@ watch(
 )
 
 const downloadStore = useDownloadStore()
+const uploadStore = useUploadStore()
 const isExporting = ref(false)
+const isImporting = ref(false)
 
 // --- HANDLERS ---
 
@@ -176,13 +179,17 @@ const handleExport = async ({ format }) => {
 
 const handleImport = async formData => {
   // Use new endpoint for packages
+  isImporting.value = true
   try {
     await uploadPackageUpdate(formData)
     toast('File paket diunggah. Cek menu Logs/Laporan untuk status.', 'info')
+    uploadStore.notifyNewJob()
     showBatchEditModal.value = false
     fetchProducts()
   } catch (err) {
     console.error(err)
+  } finally {
+    isImporting.value = false
   }
 }
 const handleProductSaved = () => {
@@ -392,7 +399,7 @@ watch(Slash, pressed => {
       <PackageBatchEditModal
         :is-open="showBatchEditModal"
         :is-exporting="isExporting"
-        :is-importing="false"
+        :is-importing="isImporting"
         @close="showBatchEditModal = false"
         @export="handleExport"
         @import="handleImport"

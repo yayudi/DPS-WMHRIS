@@ -109,6 +109,8 @@ graphify-out
 /backend/logs/
 /backend/tmp/
 /backend/storage/
+/storage/
+storage/
 
 # Configs
 /backend/config/config.js

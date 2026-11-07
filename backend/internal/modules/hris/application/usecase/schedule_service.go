@@ -116,6 +116,7 @@ func (s *scheduleUseCaseImpl) GenerateTemplate(ctx context.Context) (*excelize.F
 }
 
 func (s *scheduleUseCaseImpl) ProcessImport(ctx context.Context, jobID int, filePath string, createdBy int) (string, error) {
+	filePath = utils.ResolveStoragePath(filePath)
 	// Parse Excel
 	schedules, errorsList, err := hris_parser.ParseScheduleExcel(filePath)
 	if err != nil {

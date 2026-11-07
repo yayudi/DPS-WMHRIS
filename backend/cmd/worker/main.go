@@ -20,6 +20,7 @@ import (
 	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
 	"github.com/dps-wmhris/backend/internal/shared/config"
 	"github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/utils"
 )
 
 func main() {
@@ -181,88 +182,83 @@ func processPendingImportJobs(
 		dispatchConfig{Concurrency: maxConcurrentJobs, JobTimeout: 10 * time.Minute, Name: "import"},
 		jobRepo.ClaimNextImportJob,
 		func(ctx context.Context, job *system_domain.ImportJob) error {
-			log.Printf("Found PENDING import job: %d (%s)", job.ID, job.JobType)
+			filePath := utils.ResolveStoragePath(job.FilePath)
+			log.Printf("Found PENDING import job: %d (%s), file: %s (resolved: %s)", job.ID, job.JobType, job.FilePath, filePath)
 
 			// Execute Job
 			var processErr error
 			var logSummary string
-			switch job.JobType {
-			case "IMPORT_ATTENDANCE":
-				log.Printf("Processing %s: %s", job.JobType, job.FilePath)
-				logSummary, processErr = attendanceService.ProcessImport(ctx, job.ID, job.FilePath, false)
-			case "IMPORT_ATTENDANCE_DRY_RUN":
-				log.Printf("Processing %s: %s", job.JobType, job.FilePath)
-				logSummary, processErr = attendanceService.ProcessImport(ctx, job.ID, job.FilePath, true)
-			case "IMPORT_SCHEDULES":
-				log.Printf("Processing %s: %s", job.JobType, job.FilePath)
-				msg, err := scheduleService.ProcessImport(ctx, job.ID, job.FilePath, job.UserID)
-				processErr = err
-				if processErr == nil {
-					logSummary = msg
-				}
-			case "BATCH_EDIT_PRODUCT":
-				log.Printf("Processing %s: %s", job.JobType, job.FilePath)
-				msg, err := productService.ProcessBatchUpdate(ctx, job.ID, job.FilePath, job.UserID, false)
-				processErr = err
-				if processErr == nil {
-					logSummary = msg
-				}
-			case "BATCH_EDIT_PRODUCT_DRY_RUN":
-				log.Printf("Processing %s: %s", job.JobType, job.FilePath)
-				msg, err := productService.ProcessBatchUpdate(ctx, job.ID, job.FilePath, job.UserID, true)
-				processErr = err
-				if processErr == nil {
-					logSummary = msg
-				}
-			case "IMPORT_MEDIA_BULK_LINK":
-				log.Printf("Processing %s: %s", job.JobType, job.FilePath)
-				msg, err := mediaService.ProcessMediaLinkImport(ctx, job.FilePath, job.UserID)
-				processErr = err
-				if processErr == nil {
-					logSummary = msg
-				}
-			case "ADJUST_STOCK":
-				log.Printf("Processing %s: %s", job.JobType, job.FilePath)
-				processErr = stockService.ProcessStockImport(ctx, job.ID, job.FilePath, job.UserID, false)
-			case "ADJUST_STOCK_DRY_RUN":
-				log.Printf("Processing %s: %s", job.JobType, job.FilePath)
-				processErr = stockService.ProcessStockImport(ctx, job.ID, job.FilePath, job.UserID, true)
-			case "IMPORT_STOCK_INBOUND":
-				log.Printf("Processing %s: %s", job.JobType, job.FilePath)
-				logSummary, processErr = stockService.ProcessImportBatchInbound(ctx, job.ID, job.FilePath, job.UserID, false)
-			case "IMPORT_STOCK_INBOUND_DRY_RUN":
-				log.Printf("Processing %s: %s", job.JobType, job.FilePath)
-				logSummary, processErr = stockService.ProcessImportBatchInbound(ctx, job.ID, job.FilePath, job.UserID, true)
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						processErr = fmt.Errorf("internal worker panic: %v", r)
+					}
+				}()
 
-			default:
-				log.Printf("Unknown job type: %s", job.JobType)
-				processErr = fmt.Errorf("unknown job type: %s", job.JobType)
-			}
+				switch job.JobType {
+				case "IMPORT_ATTENDANCE":
+					log.Printf("Processing %s: %s", job.JobType, filePath)
+					logSummary, processErr = attendanceService.ProcessImport(ctx, job.ID, filePath, false)
+				case "IMPORT_ATTENDANCE_DRY_RUN":
+					log.Printf("Processing %s: %s", job.JobType, filePath)
+					logSummary, processErr = attendanceService.ProcessImport(ctx, job.ID, filePath, true)
+				case "IMPORT_SCHEDULES":
+					log.Printf("Processing %s: %s", job.JobType, filePath)
+					logSummary, processErr = scheduleService.ProcessImport(ctx, job.ID, filePath, job.UserID)
+				case "BATCH_EDIT_PRODUCT":
+					log.Printf("Processing %s: %s", job.JobType, filePath)
+					logSummary, processErr = productService.ProcessBatchUpdate(ctx, job.ID, filePath, job.UserID, false)
+				case "BATCH_EDIT_PRODUCT_DRY_RUN":
+					log.Printf("Processing %s: %s", job.JobType, filePath)
+					logSummary, processErr = productService.ProcessBatchUpdate(ctx, job.ID, filePath, job.UserID, true)
+				case "IMPORT_PACKAGES":
+					log.Printf("Processing %s: %s", job.JobType, filePath)
+					logSummary, processErr = productService.ProcessBatchPackageUpdate(ctx, job.ID, filePath, job.UserID, false)
+				case "IMPORT_PACKAGES_DRY_RUN":
+					log.Printf("Processing %s: %s", job.JobType, filePath)
+					logSummary, processErr = productService.ProcessBatchPackageUpdate(ctx, job.ID, filePath, job.UserID, true)
+				case "IMPORT_MEDIA_BULK_LINK":
+					log.Printf("Processing %s: %s", job.JobType, filePath)
+					logSummary, processErr = mediaService.ProcessMediaLinkImport(ctx, filePath, job.UserID)
+				case "ADJUST_STOCK":
+					log.Printf("Processing %s: %s", job.JobType, filePath)
+					logSummary, processErr = stockService.ProcessStockImport(ctx, job.ID, filePath, job.UserID, false)
+				case "ADJUST_STOCK_DRY_RUN":
+					log.Printf("Processing %s: %s", job.JobType, filePath)
+					logSummary, processErr = stockService.ProcessStockImport(ctx, job.ID, filePath, job.UserID, true)
+				case "IMPORT_STOCK_INBOUND":
+					log.Printf("Processing %s: %s", job.JobType, filePath)
+					logSummary, processErr = stockService.ProcessImportBatchInbound(ctx, job.ID, filePath, job.UserID, false)
+				case "IMPORT_STOCK_INBOUND_DRY_RUN":
+					log.Printf("Processing %s: %s", job.JobType, filePath)
+					logSummary, processErr = stockService.ProcessImportBatchInbound(ctx, job.ID, filePath, job.UserID, true)
+
+				default:
+					log.Printf("Unknown job type: %s", job.JobType)
+					processErr = fmt.Errorf("unknown job type: %s", job.JobType)
+				}
+			}()
 
 			// Update job status
 			if processErr != nil {
 				log.Printf("Job %d failed: %v", job.ID, processErr)
+				errSummary := processErr.Error()
+				if logSummary != "" {
+					errSummary = fmt.Sprintf("%s | %s", logSummary, errSummary)
+				}
 				if job.JobType != "SYNC_API_KELJA" {
-					if errLog := jobService.UpdateImportJobStatusWithSummary(ctx, job.ID, "FAILED", processErr.Error()); errLog != nil {
+					if errLog := jobService.UpdateImportJobStatusWithSummary(ctx, job.ID, "FAILED", errSummary); errLog != nil {
 						log.Printf("Failed to update job status: %v", errLog)
 					}
 				}
 				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "IMPORT_FAILED")
-			} else if logSummary != "" {
+			} else {
+				if logSummary == "" {
+					logSummary = fmt.Sprintf("Job %s selesai diproses.", job.JobType)
+				}
 				log.Printf("Job %d completed with summary: %s", job.ID, logSummary)
 				if job.JobType != "SYNC_API_KELJA" {
 					if errLog := jobService.UpdateImportJobStatusWithSummary(ctx, job.ID, "COMPLETED", logSummary); errLog != nil {
-						log.Printf("Failed to update job status: %v", errLog)
-					}
-				}
-				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "IMPORT_COMPLETED")
-				if job.JobType == "IMPORT_ATTENDANCE" {
-					_ = firebaseService.EmitSharedTaskSignal(ctx, "HRIS_ATTENDANCE", "REFRESH_ATTENDANCE")
-				}
-			} else {
-				log.Printf("Job %d completed", job.ID)
-				if job.JobType != "SYNC_API_KELJA" {
-					if errLog := jobService.UpdateImportJobStatus(ctx, job.ID, "COMPLETED"); errLog != nil {
 						log.Printf("Failed to update job status: %v", errLog)
 					}
 				}
@@ -299,32 +295,40 @@ func processPendingExportJobs(
 			}
 
 			cleanJobType := strings.TrimSpace(job.JobType)
-			switch cleanJobType {
-			case "STATISTICS_STOCK_MOVEMENT":
-				log.Printf("Processing %s", job.JobType)
-				processErr = exportService.ProcessExportStockMovement(ctx, job.ID, filtersJSON)
-			case "STATISTICS_STOCK_TIMELINE":
-				log.Printf("Processing %s", job.JobType)
-				processErr = exportService.ProcessExportStockTimeline(ctx, job.ID, filtersJSON)
-			case "STOCK_REPORT":
-				log.Printf("Processing %s", job.JobType)
-				processErr = exportService.ProcessExportStockReport(ctx, job.ID, filtersJSON)
-			case "BATCH_LOG_EXPORT":
-				log.Printf("Processing %s", job.JobType)
-				processErr = exportService.ProcessExportBatchLog(ctx, job.ID, filtersJSON)
-			case "STATISTICS_LOCATION_CAPACITY":
-				log.Printf("Processing %s", job.JobType)
-				processErr = exportService.ProcessExportLocationCapacity(ctx, job.ID, filtersJSON)
-			case "PRODUCT_MASTER":
-				log.Printf("Processing %s", job.JobType)
-				processErr = exportService.ProcessExportProduct(ctx, job.ID, filtersJSON)
-			case "EXPORT_PACKAGES":
-				log.Printf("Processing %s", job.JobType)
-				processErr = exportService.ProcessExportPackage(ctx, job.ID, filtersJSON)
-			default:
-				log.Printf("Unknown export job type: %s (hex: %x)", job.JobType, job.JobType)
-				processErr = fmt.Errorf("unknown export job type: %s", job.JobType)
-			}
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						processErr = fmt.Errorf("internal export worker panic: %v", r)
+					}
+				}()
+
+				switch cleanJobType {
+				case "STATISTICS_STOCK_MOVEMENT":
+					log.Printf("Processing %s", job.JobType)
+					processErr = exportService.ProcessExportStockMovement(ctx, job.ID, filtersJSON)
+				case "STATISTICS_STOCK_TIMELINE":
+					log.Printf("Processing %s", job.JobType)
+					processErr = exportService.ProcessExportStockTimeline(ctx, job.ID, filtersJSON)
+				case "STOCK_REPORT":
+					log.Printf("Processing %s", job.JobType)
+					processErr = exportService.ProcessExportStockReport(ctx, job.ID, filtersJSON)
+				case "BATCH_LOG_EXPORT":
+					log.Printf("Processing %s", job.JobType)
+					processErr = exportService.ProcessExportBatchLog(ctx, job.ID, filtersJSON)
+				case "STATISTICS_LOCATION_CAPACITY":
+					log.Printf("Processing %s", job.JobType)
+					processErr = exportService.ProcessExportLocationCapacity(ctx, job.ID, filtersJSON)
+				case "PRODUCT_MASTER":
+					log.Printf("Processing %s", job.JobType)
+					processErr = exportService.ProcessExportProduct(ctx, job.ID, filtersJSON)
+				case "EXPORT_PACKAGES":
+					log.Printf("Processing %s", job.JobType)
+					processErr = exportService.ProcessExportPackage(ctx, job.ID, filtersJSON)
+				default:
+					log.Printf("Unknown export job type: %s (hex: %x)", job.JobType, job.JobType)
+					processErr = fmt.Errorf("unknown export job type: %s", job.JobType)
+				}
+			}()
 
 			if processErr != nil {
 				log.Printf("Export Job %d failed: %v", job.ID, processErr)

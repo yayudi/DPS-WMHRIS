@@ -54,7 +54,7 @@ func (h *StatisticHandler) RequestStockMovementsExport(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusAccepted, "Permintaan ekspor statistik stok diterima. File sedang diproses.", jobID)
+	utils.JobCreatedResponse(c, http.StatusAccepted, "Permintaan ekspor statistik stok diterima. File sedang diproses.", jobID)
 }
 
 func (h *StatisticHandler) GetStockTimeline(c *gin.Context) {
@@ -92,7 +92,7 @@ func (h *StatisticHandler) RequestStockTimelineExport(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusAccepted, "Permintaan ekspor statistik timeline stok diterima. File sedang diproses.", jobID)
+	utils.JobCreatedResponse(c, http.StatusAccepted, "Permintaan ekspor statistik timeline stok diterima. File sedang diproses.", jobID)
 }
 
 func (h *StatisticHandler) GetInventoryValue(c *gin.Context) {
@@ -204,10 +204,7 @@ func (h *StatisticHandler) ExportLocationCapacity(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessDataResponse(c, http.StatusOK, gin.H{
-		"job_id":  jobID,
-		"message": "Export job berhasil dibuat",
-	})
+	utils.JobCreatedResponse(c, http.StatusAccepted, "Export job berhasil dibuat", jobID)
 }
 
 // GetStockBuildingBreakdown handles GET /statistics/stock-movements/:productId/breakdown

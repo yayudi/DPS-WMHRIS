@@ -14,12 +14,10 @@ import (
 )
 
 func (s *exportServiceImpl) ProcessExportPackage(ctx context.Context, jobID int, filtersJSON string) error {
-	_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil) // #nosec G104
-
 	var filters map[string]interface{}
 	if filtersJSON != "" {
 		if err := json.Unmarshal([]byte(filtersJSON), &filters); err != nil {
-			return failExportJob(ctx, jobID, fmt.Errorf("invalid filters: %v", err), s.jobRepo)
+			return fmt.Errorf("invalid filters: %v", err)
 		}
 	}
 
@@ -62,7 +60,7 @@ func (s *exportServiceImpl) ProcessExportPackage(ctx context.Context, jobID int,
 
 	res, _, err := s.productRepo.GetProductsWithFilters(ctx, req)
 	if err != nil {
-		return failExportJob(ctx, jobID, fmt.Errorf("failed to fetch packages: %v", err), s.jobRepo)
+		return fmt.Errorf("failed to fetch packages: %w", err)
 	}
 
 	maxComponentCount := 0

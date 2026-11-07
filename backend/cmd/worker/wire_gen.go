@@ -35,7 +35,7 @@ func InitializeWorker(db *sqlx.DB) (*di.WorkerContainer, error) {
 	jobRepository := mysql.NewJobRepository(db)
 	jobService := usecase.NewJobService(jobRepository)
 	statisticRepository := mysql2.NewStatisticRepository(db)
-	statisticService := usecase2.NewStatisticService(statisticRepository, jobRepository)
+	statisticService := usecase2.NewStatisticService(statisticRepository, jobService)
 	storageService := usecase.NewStorageService()
 	stockRepository := mysql3.NewStockRepository(db)
 	reportRepository := mysql2.NewReportRepository(db)

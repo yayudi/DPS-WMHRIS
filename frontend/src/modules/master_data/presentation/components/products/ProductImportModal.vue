@@ -5,6 +5,7 @@
     templateUrl="/products/template"
     templateFilename="Template_Produk.xlsx"
     uploadUrl="/products/batch/product-update"
+    :jobType="['BATCH_EDIT_PRODUCT', 'BATCH_EDIT_PRODUCT_DRY_RUN']"
     :additionalData="{ dryRun: isDryRun }"
     :instructions="['Gunakan file CSV atau Excel (.xlsx)', 'Kolom wajib: sku, name', 'Kolom opsional: price, weight, is_package, is_active', '*Jika SKU sudah ada, data di-update. Jika belum, dibuat baru.']"
     @close="$emit('close')"

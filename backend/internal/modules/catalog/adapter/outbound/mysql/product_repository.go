@@ -747,6 +747,13 @@ func (r *productRepositoryImpl) LinkMediaToProduct(ctx context.Context, productI
 	return err
 }
 
+func (r *productRepositoryImpl) IsMediaLinkedToProduct(ctx context.Context, productID int, mediaID int) (bool, error) {
+	var count int
+	ext := database.GetExt(ctx, r.db)
+	err := ext.GetContext(ctx, &count, "SELECT COUNT(*) FROM product_images WHERE product_id = ? AND media_id = ?", productID, mediaID)
+	return count > 0, err
+}
+
 func (r *productRepositoryImpl) DeleteProductImage(ctx context.Context, imageID int) error {
 	query := `DELETE FROM product_images WHERE id = ?`
 	ext := database.GetExt(ctx, r.db)

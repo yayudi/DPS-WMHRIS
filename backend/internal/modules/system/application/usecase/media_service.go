@@ -20,6 +20,7 @@ import (
 	"github.com/dps-wmhris/backend/internal/parser"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
+	"github.com/xuri/excelize/v2"
 )
 
 type MediaService interface {
@@ -34,6 +35,7 @@ type MediaService interface {
 	UpdateMediaTags(ctx context.Context, mediaID int, tags []string) error
 	UpdateMediaTitle(ctx context.Context, mediaID int, title string) error
 	ProcessMediaLinkImport(ctx context.Context, filePath string, userID int) (string, error)
+	GenerateBulkLinkTemplate() *excelize.File
 }
 
 type mediaServiceImpl struct {
@@ -104,10 +106,7 @@ func (s *mediaServiceImpl) DeleteMediaAsset(ctx context.Context, mediaID int) (s
 	}
 
 	// Delete from DB (will throw if FK restrict hits)
-	// We use the transactional connection passed here or fallback
-	dbExec := database.GetExt(ctx, nil)
-	_, err = dbExec.ExecContext(ctx, "DELETE FROM media_assets WHERE id = ?", mediaID)
-	if err != nil {
+	if err := s.mediaRepo.DeleteMediaAsset(ctx, mediaID); err != nil {
 		return "", "", err
 	}
 
@@ -123,8 +122,7 @@ func (s *mediaServiceImpl) InsertTrashQueue(ctx context.Context, r2Key string) e
 	if r2Key == "" {
 		return nil
 	}
-	_, err := database.GetExt(ctx, nil).ExecContext(ctx, "INSERT INTO r2_trash_queue (r2_key) VALUES (?)", r2Key)
-	return err
+	return s.mediaRepo.InsertTrashQueue(ctx, r2Key)
 }
 
 func (s *mediaServiceImpl) UpdateMediaTags(ctx context.Context, mediaID int, tags []string) error {
@@ -140,6 +138,7 @@ func (s *mediaServiceImpl) UpdateMediaTitle(ctx context.Context, mediaID int, ti
 }
 
 func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath string, userID int) (string, error) {
+	filePath = utils.ResolveStoragePath(filePath)
 	records, err := parser.ReadExcelFile(filePath)
 	if err != nil {
 		return "", err
@@ -211,10 +210,9 @@ func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath 
 			searchPath = strings.Split(searchPath, "?")[0]
 			searchPath = strings.Split(searchPath, "#")[0]
 
-			var mID int
-			err := database.GetExt(ctx, nil).GetContext(ctx, &mID, "SELECT id FROM media_assets WHERE main_path LIKE ? OR thumbnail_path LIKE ? LIMIT 1", "%"+searchPath+"%", "%"+searchPath+"%")
-			if err == nil {
-				mediaID = mID
+			mID, err := s.mediaRepo.FindMediaIDByPathLike(ctx, searchPath)
+			if err == nil && mID != nil {
+				mediaID = *mID
 				found = true
 			}
 		}
@@ -225,9 +223,8 @@ func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath 
 			continue
 		}
 
-		var existingCount int
-		err = database.GetExt(ctx, nil).GetContext(ctx, &existingCount, "SELECT COUNT(*) FROM product_images WHERE product_id = ? AND media_id = ?", productID, mediaID)
-		if err == nil && existingCount == 0 {
+		linked, err := s.productRepo.IsMediaLinkedToProduct(ctx, productID, mediaID)
+		if err == nil && !linked {
 			err = s.productRepo.LinkMediaToProduct(ctx, productID, mediaID, 0)
 			if err != nil {
 				errorsList = append(errorsList, fmt.Sprintf("Baris %d: Gagal link media ke produk: %v", rowIndex+1, err))
@@ -370,3 +367,19 @@ func (s *mediaServiceImpl) DeleteMediaAndQueueTrash(ctx context.Context, mediaID
 		return nil
 	})
 }
+
+func (s *mediaServiceImpl) GenerateBulkLinkTemplate() *excelize.File {
+	f := excelize.NewFile()
+	sheetName := "Template Tautkan Media"
+	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
+
+	styles := utils.InitExcelStyles(f)
+	utils.SetHeaders(f, sheetName, []string{"SKU", "Image_URL"}, styles.Header)
+	utils.SetColWidths(f, sheetName, map[string]float64{"A": 20, "B": 50})
+
+	// Add sample data
+	_ = f.SetSheetRow(sheetName, "A2", &[]interface{}{"PP000R081", "https://api.dpvindonesia.com/uploads/main/main-1783397524366-325551216.webp"})               // #nosec G104
+	_ = f.SetSheetRow(sheetName, "A3", &[]interface{}{"PP000453P", "https://api.dpvindonesia.com/uploads/main/main-dpv_indonesia_logo-white_lettermark_sm.png"}) // #nosec G104
+	return f
+}
+

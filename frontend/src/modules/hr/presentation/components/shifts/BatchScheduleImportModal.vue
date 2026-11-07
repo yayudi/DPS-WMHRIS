@@ -5,6 +5,7 @@
     templateUrl="/schedules/template"
     templateFilename="Template_Jadwal_Shift.xlsx"
     uploadUrl="/schedules/import"
+    jobType="IMPORT_SCHEDULES"
     :instructions="['Gunakan Template Excel yang disediakan.', 'Kolom Wajib: Username, Date (YYYY-MM-DD), Shift Name.', 'Pastikan nama shift sesuai dengan Master Shift.']"
     @close="$emit('close')"
     @success="$emit('success')"

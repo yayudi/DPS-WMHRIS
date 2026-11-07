@@ -19,9 +19,11 @@ import ExportDropdown from '@/core/presentation/components/ui/ExportDropdown.vue
 import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
 import { formatNumber, generateDynamicExportName } from '@/core/utils/formatters'
 import { usePagination } from '@/core/presentation/composables/usePagination'
+import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
 
 const authStore = useAuthStore()
 const masterData = useMasterDataStore()
+const downloadStore = useDownloadStore()
 const { toast } = useToast()
 
 const isDataLoading = ref(false)
@@ -256,6 +258,7 @@ const handleExport = async () => {
     }
     const data = await analyticsApi.requestStatisticExport(prepareFilters(filtersPayload))
     if (data.success) {
+      downloadStore.notifyNewJob()
       toast(data.message || 'Sedang memproses export ke background', 'success')
     }
   } catch (error) {

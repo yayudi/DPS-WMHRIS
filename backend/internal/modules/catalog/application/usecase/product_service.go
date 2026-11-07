@@ -16,6 +16,7 @@ import (
 	"github.com/dps-wmhris/backend/internal/modules/catalog/domain"
 	database "github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/kernel"
+	"github.com/dps-wmhris/backend/internal/shared/utils"
 )
 
 type productServiceImpl struct {
@@ -287,6 +288,15 @@ func containsString(slice []string, val *string) bool {
 }
 
 func (s *productServiceImpl) ProcessBatchUpdate(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error) {
+	return s.processMassCatalogUpdate(ctx, jobID, filePath, userID, isDryRun, false)
+}
+
+func (s *productServiceImpl) ProcessBatchPackageUpdate(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error) {
+	return s.processMassCatalogUpdate(ctx, jobID, filePath, userID, isDryRun, true)
+}
+
+func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool, expectPackage bool) (string, error) {
+	filePath = utils.ResolveStoragePath(filePath)
 	cleanPath := filepath.Clean(filePath)
 	ext := filepath.Ext(cleanPath)
 	file, err := os.Open(cleanPath)
@@ -343,8 +353,12 @@ func (s *productServiceImpl) ProcessBatchUpdate(ctx context.Context, jobID int, 
 			continue
 		}
 
-		if dbProduct.IsPackage {
+		if !expectPackage && dbProduct.IsPackage {
 			finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: SKU '%s' adalah Paket. Batch edit hanya untuk Produk.", i+2, row.SKU))
+			continue
+		}
+		if expectPackage && !dbProduct.IsPackage {
+			finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: SKU '%s' adalah Produk Satuan. Menu ini khusus untuk Paket.", i+2, row.SKU))
 			continue
 		}
 
@@ -357,7 +371,7 @@ func (s *productServiceImpl) ProcessBatchUpdate(ctx context.Context, jobID int, 
 			Length:     dbProduct.Length,
 			Width:      dbProduct.Width,
 			Height:     dbProduct.Height,
-			IsPackage:  dbProduct.IsPackage,
+			IsPackage:  expectPackage,
 			IsActive:   dbProduct.IsActive,
 		}
 
@@ -406,9 +420,14 @@ func (s *productServiceImpl) ProcessBatchUpdate(ctx context.Context, jobID int, 
 		modeStr = "[SIMULASI] "
 	}
 
-	if len(finalErrors) > 0 {
-		return fmt.Sprintf("%sBerhasil: %d. Gagal: %d", modeStr, successCount, len(finalErrors)), fmt.Errorf("Ditemukan %d error: %s", len(finalErrors), strings.Join(finalErrors, " | "))
+	entityName := "produk"
+	if expectPackage {
+		entityName = "paket"
 	}
 
-	return fmt.Sprintf("%sSelesai. Berhasil mengupdate %d produk.", modeStr, successCount), nil
+	if len(finalErrors) > 0 {
+		return fmt.Sprintf("%sBerhasil: %d %s. Gagal: %d %s.", modeStr, successCount, entityName, len(finalErrors), entityName), fmt.Errorf("Ditemukan %d error: %s", len(finalErrors), strings.Join(finalErrors, " | "))
+	}
+
+	return fmt.Sprintf("%sSelesai. Berhasil mengupdate %d %s.", modeStr, successCount, entityName), nil
 }

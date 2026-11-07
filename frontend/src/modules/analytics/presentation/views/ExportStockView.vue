@@ -11,7 +11,6 @@ import BaseFilterPanel from '@/core/presentation/components/ui/BaseFilterPanel.v
 import BaseSkeleton from '@/core/presentation/components/ui/BaseSkeleton.vue'
 import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
 import { useDownload } from '@/core/presentation/composables/useDownload'
-import { useFirebaseSync } from '@/core/presentation/composables/useFirebaseSync'
 
 const { openDownloadUrl } = useDownload()
 const masterData = useMasterDataStore()
@@ -19,8 +18,11 @@ const downloadStore = useDownloadStore()
 const { toast } = useToast()
 
 const isRequesting = ref(false)
-const jobHistory = ref([])
 const isHistoryLoading = ref(false)
+
+const jobHistory = computed(() =>
+  downloadStore.jobs.filter(job => (job.job_type || job.type) === 'STOCK_REPORT')
+)
 
 const selectedFilters = ref({
   searchQuery: '',
@@ -49,13 +51,10 @@ async function loadReportFilters() {
   }
 }
 
-async function loadHistory() {
+async function refreshHistory() {
   isHistoryLoading.value = true
   try {
-    const response = await analyticsApi.getUserExportJobs()
-    if (response.success) {
-      jobHistory.value = response.data.filter(job => job.type === 'STOCK_REPORT')
-    }
+    await downloadStore.fetchJobs()
   } catch (error) {
     console.error('Gagal memuat riwayat:', error)
   } finally {
@@ -65,11 +64,7 @@ async function loadHistory() {
 
 onMounted(() => {
   loadReportFilters()
-  loadHistory()
-})
-
-useFirebaseSync(['BACKGROUND_JOBS'], ['EXPORT_COMPLETED', 'EXPORT_FAILED', 'EXPORT_STARTED'], () => {
-  loadHistory()
+  refreshHistory()
 })
 
 const purposeOptions = computed(() => {
@@ -138,7 +133,6 @@ async function handleRequestExport() {
   try {
     const response = await analyticsApi.requestExportStock(filters)
     toast(response.message || 'Permintaan diterima!', 'success')
-    loadHistory()
     downloadStore.notifyNewJob()
   } catch (error) {
     console.error(error)
@@ -242,6 +236,14 @@ function formatJobType(type) {
       <div class="lg:col-span-2">
         <div class="flex justify-between items-center mb-4">
           <h4 class="text-sm font-bold text-text/70 uppercase tracking-wide">Riwayat Generate</h4>
+          <button
+            @click="refreshHistory"
+            class="text-xs text-text/60 hover:text-primary transition-colors flex items-center gap-1.5"
+            :disabled="isHistoryLoading"
+          >
+            <font-awesome-icon icon="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': isHistoryLoading }" />
+            <span>Segarkan</span>
+          </button>
         </div>
 
         <div
@@ -305,7 +307,7 @@ function formatJobType(type) {
                   class="px-2 py-1 text-text text-xs sticky left-0 bg-background group-hover:bg-secondary/5 transition-colors shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]"
                 >
                   <div class="flex flex-col">
-                    <span class="font-bold text-sm">{{ formatFileName(job.file_path, job.type) }}</span>
+                    <span class="font-bold text-sm">{{ formatFileName(job.file_path, job.job_type || job.type) }}</span>
                   </div>
                 </td>
                 <td
@@ -322,7 +324,7 @@ function formatJobType(type) {
                 </td>
                 <td class="px-2 py-1">
                   <div class="flex flex-col">
-                    <span class="font-bold text-sm">{{ formatJobType(job.type) }}</span>
+                    <span class="font-bold text-sm">{{ formatJobType(job.job_type || job.type) }}</span>
                   </div>
                 </td>
                 <td class="px-2 py-1">

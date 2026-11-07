@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	analytics_usecase "github.com/dps-wmhris/backend/internal/modules/analytics/application/usecase"
-	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
 	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
@@ -18,15 +17,13 @@ type ReportHandler struct {
 	reportService  analytics_usecase.ReportService
 	jobService     system_usecase.JobService
 	storageService system_usecase.StorageService
-	jobRepo        system_mysql.JobRepository
 }
 
-func NewReportHandler(reportService analytics_usecase.ReportService, jobService system_usecase.JobService, storageService system_usecase.StorageService, jobRepo system_mysql.JobRepository) *ReportHandler {
+func NewReportHandler(reportService analytics_usecase.ReportService, jobService system_usecase.JobService, storageService system_usecase.StorageService) *ReportHandler {
 	return &ReportHandler{
 		reportService:  reportService,
 		jobService:     jobService,
 		storageService: storageService,
-		jobRepo:        jobRepo,
 	}
 }
 
@@ -59,10 +56,7 @@ func (h *ReportHandler) RequestStockReport(c *gin.Context) {
 		return
 	}
 
-	utils.RawResponse(c, http.StatusAccepted, gin.H{
-		"message": "Permintaan ekspor diterima. Laporan sedang dibuat.",
-		"jobId":   jobID,
-	})
+	utils.JobCreatedResponse(c, http.StatusAccepted, "Permintaan ekspor diterima. Laporan sedang dibuat.", jobID)
 }
 
 func (h *ReportHandler) GetUserExportJobs(c *gin.Context) {
@@ -95,7 +89,7 @@ func (h *ReportHandler) DownloadExportJob(c *gin.Context) {
 		return
 	}
 
-	job, err := h.jobRepo.GetExportJobByID(c.Request.Context(), jobID)
+	job, err := h.jobService.GetExportJobByID(c.Request.Context(), jobID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "Job tidak ditemukan", "")
 		return

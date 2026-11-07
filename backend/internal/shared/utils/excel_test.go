@@ -1,10 +1,14 @@
 package utils_test
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/dps-wmhris/backend/internal/shared/utils"
+	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
 )
 
 func TestGenerateTemplateWithDropdown(t *testing.T) {
@@ -84,4 +88,47 @@ func TestGenerateExportFileName(t *testing.T) {
 		}
 	}
 }
+
+func TestWriteExcelResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("Streams excel file with proper headers and closes file", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+
+		f := excelize.NewFile()
+		_ = f.SetCellValue("Sheet1", "A1", "Test Header")
+
+		utils.WriteExcelResponse(c, f, "test_template.xlsx")
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", w.Code)
+		}
+		contentType := w.Header().Get("Content-Type")
+		expectedCT := "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+		if contentType != expectedCT {
+			t.Errorf("expected Content-Type %q, got %q", expectedCT, contentType)
+		}
+		contentDisp := w.Header().Get("Content-Disposition")
+		expectedCD := "attachment; filename=test_template.xlsx"
+		if contentDisp != expectedCD {
+			t.Errorf("expected Content-Disposition %q, got %q", expectedCD, contentDisp)
+		}
+		if w.Body.Len() == 0 {
+			t.Errorf("expected non-empty response body")
+		}
+	})
+
+	t.Run("Returns 500 when file is nil", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+
+		utils.WriteExcelResponse(c, nil, "nil_template.xlsx")
+
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("expected status 500, got %d", w.Code)
+		}
+	})
+}
+
 

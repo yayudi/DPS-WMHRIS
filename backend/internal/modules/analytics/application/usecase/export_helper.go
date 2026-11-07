@@ -11,10 +11,8 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-// failExportJob mencatat error ke database job dan mengubah status menjadi FAILED
-func failExportJob(ctx context.Context, jobID int, err error, jobRepo system_mysql.JobRepository) error {
-	errMsg := err.Error()
-	_ = jobRepo.UpdateExportJobStatus(ctx, jobID, "FAILED", nil, &errMsg) // #nosec G104
+// failExportJob returns the error directly as job failure status is centrally handled by the worker dispatcher.
+func failExportJob(_ context.Context, _ int, err error, _ system_mysql.JobRepository) error {
 	return err
 }
 
@@ -22,12 +20,12 @@ func failExportJob(ctx context.Context, jobID int, err error, jobRepo system_mys
 func finalizeExportJob(ctx context.Context, f *excelize.File, jobID int, fileName string, folder string, jobRepo system_mysql.JobRepository, storageService system_usecase.StorageService) error {
 	var b bytes.Buffer
 	if err := f.Write(&b); err != nil {
-		return failExportJob(ctx, jobID, err, jobRepo)
+		return err
 	}
 
 	url, err := storageService.UploadFile(ctx, b.Bytes(), fileName, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", folder)
 	if err != nil {
-		return failExportJob(ctx, jobID, err, jobRepo)
+		return err
 	}
 
 	_ = jobRepo.UpdateExportJobStatus(ctx, jobID, "COMPLETED", &url, nil) // #nosec G104

@@ -15,6 +15,7 @@ type UserExportJobResponse struct {
 	ErrorMessage *string    `json:"error_message"`
 	CreatedAt    *time.Time `json:"created_at"`
 	Filters      *string    `json:"filters"`
+	JobType      string     `json:"job_type"`
 	Type         string     `json:"type"`
 	DownloadURL  *string    `json:"download_url"`
 }

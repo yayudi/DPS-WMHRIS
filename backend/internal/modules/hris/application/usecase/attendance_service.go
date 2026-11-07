@@ -1,25 +1,21 @@
 package usecase
 
 import (
-	hris_parser "github.com/dps-wmhris/backend/internal/modules/hris/application/parser"
-
 	"context"
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	hris_dto "github.com/dps-wmhris/backend/internal/modules/hris/application/dto"
-
-	hris_port "github.com/dps-wmhris/backend/internal/modules/hris/port"
-	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
-
-	iam_port "github.com/dps-wmhris/backend/internal/modules/iam/port"
-
+	hris_parser "github.com/dps-wmhris/backend/internal/modules/hris/application/parser"
 	"github.com/dps-wmhris/backend/internal/modules/hris/domain"
+	hris_port "github.com/dps-wmhris/backend/internal/modules/hris/port"
+	iam_port "github.com/dps-wmhris/backend/internal/modules/iam/port"
+	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
+	"github.com/dps-wmhris/backend/internal/shared/utils"
 )
 
 // wmsConstants.js values
@@ -240,7 +236,7 @@ func (s *attendanceUseCaseImpl) ProcessImport(ctx context.Context, jobID int, fi
 		}
 	}
 
-	cleanPath := filepath.Clean(filePath)
+	cleanPath := utils.ResolveStoragePath(filePath)
 	file, err := os.Open(cleanPath)
 	if err != nil {
 		return "", fmt.Errorf("gagal membuka file absensi: %v", err)

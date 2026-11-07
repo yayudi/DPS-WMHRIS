@@ -53,14 +53,12 @@ func NewExportService(jobRepo system_mysql.JobRepository, statisticService Stati
 }
 
 func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobID int, filtersJSON string) error {
-	_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil) // #nosec G104
-
 	req := analytics_dto.StatisticFilterRequest{}
 	_ = json.Unmarshal([]byte(filtersJSON), &req)
 
 	data, err := s.statisticService.GetStockMovementStatistics(ctx, req)
 	if err != nil {
-		return failExportJob(ctx, jobID, err, s.jobRepo)
+		return err
 	}
 
 	// Buat file Excel
@@ -103,8 +101,6 @@ func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobI
 }
 
 func (s *exportServiceImpl) ProcessExportStockTimeline(ctx context.Context, jobID int, filtersJSON string) error {
-	_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil) // #nosec G104
-
 	req := analytics_dto.StatisticFilterRequest{}
 	_ = json.Unmarshal([]byte(filtersJSON), &req)
 
@@ -115,7 +111,7 @@ func (s *exportServiceImpl) ProcessExportStockTimeline(ctx context.Context, jobI
 
 	data, err := s.statisticService.GetStockTimelineStatistics(ctx, req)
 	if err != nil {
-		return failExportJob(ctx, jobID, err, s.jobRepo)
+		return err
 	}
 
 	f := excelize.NewFile()
@@ -141,8 +137,6 @@ func (s *exportServiceImpl) ProcessExportStockTimeline(ctx context.Context, jobI
 }
 
 func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int, filtersJSON string) error {
-	_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil) // #nosec G104
-
 	var filter inventory_dto.BatchLogFilter
 	if filtersJSON != "" {
 		_ = json.Unmarshal([]byte(filtersJSON), &filter)
@@ -162,7 +156,7 @@ func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int
 
 	result, err := s.stockRepo.GetBatchLogs(ctx, filter)
 	if err != nil {
-		return failExportJob(ctx, jobID, err, s.jobRepo)
+		return err
 	}
 	logs := result.Data
 
@@ -193,18 +187,14 @@ func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int
 }
 
 func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID int, filtersJSON string) error {
-	_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil) // #nosec G104
-
 	var filter analytics_dto.StockReportFilter
 	if err := json.Unmarshal([]byte(filtersJSON), &filter); err != nil {
-		errMsg := fmt.Sprintf("Failed to parse filters: %v", err)
-		_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "FAILED", nil, &errMsg) // #nosec G104
-		return err
+		return fmt.Errorf("failed to parse filters: %w", err)
 	}
 
 	data, err := s.reportRepo.GetStockReportData(ctx, filter)
 	if err != nil {
-		return failExportJob(ctx, jobID, err, s.jobRepo)
+		return err
 	}
 
 	f := excelize.NewFile()
@@ -352,8 +342,6 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 }
 
 func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, jobID int, filtersJSON string) error {
-	_ = s.jobRepo.UpdateExportJobStatus(ctx, jobID, "PROCESSING", nil, nil) // #nosec G104
-
 	var req analytics_dto.ExportLocationCapacityRequest
 	_ = json.Unmarshal([]byte(filtersJSON), &req)
 
@@ -395,7 +383,7 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 
 	data, err := s.statisticService.GetLocationAnalysis(ctx, statFilters)
 	if err != nil {
-		return failExportJob(ctx, jobID, err, s.jobRepo)
+		return err
 	}
 
 	f := excelize.NewFile()

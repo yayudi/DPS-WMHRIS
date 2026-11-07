@@ -27,6 +27,20 @@ func SuccessResponse(c *gin.Context, statusCode int, message string, data any) {
 	c.JSON(statusCode, response)
 }
 
+// JobCreatedResponse mengirimkan respons JSON terstandar untuk pembuatan background job (import/export)
+// yang kompatibel dengan seluruh variasi pembacaan di frontend (top-level jobId, data.jobId, dan data.job_id).
+func JobCreatedResponse(c *gin.Context, statusCode int, message string, jobID int) {
+	c.JSON(statusCode, gin.H{
+		"success": true,
+		"message": message,
+		"jobId":   jobID,
+		"data": gin.H{
+			"jobId":  jobID,
+			"job_id": jobID,
+		},
+	})
+}
+
 // ErrorResponse mengirimkan respons JSON standar untuk operasi yang gagal.
 // Mendukung resolusi otomatis ke kamus "errors.*" jika locale aktif bukan default (id-ID).
 func ErrorResponse(c *gin.Context, statusCode int, message string, errorCode string) {

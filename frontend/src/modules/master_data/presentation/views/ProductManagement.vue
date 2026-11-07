@@ -8,6 +8,7 @@ import { useProducts } from '../../application/useProducts'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import debounce from 'lodash/debounce'
 import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
+import { useUploadStore } from '@/core/presentation/stores/uploadStore'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import BatchEditModal from '@/modules/master_data/presentation/components/products/BatchEditModal.vue'
 import ProductFormModal from '@/modules/wms/presentation/components/shared/ProductFormModal.vue'
@@ -99,7 +100,9 @@ const printBatchList = ref([])
 // Pagination State
 const totalProducts = ref(0)
 const isExporting = ref(false)
+const isImporting = ref(false)
 const downloadStore = useDownloadStore()
+const uploadStore = useUploadStore()
 
 // Bulk Edit / Inline Edit State (from composable)
 const {
@@ -253,13 +256,17 @@ const executeBulkSaveInline = () => {
 
 const handleImport = async formData => {
   // Logic from old PriceUpdateModal/ProductImportModal
+  isImporting.value = true
   try {
     await productApi.uploadPriceUpdate(formData)
     toast('File diunggah. Buka kembali Batch Edit > Tab Riwayat & Log untuk memantau status.', 'info')
+    uploadStore.notifyNewJob()
     showBatchEditModal.value = false
     fetchProducts()
   } catch (err) {
     console.error(err)
+  } finally {
+    isImporting.value = false
   }
 }
 
@@ -538,7 +545,7 @@ watch(Slash, pressed => {
     <BatchEditModal
       :is-open="showBatchEditModal"
       :is-exporting="isExporting"
-      :is-importing="false"
+      :is-importing="isImporting"
       @close="showBatchEditModal = false"
       @export="handleExport"
       @import="handleImport"

@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
 
@@ -59,13 +57,7 @@ func (h *PackageHandler) ExportPackages(c *gin.Context) {
 		return
 	}
 
-	utils.RawResponse(c, http.StatusOK, gin.H{
-		"success": true,
-		"message": "Export job created successfully",
-		"data": map[string]interface{}{
-			"jobId": jobID,
-		},
-	})
+	utils.JobCreatedResponse(c, http.StatusOK, "Export job created successfully", jobID)
 }
 
 func (h *PackageHandler) ImportPackagesBatch(c *gin.Context) {
@@ -80,17 +72,16 @@ func (h *PackageHandler) ImportPackagesBatch(c *gin.Context) {
 		return
 	}
 
-	ext := strings.ToLower(filepath.Ext(origName))
-	if ext != ".xlsx" && ext != ".xls" && ext != ".csv" {
-		_ = os.Remove(savedPath)
-		utils.ErrorResponse(c, http.StatusBadRequest, "Format file tidak didukung", "")
-		return
-	}
+	jobType, notes, _ := utils.ParseImportJobMeta(
+		c,
+		"IMPORT_PACKAGES",
+		"Batch Package Update",
+		"Simulasi Batch Package Update",
+	)
 
-	notes := "Batch Package Update"
 	req := system_dto.CreateImportJobRequest{
 		UserID:           userID,
-		JobType:          "IMPORT_PACKAGES",
+		JobType:          jobType,
 		OriginalFilename: origName,
 		FilePath:         savedPath,
 		Notes:            &notes,
@@ -98,15 +89,10 @@ func (h *PackageHandler) ImportPackagesBatch(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
+		_ = os.Remove(savedPath)
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
 		return
 	}
 
-	utils.RawResponse(c, http.StatusOK, gin.H{
-		"success": true,
-		"message": "Import job created successfully",
-		"data": map[string]interface{}{
-			"jobId": jobID,
-		},
-	})
+	utils.JobCreatedResponse(c, http.StatusOK, "Import job created successfully", jobID)
 }

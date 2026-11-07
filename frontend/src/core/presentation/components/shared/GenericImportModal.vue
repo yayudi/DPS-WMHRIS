@@ -107,8 +107,8 @@
           >
             <div class="flex justify-between items-start">
               <div>
-                <div class="font-bold text-sm text-text">{{ job.originalFilename || 'File Upload' }}</div>
-                <div class="text-xs text-text/60">{{ formatDate(job.createdAt) }}</div>
+                <div class="font-bold text-sm text-text">{{ job.originalFilename || job.original_filename || 'File Upload' }}</div>
+                <div class="text-xs text-text/60">{{ formatDate(job.createdAt || job.created_at) }}</div>
               </div>
               <div>
                 <span
@@ -150,16 +150,17 @@
             </div>
 
             <div
-              v-if="job.summary"
+              v-if="job.summary || job.log_summary"
               class="text-xs text-text/80 bg-background/50 p-2 rounded border border-secondary/10"
             >
-              {{ job.summary }}
+              {{ job.summary || job.log_summary }}
             </div>
 
             <!-- Jika error, download log -->
-            <div v-if="job.status === 'ERROR' && job.errorLog" class="mt-1">
+            <div v-if="['ERROR', 'FAILED', 'COMPLETED_WITH_ERRORS'].includes(job.status) && getErrorUrl(job)" class="mt-1">
               <a
-                :href="job.errorLog"
+                :href="getErrorUrl(job)"
+                target="_blank"
                 download
                 class="text-xs text-danger hover:underline inline-flex items-center gap-1"
               >
@@ -213,7 +214,7 @@ const props = defineProps({
   additionalData: { type: Object, default: () => ({}) },
   instructions: { type: Array, default: () => ['Gunakan Template Excel yang disediakan'] },
   accept: { type: String, default: '.xlsx, .xls, .csv' },
-  jobType: { type: String, default: '' } // Contoh: 'LINK_MEDIA_EXCEL'
+  jobType: { type: [String, Array], default: '' } // Contoh: 'LINK_MEDIA_EXCEL' atau ['BATCH_EDIT_PRODUCT', 'BATCH_EDIT_PRODUCT_DRY_RUN']
 })
 
 const emit = defineEmits(['close', 'success'])
@@ -228,10 +229,33 @@ const isUploading = ref(false)
 const errorMessage = ref('')
 const userNotes = ref('')
 
+const effectiveJobTypes = computed(() => {
+  if (!props.jobType) return []
+  return Array.isArray(props.jobType) ? props.jobType : [props.jobType]
+})
+
 const isLoadingJobs = computed(() => uploadStore.jobs.length === 0 && !uploadStore.isExpanded)
 const jobs = computed(() => {
-  return uploadStore.jobs.filter(j => j.jobType === props.jobType).slice(0, 5)
+  if (effectiveJobTypes.value.length === 0) return []
+  return uploadStore.jobs
+    .filter(j => effectiveJobTypes.value.includes(j.jobType || j.job_type))
+    .slice(0, 5)
 })
+
+const getErrorUrl = job => {
+  try {
+    const raw = job.error_log || job.errorLog
+    if (!raw) return null
+    if (typeof raw === 'string' && (raw.startsWith('http') || raw.startsWith('/'))) return raw
+    const log = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!log?.download_url) return null
+    let baseUrl = import.meta.env.VITE_API_BASE_URL || ''
+    baseUrl = baseUrl.replace(/\/api$/, '').replace(/\/$/, '')
+    return `${baseUrl}${log.download_url}`
+  } catch {
+    return null
+  }
+}
 
 const downloadTemplate = async () => {
   if (!props.templateUrl) return
@@ -271,8 +295,8 @@ const upload = async () => {
     if (res.data && res.data.success !== false) {
       toast(res.data.message || 'File berhasil diunggah. Proses import berjalan di background.', 'success')
       emit('success')
-      if (props.jobType) fetchJobs()
-      else close()
+      uploadStore.notifyNewJob()
+      if (effectiveJobTypes.value.length === 0) close()
     } else {
       errorMessage.value = res.data.message || 'Gagal mengunggah file.'
     }
@@ -285,7 +309,7 @@ const upload = async () => {
 }
 
 const fetchJobs = async () => {
-  if (!props.isOpen || !props.jobType) return
+  if (!props.isOpen || effectiveJobTypes.value.length === 0) return
   await uploadStore.fetchJobs()
 }
 
@@ -295,7 +319,7 @@ watch(
     if (newVal) {
       selectedFile.value = null
       errorMessage.value = ''
-      if (props.jobType && uploadStore.jobs.length === 0) {
+      if (effectiveJobTypes.value.length > 0) {
         fetchJobs()
       }
     }

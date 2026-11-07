@@ -2,8 +2,10 @@ package utils
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -159,3 +161,24 @@ func GenerateExportFileName(customName, defaultPrefix string) string {
 	}
 	return fileName
 }
+
+// WriteExcelResponse streams an *excelize.File to the Gin response writer with standard attachment headers
+// and guarantees that f.Close() is called to prevent resource leaks.
+func WriteExcelResponse(c *gin.Context, f *excelize.File, fileName string) {
+	if f == nil {
+		ErrorResponse(c, http.StatusInternalServerError, "Gagal generate template", "INTERNAL_ERROR")
+		return
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	cleanName := GenerateExportFileName(fileName, "Template")
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", cleanName))
+
+	if err := f.Write(c.Writer); err != nil {
+		_ = c.Error(err)
+	}
+}
+

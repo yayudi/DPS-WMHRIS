@@ -8,7 +8,7 @@ export const attendanceApi = {
    */
   async getAvailableIndexes(): Promise<any> {
     const response = await http.get('/attendance/indexes')
-    return response.data
+    return (response as any)?.data || response
   },
 
   /**
@@ -16,7 +16,7 @@ export const attendanceApi = {
    */
   async getAbsensiData(year: number, month: number): Promise<AttendanceData> {
     const response = await http.get(`/attendance/${year}/${month}`)
-    const raw = response.data as any
+    const raw = ((response as any)?.data || response) as any
     return {
       summary: raw.globalInfo,
       users: normalizeLogs(raw.allUsers, raw.logRows, raw.globalInfo.holidayMap, year, month)
@@ -33,7 +33,7 @@ export const attendanceApi = {
    */
   async getAbsensiRange(startDate: string, endDate: string): Promise<AttendanceData> {
     const response = await http.get('/attendance/range', { params: { startDate, endDate } })
-    const raw = response.data as any
+    const raw = ((response as any)?.data || response) as any
     return {
       summary: raw.globalInfo,
       users: normalizeLogs(raw.allUsers, raw.logRows, raw.globalInfo.holidayMap, startDate, endDate)
@@ -44,16 +44,14 @@ export const attendanceApi = {
    * Memperbarui absensi individual karyawan.
    */
   async updateAttendance(payload: any): Promise<any> {
-    const response = await http.post('/attendance/update', payload)
-    return response.data
+    return http.post('/attendance/update', payload)
   },
 
   /**
    * Mengupload file absensi.
    */
   async uploadAbsensiFile(formData: FormData): Promise<any> {
-    const response = await http.upload('/attendance/upload', formData)
-    return response.data
+    return http.upload('/attendance/upload', formData)
   },
 
   hitungDendaTelat(menitTelat: number) {

@@ -30,6 +30,7 @@ const selectedFile = ref(null)
 const isUploading = ref(false)
 const uploadInputKey = ref(0)
 const isDownloading = ref(false)
+const isDryRun = ref(false)
 
 // Ambil data lokasi
 onMounted(async () => {
@@ -59,7 +60,7 @@ async function loadImportHistory(silent = false) {
   try {
     const response = await stockApi.getImportJobs()
     if (response.success && response.data) {
-      importJobHistory.value = response.data.filter(job => job.job_type === 'ADJUST_STOCK' || job.jobType === 'ADJUST_STOCK')
+      importJobHistory.value = response.data.filter(job => ['ADJUST_STOCK', 'ADJUST_STOCK_DRY_RUN'].includes(job.job_type || job.jobType))
     }
   } catch {
     toast('Gagal memuat riwayat impor', 'error')
@@ -98,10 +99,11 @@ async function handleUploadAdjustment() {
 
   isUploading.value = true
   try {
-    const response = await stockApi.requestAdjustmentUpload(selectedFile.value, notes.value)
+    const response = await stockApi.requestAdjustmentUpload(selectedFile.value, notes.value, isDryRun.value)
     toast(response.message || 'File diterima!', 'success')
     loadImportHistory()
     notes.value = ''
+    isDryRun.value = false
   } catch (error) {
     swalAlert('Gagal Upload', error.message || 'Terjadi kesalahan saat mengunggah file.', 'error')
   } finally {
@@ -379,6 +381,20 @@ watch(Alt_S, pressed => {
           </p>
         </div>
 
+        <!-- Mode Dry Run -->
+        <div class="flex items-center justify-between p-3.5 bg-secondary/5 rounded-xl border border-secondary/20">
+          <div>
+            <div class="font-bold text-text text-xs">Mode Simulasi (Dry Run)</div>
+            <div class="text-[11px] text-text/50">Cek validasi format dan stok tanpa mengubah database</div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" v-model="isDryRun" class="sr-only peer" />
+            <div
+              class="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-secondary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-primary after:border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-checked:after:bg-secondary"
+            ></div>
+          </label>
+        </div>
+
         <button
           @click="handleUploadAdjustment"
           :disabled="isUploading || !selectedFile || !notes.trim()"
@@ -509,6 +525,12 @@ watch(Alt_S, pressed => {
                     class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-warning/10 text-warning border border-warning/20"
                   >
                     <font-awesome-icon icon="fa-solid fa-triangle-exclamation" /> Selesai (Ada Error)
+                  </span>
+                  <span
+                    v-else-if="['CANCELLED', 'VOID'].includes(job.status)"
+                    class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-secondary/20 text-text/60 border border-secondary/30"
+                  >
+                    <font-awesome-icon icon="fa-solid fa-ban" /> Dibatalkan
                   </span>
                   <span
                     v-else

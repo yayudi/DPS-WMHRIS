@@ -23,6 +23,7 @@ services:
     volumes:
       - ./api:/app/api
       - ./firebase:/app/firebase
+      - ./storage:/app/storage
     networks:
       - intra
     deploy:
@@ -57,6 +58,7 @@ services:
     volumes:
       - ./worker:/app/worker
       - ./firebase:/app/firebase
+      - ./storage:/app/storage
     networks:
       - intra
     deploy:

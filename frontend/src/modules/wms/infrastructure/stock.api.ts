@@ -70,10 +70,11 @@ export const stockApi = {
     return this.transferStock(payload)
   },
 
-  requestAdjustmentUpload(file: File, notes?: string): Promise<ApiResponse<any>> {
+  requestAdjustmentUpload(file: File, notes?: string, dryRun = false): Promise<ApiResponse<any>> {
     const formData = new FormData()
     formData.append('adjustmentFile', file)
     if (notes) formData.append('notes', notes)
+    if (dryRun) formData.append('dryRun', 'true')
 
     return http.upload('/stock/request-adjustment-upload', formData)
   },

@@ -302,7 +302,7 @@ func ParseMassProductFile(r io.ReadSeeker, ext string) (parser.ParseResult, []Ma
 
 		var parsed MassProductRow
 		parsed.SKU = sku
-		parsed.Name = getVal(row, "name", "nama", "nama produk", "product name")
+		parsed.Name = getVal(row, "name", "nama", "nama produk", "nama paket", "product name", "package name")
 		parsed.Category = getVal(row, "kategori", "category")
 
 		priceStr := cleanNumberString(getVal(row, "price", "harga", "harga jual"))

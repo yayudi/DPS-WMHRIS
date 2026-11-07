@@ -519,21 +519,22 @@ func (s *stockServiceImpl) ValidateReturn(ctx context.Context, req inventory_dto
 	return errors.New("Fitur ValidateReturn sudah dinonaktifkan (Fulfilment Teardown)")
 }
 
-func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) error {
+func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error) {
+	filePath = utils.ResolveStoragePath(filePath)
 	log.Printf("[ProcessStockImport] Memulai Job %d. File: %s, DryRun: %v", jobID, filePath, isDryRun)
 	records, err := parser.ReadExcelFile(filePath)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if len(records) == 0 {
-		return errors.New("file excel kosong atau tidak ada data (hanya header)")
+		return "", errors.New("file excel kosong atau tidak ada data (hanya header)")
 	}
 
 	locMap := make(map[string]int)
 	locations, err := s.locationRepo.FindAll(ctx)
 	if err != nil {
-		return err
+		return "", err
 	}
 	for _, l := range locations {
 		locMap[strings.ToUpper(l.Code)] = l.ID
@@ -588,41 +589,47 @@ func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, fi
 	}
 
 	if len(validationErrors) > 0 {
-		return fmt.Errorf("terdapat %d error validasi:\n%s", len(validationErrors), strings.Join(validationErrors, "\n"))
+		return "", fmt.Errorf("terdapat %d error validasi:\n%s", len(validationErrors), strings.Join(validationErrors, "\n"))
 	}
 
 	if len(movements) == 0 {
-		return errors.New("tidak ada data stok untuk diproses")
+		return "", errors.New("tidak ada data stok untuk diproses")
 	}
 
 	productMap, err := s.productRepo.GetProductMapWithComponents(ctx, uniqueSKUs)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	for i, m := range movements {
 		product, ok := productMap[strings.ToUpper(m.SKU)]
 		if !ok {
-			return fmt.Errorf("SKU '%s' tidak ditemukan di database", m.SKU)
+			return "", fmt.Errorf("SKU '%s' tidak ditemukan di database", m.SKU)
 		}
 		movements[i].ProductID = product.ID
 	}
 
 	if isDryRun {
-		log.Printf("[ProcessStockImport] Dry run selesai. %d baris valid.", len(movements))
-		return nil
+		summary := fmt.Sprintf("[SIMULASI] Validasi selesai: %d baris stok valid.", len(movements))
+		log.Printf("[ProcessStockImport] %s", summary)
+		return summary, nil
 	}
 
+	var processedTotal int
 	err = s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
 		count, err := s.ProcessBatchOpname(ctx, movements, userID)
 		if err != nil {
 			return err
 		}
+		processedTotal = count
 		log.Printf("[ProcessStockImport] Selesai. Memproses %d pergerakan.", count)
 		return nil
 	})
 
-	return err
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Selesai. Memproses penyesuaian untuk %d pergerakan stok.", processedTotal), nil
 }
 
 func (s *stockServiceImpl) ProcessBatchOpname(ctx context.Context, movements []inventory_dto.StockOpnameItem, userID int) (int, error) {
@@ -682,6 +689,7 @@ func (s *stockServiceImpl) ProcessBatchOpname(ctx context.Context, movements []i
 }
 
 func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error) {
+	filePath = utils.ResolveStoragePath(filePath)
 	log.Printf("[ProcessImportBatchInbound] Memulai Job %d. File: %s, DryRun: %v", jobID, filePath, isDryRun)
 	records, err := parser.ReadExcelFile(filePath)
 	if err != nil {

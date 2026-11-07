@@ -165,6 +165,20 @@
                   class="w-full px-3 py-2 border border-secondary/30 rounded-lg bg-background text-text text-sm outline-none focus:border-primary transition-colors resize-none placeholder:text-text/30"
                 ></textarea>
               </div>
+
+              <!-- Mode Dry Run (Excel) -->
+              <div v-if="file && !file.name.endsWith('.pdf')" class="flex items-center justify-between p-3.5 bg-secondary/5 rounded-xl border border-secondary/20">
+                <div>
+                  <div class="font-bold text-text text-sm">Mode Simulasi (Dry Run)</div>
+                  <div class="text-xs text-text/50">Cek validasi tanpa menyimpan stok ke database</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" v-model="isDryRun" class="sr-only peer" />
+                  <div
+                    class="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-secondary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-primary after:border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-checked:after:bg-secondary"
+                  ></div>
+                </label>
+              </div>
             </div>
 
             <!-- TAB: REVIEW (NEW) -->
@@ -460,6 +474,7 @@ import { useUpload } from '@/core/presentation/composables/useUpload'
 import { useMobile } from '@/core/presentation/composables/useMobile'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { stockApi } from '@/modules/wms/infrastructure/stock.api'
+import { useUploadStore } from '@/core/presentation/stores/uploadStore'
 import ImportJobHistory from '@/core/presentation/components/shared/ImportJobHistory.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import ProductFormModal from '@/modules/wms/presentation/components/shared/ProductFormModal.vue'
@@ -478,6 +493,8 @@ const { toast } = useToast()
 const { downloadFile } = useDownload()
 const { uploadFile } = useUpload()
 const { isMobile } = useMobile()
+const uploadStore = useUploadStore()
+const isDryRun = ref(false)
 const file = ref(null)
 const isDragging = ref(false)
 const isDownloading = ref(false)
@@ -543,6 +560,7 @@ const close = () => {
   reviewRows.value = []
   activeTab.value = 'input'
   userNotes.value = ''
+  isDryRun.value = false
   emit('close')
 }
 
@@ -812,14 +830,17 @@ const uploadExcelFile = async () => {
   try {
     isUploading.value = true
     const response = await uploadFile('/stock/import-batch', file.value, 'file', {
-      notes: userNotes.value.trim() || ''
+      notes: userNotes.value.trim() || '',
+      dryRun: String(isDryRun.value)
     })
 
     if (response.data.success) {
       toast(response.data.message, 'success')
+      uploadStore.notifyNewJob()
       emit('success')
       activeTab.value = 'history'
       file.value = null
+      isDryRun.value = false
     }
   } catch (error) {
     console.error('Upload Error:', error)

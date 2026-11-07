@@ -4,6 +4,7 @@ import (
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
 
 	"net/http"
+	"os"
 
 	hris_dto "github.com/dps-wmhris/backend/internal/modules/hris/application/dto"
 
@@ -88,12 +89,7 @@ func (h *ScheduleHandler) DownloadTemplate(c *gin.Context) {
 		return
 	}
 
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=Template_Jadwal_Shift.xlsx")
-
-	if err := f.Write(c.Writer); err != nil {
-		// Log error, but headers might already be sent
-	}
+	utils.WriteExcelResponse(c, f, "Template_Jadwal_Shift.xlsx")
 }
 
 func (h *ScheduleHandler) UploadImportSchedule(c *gin.Context) {
@@ -103,25 +99,22 @@ func (h *ScheduleHandler) UploadImportSchedule(c *gin.Context) {
 	}
 
 	userID := middleware.GetUserID(c)
+	jobType, finalNotes, _ := utils.ParseImportJobMeta(c, "IMPORT_SCHEDULES", "Import Jadwal Shift", "")
 
 	req := system_dto.CreateImportJobRequest{
 		UserID:           userID,
-		JobType:          "IMPORT_SCHEDULES",
+		JobType:          jobType,
 		OriginalFilename: origName,
 		FilePath:         savedPath,
+		Notes:            &finalNotes,
 	}
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
+		_ = os.Remove(savedPath)
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
 
-	utils.RawResponse(c, http.StatusOK, gin.H{
-		"success": true,
-		"message": "Import Jadwal sedang diproses di background.",
-		"data": gin.H{
-			"jobId": jobID,
-		},
-	})
+	utils.JobCreatedResponse(c, http.StatusOK, "Import Jadwal sedang diproses di background.", jobID)
 }

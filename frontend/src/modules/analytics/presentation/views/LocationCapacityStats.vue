@@ -7,8 +7,10 @@ import { formatNumber, getLocationPurposeColorClass, getLocationBuildingColorCla
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import ProductSearchSelector from '@/modules/wms/presentation/components/transfer/ProductSearchSelector.vue'
 import ExportDropdown from '@/core/presentation/components/ui/ExportDropdown.vue'
+import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
 
 const masterDataStore = useMasterDataStore()
+const downloadStore = useDownloadStore()
 const { toast } = useToast()
 const loading = ref(false)
 const locationLoads = ref([])
@@ -342,8 +344,6 @@ const handleExport = async format => {
       exportFormat: format
     }
 
-    console.log(payload)
-
     if (filters.value.categoryId.include.length || filters.value.categoryId.exclude.length) {
       payload.categoryId = JSON.stringify(filters.value.categoryId)
     }
@@ -358,6 +358,7 @@ const handleExport = async format => {
     }
 
     await analyticsApi.exportLocationAnalysis(payload)
+    downloadStore.notifyNewJob()
     toast(`Job export (${format}) berhasil dibuat. Silakan cek menu Laporan > My Export Jobs.`, 'success')
   } catch (err) {
     toast(err.response?.data?.message || 'Gagal membuat job export', 'error')

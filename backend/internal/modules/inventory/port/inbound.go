@@ -52,7 +52,7 @@ type StockUseCase interface {
 	GenerateInboundTemplate(ctx context.Context) (*excelize.File, error)
 	GenerateAdjustmentTemplate(ctx context.Context) (*excelize.File, error)
 	ValidateReturn(ctx context.Context, req inventory_dto.ValidateReturnRequest, userID int) error
-	ProcessStockImport(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) error
+	ProcessStockImport(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error)
 	ProcessImportBatchInbound(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error)
 }
 

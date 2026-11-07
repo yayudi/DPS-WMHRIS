@@ -31,6 +31,7 @@ type MediaRepository interface {
 	GetMediaAssetsByIDs(ctx context.Context, mediaIDs []int) ([]system_dto.MediaAssetResponse, error)
 	UpdateMediaTags(ctx context.Context, mediaID int, tags []string) error
 	UpdateMediaTitle(ctx context.Context, mediaID int, title string) error
+	FindMediaIDByPathLike(ctx context.Context, searchPath string) (*int, error)
 }
 
 type mediaRepositoryImpl struct {
@@ -253,4 +254,15 @@ func (r *mediaRepositoryImpl) UpdateMediaTitle(ctx context.Context, mediaID int,
 	ext := database.GetExt(ctx, r.db)
 	_, err := ext.ExecContext(ctx, "UPDATE media_assets SET title = ? WHERE id = ?", title, mediaID)
 	return err
+}
+
+func (r *mediaRepositoryImpl) FindMediaIDByPathLike(ctx context.Context, searchPath string) (*int, error) {
+	var mID int
+	pattern := "%" + searchPath + "%"
+	ext := database.GetExt(ctx, r.db)
+	err := ext.GetContext(ctx, &mID, "SELECT id FROM media_assets WHERE main_path LIKE ? OR thumbnail_path LIKE ? LIMIT 1", pattern, pattern)
+	if err != nil {
+		return nil, err
+	}
+	return &mID, nil
 }

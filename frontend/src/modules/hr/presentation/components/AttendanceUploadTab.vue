@@ -17,7 +17,7 @@ async function handleUpload(formData) {
   try {
     const response = await useAttendance().uploadAbsensiFile(formData)
 
-    if (response.success) {
+    if (response?.success) {
       // Trigger refresh segera setelah upload
       fetchJobHistory()
 
@@ -29,7 +29,7 @@ async function handleUpload(formData) {
         emit('switch-tab', 'summary')
       }
     } else {
-      throw new Error(response.message || 'Terjadi kesalahan di server.')
+      throw new Error(response?.message || 'Terjadi kesalahan di server.')
     }
   } catch (error) {
     console.error('Upload error:', error)
@@ -186,7 +186,7 @@ async function handleUpload(formData) {
                     {{ job.status === 'FAILED' ? 'GAGAL' : 'ADA MASALAH' }}
                   </span>
                   <span
-                    v-else-if="job.status === 'VOID'"
+                    v-else-if="['VOID', 'CANCELLED'].includes(job.status)"
                     class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-secondary/20 text-text/60 border border-secondary/30"
                   >
                     <font-awesome-icon icon="fa-solid fa-ban" /> VOID

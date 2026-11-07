@@ -9,10 +9,10 @@ import (
 	"time"
 
 	analytics_dto "github.com/dps-wmhris/backend/internal/modules/analytics/application/dto"
-	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
+	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
+	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
 
 	analytics_mysql "github.com/dps-wmhris/backend/internal/modules/analytics/adapter/outbound/mysql"
-	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
 )
 
 type StatisticService interface {
@@ -30,14 +30,14 @@ type StatisticService interface {
 }
 
 type statisticServiceImpl struct {
-	repo    analytics_mysql.StatisticRepository
-	jobRepo system_mysql.JobRepository
+	repo       analytics_mysql.StatisticRepository
+	jobService system_usecase.JobService
 }
 
-func NewStatisticService(repo analytics_mysql.StatisticRepository, jobRepo system_mysql.JobRepository) StatisticService {
+func NewStatisticService(repo analytics_mysql.StatisticRepository, jobService system_usecase.JobService) StatisticService {
 	return &statisticServiceImpl{
-		repo:    repo,
-		jobRepo: jobRepo,
+		repo:       repo,
+		jobService: jobService,
 	}
 }
 
@@ -206,13 +206,11 @@ func (s *statisticServiceImpl) RequestStockMovementsExport(ctx context.Context, 
 	})
 	fString := string(filtersJSON)
 
-	job := &system_domain.ExportJob{
+	return s.jobService.CreateExportJob(ctx, system_dto.CreateExportJobRequest{
 		UserID:  userID,
 		JobType: "STATISTICS_STOCK_MOVEMENT",
 		Filters: &fString,
-	}
-
-	return s.jobRepo.CreateExportJob(ctx, job)
+	})
 }
 
 func (s *statisticServiceImpl) GetStockTimelineStatistics(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.StockTimelineResponse, error) {
@@ -259,13 +257,11 @@ func (s *statisticServiceImpl) RequestStockTimelineExport(ctx context.Context, u
 	})
 	fString := string(filtersJSON)
 
-	job := &system_domain.ExportJob{
+	return s.jobService.CreateExportJob(ctx, system_dto.CreateExportJobRequest{
 		UserID:  userID,
 		JobType: "STATISTICS_STOCK_TIMELINE",
 		Filters: &fString,
-	}
-
-	return s.jobRepo.CreateExportJob(ctx, job)
+	})
 }
 
 func (s *statisticServiceImpl) GetInventoryValueStatistics(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.InventoryValueResponse, error) {
@@ -552,13 +548,11 @@ func (s *statisticServiceImpl) RequestLocationCapacityExport(ctx context.Context
 	})
 	fString := string(filtersJSON)
 
-	job := &system_domain.ExportJob{
+	return s.jobService.CreateExportJob(ctx, system_dto.CreateExportJobRequest{
 		UserID:  userID,
 		JobType: "STATISTICS_LOCATION_CAPACITY",
 		Filters: &fString,
-	}
-
-	return s.jobRepo.CreateExportJob(ctx, job)
+	})
 }
 
 func (s *statisticServiceImpl) GetLocationAnalysis(ctx context.Context, filters analytics_dto.StatisticFilterRequest) (*analytics_dto.LocationAnalysisResponse, error) {

@@ -11,8 +11,9 @@ export interface ImportJobItem {
 
 export const jobApi = {
   async fetchImportJobs(): Promise<ImportJobItem[]> {
-    const res = await http.get('/jobs/import')
-    return res.data || []
+    const res = await http.get('/jobs/import', { silentErrorToast: true })
+    const body = res.data
+    return Array.isArray(body) ? body : body?.data || []
   },
 
   async cancelImportJob(id: number | string): Promise<any> {

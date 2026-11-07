@@ -7,6 +7,7 @@ import (
 
 	"encoding/json"
 	"net/http"
+	"os"
 	"strings"
 
 	catalog_dto "github.com/dps-wmhris/backend/internal/modules/catalog/application/dto"
@@ -200,13 +201,12 @@ func (h *ProductHandler) ImportBatchProductUpdate(c *gin.Context) {
 	}
 
 	userID := middleware.GetUserID(c)
-	dryRun := c.PostForm("dryRun")
-	jobType := "BATCH_EDIT_PRODUCT"
-	if dryRun == "true" {
-		jobType = "BATCH_EDIT_PRODUCT_DRY_RUN"
-	}
-
-	notes := "Mass Price Update via Web Upload"
+	jobType, notes, _ := utils.ParseImportJobMeta(
+		c,
+		"BATCH_EDIT_PRODUCT",
+		"Mass Price Update via Web Upload",
+		"Simulasi Mass Price Update via Web Upload",
+	)
 
 	req := system_dto.CreateImportJobRequest{
 		UserID:           userID,
@@ -218,11 +218,12 @@ func (h *ProductHandler) ImportBatchProductUpdate(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
+		_ = os.Remove(savedPath)
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusCreated, "File berhasil diunggah. Proses update berjalan di latar belakang.", jobID)
+	utils.JobCreatedResponse(c, http.StatusOK, "File berhasil diunggah. Proses update berjalan di latar belakang.", jobID)
 }
 
 func (h *ProductHandler) Delete(c *gin.Context) {
@@ -293,7 +294,7 @@ func (h *ProductHandler) ExportProducts(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Permintaan ekspor diterima. Silakan cek menu 'Laporan Saya' untuk mengunduh.", jobID)
+	utils.JobCreatedResponse(c, http.StatusOK, "Permintaan ekspor diterima. Silakan cek menu 'Laporan Saya' untuk mengunduh.", jobID)
 }
 
 // GetProductStockTimeline returns the paginated stock timeline. Matches GET /api/products/:id/stock-timeline.

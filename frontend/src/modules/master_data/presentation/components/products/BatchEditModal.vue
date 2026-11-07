@@ -43,9 +43,12 @@ const effectiveExportJobType = computed(
   () => props.exportJobType || (props.entityType === 'package' ? 'EXPORT_PACKAGES' : 'PRODUCT_MASTER')
 )
 
-const effectiveImportJobType = computed(
-  () => props.importJobType || (props.entityType === 'package' ? 'IMPORT_PACKAGES' : 'IMPORT_PRODUCT')
-)
+const effectiveImportJobTypes = computed(() => {
+  if (props.importJobType) return [props.importJobType]
+  return props.entityType === 'package'
+    ? ['IMPORT_PACKAGES', 'IMPORT_PACKAGES_DRY_RUN']
+    : ['BATCH_EDIT_PRODUCT', 'BATCH_EDIT_PRODUCT_DRY_RUN']
+})
 
 const shouldShowColumns = computed(() =>
   props.showColumnsSelector !== undefined ? props.showColumnsSelector : props.entityType !== 'package'
@@ -64,6 +67,7 @@ const includeImages = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
 const isDryRun = ref(false)
+const importNotes = ref('')
 
 // --- Export Columns Logic ---
 const availableColumns = [
@@ -85,7 +89,9 @@ const selectedColumnsState = ref({
 
 // --- Export Jobs Logic ---
 const exportJobs = computed<JobItem[]>(() => {
-  return (downloadStore.jobs as JobItem[]).filter(job => job.type === effectiveExportJobType.value).slice(0, 5)
+  return (downloadStore.jobs as JobItem[])
+    .filter(job => (job.job_type || job.type) === effectiveExportJobType.value)
+    .slice(0, 5)
 })
 const loadingExports = ref(false)
 
@@ -93,12 +99,11 @@ watch(
   () => props.isOpen,
   newVal => {
     if (newVal) {
-      if (downloadStore.jobs.length === 0) {
-        loadingExports.value = true
-        downloadStore.fetchJobs().finally(() => {
-          loadingExports.value = false
-        })
-      }
+      const showLoading = downloadStore.jobs.length === 0
+      if (showLoading) loadingExports.value = true
+      downloadStore.fetchJobs().finally(() => {
+        if (showLoading) loadingExports.value = false
+      })
     }
   }
 )
@@ -133,16 +138,21 @@ const handleImport = () => {
   const formData = new FormData()
   formData.append('file', selectedFile.value)
   formData.append('dryRun', String(isDryRun.value))
+  if (importNotes.value.trim()) {
+    formData.append('notes', importNotes.value.trim())
+  }
   emit('import', formData)
 
   // Clear file input to prevent double upload
   selectedFile.value = null
+  importNotes.value = ''
   if (fileInput.value) fileInput.value.value = ''
 }
 
 const close = () => {
   emit('close')
   selectedFile.value = null
+  importNotes.value = ''
   activeTab.value = 'export'
 }
 </script>
@@ -303,6 +313,19 @@ const close = () => {
             </div>
           </div>
 
+          <!-- Notes -->
+          <div class="mb-4 shrink-0">
+            <label class="block text-xs font-bold text-text mb-1.5">
+              Catatan Impor <span class="text-text/40 font-normal">(opsional)</span>
+            </label>
+            <input
+              type="text"
+              v-model="importNotes"
+              placeholder="Contoh: Update harga promo akhir tahun..."
+              class="w-full px-3 py-2 text-xs border border-secondary/20 rounded-xl bg-background text-text focus:outline-none focus:border-primary transition-colors"
+            />
+          </div>
+
           <div
             class="mb-6 flex items-center justify-between p-4 bg-secondary/5 rounded-2xl border border-secondary/20 shrink-0"
           >
@@ -338,7 +361,7 @@ const close = () => {
 
         <!-- STEP 3: LOGS -->
         <div v-if="activeTab === 'logs'" class="flex-1 flex flex-col h-full overflow-hidden">
-          <ImportJobHistory :job-type="effectiveImportJobType" />
+          <ImportJobHistory :job-types="effectiveImportJobTypes" />
         </div>
       </div>
     </div>

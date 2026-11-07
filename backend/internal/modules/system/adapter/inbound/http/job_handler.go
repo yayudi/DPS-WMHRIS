@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
-
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 
 	"github.com/gin-gonic/gin"
@@ -20,8 +20,15 @@ func NewJobHandler(jobService system_usecase.JobService) *JobHandler {
 
 func (h *JobHandler) GetImportJobs(c *gin.Context) {
 	page, limit := utils.ParsePagination(c, 50)
+	userID := middleware.GetUserID(c)
+	all := c.Query("all") == "true"
 
-	result, err := h.jobService.GetImportJobs(c.Request.Context(), page, limit)
+	var targetUserID *int
+	if !all && userID > 0 {
+		targetUserID = &userID
+	}
+
+	result, err := h.jobService.GetImportJobs(c.Request.Context(), page, limit, targetUserID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
@@ -34,8 +41,13 @@ func (h *JobHandler) CancelImportJob(c *gin.Context) {
 	if !ok {
 		return
 	}
+	userID := middleware.GetUserID(c)
+	var targetUserID *int
+	if userID > 0 {
+		targetUserID = &userID
+	}
 
-	err := h.jobService.CancelImportJob(c.Request.Context(), id)
+	err := h.jobService.CancelImportJob(c.Request.Context(), id, targetUserID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "BAD_REQUEST")
 		return
@@ -45,8 +57,15 @@ func (h *JobHandler) CancelImportJob(c *gin.Context) {
 
 func (h *JobHandler) GetExportJobs(c *gin.Context) {
 	page, limit := utils.ParsePagination(c, 50)
+	userID := middleware.GetUserID(c)
+	all := c.Query("all") == "true"
 
-	result, err := h.jobService.GetExportJobs(c.Request.Context(), page, limit)
+	var targetUserID *int
+	if !all && userID > 0 {
+		targetUserID = &userID
+	}
+
+	result, err := h.jobService.GetExportJobs(c.Request.Context(), page, limit, targetUserID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
@@ -59,8 +78,13 @@ func (h *JobHandler) CancelExportJob(c *gin.Context) {
 	if !ok {
 		return
 	}
+	userID := middleware.GetUserID(c)
+	var targetUserID *int
+	if userID > 0 {
+		targetUserID = &userID
+	}
 
-	err := h.jobService.CancelExportJob(c.Request.Context(), id)
+	err := h.jobService.CancelExportJob(c.Request.Context(), id, targetUserID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "BAD_REQUEST")
 		return

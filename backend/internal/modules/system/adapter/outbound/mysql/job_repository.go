@@ -14,7 +14,7 @@ import (
 type JobRepository interface {
 	// Import Jobs
 	CreateImportJob(ctx context.Context, job *system_domain.ImportJob) (int, error)
-	GetImportJobs(ctx context.Context, page int, limit int) (utils.PaginatedResult[system_domain.ImportJob], error)
+	GetImportJobs(ctx context.Context, page int, limit int, userID *int) (utils.PaginatedResult[system_domain.ImportJob], error)
 	GetImportJobByID(ctx context.Context, id int) (*system_domain.ImportJob, error)
 	UpdateImportJobStatus(ctx context.Context, id int, status string, logSummary *string, errorLog *string) error
 	UpdateImportJobProgress(ctx context.Context, id int, processed int, total int) error
@@ -24,7 +24,7 @@ type JobRepository interface {
 
 	// Export Jobs
 	CreateExportJob(ctx context.Context, job *system_domain.ExportJob) (int, error)
-	GetExportJobs(ctx context.Context, page int, limit int) (utils.PaginatedResult[system_domain.ExportJob], error)
+	GetExportJobs(ctx context.Context, page int, limit int, userID *int) (utils.PaginatedResult[system_domain.ExportJob], error)
 	GetExportJobByID(ctx context.Context, id int) (*system_domain.ExportJob, error)
 	UpdateExportJobStatus(ctx context.Context, id int, status string, filePath *string, errorMessage *string) error
 	GetPendingExportJobs(ctx context.Context) ([]system_domain.ExportJob, error)
@@ -55,9 +55,15 @@ func (r *jobRepositoryImpl) CreateImportJob(ctx context.Context, job *system_dom
 	return int(id), err
 }
 
-func (r *jobRepositoryImpl) GetImportJobs(ctx context.Context, page int, limit int) (utils.PaginatedResult[system_domain.ImportJob], error) {
-	query := `SELECT * FROM import_jobs ORDER BY created_at DESC`
-	return database.FetchPaginated[system_domain.ImportJob](ctx, r.db, query, page, limit)
+func (r *jobRepositoryImpl) GetImportJobs(ctx context.Context, page int, limit int, userID *int) (utils.PaginatedResult[system_domain.ImportJob], error) {
+	query := `SELECT * FROM import_jobs`
+	var args []interface{}
+	if userID != nil && *userID > 0 {
+		query += ` WHERE user_id = ?`
+		args = append(args, *userID)
+	}
+	query += ` ORDER BY id DESC`
+	return database.FetchPaginated[system_domain.ImportJob](ctx, r.db, query, page, limit, args...)
 }
 
 func (r *jobRepositoryImpl) GetImportJobByID(ctx context.Context, id int) (*system_domain.ImportJob, error) {
@@ -147,9 +153,15 @@ func (r *jobRepositoryImpl) CreateExportJob(ctx context.Context, job *system_dom
 	return int(id), err
 }
 
-func (r *jobRepositoryImpl) GetExportJobs(ctx context.Context, page int, limit int) (utils.PaginatedResult[system_domain.ExportJob], error) {
-	query := `SELECT * FROM export_jobs ORDER BY created_at DESC`
-	return database.FetchPaginated[system_domain.ExportJob](ctx, r.db, query, page, limit)
+func (r *jobRepositoryImpl) GetExportJobs(ctx context.Context, page int, limit int, userID *int) (utils.PaginatedResult[system_domain.ExportJob], error) {
+	query := `SELECT * FROM export_jobs`
+	var args []interface{}
+	if userID != nil && *userID > 0 {
+		query += ` WHERE user_id = ?`
+		args = append(args, *userID)
+	}
+	query += ` ORDER BY id DESC`
+	return database.FetchPaginated[system_domain.ExportJob](ctx, r.db, query, page, limit, args...)
 }
 
 func (r *jobRepositoryImpl) GetExportJobByID(ctx context.Context, id int) (*system_domain.ExportJob, error) {

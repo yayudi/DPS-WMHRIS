@@ -4,6 +4,7 @@ import (
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
 
 	"net/http"
+	"os"
 
 	hris_dto "github.com/dps-wmhris/backend/internal/modules/hris/application/dto"
 
@@ -106,24 +107,7 @@ func (h *AttendanceHandler) UploadLogs(c *gin.Context) {
 	}
 
 	userID := middleware.GetUserID(c)
-
-	dryRunStr := c.PostForm("dryRun")
-	isDryRun := dryRunStr == "true" || dryRunStr == "1"
-
-	jobType := "IMPORT_ATTENDANCE"
-	if isDryRun {
-		jobType = "IMPORT_ATTENDANCE_DRY_RUN"
-	}
-
-	notes := c.PostForm("notes")
-	defaultNotes := "Import Absensi"
-	if isDryRun {
-		defaultNotes = "Simulasi Import Absensi (Dry Run)"
-	}
-	finalNotes := defaultNotes
-	if notes != "" {
-		finalNotes = defaultNotes + " | " + notes
-	}
+	jobType, finalNotes, isDryRun := utils.ParseImportJobMeta(c, "IMPORT_ATTENDANCE", "Import Absensi", "Simulasi Import Absensi (Dry Run)")
 
 	req := system_dto.CreateImportJobRequest{
 		UserID:           userID,
@@ -135,6 +119,7 @@ func (h *AttendanceHandler) UploadLogs(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
+		_ = os.Remove(savedPath)
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
@@ -144,9 +129,5 @@ func (h *AttendanceHandler) UploadLogs(c *gin.Context) {
 		msg = "Simulasi validasi berjalan di background..."
 	}
 
-	utils.RawResponse(c, http.StatusOK, gin.H{
-		"success": true,
-		"message": msg,
-		"jobId":   jobID,
-	})
+	utils.JobCreatedResponse(c, http.StatusOK, msg, jobID)
 }

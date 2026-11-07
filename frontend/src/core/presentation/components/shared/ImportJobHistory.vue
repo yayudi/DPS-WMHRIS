@@ -45,7 +45,7 @@
             </div>
             <p class="text-xs text-text/40 mt-1 flex items-center gap-1">
               <font-awesome-icon icon="fa-solid fa-clock" />
-              {{ formatDate(job.created_at) }}
+              {{ formatDate(job.created_at || job.createdAt) }}
             </p>
           </div>
 
@@ -66,9 +66,9 @@
           <font-awesome-icon icon="fa-solid fa-file-excel" class="text-success text-xs" />
           <span
             class="text-xs font-medium text-text truncate max-w-[200px]"
-            :title="job.original_filename"
+            :title="job.original_filename || job.originalFilename"
           >
-            {{ job.original_filename }}
+            {{ job.original_filename || job.originalFilename }}
           </span>
         </div>
 
@@ -76,7 +76,7 @@
           class="text-[11px] text-text/70 bg-secondary/10 p-2 rounded leading-relaxed border border-secondary/10 flex flex-col gap-1"
         >
           <p v-if="job.notes"><span class="font-semibold">Catatan:</span> {{ job.notes }}</p>
-          <p>{{ job.log_summary || 'Tidak ada detail.' }}</p>
+          <p>{{ job.log_summary || job.summary || 'Tidak ada detail.' }}</p>
         </div>
       </div>
     </div>
@@ -90,10 +90,14 @@ import { useUploadStore } from '@/core/presentation/stores/uploadStore'
 import { useFirebaseSync } from '@/core/presentation/composables/useFirebaseSync'
 
 const props = defineProps({
-  // Array of Job Types to filter. If empty, shows all.
+  // Array or string of Job Types to filter. If empty, shows all.
   jobTypes: {
-    type: Array,
+    type: [Array, String],
     default: () => [],
+  },
+  jobType: {
+    type: [Array, String],
+    default: undefined,
   }
 })
 
@@ -101,12 +105,19 @@ const uploadStore = useUploadStore()
 const loading = computed(() => uploadStore.jobs.length === 0 && !uploadStore.isExpanded)
 
 const jobs = computed(() => {
-  return uploadStore.jobs.filter(j => !j.job_type?.startsWith('EXPORT_'))
+  return uploadStore.jobs.filter(j => !(j.job_type || j.jobType)?.startsWith('EXPORT_'))
+})
+
+const effectiveTypes = computed(() => {
+  const raw = props.jobType !== undefined ? props.jobType : props.jobTypes
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw.filter(Boolean)
+  return [raw]
 })
 
 const filteredJobs = computed(() => {
-  if (props.jobTypes.length === 0) return jobs.value
-  return jobs.value.filter((j) => props.jobTypes.includes(j.job_type))
+  if (effectiveTypes.value.length === 0) return jobs.value
+  return jobs.value.filter((j) => effectiveTypes.value.includes(j.job_type || j.jobType))
 })
 
 const formatDate = (date) => {
@@ -120,6 +131,7 @@ const formatStatus = (status) => {
     COMPLETED: 'Selesai',
     COMPLETED_WITH_ERRORS: 'Selesai (Partial)',
     FAILED: 'Gagal',
+    CANCELLED: 'Dibatalkan',
   }
   return map[status] || status
 }
@@ -131,18 +143,20 @@ const getStatusClass = (status) => {
     COMPLETED: 'bg-success/10 text-success',
     COMPLETED_WITH_ERRORS: 'bg-warning/10 text-warning',
     FAILED: 'bg-danger/10 text-danger',
+    CANCELLED: 'bg-secondary/20 text-text/60',
   }
   return map[status] || 'bg-secondary/10 text-text/60'
 }
 
 const getIsDryRun = (job) => {
-  return job.job_type?.endsWith('_DRY_RUN')
+  return (job.job_type || job.jobType || '').endsWith('_DRY_RUN')
 }
 
 const getErrorUrl = (job) => {
   try {
-    if (!job.error_log) return null
-    const log = typeof job.error_log === 'string' ? JSON.parse(job.error_log) : job.error_log
+    const errorLogVal = job.error_log || job.errorLog
+    if (!errorLogVal) return null
+    const log = typeof errorLogVal === 'string' ? JSON.parse(errorLogVal) : errorLogVal
 
     if (!log.download_url) return null
 
@@ -162,9 +176,7 @@ const getErrorUrl = (job) => {
 }
 
 onMounted(() => {
-  if (uploadStore.jobs.length === 0) {
-    uploadStore.fetchJobs()
-  }
+  uploadStore.fetchJobs()
 })
 
 useFirebaseSync('BACKGROUND_JOBS', ['IMPORT_COMPLETED', 'IMPORT_FAILED'], () => {

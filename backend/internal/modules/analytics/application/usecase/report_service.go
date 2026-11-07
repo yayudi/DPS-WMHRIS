@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	analytics_dto "github.com/dps-wmhris/backend/internal/modules/analytics/application/dto"
 
@@ -73,14 +74,17 @@ func (s *reportServiceImpl) GetUserExportJobs(ctx context.Context, userID int) (
 
 	var response []analytics_dto.UserExportJobResponse
 	for _, job := range jobs {
-		exportType := "STOCK_REPORT"
-		if job.Filters != nil {
+		exportType := strings.TrimSpace(job.JobType)
+		if exportType == "" && job.Filters != nil {
 			var parsed map[string]interface{}
 			if err := json.Unmarshal([]byte(*job.Filters), &parsed); err == nil {
-				if t, ok := parsed["exportType"].(string); ok {
+				if t, ok := parsed["exportType"].(string); ok && t != "" {
 					exportType = t
 				}
 			}
+		}
+		if exportType == "" {
+			exportType = "STOCK_REPORT"
 		}
 
 		// download_url mengarah ke endpoint presigned download API
@@ -97,6 +101,7 @@ func (s *reportServiceImpl) GetUserExportJobs(ctx context.Context, userID int) (
 			ErrorMessage: job.ErrorMessage,
 			CreatedAt:    &job.CreatedAt,
 			Filters:      job.Filters,
+			JobType:      exportType,
 			Type:         exportType,
 			DownloadURL:  downloadURL,
 		})

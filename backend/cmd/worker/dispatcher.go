@@ -76,6 +76,11 @@ func dispatchJobs[J any](
 		go func(targetJob *J) {
 			defer wg.Done()
 			defer func() { <-sem }()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[%s] CRITICAL: Unhandled panic recovered in worker goroutine: %v", cfg.Name, r)
+				}
+			}()
 
 			if ctx.Err() != nil {
 				return

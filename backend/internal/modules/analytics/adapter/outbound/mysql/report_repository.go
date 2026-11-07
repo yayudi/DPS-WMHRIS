@@ -68,7 +68,7 @@ func (r *reportRepositoryImpl) GetBuildingPurposeRelations(ctx context.Context) 
 
 func (r *reportRepositoryImpl) GetUserExportJobs(ctx context.Context, userID int) ([]system_domain.ExportJob, error) {
 	query := `
-		SELECT id, status, file_path, error_message, created_at, filters
+		SELECT id, user_id, job_type, status, file_path, error_message, created_at, filters
 		FROM export_jobs
 		WHERE user_id = ?
 		ORDER BY created_at DESC

@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/xuri/excelize/v2"
 )
 
 type MediaHandler struct {
@@ -216,30 +216,8 @@ func (h *MediaHandler) UpdateMediaTitle(c *gin.Context) {
 
 // DownloadBulkLinkTemplate generates and returns the Excel template for bulk linking media.
 func (h *MediaHandler) DownloadBulkLinkTemplate(c *gin.Context) {
-	f := excelize.NewFile()
-	defer func() {
-		if err := f.Close(); err != nil {
-			// logging is omitted for brevity, normally we'd log err
-		}
-	}()
-
-	sheetName := "Template Tautkan Media"
-	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
-
-	styles := utils.InitExcelStyles(f)
-	utils.SetHeaders(f, sheetName, []string{"SKU", "Image_URL"}, styles.Header)
-	utils.SetColWidths(f, sheetName, map[string]float64{"A": 20, "B": 50})
-
-	// Add sample data
-	_ = f.SetSheetRow(sheetName, "A2", &[]interface{}{"PP000R081", "https://api.dpvindonesia.com/uploads/main/main-1783397524366-325551216.webp"})               // #nosec G104
-	_ = f.SetSheetRow(sheetName, "A3", &[]interface{}{"PP000453P", "https://api.dpvindonesia.com/uploads/main/main-dpv_indonesia_logo-white_lettermark_sm.png"}) // #nosec G104
-
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=Template_Tautkan_Media.xlsx")
-
-	if err := f.Write(c.Writer); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal generate template", "")
-	}
+	f := h.mediaService.GenerateBulkLinkTemplate()
+	utils.WriteExcelResponse(c, f, "Template_Tautkan_Media.xlsx")
 }
 
 func (h *MediaHandler) BulkLinkExcel(c *gin.Context) {
@@ -254,21 +232,22 @@ func (h *MediaHandler) BulkLinkExcel(c *gin.Context) {
 		return
 	}
 
-	notes := "Bulk Link Media"
+	jobType, finalNotes, _ := utils.ParseImportJobMeta(c, "IMPORT_MEDIA_BULK_LINK", "Bulk Link Media", "")
 
 	req := system_dto.CreateImportJobRequest{
 		UserID:           userID,
-		JobType:          "IMPORT_MEDIA_BULK_LINK",
+		JobType:          jobType,
 		OriginalFilename: origName,
 		FilePath:         savedPath,
-		Notes:            &notes,
+		Notes:            &finalNotes,
 	}
 
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
+		_ = os.Remove(savedPath)
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "File Bulk Link masuk antrian.", jobID)
+	utils.JobCreatedResponse(c, http.StatusOK, "File Bulk Link masuk antrian.", jobID)
 }

@@ -344,3 +344,43 @@ func TestBindAndValidate(t *testing.T) {
 	})
 }
 
+func TestJobCreatedResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+
+	JobCreatedResponse(c, http.StatusAccepted, "Job created successfully", 42)
+
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d", http.StatusAccepted, w.Code)
+	}
+
+	var body struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+		JobID   int    `json:"jobId"`
+		Data    struct {
+			JobIDUpper int `json:"jobId"`
+			JobIDSnake int `json:"job_id"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if !body.Success {
+		t.Errorf("expected success true, got false")
+	}
+	if body.Message != "Job created successfully" {
+		t.Errorf("expected message 'Job created successfully', got %q", body.Message)
+	}
+	if body.JobID != 42 {
+		t.Errorf("expected root jobId 42, got %d", body.JobID)
+	}
+	if body.Data.JobIDUpper != 42 || body.Data.JobIDSnake != 42 {
+		t.Errorf("expected data.jobId and data.job_id to be 42, got upper=%d, snake=%d", body.Data.JobIDUpper, body.Data.JobIDSnake)
+	}
+}
+

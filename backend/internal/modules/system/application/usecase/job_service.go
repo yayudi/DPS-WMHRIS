@@ -13,16 +13,17 @@ import (
 
 type JobService interface {
 	CreateImportJob(ctx context.Context, req system_dto.CreateImportJobRequest) (int, error)
-	GetImportJobs(ctx context.Context, page int, limit int) (utils.PaginatedResult[system_domain.ImportJob], error)
-	CancelImportJob(ctx context.Context, id int) error
+	GetImportJobs(ctx context.Context, page int, limit int, userID *int) (utils.PaginatedResult[system_domain.ImportJob], error)
+	CancelImportJob(ctx context.Context, id int, userID *int) error
 	UpdateImportJobStatus(ctx context.Context, id int, status string) error
 	UpdateImportJobStatusWithSummary(ctx context.Context, id int, status string, logSummary string) error
 	UpdateImportJobStatusWithLog(ctx context.Context, id int, status string, logSummary string, errorLog string) error
 	UpdateImportJobProgress(ctx context.Context, id int, processed int, total int) error
 
 	CreateExportJob(ctx context.Context, req system_dto.CreateExportJobRequest) (int, error)
-	GetExportJobs(ctx context.Context, page int, limit int) (utils.PaginatedResult[system_domain.ExportJob], error)
-	CancelExportJob(ctx context.Context, id int) error
+	GetExportJobs(ctx context.Context, page int, limit int, userID *int) (utils.PaginatedResult[system_domain.ExportJob], error)
+	GetExportJobByID(ctx context.Context, id int) (*system_domain.ExportJob, error)
+	CancelExportJob(ctx context.Context, id int, userID *int) error
 	UpdateExportJobStatus(ctx context.Context, id int, status string, fileURL *string, errorLog *string) error
 }
 
@@ -46,14 +47,17 @@ func (s *jobServiceImpl) CreateImportJob(ctx context.Context, req system_dto.Cre
 	return s.jobRepo.CreateImportJob(ctx, job)
 }
 
-func (s *jobServiceImpl) GetImportJobs(ctx context.Context, page int, limit int) (utils.PaginatedResult[system_domain.ImportJob], error) {
-	return s.jobRepo.GetImportJobs(ctx, page, limit)
+func (s *jobServiceImpl) GetImportJobs(ctx context.Context, page int, limit int, userID *int) (utils.PaginatedResult[system_domain.ImportJob], error) {
+	return s.jobRepo.GetImportJobs(ctx, page, limit, userID)
 }
 
-func (s *jobServiceImpl) CancelImportJob(ctx context.Context, id int) error {
+func (s *jobServiceImpl) CancelImportJob(ctx context.Context, id int, userID *int) error {
 	job, err := s.jobRepo.GetImportJobByID(ctx, id)
 	if err != nil {
 		return err
+	}
+	if userID != nil && *userID > 0 && job.UserID != *userID {
+		return errors.New("tidak diizinkan membatalkan job milik pengguna lain")
 	}
 	if job.Status != "PENDING" {
 		return errors.New("only PENDING jobs can be cancelled")
@@ -86,14 +90,21 @@ func (s *jobServiceImpl) CreateExportJob(ctx context.Context, req system_dto.Cre
 	return s.jobRepo.CreateExportJob(ctx, job)
 }
 
-func (s *jobServiceImpl) GetExportJobs(ctx context.Context, page int, limit int) (utils.PaginatedResult[system_domain.ExportJob], error) {
-	return s.jobRepo.GetExportJobs(ctx, page, limit)
+func (s *jobServiceImpl) GetExportJobs(ctx context.Context, page int, limit int, userID *int) (utils.PaginatedResult[system_domain.ExportJob], error) {
+	return s.jobRepo.GetExportJobs(ctx, page, limit, userID)
 }
 
-func (s *jobServiceImpl) CancelExportJob(ctx context.Context, id int) error {
+func (s *jobServiceImpl) GetExportJobByID(ctx context.Context, id int) (*system_domain.ExportJob, error) {
+	return s.jobRepo.GetExportJobByID(ctx, id)
+}
+
+func (s *jobServiceImpl) CancelExportJob(ctx context.Context, id int, userID *int) error {
 	job, err := s.jobRepo.GetExportJobByID(ctx, id)
 	if err != nil {
 		return err
+	}
+	if userID != nil && *userID > 0 && job.UserID != *userID {
+		return errors.New("tidak diizinkan membatalkan job milik pengguna lain")
 	}
 	if job.Status != "PENDING" {
 		return errors.New("only PENDING jobs can be cancelled")

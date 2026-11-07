@@ -33,4 +33,5 @@ type ProductUseCase interface {
 	SetPrimaryImage(ctx context.Context, productID int, imageID int, userID int) error
 	GetHistoricalStockTimeline(ctx context.Context, productID int, page int, limit int, buildings []string) (map[string]interface{}, error)
 	ProcessBatchUpdate(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error)
+	ProcessBatchPackageUpdate(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error)
 }

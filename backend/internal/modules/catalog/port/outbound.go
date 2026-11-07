@@ -38,6 +38,7 @@ type ProductRepository interface {
 
 	// Images
 	LinkMediaToProduct(ctx context.Context, productID int, mediaID int, isPrimary int) error
+	IsMediaLinkedToProduct(ctx context.Context, productID int, mediaID int) (bool, error)
 	DeleteProductImage(ctx context.Context, imageID int) error
 	SetPrimaryImage(ctx context.Context, productID int, imageID int) error
 
