@@ -17,20 +17,19 @@ if (typeof globalThis.localStorage === 'undefined') {
 }
 
 // Mock http client
-vi.mock('@/core/infrastructure/http.client', () => ({
-  http: {
+vi.mock('@/core/infrastructure/http.client', () => {
+  const mockHttp = {
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
     delete: vi.fn(),
     blob: vi.fn(),
     upload: vi.fn()
-  },
-  default: {
-    get: vi.fn(),
-    post: vi.fn()
   }
-}))
+  return {
+    http: mockHttp
+  }
+})
 
 describe('Auth Store', () => {
   beforeEach(() => {

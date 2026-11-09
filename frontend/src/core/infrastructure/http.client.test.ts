@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from 'vitest'
-import axios, { http } from '@/core/infrastructure/http.client'
+import { http, _rawInstanceForTestingOnly } from '@/core/infrastructure/http.client'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 
@@ -44,7 +44,7 @@ describe('Axios Interceptors & HTTP Helpers', () => {
 
   it('Should increase timeout for FormData and Blob requests', async () => {
     const formDataConfig = { data: new FormData(), headers: {} } as any
-    const fulfilledHandler = (axios.interceptors.request as any).handlers[0].fulfilled
+    const fulfilledHandler = (_rawInstanceForTestingOnly.interceptors.request as any).handlers[0].fulfilled
     const resForm = await fulfilledHandler(formDataConfig)
     expect(resForm.timeout).toBe(80000)
 
@@ -63,7 +63,7 @@ describe('Axios Interceptors & HTTP Helpers', () => {
       config: { url: '/api/some-endpoint' }
     } as any
 
-    const rejectedHandler = (axios.interceptors.response as any).handlers[0].rejected
+    const rejectedHandler = (_rawInstanceForTestingOnly.interceptors.response as any).handlers[0].rejected
     await expect(rejectedHandler(error)).rejects.toBe(error)
 
     expect(logoutSpy).toHaveBeenCalled()
@@ -86,7 +86,7 @@ describe('Axios Interceptors & HTTP Helpers', () => {
       config: { url: '/api/data' }
     } as any
 
-    const rejectedHandler = (axios.interceptors.response as any).handlers[0].rejected
+    const rejectedHandler = (_rawInstanceForTestingOnly.interceptors.response as any).handlers[0].rejected
     try {
       await rejectedHandler(error)
     } catch (e: any) {
@@ -104,7 +104,7 @@ describe('Axios Interceptors & HTTP Helpers', () => {
       }
     } as any
 
-    const fulfilledHandler = (axios.interceptors.response as any).handlers[0].fulfilled
+    const fulfilledHandler = (_rawInstanceForTestingOnly.interceptors.response as any).handlers[0].fulfilled
     await expect(fulfilledHandler(response)).rejects.toThrow('Stok tidak mencukupi untuk transfer')
     expect(mockToast).toHaveBeenCalledWith('Stok tidak mencukupi untuk transfer', 'error')
   })
@@ -116,7 +116,7 @@ describe('Axios Interceptors & HTTP Helpers', () => {
       data: fakeBlob
     } as any
 
-    const fulfilledHandler = (axios.interceptors.response as any).handlers[0].fulfilled
+    const fulfilledHandler = (_rawInstanceForTestingOnly.interceptors.response as any).handlers[0].fulfilled
     const result = await fulfilledHandler(response)
     expect(result.data).toBe(fakeBlob)
   })
@@ -130,14 +130,14 @@ describe('Axios Interceptors & HTTP Helpers', () => {
       config: { url: '/api/data', silentErrorToast: true }
     } as any
 
-    const rejectedHandler = (axios.interceptors.response as any).handlers[0].rejected
+    const rejectedHandler = (_rawInstanceForTestingOnly.interceptors.response as any).handlers[0].rejected
     await expect(rejectedHandler(error)).rejects.toBe(error)
     expect(mockToast).not.toHaveBeenCalled()
   })
 
   it('http.blob should send responseType blob and unwrap data', async () => {
     const fakeBlob = new Blob(['excel-content'])
-    const getSpy = vi.spyOn(axios, 'get').mockResolvedValueOnce({ data: fakeBlob } as any)
+    const getSpy = vi.spyOn(_rawInstanceForTestingOnly, 'get').mockResolvedValueOnce({ data: fakeBlob } as any)
 
     const result = await http.blob('/wms/stock/export', { params: { search: 'item' } })
     expect(getSpy).toHaveBeenCalledWith('/wms/stock/export', {
@@ -150,7 +150,7 @@ describe('Axios Interceptors & HTTP Helpers', () => {
   it('http.upload should send multipart/form-data header and unwrap data', async () => {
     const formData = new FormData()
     const mockApiResponse = { success: true, message: 'Uploaded', data: { fileId: 10 } }
-    const postSpy = vi.spyOn(axios, 'post').mockResolvedValueOnce({ data: mockApiResponse } as any)
+    const postSpy = vi.spyOn(_rawInstanceForTestingOnly, 'post').mockResolvedValueOnce({ data: mockApiResponse } as any)
 
     const result = await http.upload('/upload', formData)
     expect(postSpy).toHaveBeenCalledWith(
@@ -163,5 +163,9 @@ describe('Axios Interceptors & HTTP Helpers', () => {
       })
     )
     expect(result).toEqual(mockApiResponse)
+  })
+
+  it('internal test instance should reference the underlying Axios instance for test assertions', () => {
+    expect(_rawInstanceForTestingOnly.defaults.baseURL).toBeDefined()
   })
 })

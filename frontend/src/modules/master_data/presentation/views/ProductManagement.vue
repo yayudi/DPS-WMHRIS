@@ -149,13 +149,22 @@ const { data: productsData, isLoading: loading, refetch: fetchProducts } = usePr
 watch(
   productsData,
   resData => {
-    if (resData) {
+    console.log('[ProductManagement] API response received:', resData)
+    if (Array.isArray(resData)) {
+      products.value = resData
+      totalProducts.value = resData.length
+    } else if (resData) {
       products.value = resData.data || resData.products || []
-      totalProducts.value = resData.meta?.total || resData.total || 0
+      totalProducts.value = resData.meta?.total ?? resData.total ?? products.value.length
     } else {
       products.value = []
       totalProducts.value = 0
     }
+    console.log('[ProductManagement] Parsed state:', {
+      productsCount: products.value.length,
+      totalProducts: totalProducts.value,
+      sampleFirstRow: products.value[0] || null
+    })
   },
   { immediate: true }
 )

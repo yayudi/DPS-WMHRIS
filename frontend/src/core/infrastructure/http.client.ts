@@ -179,6 +179,7 @@ export const http = {
 }
 
 /**
- * @deprecated Gunakan named export { http } untuk unwrap res.data otomatis dan type safety.
+ * Raw Axios instance internal HANYA untuk kebutuhan unit testing interceptor di http.client.test.ts.
+ * JANGAN diimpor di modul aplikasi atau domain apapun.
  */
-export default instance
+export const _rawInstanceForTestingOnly = instance

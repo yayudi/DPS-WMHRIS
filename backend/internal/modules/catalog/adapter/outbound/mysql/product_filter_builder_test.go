@@ -170,3 +170,27 @@ func TestApplySlottingStatusFilter(t *testing.T) {
 	})
 }
 
+func TestLocationFilterGuard(t *testing.T) {
+	t.Run("empty location or all does not add location scope condition", func(t *testing.T) {
+		locations := []string{"", "all"}
+		for _, loc := range locations {
+			f := catalog_dto.ProductFilterRequest{Location: loc}
+			baseSubq := sq.Select("1").From("stock_locations sl").Join("locations l ON sl.location_id = l.id").
+				Where("sl.product_id = p.id")
+			if f.Location != "" && f.Location != "all" {
+				baseSubq = applyLocationScope(baseSubq, "", f)
+			}
+			sql, args, err := baseSubq.ToSql()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if strings.Contains(sql, "l.purpose") {
+				t.Errorf("expected no purpose condition for location=%q, got: %s", loc, sql)
+			}
+			if len(args) != 0 {
+				t.Errorf("expected 0 args for location=%q, got %d", loc, len(args))
+			}
+		}
+	})
+}
+

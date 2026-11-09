@@ -1,30 +1,28 @@
-import axios from '@/core/infrastructure/http.client'
+import { http } from '@/core/infrastructure/http.client'
 
 export const analyticsApi = {
   // KPI & Dashboard Summaries
   async fetchKpiSummary(): Promise<any> {
-    const { data } = await axios.get('/stats/kpi-summary')
-    return data.data
+    const response = await http.get('/stats/kpi-summary')
+    return response.data
   },
 
   async fetchReportFilters(): Promise<any> {
-    const { data } = await axios.get('/reports/filters')
-    return data.data
+    const response = await http.get('/reports/filters')
+    return response.data
   },
 
   // Export / Jobs
   async getUserExportJobs(): Promise<any> {
-    const { data } = await axios.get('/reports/my-jobs')
-    return data
+    return http.get('/reports/my-jobs')
   },
 
   async requestExportStock(filters: any = {}): Promise<any> {
-    const { data } = await axios.post('/reports/request-export-stock', filters)
-    return data
+    return http.post('/reports/request-export-stock', filters)
   },
   
   async requestStatisticExport(filters: any): Promise<any> {
-    const { data } = await axios.post('/statistics/stock-movements/export', {
+    return http.post('/statistics/stock-movements/export', {
       startDate: filters.startDate,
       endDate: filters.endDate,
       searchQuery: filters.searchQuery || null,
@@ -34,11 +32,10 @@ export const analyticsApi = {
       categoryId: filters.categoryId || 'all',
       exportName: filters.exportName || '',
     })
-    return data
   },
 
   async requestStockTimelineExport(filters: any): Promise<any> {
-    const { data } = await axios.post('/statistics/stock-timeline/export', {
+    return http.post('/statistics/stock-timeline/export', {
       startDate: filters.startDate,
       endDate: filters.endDate,
       searchQuery: filters.searchQuery || null,
@@ -47,28 +44,25 @@ export const analyticsApi = {
       building: filters.building || [],
       exportName: filters.exportName || '',
     })
-    return data
   },
 
   // Analytics & Statistics
   async fetchShopPerformance(params: any): Promise<any[]> {
-    const { data } = await axios.get('/statistics/shop-performance', { params })
-    return data.data
+    const response = await http.get('/statistics/shop-performance', { params })
+    return response.data
   },
 
   async fetchPackageAnalysis(params: any): Promise<any[]> {
-    const { data } = await axios.get('/statistics/package-analysis', { params })
-    return data.data
+    const response = await http.get('/statistics/package-analysis', { params })
+    return response.data
   },
 
   async getStockMovementStatistics(filters: any): Promise<any> {
-    const { data } = await axios.get('/statistics/stock-movements', { params: filters })
-    return data
+    return http.get('/statistics/stock-movements', { params: filters })
   },
 
   async getInventoryValueStatistics(filters: any): Promise<any> {
-    const { data } = await axios.get('/statistics/inventory-value', { params: filters })
-    return data
+    return http.get('/statistics/inventory-value', { params: filters })
   },
 
   async getProductStockTimeline(productId: string | number, page: number, limit: number, buildings: string[] = []): Promise<any> {
@@ -76,29 +70,24 @@ export const analyticsApi = {
     if (buildings && buildings.length > 0) {
       params.building = buildings.join(',')
     }
-    const { data } = await axios.get(`/products/${productId}/stock-timeline`, { params })
-    return data
+    return http.get(`/products/${productId}/stock-timeline`, { params })
   },
 
   async fetchLocationAnalysis(filters: any): Promise<any> {
-    const { data } = await axios.get('/statistics/location-analysis', { params: filters })
-    return data
+    return http.get('/statistics/location-analysis', { params: filters })
   },
 
   async getStockBuildingBreakdown(productId: string | number, startDate: string, endDate: string): Promise<any> {
-    const { data } = await axios.get(`/statistics/stock-movements/${productId}/breakdown`, {
+    return http.get(`/statistics/stock-movements/${productId}/breakdown`, {
       params: { startDate, endDate }
     })
-    return data
   },
 
   async fetchLocationAnalysisDetails(locId: string | number, params: any): Promise<any> {
-    const { data } = await axios.get(`/statistics/location-analysis/${locId}/details`, { params })
-    return data
+    return http.get(`/statistics/location-analysis/${locId}/details`, { params })
   },
 
   async exportLocationAnalysis(payload: any): Promise<any> {
-    const { data } = await axios.post('/statistics/location-analysis/export', payload)
-    return data
+    return http.post('/statistics/location-analysis/export', payload)
   }
 }

@@ -220,8 +220,9 @@ func main() {
 			}
 
 			// Packages
-			packages := protected.Group("/packages")
+			packages := protected.Group("/packages", middleware.RequirePermission(db, "product.manage"))
 			{
+				packages.GET("", productHandler.GetPackages)
 				packages.GET("/export", packageHandler.ExportPackages)
 				packages.POST("/batch/update", packageHandler.ImportPackagesBatch)
 			}

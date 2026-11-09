@@ -7,26 +7,20 @@ export const packageApi = {
    */
   async getPackages(params: Record<string, any>): Promise<any> {
     const response = await http.get('/products', { params: { ...params, is_package: 1 } })
-    return response.data
+    return response
   },
 
   /**
-   * Export daftar paket ke file
+   * Request asynchronous export job untuk daftar paket ke background worker.
    */
-  async exportPackages(params: Record<string, any>): Promise<any> {
-    const response = await http.get('/packages/export', { params })
-    return response
+  exportPackages(params: Record<string, any>): Promise<any> {
+    return http.get('/packages/export', { params })
   },
 
   /**
    * Upload batch update untuk paket
    */
-  async uploadPackageUpdate(formData: FormData): Promise<any> {
-    const response = await http.post('/packages/batch/update', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-    return response.data
+  uploadPackageUpdate(formData: FormData): Promise<any> {
+    return http.upload('/packages/batch/update', formData)
   }
 }

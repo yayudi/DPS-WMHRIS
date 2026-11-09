@@ -1,4 +1,4 @@
-import apiClient from '@/core/infrastructure/http.client';
+import { http } from '@/core/infrastructure/http.client';
 
 export function useDownload() {
   /**
@@ -38,9 +38,9 @@ export function useDownload() {
       return;
     }
 
-    // Jika URL relatif (internal API), gunakan apiClient untuk menyertakan token auth.
-    const response = await apiClient.get(url, { responseType: "blob" });
-    downloadBlob(new Blob([response.data]), defaultFileName);
+    // Jika URL relatif (internal API), gunakan http.blob untuk menyertakan token auth.
+    const blob = await http.blob(url);
+    downloadBlob(blob, defaultFileName);
   };
 
   /**

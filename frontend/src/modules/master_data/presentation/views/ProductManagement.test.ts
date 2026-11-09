@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import { createTestingPinia } from '@pinia/testing'
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import ProductManagement from '@/modules/master_data/presentation/views/ProductManagement.vue'
-import axios from '@/core/infrastructure/http.client'
+import { http } from '@/core/infrastructure/http.client'
 
 vi.mock('@/core/infrastructure/http.client', () => {
   const instance = {
@@ -11,10 +11,11 @@ vi.mock('@/core/infrastructure/http.client', () => {
     post: vi.fn(),
     put: vi.fn(),
     delete: vi.fn(),
+    blob: vi.fn(),
+    upload: vi.fn(),
     defaults: { baseURL: 'http://localhost:3000/api' }
   }
   return {
-    default: instance,
     http: instance
   }
 })
@@ -53,19 +54,17 @@ describe('ProductManagement.vue', () => {
 
   it('renders and fetches data correctly', async () => {
     // Mock the API response for products
-    axios.get.mockImplementation(async (url) => {
+    ;(http.get as any).mockImplementation(async (url: string) => {
       if (url === '/products') {
         return {
-          data: {
-            success: true,
-            data: [
-              { id: 1, name: 'Produk A', sku: 'SKU-001', price: 10000, is_active: true }
-            ],
-            meta: { total: 1, last_page: 1 }
-          }
+          success: true,
+          data: [
+            { id: 1, name: 'Produk A', sku: 'SKU-001', price: 10000, is_active: true }
+          ],
+          meta: { total: 1, last_page: 1 }
         }
       }
-      return { data: {} }
+      return {}
     })
 
     const wrapper = mount(ProductManagement, {

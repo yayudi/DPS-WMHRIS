@@ -90,9 +90,44 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 		return
 	}
 
-	utils.RawResponse(c, http.StatusOK, gin.H{
-		"data":  results,
-		"total": total,
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Berhasil mengambil data produk",
+		"data":    results,
+		"total":   total,
+		"meta": gin.H{
+			"page":  req.Page,
+			"limit": req.Limit,
+			"total": total,
+		},
+	})
+}
+
+func (h *ProductHandler) GetPackages(c *gin.Context) {
+	req_ptr, ok := utils.BindQueryAndValidate[catalog_dto.ProductFilterRequest](c)
+	if !ok {
+		return
+	}
+	req := *req_ptr
+	isPackage := true
+	req.IsPackage = &isPackage
+
+	results, total, err := h.productService.GetProductsWithFilters(c.Request.Context(), req)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Berhasil mengambil data paket",
+		"data":    results,
+		"total":   total,
+		"meta": gin.H{
+			"page":  req.Page,
+			"limit": req.Limit,
+			"total": total,
+		},
 	})
 }
 

@@ -8,7 +8,7 @@ export const productApi = {
    */
   async getProducts(params: Record<string, any>): Promise<any> {
     const response = await http.get('/products', { params })
-    return response.data
+    return response
   },
 
   async createProduct(payload: any): Promise<any> {
@@ -43,22 +43,24 @@ export const productApi = {
     return response.data
   },
 
-  async exportProducts(params: Record<string, any>): Promise<any> {
-    const response = await http.get('/products/export', { params })
-    return response
+  /**
+   * Request asynchronous export job untuk produk ke background worker.
+   */
+  exportProducts(params: Record<string, any>): Promise<any> {
+    return http.get('/products/export', { params })
   },
 
   /**
    * @deprecated Pindah ke packageApi.exportPackages
    */
-  async exportPackages(params: Record<string, any>): Promise<any> {
+  exportPackages(params: Record<string, any>): Promise<any> {
     return packageApi.exportPackages(params)
   },
 
   /**
    * @deprecated Pindah ke packageApi.uploadPackageUpdate
    */
-  async uploadPackageUpdate(formData: FormData): Promise<any> {
+  uploadPackageUpdate(formData: FormData): Promise<any> {
     return packageApi.uploadPackageUpdate(formData)
   },
 
@@ -130,11 +132,7 @@ export const productApi = {
    * Upload file untuk pembaruan harga produk secara massal.
    */
   uploadPriceUpdate(formData: FormData): Promise<any> {
-    return http.post('/products/batch/product-update', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+    return http.upload('/products/batch/product-update', formData)
   },
 
   /**

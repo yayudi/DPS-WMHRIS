@@ -121,7 +121,13 @@ All Handlers **MUST** return JSON in this exact format.
 
 ### Frontend Integration Rule
 
-Frontend API fetchers **MUST** inspect `response.success`. If `false`, throw the `message` to the UI error handler. Do not blindly assume 200 OK means success.
+1. **Response Validation:** Frontend API fetchers **MUST** inspect `response.success`. If `false`, throw the `message` to the UI error handler. Do not blindly assume 200 OK means success.
+2. **Single HTTP Export (`{ http }` Only):** Always use `import { http } from '@/core/infrastructure/http.client'`. Never use default imports (`axios`) or `rawHttp` in feature modules.
+3. **No Double-Unwrapping:** `http.get/post/put/patch/delete` in `http.client.ts` already unwraps Axios `res.data` into `ApiResponse<T>` (`{ success, message, data, meta }`).
+   * **Paginated Endpoints:** Return `http.get<T[]>(url, { params })` directly without `.data` so `meta` and `total` are preserved.
+   * **Single Entity / Non-Paginated Endpoints:** Unwrap `response.data` at most once.
+   * **File Upload / Blob:** Always use `http.upload(url, formData)` and `http.blob(url, config)`.
+4. **TanStack Vue Table v9 (`useSmartGrid`):** Pass Vue `Ref`/`ComputedRef` (`data`) directly to `useTable({ data, columns })`—never use a JS getter `get data() { return data.value }`.
 
 **Success:**
 

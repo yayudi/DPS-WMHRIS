@@ -1,4 +1,4 @@
-import instance, { http } from '@/core/infrastructure/http.client'
+import { http } from '@/core/infrastructure/http.client'
 import type { ApiResponse } from '@/core/domain/api.types'
 import type { LocaleItem, DictionaryData, TranslationMatrixResponse, TranslationMatrixFilter } from '@/core/domain/localization.types'
 
@@ -33,7 +33,7 @@ export const localizationApi = {
         headers['If-None-Match'] = eTag
       }
 
-      const response = await instance.get<ApiResponse<DictionaryData>>(
+      const response = await http.get<DictionaryData>(
         `/system/localization/dictionaries/${locale}`,
         {
           headers,
@@ -41,15 +41,15 @@ export const localizationApi = {
         }
       )
 
-      if (response.status === 304) {
+      if (!response || !response.data) {
         return { notModified: true, eTag }
       }
 
-      const resETag = response.headers['etag'] as string | undefined
+      const resolvedETag = `W/"v${response.data.version}-${response.data.locale}"`
       return {
-        data: response.data?.data,
+        data: response.data,
         notModified: false,
-        eTag: resETag || eTag
+        eTag: resolvedETag
       }
     } catch (err) {
       console.warn(`[I18N] Failed to fetch dictionary for locale '${locale}', fallback to local cache:`, err)

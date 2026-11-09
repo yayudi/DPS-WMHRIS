@@ -1,50 +1,42 @@
-import axios from '@/core/infrastructure/http.client'
+import { http } from '@/core/infrastructure/http.client'
 import { Schedule, Shift } from '../domain/shift.entity'
 
 const ENDPOINT = '/schedules'
 
 export const shiftApi = {
   async fetchSchedules(userId?: number | string, startDate?: string, endDate?: string): Promise<Schedule[]> {
-    const { data } = await axios.get(ENDPOINT, {
+    const response = await http.get<Schedule[]>(ENDPOINT, {
       params: { userId, startDate, endDate }
     })
-    return data.data || []
+    return response.data || []
   },
 
   async createSchedule(payload: any): Promise<any> {
-    const { data } = await axios.post(ENDPOINT, payload)
-    return data
+    return http.post(ENDPOINT, payload)
   },
 
   async deleteSchedule(userId: number | string, date: string): Promise<any> {
-    const response = await axios.delete(ENDPOINT, { params: { userId, date } })
-    return response.data
+    return http.delete(ENDPOINT, { params: { userId, date } })
   },
 
   async uploadScheduleImport(formData: FormData): Promise<any> {
-    const response = await axios.post('/schedules/import', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-    return response.data
+    return http.upload('/schedules/import', formData)
   },
 
   async fetchShifts(): Promise<Shift[]> {
-    const { data } = await axios.get('/shifts')
-    return data.data || []
+    const response = await http.get<Shift[]>('/shifts')
+    return response.data || []
   },
 
   async createShift(payload: any): Promise<any> {
-    const { data } = await axios.post('/shifts', payload)
-    return data
+    return http.post('/shifts', payload)
   },
 
   async updateShift(id: number | string, payload: any): Promise<any> {
-    const { data } = await axios.put(`/shifts/${id}`, payload)
-    return data
+    return http.put(`/shifts/${id}`, payload)
   },
 
   async deleteShift(id: number | string): Promise<any> {
-    const { data } = await axios.delete(`/shifts/${id}`)
-    return data
+    return http.delete(`/shifts/${id}`)
   }
 }

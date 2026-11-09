@@ -235,9 +235,9 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 
 	// Fetch components
 	query, args, err = sqlx.In(`
-		SELECT pp.package_product_id, pp.component_product_id, c.name, c.sku, pp.quantity,
+		SELECT pp.package_product_id, pp.component_product_id, c.name, c.sku, pp.quantity_per_package,
 			COALESCE((SELECT SUM(sl.quantity) FROM stock_locations sl WHERE sl.product_id = c.id), 0) as stock_available
-		FROM package_products pp
+		FROM package_components pp
 		JOIN products c ON pp.component_product_id = c.id
 		WHERE pp.package_product_id IN (?)
 	`, productIDs)
@@ -430,7 +430,7 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 		purpose = "BRANCH"
 	}
 
-	if filters.Location != "all" {
+	if filters.Location != "" && filters.Location != "all" {
 		subq := sq.Select("1").From("stock_locations sl").Join("locations l ON sl.location_id = l.id").
 			Where("sl.product_id = p.id")
 		subq = applyLocationScope(subq, purpose, filters)
@@ -446,7 +446,7 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 			for _, k := range keywords {
 				if filters.SearchBy == "sku" {
 					andConditions = append(andConditions, sq.Like{"p.sku": "%" + k + "%"})
-					// 				} else {
+				} else {
 					andConditions = append(andConditions, sq.Like{"p.name": "%" + k + "%"})
 				}
 			}
@@ -457,7 +457,7 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 	// Stock Status logic
 	if op, ok := stockStatusOperator(filters.StockStatus); ok {
 		subq := sq.Select("COALESCE(SUM(sl.quantity), 0)").From("stock_locations sl").Join("locations l ON sl.location_id = l.id").Where("sl.product_id = p.id")
-		if filters.Location != "all" {
+		if filters.Location != "" && filters.Location != "all" {
 			subq = applyLocationScope(subq, purpose, filters)
 		}
 		subSql, subArgs, _ := subq.ToSql()

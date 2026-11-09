@@ -1,5 +1,5 @@
 import { ref, computed, type Ref } from 'vue'
-import http from '@/core/infrastructure/http.client'
+import { http } from '@/core/infrastructure/http.client'
 import { useToast } from '@/core/presentation/composables/useToast'
 
 export interface UseInlineSaveOptions<T extends { id: string | number }> {

@@ -112,13 +112,22 @@ const { data: productsData, isLoading: loading, refetch: fetchProducts } = usePa
 watch(
   productsData,
   resData => {
-    if (resData) {
+    console.log('[PackageManagement] API response received:', resData)
+    if (Array.isArray(resData)) {
+      products.value = resData
+      totalProducts.value = resData.length
+    } else if (resData) {
       products.value = resData.data || resData.products || []
-      totalProducts.value = resData.meta?.total || resData.total || 0
+      totalProducts.value = resData.meta?.total ?? resData.total ?? products.value.length
     } else {
       products.value = []
       totalProducts.value = 0
     }
+    console.log('[PackageManagement] Parsed state:', {
+      packagesCount: products.value.length,
+      totalPackages: totalProducts.value,
+      sampleFirstRow: products.value[0] || null
+    })
   },
   { immediate: true }
 )

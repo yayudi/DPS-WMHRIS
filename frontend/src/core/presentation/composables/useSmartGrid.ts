@@ -33,9 +33,7 @@ export function useSmartGrid({
 }) {
   // 1. Setup Table
   const tableOptions = {
-    get data() {
-      return data.value
-    },
+    data,
     columns,
     getCoreRowModel: createCoreRowModel()
   }
@@ -48,16 +46,32 @@ export function useSmartGrid({
 
   // 2. Setup Virtualizer
   const rowVirtualizer = useVirtualizer(
-    computed(() => ({
-      count: table.getRowModel().rows.length,
-      getScrollElement: () => parentRef.value,
-      estimateSize: typeof estimateSize === 'function' ? estimateSize : () => estimateSize,
-      overscan: 5
-    }))
+    computed(() => {
+      const rowCount = data.value ? table.getRowModel().rows.length : 0
+      return {
+        count: rowCount,
+        getScrollElement: () => parentRef.value,
+        estimateSize: typeof estimateSize === 'function' ? estimateSize : () => estimateSize,
+        overscan: 5
+      }
+    })
   )
 
   const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
   const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
+
+  watch(
+    [() => data.value?.length, () => virtualRows.value.length],
+    ([dataLen, vRowsLen]) => {
+      console.log('[useSmartGrid] State update:', {
+        dataLength: dataLen ?? 0,
+        tableRowModelCount: table.getRowModel().rows.length,
+        virtualRowsCount: vRowsLen,
+        hasScrollElement: Boolean(parentRef.value)
+      })
+    },
+    { immediate: true }
+  )
 
   // Padding for virtual scrolling wrapper
   const paddingTop = computed(() => (virtualRows.value.length > 0 ? virtualRows.value[0]?.start || 0 : 0))

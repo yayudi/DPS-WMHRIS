@@ -1,4 +1,4 @@
-import apiClient from '@/core/infrastructure/http.client';
+import { http } from '@/core/infrastructure/http.client';
 
 export function useUpload() {
   /**
@@ -21,11 +21,13 @@ export function useUpload() {
       }
     }
 
-    const response = await apiClient[method.toLowerCase()](url, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const res = method.toLowerCase() === 'post'
+      ? await http.upload(url, formData)
+      : await (http as any)[method.toLowerCase()](url, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
 
-    return response;
+    return { data: res, ...res };
   };
 
   /**
@@ -47,11 +49,13 @@ export function useUpload() {
       }
     }
 
-    const response = await apiClient[method.toLowerCase()](url, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const res = method.toLowerCase() === 'post'
+      ? await http.upload(url, formData)
+      : await (http as any)[method.toLowerCase()](url, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
 
-    return response;
+    return { data: res, ...res };
   };
 
   return {

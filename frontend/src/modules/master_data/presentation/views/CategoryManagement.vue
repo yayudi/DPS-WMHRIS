@@ -31,7 +31,7 @@ const {
 const saving = ref(false)
 const isModalOpen = ref(false)
 const isEditing = ref(false)
-const form = ref<{ id: number | null, name: string }>({ id: null, name: '' })
+const form = ref<{ id: number | null; name: string }>({ id: null, name: '' })
 
 const {
   currentPage,
@@ -43,7 +43,7 @@ const {
 } = usePagination({
   totalItems: categories,
   storageKey: 'categoryPageSize',
-  initialLimit: 10
+  initialLimit: 20
 })
 
 async function loadCategories(silent = false) {
