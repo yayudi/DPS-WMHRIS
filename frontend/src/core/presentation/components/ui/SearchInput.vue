@@ -1,5 +1,8 @@
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 // Komponen ini menggunakan v-model
 // Menerima prop 'modelValue' dan emit 'update:modelValue'
@@ -42,7 +45,7 @@ function clearInput() {
     <!-- Input utama -->
     <input
       v-model="value"
-      :placeholder="placeholder"
+      :placeholder="placeholder === 'Cari...' ? t('common.filter.search') : placeholder"
       type="text"
       class="w-full rounded-lg border border-secondary bg-background py-2 pl-10 pr-10 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary"
     />
@@ -53,7 +56,7 @@ function clearInput() {
       @click="clearInput"
       type="button"
       class="absolute right-3 top-1/2 -translate-y-1/2 text-text/40 hover:text-text"
-      title="Bersihkan"
+      :title="t('common.btn.clear')"
     >
       <font-awesome-icon icon="fa-solid fa-times-circle" />
     </button>

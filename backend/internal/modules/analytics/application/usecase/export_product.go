@@ -2,70 +2,23 @@ package usecase
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 
-	catalog_dto "github.com/dps-wmhris/backend/internal/modules/catalog/application/dto"
-
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 
 	"github.com/xuri/excelize/v2"
 )
 
 func (s *exportServiceImpl) ProcessExportProduct(ctx context.Context, jobID int, filtersJSON string) error {
-	var filters map[string]interface{}
-	if filtersJSON != "" {
-		if err := json.Unmarshal([]byte(filtersJSON), &filters); err != nil {
-			return fmt.Errorf("invalid filters: %v", err)
-		}
+	parsedFilter, err := parseCatalogExportFilter(filtersJSON, false)
+	if err != nil {
+		return fmt.Errorf("invalid filters: %w", err)
 	}
-
-	search := ""
-	if v, ok := filters["search"].(string); ok {
-		search = v
-	}
-	searchBy := "name"
-	if v, ok := filters["searchBy"].(string); ok {
-		searchBy = v
-	}
-	sortBy := "sku"
-	if v, ok := filters["sortBy"].(string); ok {
-		sortBy = v
-	}
-	sortOrder := "ASC"
-	if v, ok := filters["sortOrder"].(string); ok {
-		sortOrder = v
-	}
-	status := "active"
-	if v, ok := filters["status"].(string); ok {
-		status = v
-	}
-
-	isPackage := false
-	if v, ok := filters["isPackage"].(bool); ok {
-		isPackage = v
-	}
-
-	exportName := ""
-	if v, ok := filters["exportName"].(string); ok {
-		exportName = v
-	}
-
-	req := catalog_dto.ProductFilterRequest{
-		Page:      1,
-		Limit:     100000,
-		Search:    search,
-		SearchBy:  searchBy,
-		SortBy:    sortBy,
-		SortOrder: sortOrder,
-		Status:    status,
-	}
-
-	if isPackage {
-		pkgOnly := true
-		req.PackageOnly = &pkgOnly
-	}
+	req := parsedFilter.FilterReq
+	status := parsedFilter.Status
+	exportName := parsedFilter.ExportName
 
 	res, _, err := s.productRepo.GetProductsWithFilters(ctx, req)
 	if err != nil {
@@ -79,11 +32,20 @@ func (s *exportServiceImpl) ProcessExportProduct(ctx context.Context, jobID int,
 		}
 	}()
 
-	sheetName := "Master Produk"
+	sheetName := i18n.T(ctx, "analytics.export.sheet_product_master")
 	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 	styles := utils.InitExcelStyles(f)
 
-	utils.SetHeaders(f, sheetName, []string{"SKU", "Nama Produk", "Kategori", "Harga", "Berat (g)", "Total Stock", "Aktif", "Is Package"}, styles.Header)
+	utils.SetLocalizedHeaders(ctx, f, sheetName, []string{
+		"common.label.sku",
+		"common.label.product_name",
+		"common.label.category",
+		"common.label.price",
+		"analytics.export.col_weight_g",
+		"analytics.export.col_total_stock",
+		"common.status.active",
+		"analytics.export.col_is_package",
+	}, styles.Header)
 
 	for r, row := range res {
 		catName := ""

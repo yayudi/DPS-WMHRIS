@@ -2,13 +2,13 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"log"
 	"strconv"
 	"strings"
 
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/iam/port"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/eventbus"
 	"golang.org/x/crypto/bcrypt"
@@ -41,7 +41,7 @@ func (s *adminUserServiceImpl) GetRoles(ctx context.Context) ([]iam_dto.RoleResp
 func (s *adminUserServiceImpl) CreateUser(ctx context.Context, req iam_dto.AdminCreateUserRequest, adminID int, ip, userAgent string) (*iam_dto.AdminUserResponse, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, errors.New("gagal memproses password")
+		return nil, apperror.Internal("settings.user.hash_password_failed", "gagal memproses password", err)
 	}
 
 	insertID, err := s.adminUserRepo.InsertUser(
@@ -49,7 +49,7 @@ func (s *adminUserServiceImpl) CreateUser(ctx context.Context, req iam_dto.Admin
 	)
 	if err != nil {
 		if strings.Contains(err.Error(), "1062") || strings.Contains(err.Error(), "Duplicate entry") {
-			return nil, errors.New("Username sudah digunakan.")
+			return nil, apperror.Conflict("settings.user.username_in_use", "username sudah digunakan")
 		}
 		return nil, err
 	}
@@ -80,11 +80,8 @@ func (s *adminUserServiceImpl) CreateUser(ctx context.Context, req iam_dto.Admin
 
 func (s *adminUserServiceImpl) UpdateUser(ctx context.Context, targetID int, req iam_dto.AdminUpdateUserRequest, adminID int, ip, userAgent string) error {
 	oldUser, err := s.adminUserRepo.FindUserByID(ctx, targetID)
-	if err != nil {
-		return errors.New("user tidak ditemukan")
-	}
-	if oldUser == nil {
-		return errors.New("user tidak ditemukan")
+	if err != nil || oldUser == nil {
+		return apperror.NotFound("settings.user.user_not_found", "user tidak ditemukan")
 	}
 
 	var updateFields []string
@@ -140,7 +137,7 @@ func (s *adminUserServiceImpl) UpdateUser(ctx context.Context, targetID int, req
 		_, err := s.adminUserRepo.UpdateUserByID(ctx, targetID, updateFields, updateValues)
 		if err != nil {
 			if strings.Contains(err.Error(), "1062") || strings.Contains(err.Error(), "Duplicate entry") {
-				return errors.New("Username sudah digunakan.")
+				return apperror.Conflict("settings.user.username_in_use", "username sudah digunakan")
 			}
 			return err
 		}
@@ -166,7 +163,7 @@ func (s *adminUserServiceImpl) UpdateUser(ctx context.Context, targetID int, req
 
 func (s *adminUserServiceImpl) DeleteUser(ctx context.Context, targetID int, adminID int, ip, userAgent string) error {
 	if adminID == targetID {
-		return errors.New("anda tidak bisa menghapus akun anda sendiri")
+		return apperror.Forbidden("settings.user.cannot_delete_self", "anda tidak bisa menghapus akun anda sendiri")
 	}
 
 	affected, err := s.adminUserRepo.SoftDeleteUser(ctx, targetID)
@@ -174,7 +171,7 @@ func (s *adminUserServiceImpl) DeleteUser(ctx context.Context, targetID int, adm
 		return err
 	}
 	if affected == 0 {
-		return errors.New("user tidak ditemukan")
+		return apperror.NotFound("settings.user.user_not_found", "user tidak ditemukan")
 	}
 
 	if errLog := eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{

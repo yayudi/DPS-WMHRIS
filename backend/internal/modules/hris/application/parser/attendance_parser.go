@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 )
 
 type AttendanceRawLog struct {
@@ -38,14 +40,14 @@ func ParseAttendanceCSV(r io.Reader, thresholds map[string]int) (map[string]*Use
 	for i := 0; i < 3; i++ {
 		_, err := reader.Read()
 		if err != nil && err != io.EOF {
-			return nil, fmt.Errorf("error skipping line %d: %w", i+1, err)
+			return nil, apperror.Validation("hris.attendance.err_skip_line", fmt.Sprintf("Error skipping line %d: %v", i+1, err))
 		}
 	}
 
 	// Read header (Row 4)
 	headers, err := reader.Read()
 	if err != nil {
-		return nil, fmt.Errorf("error reading headers: %w", err)
+		return nil, apperror.Validation("hris.attendance.err_read_headers", "Gagal membaca header CSV absensi")
 	}
 
 	// Clean headers (remove BOM and trim)
@@ -85,7 +87,7 @@ func ParseAttendanceCSV(r io.Reader, thresholds map[string]int) (map[string]*Use
 	}
 
 	if idxID == -1 || idxDate == -1 {
-		return nil, fmt.Errorf("missing required columns: User ID or Date/Time")
+		return nil, apperror.Validation("hris.attendance.err_missing_columns", "Kolom wajib tidak ditemukan: User ID atau Date/Time")
 	}
 
 	data := make(map[string]*UserAttendance)

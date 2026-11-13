@@ -105,7 +105,7 @@ func ParseMarketplaceFile(r io.ReadSeeker, ext string, source string) (parser.Pa
 		} else if !isValid {
 			res.Errors = append(res.Errors, parser.ParserError{
 				Row:     i + 2,
-				Message: "Baris tidak valid atau data wajib (Invoice/SKU/Qty) kosong",
+				Message: "Baris tidak valid atau data wajib (Invoice/SKU/Qty) kosong.",
 			})
 		}
 	}

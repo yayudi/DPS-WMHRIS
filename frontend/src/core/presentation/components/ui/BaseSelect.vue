@@ -2,6 +2,9 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useFloating, autoUpdate, offset, flip, shift, size } from '@floating-ui/vue'
 import { useListNavigation } from '@/core/presentation/composables/useListNavigation'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   modelValue: {
@@ -385,7 +388,7 @@ onUnmounted(() => {
           icon="fa-solid fa-xmark"
           class="text-[13px] text-text/40 hover:text-danger cursor-pointer transition-colors py-1"
           @click.stop="handleClear"
-          title="Bersihkan"
+          :title="t('common.btn.clear')"
         />
         <!-- Icon Chevron -->
         <font-awesome-icon
@@ -424,7 +427,7 @@ onUnmounted(() => {
                 ref="inputRef"
                 v-model="searchQuery"
                 type="text"
-                placeholder="Cari..."
+                :placeholder="t('common.btn.search') + '...'"
                 class="w-full pl-8 pr-3 py-1.5 text-xs bg-background border border-secondary/20 rounded-md focus:outline-none focus:border-primary text-text placeholder:text-text/30"
                 @keydown="handleKeydown"
               />
@@ -440,13 +443,13 @@ onUnmounted(() => {
               @click.stop="selectAll"
               class="text-primary hover:text-primary/80 font-semibold px-2 py-1 rounded hover:bg-primary/10 transition-colors"
             >
-              <font-awesome-icon icon="fa-solid fa-check-double" class="mr-1" /> Pilih Semua
+              <font-awesome-icon icon="fa-solid fa-check-double" class="mr-1" /> {{ t('common.select.select_all') }}
             </button>
             <button
               @click.stop="clearSelection"
               class="text-danger hover:text-danger/80 font-semibold px-2 py-1 rounded hover:bg-danger/10 transition-colors"
             >
-              <font-awesome-icon icon="fa-solid fa-eraser" class="mr-1" /> Bersihkan
+              <font-awesome-icon icon="fa-solid fa-eraser" class="mr-1" /> {{ t('common.btn.clear') }}
             </button>
           </div>
 
@@ -455,9 +458,9 @@ onUnmounted(() => {
             v-if="multiple"
             class="max-h-[300px] overflow-y-auto custom-scrollbar p-3 flex flex-wrap gap-1 items-start content-start"
           >
-            <div v-if="loading" class="w-full text-center text-text/60 italic text-xs py-2">Memuat data...</div>
+            <div v-if="loading" class="w-full text-center text-text/60 italic text-xs py-2">{{ t('common.status.loading') }}</div>
             <div v-else-if="filteredOptions.length === 0" class="w-full text-center text-text/40 italic text-xs py-2">
-              <slot name="noResult">Tidak ada opsi ditemukan.</slot>
+              <slot name="noResult">{{ t('common.select.no_options') }}</slot>
             </div>
             <button
               v-else
@@ -485,9 +488,9 @@ onUnmounted(() => {
 
           <!-- Options List (Single mode) -->
           <ul v-else class="max-h-60 overflow-y-auto custom-scrollbar p-1">
-            <li v-if="loading" class="px-3 py-4 text-center text-text/60 italic text-xs">Memuat data...</li>
+            <li v-if="loading" class="px-3 py-4 text-center text-text/60 italic text-xs">{{ t('common.status.loading') }}</li>
             <li v-else-if="filteredOptions.length === 0" class="px-3 py-4 text-center text-text/40 italic text-xs">
-              <slot name="noResult">Tidak ada opsi ditemukan.</slot>
+              <slot name="noResult">{{ t('common.select.no_options') }}</slot>
             </li>
 
             <li

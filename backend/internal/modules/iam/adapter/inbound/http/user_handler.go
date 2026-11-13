@@ -8,6 +8,7 @@ import (
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/iam/domain"
 	"github.com/dps-wmhris/backend/internal/modules/iam/port"
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
@@ -33,7 +34,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 	res, err := h.userUseCase.Login(c.Request.Context(), req)
 	if err != nil {
 		log.Printf("[LOGIN] Login failed for user %s: %v", req.Username, err)
-		utils.ErrorResponse(c, http.StatusUnauthorized, err.Error(), "UNAUTHORIZED")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -44,7 +45,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 
 	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
-		"message": "Login berhasil",
+		"message": i18n.TranslateByLocale(c.Request.Context(), c.GetString(i18n.GinLocaleKey), "auth.login.success"),
 		"token":   res.Token,
 		"user":    res.UserInfo,
 	})
@@ -52,7 +53,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 
 func (h *UserHandler) Logout(c *gin.Context) {
 	c.SetCookie("token", "", -1, "/", "", false, true)
-	utils.SuccessResponse(c, http.StatusOK, "Logged out", nil)
+	utils.SuccessResponse(c, http.StatusOK, "auth.login.logout_success", nil)
 }
 
 func (h *UserHandler) GetProfile(c *gin.Context) {
@@ -62,13 +63,13 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	user, err := h.userUseCase.GetProfile(c.Request.Context(), userID)
 	if err != nil {
 		log.Printf("[PROFILE] Failed to fetch profile for user_id %d: %v", userID, err)
-		utils.ErrorResponse(c, http.StatusNotFound, err.Error(), "NOT_FOUND")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
 	log.Printf("[PROFILE] Profile fetched successfully for user_id %d", userID)
 
-	utils.SuccessResponse(c, http.StatusOK, "Data profil berhasil diambil.", user)
+	utils.SuccessDataResponse(c, http.StatusOK, user)
 }
 
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
@@ -82,11 +83,11 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 
 	updatedUser, err := h.userUseCase.UpdateProfile(c.Request.Context(), userID, req, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "UPDATE_FAILED")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Data akun berhasil diperbarui.", updatedUser)
+	utils.SuccessResponse(c, http.StatusOK, "auth.profile.toast_account_updated", updatedUser)
 }
 
 func (h *UserHandler) GetMyLocations(c *gin.Context) {
@@ -94,34 +95,32 @@ func (h *UserHandler) GetMyLocations(c *gin.Context) {
 
 	locations, err := h.userUseCase.GetMyLocations(c.Request.Context(), userID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil data lokasi", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "auth.profile.locations_fetch_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Data lokasi berhasil diambil.", locations)
+	utils.SuccessDataResponse(c, http.StatusOK, locations)
 }
 
 func (h *UserHandler) GetPreferences(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Sesi tidak valid.", "UNAUTHORIZED")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	pref, err := h.userUseCase.GetPreferences(c.Request.Context(), userID)
 	if err != nil {
 		log.Printf("[USER] GetPreferences failed for user %d: %v", userID, err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil preferensi pengguna.", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.preference.fetch_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Preferensi pengguna berhasil diambil.", pref)
+	utils.SuccessDataResponse(c, http.StatusOK, pref)
 }
 
 func (h *UserHandler) UpdatePreferences(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Sesi tidak valid.", "UNAUTHORIZED")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -135,15 +134,15 @@ func (h *UserHandler) UpdatePreferences(c *gin.Context) {
 		if errors.Is(err, domain.ErrInvalidPreferenceLocale) ||
 			errors.Is(err, domain.ErrInvalidPreferenceTimezone) ||
 			errors.Is(err, domain.ErrInvalidPreferenceDateFormat) {
-			utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "VALIDATION_ERROR")
+			utils.HandleDomainError(c, err)
 			return
 		}
 
 		// Mask unexpected database/system errors
 		log.Printf("[USER] UpdatePreferences failed for user %d: %v", userID, err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui preferensi pengguna.", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.preference.update_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Preferensi pengguna berhasil diperbarui.", updated)
+	utils.SuccessResponse(c, http.StatusOK, "auth.profile.toast_preferences_saved", updated)
 }

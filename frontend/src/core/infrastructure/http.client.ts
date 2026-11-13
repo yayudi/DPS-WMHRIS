@@ -37,6 +37,7 @@ instance.interceptors.request.use(
     // Attach current active locale for backend context
     const userLocale = localStorage.getItem('user_locale') || 'id-ID'
     config.headers['X-User-Locale'] = userLocale
+    config.headers['Accept-Language'] = userLocale
 
     if (config.data instanceof FormData || config.responseType === 'blob') {
       config.timeout = 80000

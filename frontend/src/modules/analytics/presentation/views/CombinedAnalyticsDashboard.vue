@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
-import VueApexCharts from 'vue3-apexcharts'
+import { ref, onMounted, watch, computed, defineAsyncComponent } from 'vue'
+const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
+import { useI18n } from '@/core/infrastructure/localization'
 import { analyticsApi } from '../../infrastructure/analytics.api'
 import BaseSkeleton from '@/core/presentation/components/ui/BaseSkeleton.vue'
 import FilterBar from '@/core/presentation/components/ui/FilterBar.vue'
@@ -10,6 +11,7 @@ import { useToast } from '@/core/presentation/composables/useToast'
 import { formatCurrency, formatNumber } from '@/core/utils/formatters'
 import dayjs from 'dayjs'
 
+const { t } = useI18n()
 const masterData = useMasterDataStore()
 const { toast } = useToast()
 
@@ -35,9 +37,9 @@ const mainFilters = computed(() => [
   {
     type: 'triselect',
     key: 'building',
-    label: 'Lokasi / Gedung',
+    label: t('common.label.building'),
     options: buildingOptions.value,
-    placeholder: 'Semua Gedung',
+    placeholder: t('common.filter.all_buildings'),
     searchable: true,
     class: 'md:col-span-2 lg:col-span-1'
   }
@@ -64,7 +66,7 @@ const shopPerformanceChartOptions = ref({
   stroke: { curve: 'smooth' },
   theme: { mode: 'light' },
   title: {
-    text: 'Performa Toko vs Stok Keluar',
+    text: t('analytics.dashboard.chart_shop_vs_movement'),
     align: 'left',
     style: { color: '#64748b' }
   }
@@ -106,7 +108,7 @@ const inventoryValueChartOptions = ref({
   },
   theme: { mode: 'light' },
   title: {
-    text: 'Distribusi Nilai Inventaris',
+    text: t('analytics.dashboard.chart_inventory_value'),
     align: 'left',
     style: { color: '#64748b' }
   }
@@ -132,7 +134,7 @@ const packageAnalysisChartOptions = ref({
   dataLabels: { enabled: false },
   theme: { mode: 'light' },
   title: {
-    text: 'Top Paket Paling Laku',
+    text: t('analytics.dashboard.chart_top_packages'),
     align: 'left',
     style: { color: '#64748b' }
   },
@@ -177,7 +179,7 @@ const fetchData = async () => {
     processInventoryValueChart(inventoryData)
     processPackageAnalysisChart(packageData)
   } catch (error) {
-    toast('Gagal memuat data dashboard analitik', 'error')
+    toast(t('analytics.dashboard.error_load'), 'error')
     console.error(error)
   } finally {
     isLoading.value = false
@@ -200,15 +202,15 @@ const processShopVsMovementChart = dailyTrend => {
   }
 
   shopPerformanceSeries.value = [
-    { name: 'Item Terjual', data: dailyTrend.sort((a, b) => a.date.localeCompare(b.date)).map(d => d.totalItemsSold) },
-    { name: 'Jumlah Order', data: dailyTrend.sort((a, b) => a.date.localeCompare(b.date)).map(d => d.totalOrders) }
+    { name: t('analytics.dashboard.series_items_sold'), data: dailyTrend.sort((a, b) => a.date.localeCompare(b.date)).map(d => d.totalItemsSold) },
+    { name: t('analytics.dashboard.series_orders_count'), data: dailyTrend.sort((a, b) => a.date.localeCompare(b.date)).map(d => d.totalOrders) }
   ]
 }
 
 const processInventoryValueChart = inventory => {
   const categoriesMap = {}
   inventory?.forEach(item => {
-    const cat = item.category || item.category_name || item.building || 'Lainnya'
+    const cat = item.category || item.category_name || item.building || t('analytics.dashboard.others')
     if (!categoriesMap[cat]) categoriesMap[cat] = 0
     categoriesMap[cat] += Number(item.total_value || 0)
   })
@@ -218,7 +220,7 @@ const processInventoryValueChart = inventory => {
   const topN = 8
   const topCategories = sorted.slice(0, topN)
   const othersTotal = sorted.slice(topN).reduce((acc, [, val]) => acc + val, 0)
-  if (othersTotal > 0) topCategories.push(['Lainnya', othersTotal])
+  if (othersTotal > 0) topCategories.push([t('analytics.dashboard.others'), othersTotal])
 
   inventoryValueChartOptions.value = {
     ...inventoryValueChartOptions.value,
@@ -239,7 +241,7 @@ const processPackageAnalysisChart = packages => {
   }
   packageAnalysisSeries.value = [
     {
-      name: 'Total Dibutuhkan',
+      name: t('analytics.package.col_total_needed'),
       data: sorted.map(p => Number(p.total_needed) || 0)
     }
   ]
@@ -301,7 +303,7 @@ watch(
 
 <template>
   <div class="mb-6 border-b border-secondary/20 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-    <h1 class="text-2xl font-bold text-primary">Dashboard Analitik Terpadu</h1>
+    <h1 class="text-2xl font-bold text-primary">{{ t('analytics.dashboard.combined_title') }}</h1>
 
     <div class="flex items-center w-full md:w-auto">
       <FilterToggle v-model="showFilters" />
@@ -328,7 +330,7 @@ watch(
       <div
         class="bg-background p-6 rounded-xl shadow-sm border border-secondary/20 flex flex-col justify-center transform transition duration-300 hover:scale-105 hover:shadow-lg"
       >
-        <p class="text-sm font-medium text-text/60 mb-1">Total Nilai Inventaris</p>
+        <p class="text-sm font-medium text-text/60 mb-1">{{ t('analytics.overview.total_inventory_value') }}</p>
         <h3 class="text-2xl font-bold text-text">
           {{ formatCurrency(kpi.totalInventoryValue) }}
         </h3>
@@ -336,13 +338,13 @@ watch(
       <div
         class="bg-background p-6 rounded-xl shadow-sm border border-secondary/20 flex flex-col justify-center transform transition duration-300 hover:scale-105 hover:shadow-lg"
       >
-        <p class="text-sm font-medium text-text/60 mb-1">Total Penjualan (Qty)</p>
+        <p class="text-sm font-medium text-text/60 mb-1">{{ t('analytics.dashboard.kpi_total_sales') }}</p>
         <h3 class="text-2xl font-bold text-primary">{{ formatNumber(kpi.totalSales) }}</h3>
       </div>
       <div
         class="bg-background p-6 rounded-xl shadow-sm border border-secondary/20 flex flex-col justify-center transform transition duration-300 hover:scale-105 hover:shadow-lg"
       >
-        <p class="text-sm font-medium text-text/60 mb-1">Total Stok Keluar (Qty)</p>
+        <p class="text-sm font-medium text-text/60 mb-1">{{ t('analytics.dashboard.kpi_total_movements') }}</p>
         <h3 class="text-2xl font-bold text-danger">{{ formatNumber(kpi.totalMovements) }}</h3>
       </div>
     </div>

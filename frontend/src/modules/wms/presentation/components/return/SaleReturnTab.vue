@@ -9,9 +9,11 @@ import FilterBar from '@/core/presentation/components/ui/FilterBar.vue'
 import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
 import { useReturnManager } from '@/modules/wms/application/useReturnManager'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { formatDate } from '@/core/utils/time'
 
 const router = useRouter()
+const { t } = useI18n()
 
 // Logic dari Composable
 const {
@@ -60,10 +62,10 @@ const remainingQty = computed(() => {
 
 const isOverLimit = computed(() => remainingQty.value < 0)
 
-const tabList = [
-  { label: 'Antrian Proses', value: 'pending' },
-  { label: 'Riwayat Selesai', value: 'history' }
-]
+const tabList = computed(() => [
+  { label: t('wms.return.tab_pending'), value: 'pending' },
+  { label: t('wms.return.tab_history'), value: 'history' }
+])
 
 const sourceOptions = [
   { id: 'tokopedia', label: 'Tokopedia' },
@@ -77,13 +79,13 @@ const returnFilters = computed(() => {
       type: 'daterange',
       keyStart: 'startDate',
       keyEnd: 'endDate',
-      label: 'Tanggal'
+      label: t('common.label.date')
     },
     {
       type: 'triselect',
       key: 'source',
-      label: 'Sumber',
-      placeholder: 'Semua Sumber',
+      label: t('wms.return.source'),
+      placeholder: t('common.filter.all_sources'),
       options: sourceOptions,
       trackBy: 'id',
       optionLabel: 'label'
@@ -91,10 +93,10 @@ const returnFilters = computed(() => {
     {
       type: 'segmented',
       key: 'sortOrder',
-      label: 'Urutan',
+      label: t('common.filter.order'),
       options: [
-        { value: 'desc', label: 'Terbaru', icon: 'fa-solid fa-arrow-down-9-1' },
-        { value: 'asc', label: 'Terlama', icon: 'fa-solid fa-arrow-down-1-9' }
+        { value: 'desc', label: t('common.filter.newest'), icon: 'fa-solid fa-arrow-down-9-1' },
+        { value: 'asc', label: t('common.filter.oldest'), icon: 'fa-solid fa-arrow-down-1-9' }
       ]
     }
   ]
@@ -103,20 +105,20 @@ const returnFilters = computed(() => {
     baseFilters.push({
       type: 'segmented',
       key: 'condition',
-      label: 'Kondisi',
+      label: t('common.filter.condition'),
       options: [
-        { value: '', label: 'Semua', icon: 'fa-solid fa-list' },
-        { value: 'GOOD', label: 'Bagus', icon: 'fa-solid fa-thumbs-up' },
-        { value: 'BAD', label: 'Rusak', icon: 'fa-solid fa-thumbs-down' }
+        { value: '', label: t('common.filter.all'), icon: 'fa-solid fa-list' },
+        { value: 'GOOD', label: t('wms.return.good_condition'), icon: 'fa-solid fa-thumbs-up' },
+        { value: 'BAD', label: t('wms.return.bad_condition'), icon: 'fa-solid fa-thumbs-down' }
       ]
     })
 
     baseFilters.push({
       type: 'select',
       key: 'locationId',
-      label: 'Lokasi Lantai',
-      placeholder: 'Semua Lokasi',
-      options: [{ value: '', label: 'Semua Lokasi' }, ...locations.value.map(l => ({ value: l.id, label: l.code }))],
+      label: t('wms.return.location_info'),
+      placeholder: t('common.label.all_locations'),
+      options: [{ value: '', label: t('common.label.all_locations') }, ...locations.value.map(l => ({ value: l.id, label: l.code }))],
       searchable: true,
       clearValue: ''
     })
@@ -207,7 +209,7 @@ watch(Slash, pressed => {
             ref="searchInputRef"
             v-model="searchQuery"
             type="text"
-            placeholder="Cari Invoice, SKU ( / )"
+            :placeholder="t('wms.return.search_placeholder')"
             class="w-full h-[42px] pl-9 pr-4 py-2 bg-background border border-secondary/20 rounded-lg text-sm focus:outline-none focus:border-primary transition-colors text-text shadow-sm"
           />
         </div>
@@ -217,7 +219,7 @@ watch(Slash, pressed => {
           class="w-full h-[42px] sm:w-auto bg-accent text-secondary px-4 py-2 rounded-lg text-sm font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2 shadow-sm shrink-0"
         >
           <font-awesome-icon icon="fa-solid fa-plus" />
-          <span>Retur Manual</span>
+          <span>{{ t('wms.return.manual_return') }}</span>
         </button>
       </div>
     </div>
@@ -240,13 +242,13 @@ watch(Slash, pressed => {
       <div
         class="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-secondary/10 border-b border-secondary/20 text-[10px] font-bold uppercase tracking-wider text-text/60"
       >
-        <div class="md:col-span-3">Invoice / Ref</div>
-        <div :class="activeTab === 'pending' ? 'md:col-span-4' : 'md:col-span-2'">Produk</div>
-        <div class="md:col-span-2 text-center">Qty</div>
-        <div class="md:col-span-2 text-center">Sumber</div>
-        <div v-if="activeTab === 'history'" class="md:col-span-2">Lokasi / Info</div>
+        <div class="md:col-span-3">{{ t('wms.return.invoice_ref') }}</div>
+        <div :class="activeTab === 'pending' ? 'md:col-span-4' : 'md:col-span-2'">{{ t('wms.return.product') }}</div>
+        <div class="md:col-span-2 text-center">{{ t('common.label.qty') }}</div>
+        <div class="md:col-span-2 text-center">{{ t('wms.return.source') }}</div>
+        <div v-if="activeTab === 'history'" class="md:col-span-2">{{ t('wms.return.location_info') }}</div>
         <div class="md:col-span-1 text-right">
-          {{ activeTab === 'pending' ? 'Aksi' : 'Status' }}
+          {{ activeTab === 'pending' ? t('common.label.action') : t('common.label.status') }}
         </div>
       </div>
 
@@ -278,8 +280,8 @@ watch(Slash, pressed => {
         <div class="w-20 h-20 bg-secondary/10 rounded-full flex items-center justify-center mb-4">
           <font-awesome-icon icon="fa-solid fa-box-open" class="text-3xl opacity-50" />
         </div>
-        <h3 class="text-sm font-bold text-text/70">Tidak ada data ditemukan</h3>
-        <p class="text-xs mt-1 max-w-xs text-center">Coba ubah kata kunci pencarian atau filter sumber data Anda.</p>
+        <h3 class="text-sm font-bold text-text/70">{{ t('common.empty.no_data') }}</h3>
+        <p class="text-xs mt-1 max-w-xs text-center">{{ t('wms.return.empty_hint') }}</p>
       </div>
 
       <!-- DATA LIST -->
@@ -366,29 +368,29 @@ watch(Slash, pressed => {
                 v-if="activeTab === 'pending'"
                 @click="openProcessModal(item)"
                 class="w-full md:w-auto bg-primary text-secondary p-2 md:px-3 md:py-1.5 rounded-lg text-xs font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-transform active:scale-95 group-hover:scale-105"
-                title="Proses Retur"
+                :title="t('wms.return.process_title')"
               >
                 <font-awesome-icon icon="fa-solid fa-check" />
-                <span>Proses</span>
+                <span>{{ t('wms.return.btn_process') }}</span>
               </button>
               <div v-else class="flex flex-col items-end gap-1 w-full md:w-auto">
                 <span
                   v-if="item.condition === 'BAD'"
                   class="w-full md:w-auto justify-center inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border bg-danger/10 text-danger border-danger/20"
                 >
-                  <font-awesome-icon icon="fa-solid fa-thumbs-down" /> Rusak
+                  <font-awesome-icon icon="fa-solid fa-thumbs-down" /> {{ t('wms.return.bad_condition') }}
                 </span>
                 <span
                   v-else-if="item.condition === 'GOOD'"
                   class="w-full md:w-auto justify-center inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border bg-success/10 text-success border-success/20"
                 >
-                  <font-awesome-icon icon="fa-solid fa-thumbs-up" /> Bagus
+                  <font-awesome-icon icon="fa-solid fa-thumbs-up" /> {{ t('wms.return.good_condition') }}
                 </span>
                 <span
                   v-else
                   class="w-full md:w-auto justify-center inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border bg-secondary/10 text-text/60 border-secondary/20"
                 >
-                  <font-awesome-icon icon="fa-solid fa-check-circle" /> Selesai
+                  <font-awesome-icon icon="fa-solid fa-check-circle" /> {{ t('common.btn.done') }}
                 </span>
               </div>
             </div>
@@ -402,7 +404,7 @@ watch(Slash, pressed => {
 
     <!-- Modal Proses Split (Dual Condition) -->
     <Teleport to="body">
-      <BaseModal :show="showProcessModal" @close="showProcessModal = false" title="Validasi & Split Retur">
+      <BaseModal :show="showProcessModal" @close="showProcessModal = false" :title="t('wms.return.modal_title')">
         <div class="space-y-5 text-text">
           <!-- Item Card Info -->
           <div class="bg-secondary/50 p-4 rounded-xl border border-secondary/20 flex gap-4">
@@ -417,7 +419,7 @@ watch(Slash, pressed => {
                 <!-- Indikator Sisa -->
                 <div class="flex items-center gap-2">
                   <span
-                    >Total: <b>{{ processForm.itemData?.quantity }}</b></span
+                    >{{ t('wms.return.total_label') }}: <b>{{ processForm.itemData?.quantity }}</b></span
                   >
                   <span
                     class="px-2 py-0.5 rounded-full font-bold text-[10px] border"
@@ -429,7 +431,7 @@ watch(Slash, pressed => {
                           : 'bg-warning/10 text-warning border-warning'
                     "
                   >
-                    Sisa: {{ remainingQty }}
+                    {{ t('wms.return.remaining_label') }}: {{ remainingQty }}
                   </span>
                 </div>
               </div>
@@ -442,12 +444,12 @@ watch(Slash, pressed => {
               <div
                 class="absolute -top-2.5 left-3 px-2 bg-background text-[10px] font-bold text-success border border-success/20 rounded uppercase"
               >
-                <font-awesome-icon icon="fa-solid fa-thumbs-up" class="mr-1" /> Kondisi Bagus
+                <font-awesome-icon icon="fa-solid fa-thumbs-up" class="mr-1" /> {{ t('wms.return.good_panel_title') }}
               </div>
 
               <div class="space-y-3 mt-2">
                 <div>
-                  <label class="label-input !text-success/70">Jumlah Bagus</label>
+                  <label class="label-input !text-success/70">{{ t('wms.return.good_qty_label') }}</label>
                   <input
                     v-model.number="processForm.good.qty"
                     type="number"
@@ -457,7 +459,7 @@ watch(Slash, pressed => {
                   />
                 </div>
                 <div>
-                  <label class="label-input !text-success/70">Masuk Lantai</label>
+                  <label class="label-input !text-success/70">{{ t('wms.return.good_loc_label') }}</label>
                   <div class="relative">
                     <BaseSelect
                       v-model="processForm.good.locationId"
@@ -465,7 +467,7 @@ watch(Slash, pressed => {
                       label="code"
                       track-by="id"
                       emit-value
-                      placeholder="-- Pilih Lantai --"
+                      :placeholder="t('wms.return.select_floor_placeholder')"
                       :searchable="true"
                     />
                   </div>
@@ -478,12 +480,12 @@ watch(Slash, pressed => {
               <div
                 class="absolute -top-2.5 left-3 px-2 bg-background text-[10px] font-bold text-danger border border-danger/20 rounded uppercase"
               >
-                <font-awesome-icon icon="fa-solid fa-thumbs-down" class="mr-1" /> Kondisi Rusak
+                <font-awesome-icon icon="fa-solid fa-thumbs-down" class="mr-1" /> {{ t('wms.return.bad_panel_title') }}
               </div>
 
               <div class="space-y-3 mt-2">
                 <div>
-                  <label class="label-input !text-danger/70">Jumlah Rusak</label>
+                  <label class="label-input !text-danger/70">{{ t('wms.return.bad_qty_label') }}</label>
                   <input
                     v-model.number="processForm.bad.qty"
                     type="number"
@@ -493,7 +495,7 @@ watch(Slash, pressed => {
                   />
                 </div>
                 <div>
-                  <label class="label-input !text-danger/70">Masuk Lantai (Karantina)</label>
+                  <label class="label-input !text-danger/70">{{ t('wms.return.bad_loc_label') }}</label>
                   <!-- TAMPILAN FIXED UNTUK SAKRUK -->
                   <div
                     class="input-field !bg-danger/5 !border-danger/30 text-danger font-bold flex items-center justify-between cursor-not-allowed select-none"
@@ -507,11 +509,11 @@ watch(Slash, pressed => {
           </div>
 
           <div>
-            <label class="label-input">Catatan Tambahan</label>
+            <label class="label-input">{{ t('wms.return.notes_label') }}</label>
             <textarea
               v-model="processForm.notes"
               rows="2"
-              placeholder="Keterangan tambahan..."
+              :placeholder="t('wms.return.notes_placeholder')"
               class="input-field resize-none"
             ></textarea>
           </div>
@@ -523,7 +525,7 @@ watch(Slash, pressed => {
           >
             <font-awesome-icon v-if="isLoading" icon="fa-solid fa-circle-notch" spin />
             <font-awesome-icon v-else icon="fa-solid fa-save" />
-            <span>{{ isLoading ? 'Memproses...' : 'Simpan & Proses Retur' }}</span>
+            <span>{{ isLoading ? t('common.processing') : t('wms.return.submit_process') }}</span>
             <kbd
               v-if="!isLoading"
               class="hidden md:inline-block ml-1 px-1.5 py-0.5 text-[10px] bg-secondary/20 text-secondary border border-secondary/30 rounded font-mono shadow-sm group-hover:bg-secondary/30 transition-colors"

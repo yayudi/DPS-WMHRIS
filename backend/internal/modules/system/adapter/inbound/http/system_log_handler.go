@@ -27,7 +27,7 @@ func (h *SystemLogHandler) GetLogs(c *gin.Context) {
 
 	res, err := h.systemLogService.GetLogs(c.Request.Context(), req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil log sistem", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "system.logs.fetch_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 

@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log"
 	"strconv"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/iam/domain"
 	"github.com/dps-wmhris/backend/internal/modules/iam/port"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/config"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/eventbus"
@@ -70,16 +70,16 @@ func (s *userServiceImpl) resolveUserPreference(ctx context.Context, userID int)
 func (s *userServiceImpl) Login(ctx context.Context, req iam_dto.LoginRequest) (*iam_dto.LoginResponse, error) {
 	user, err := s.userRepo.FindByUsername(ctx, req.Username)
 	if err != nil {
-		return nil, errors.New("username atau password salah")
+		return nil, apperror.Unauthorized("auth.login.invalid_credentials", "username atau password salah")
 	}
 
 	if !user.IsActive {
-		return nil, errors.New("akun tidak aktif")
+		return nil, apperror.Forbidden("auth.login.account_inactive", "akun tidak aktif")
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err != nil {
-		return nil, errors.New("username atau password salah")
+		return nil, apperror.Unauthorized("auth.login.invalid_credentials", "username atau password salah")
 	}
 
 	// Logging login attempt
@@ -103,7 +103,7 @@ func (s *userServiceImpl) Login(ctx context.Context, req iam_dto.LoginRequest) (
 
 	tokenString, err := token.SignedString([]byte(config.AppConfig.JWTSecret))
 	if err != nil {
-		return nil, errors.New("gagal memproses autentikasi")
+		return nil, apperror.Internal("auth.login.auth_failed", "gagal memproses autentikasi", err)
 	}
 
 	return &iam_dto.LoginResponse{
@@ -122,7 +122,7 @@ func (s *userServiceImpl) Login(ctx context.Context, req iam_dto.LoginRequest) (
 func (s *userServiceImpl) GetProfile(ctx context.Context, userID int) (*iam_dto.UserProfile, error) {
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		return nil, errors.New("user tidak ditemukan")
+		return nil, apperror.NotFound("settings.user.user_not_found", "user tidak ditemukan")
 	}
 
 	_, permissions, _ := s.userRepo.GetRoleAndPermissions(ctx, user.RoleID)
@@ -143,19 +143,19 @@ func (s *userServiceImpl) GetProfile(ctx context.Context, userID int) (*iam_dto.
 func (s *userServiceImpl) UpdateProfile(ctx context.Context, userID int, req iam_dto.UpdateProfileRequest, ip, userAgent string) (*iam_dto.UserProfile, error) {
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		return nil, errors.New("user tidak ditemukan")
+		return nil, apperror.NotFound("settings.user.user_not_found", "user tidak ditemukan")
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword))
 	if err != nil {
-		return nil, errors.New("password saat ini salah")
+		return nil, apperror.Validation("auth.profile.wrong_current_password", "password saat ini salah")
 	}
 
 	var hashedNewPassword *string
 	if req.NewPassword != nil && *req.NewPassword != "" {
 		hash, err := bcrypt.GenerateFromPassword([]byte(*req.NewPassword), bcrypt.DefaultCost)
 		if err != nil {
-			return nil, errors.New("gagal memproses password baru")
+			return nil, apperror.Internal("auth.profile.hash_password_failed", "gagal memproses password baru", err)
 		}
 		hashStr := string(hash)
 		hashedNewPassword = &hashStr
@@ -163,12 +163,12 @@ func (s *userServiceImpl) UpdateProfile(ctx context.Context, userID int, req iam
 
 	err = s.userRepo.UpdateProfile(ctx, userID, req.Nickname, hashedNewPassword)
 	if err != nil {
-		return nil, errors.New("gagal memperbarui profil")
+		return nil, apperror.Internal("auth.profile.update_failed", "gagal memperbarui profil", err)
 	}
 
 	updatedUser, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		return nil, errors.New("gagal mengambil data profil terbaru")
+		return nil, apperror.Internal("auth.profile.fetch_failed", "gagal mengambil data profil terbaru", err)
 	}
 
 	// Logging

@@ -16,22 +16,22 @@
       class="absolute right-0 z-[200] mt-2 w-80 bg-background rounded-md shadow-lg overflow-hidden border border-secondary"
     >
       <div class="px-4 py-3 border-b border-secondary bg-secondary flex justify-between items-center">
-        <h3 class="text-sm font-semibold text-text">Notifikasi</h3>
+        <h3 class="text-sm font-semibold text-text">{{ t('settings.notifications.title') }}</h3>
         <button
           v-if="pendingCount > 0"
           @click="markAllAsDone"
           class="text-xs text-primary hover:opacity-80 font-medium"
         >
-          Tandai semua selesai
+          {{ t('settings.notifications.mark_all_done') }}
         </button>
       </div>
 
       <div class="max-h-96 overflow-y-auto">
         <div v-if="loading" class="p-4 text-center text-muted">
-          <font-awesome-icon icon="fa-solid fa-spinner" class="fa-spin mr-2" /> Memuat...
+          <font-awesome-icon icon="fa-solid fa-spinner" class="fa-spin mr-2" /> {{ t('common.status.loading') }}
         </div>
         <div v-else-if="notifications.length === 0" class="p-4 text-center text-muted text-sm">
-          Tidak ada notifikasi baru.
+          {{ t('settings.notifications.empty') }}
         </div>
         <div v-else>
           <div
@@ -54,7 +54,7 @@
                   v-if="notif.claimed_by && notif.claimed_by !== currentUser?.id"
                   class="mt-1 text-[10px] text-warning bg-warning/10 inline-block px-1.5 py-0.5 rounded border border-warning/20"
                 >
-                  <font-awesome-icon icon="fa-solid fa-hourglass-half" class="mr-1" /> Sedang dikerjakan oleh
+                  <font-awesome-icon icon="fa-solid fa-hourglass-half" class="mr-1" /> {{ t('settings.notifications.claimed_by') }}
                   {{ notif.claimed_by_name }}
                 </div>
                 <p class="text-xs text-muted/70 mt-1">{{ formatTime(notif.created_at) }}</p>
@@ -70,7 +70,7 @@
           @click="isOpen = false"
           class="text-sm font-medium text-primary hover:opacity-80 block p-1"
         >
-          Lihat Semua Notifikasi
+          {{ t('settings.notifications.view_all') }}
         </router-link>
       </div>
     </div>
@@ -83,7 +83,9 @@ import { useRouter } from 'vue-router'
 import { notificationApi } from '@/modules/settings/infrastructure/notification.api'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { useFirebaseSync } from '@/core/presentation/composables/useFirebaseSync'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
+const { t, currentLocale } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.user)
@@ -155,12 +157,12 @@ const formatTime = dateString => {
   if (!dateString) return ''
   const date = new Date(dateString)
   const now = new Date()
-  const diffInMinutes = Math.floor((now - date) / 60000)
+  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / 60000)
 
-  if (diffInMinutes < 1) return 'Baru saja'
-  if (diffInMinutes < 60) return `${diffInMinutes} mnt yang lalu`
-  if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} jam yang lalu`
-  return date.toLocaleDateString('id-ID')
+  if (diffInMinutes < 1) return t('common.time.just_now')
+  if (diffInMinutes < 60) return t('common.time.minutes_ago').replace('{n}', String(diffInMinutes))
+  if (diffInMinutes < 1440) return t('common.time.hours_ago').replace('{n}', String(Math.floor(diffInMinutes / 60)))
+  return date.toLocaleDateString(currentLocale.value || 'id-ID')
 }
 
 // Firebase Realtime Listener

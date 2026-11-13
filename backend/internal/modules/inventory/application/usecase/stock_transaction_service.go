@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -12,6 +11,7 @@ import (
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	"github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/eventbus"
 )
@@ -199,7 +199,7 @@ func (s *stockTransactionService) ExecuteTransaction(ctx context.Context, req in
 			return err
 		}
 		if trx == nil {
-			return errors.New("transaction not found")
+			return apperror.NotFound("wms.transaction.err_not_found", "Transaksi tidak ditemukan")
 		}
 
 		// Load location
@@ -494,7 +494,7 @@ func (s *stockTransactionService) ReleaseHeldFulfillment(ctx context.Context, tr
 			return err
 		}
 		if trx == nil {
-			return errors.New("transaction not found")
+			return apperror.NotFound("wms.transaction.err_not_found", "Transaksi tidak ditemukan")
 		}
 
 		if !trx.CanBeReleased() {
@@ -514,7 +514,7 @@ func (s *stockTransactionService) ReleaseHeldFulfillment(ctx context.Context, tr
 			}
 
 			if totalDisplayAvail < m.TargetQuantity {
-				return fmt.Errorf("insufficient display stock for product %d: needed %d, available %d", m.ProductID, m.TargetQuantity, totalDisplayAvail)
+				return apperror.Validation("wms.transaction.err_insufficient_display", fmt.Sprintf("insufficient display stock for product %d: needed %d, available %d", m.ProductID, m.TargetQuantity, totalDisplayAvail), map[string]any{"product": m.ProductID, "needed": m.TargetQuantity, "available": totalDisplayAvail})
 			}
 
 			alloc := itemAllocation{productID: int(m.ProductID)}

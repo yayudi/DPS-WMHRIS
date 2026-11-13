@@ -1,13 +1,18 @@
 <template>
   <GenericImportModal
     :isOpen="isOpen"
-    title="Import Produk Massal"
+    :title="t('master_data.product.import_title')"
     templateUrl="/products/template"
     templateFilename="Template_Produk.xlsx"
     uploadUrl="/products/batch/product-update"
     :jobType="['BATCH_EDIT_PRODUCT', 'BATCH_EDIT_PRODUCT_DRY_RUN']"
     :additionalData="{ dryRun: isDryRun }"
-    :instructions="['Gunakan file CSV atau Excel (.xlsx)', 'Kolom wajib: sku, name', 'Kolom opsional: price, weight, is_package, is_active', '*Jika SKU sudah ada, data di-update. Jika belum, dibuat baru.']"
+    :instructions="[
+      t('master_data.product.import_instruction_1'),
+      t('master_data.product.import_instruction_2'),
+      t('master_data.product.import_instruction_3'),
+      t('master_data.product.import_instruction_4')
+    ]"
     @close="$emit('close')"
     @success="$emit('success')"
   >
@@ -20,12 +25,12 @@
           class="checkbox checkbox-primary checkbox-sm rounded"
         />
         <label for="dryRunToggle" class="text-sm font-medium cursor-pointer flex-1">
-          Simulasi (Dry Run)
+          {{ t('master_data.product.dry_run_title') }}
         </label>
         <span
           class="text-xs bg-background px-2 py-1 rounded text-text/60 border border-secondary/20 shadow-sm"
         >
-          Cek data tanpa ubah DB
+          {{ t('master_data.product.dry_run_desc') }}
         </span>
       </div>
     </template>
@@ -35,6 +40,9 @@
 <script setup>
 import { ref } from 'vue'
 import GenericImportModal from '@/core/presentation/components/shared/GenericImportModal.vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 defineProps({
   isOpen: Boolean

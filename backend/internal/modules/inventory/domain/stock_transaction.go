@@ -2,8 +2,9 @@ package domain
 
 import (
 	"encoding/json"
-	"errors"
 	"time"
+
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 )
 
 const (
@@ -17,10 +18,11 @@ const (
 )
 
 var (
-	ErrInvalidQuantity        = errors.New("invalid quantity")
-	ErrCrossBuildingProcess   = errors.New("cross building process is not allowed for this transaction")
-	ErrInvalidLocationPurpose = errors.New("location purpose is not allowed for processing")
-	ErrCannotReleaseNotHeld   = errors.New("transaction is not currently held and cannot be released")
+	ErrInvalidQuantity        = apperror.Validation("wms.transaction.err_invalid_quantity", "Jumlah kuantitas tidak valid")
+	ErrCrossBuildingProcess   = apperror.Validation("wms.transaction.err_cross_building", "Proses lintas gedung tidak diizinkan untuk transaksi ini")
+	ErrInvalidLocationPurpose = apperror.Validation("wms.transaction.err_invalid_location_purpose", "Fungsi lokasi tidak diizinkan untuk pemrosesan fulfillment")
+	ErrCannotReleaseNotHeld   = apperror.Validation("wms.transaction.err_not_held", "Transaksi tidak dalam status tertahan dan tidak dapat dilepas")
+	ErrMovementNotFound       = apperror.NotFound("wms.transaction.err_movement_not_found", "Pergerakan barang tidak ditemukan dalam transaksi ini")
 )
 
 // keep: domain model uses uint IDs for Kelja fulfillment aggregate and operations
@@ -91,7 +93,7 @@ func (st *StockTransaction) ProcessLine(movementID uint, scannedLoc *Location, q
 	}
 
 	if targetMove == nil {
-		return errors.New("movement not found in this transaction")
+		return ErrMovementNotFound
 	}
 
 	// Add the line

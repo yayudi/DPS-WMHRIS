@@ -1,9 +1,11 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import BaseQrScanner from '@/core/presentation/components/ui/BaseQrScanner.vue'
 
 const router = useRouter()
+const { t } = useI18n()
 const scanResult = ref('')
 const isPaused = ref(false)
 
@@ -32,14 +34,14 @@ const handleBack = () => {
       >
         <i class="fa-solid fa-arrow-left"></i>
       </button>
-      <h1 class="text-lg font-bold text-text">Uji Coba Scanner</h1>
+      <h1 class="text-lg font-bold text-text">{{ t('wms.scanner_test.title') }}</h1>
     </header>
 
     <!-- Main Content -->
     <main class="flex-1 flex flex-col p-4">
 
       <div class="text-center text-sm text-text/70 mb-6 px-4">
-        Arahkan kamera ke QR Code untuk pemindaian. Pastikan pencahayaan cukup.
+        {{ t('wms.scanner_test.instruction') }}
       </div>
 
       <!-- Scanner Component -->
@@ -57,7 +59,7 @@ const handleBack = () => {
         <div class="bg-background border border-primary/20 p-5 rounded-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
           <div class="flex items-center gap-3 text-green-500 mb-3">
             <i class="fa-solid fa-circle-check text-2xl"></i>
-            <span class="font-bold text-lg">Berhasil Dipindai!</span>
+            <span class="font-bold text-lg">{{ t('wms.scanner_test.scanned_success') }}</span>
           </div>
 
           <div class="bg-background border border-secondary/30 p-3 rounded-lg break-all font-mono text-base text-text mb-6">
@@ -69,7 +71,7 @@ const handleBack = () => {
             class="w-full py-3.5 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all active:scale-[0.98] flex justify-center items-center gap-2"
           >
             <i class="fa-solid fa-qrcode"></i>
-            <span>Pindai QR Lain</span>
+            <span>{{ t('wms.scanner_test.scan_another') }}</span>
           </button>
         </div>
       </div>

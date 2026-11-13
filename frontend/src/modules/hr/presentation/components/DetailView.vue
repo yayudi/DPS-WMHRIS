@@ -1,4 +1,3 @@
-<!-- components\DetailView.vue -->
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { formatJamMenit } from '@/core/utils/time'
@@ -6,6 +5,9 @@ import BaseSkeleton from '@/core/presentation/components/ui/BaseSkeleton.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
 import AttendanceEditModal from '@/modules/hr/presentation/components/AttendanceEditModal.vue'
 import { usePagination } from '@/core/presentation/composables/usePagination'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t, activeLocale } = useI18n()
 
 const props = defineProps({
   user: { type: Object, default: null }, // For single user mode { id, nama, logs[] }
@@ -26,13 +28,13 @@ const tableContainer = ref(null)
 
 function formatRow(log, nama) {
   let ket = ''
-  if (log.status === 1) ket = 'Tidak hadir'
-  else if (log.status === 2) ket = 'Libur'
-  else if (log.status === 4) ket = 'Sakit'
-  else if (log.status === 5) ket = 'Izin'
+  if (log.status === 1) ket = t('hris.attendance.status_not_present')
+  else if (log.status === 2) ket = t('hris.attendance.status_day_off')
+  else if (log.status === 4) ket = t('hris.attendance.status_sick')
+  else if (log.status === 5) ket = t('hris.attendance.status_permit')
 
   // Fallback for Partial Data
-  if (!ket && log.status === 3) ket = 'Data Tidak Lengkap'
+  if (!ket && log.status === 3) ket = t('hris.attendance.status_incomplete')
 
   let fullDate = ''
   let displayDate = ''
@@ -40,7 +42,11 @@ function formatRow(log, nama) {
   if (log.fullDate) {
     fullDate = log.fullDate
     const d = new Date(log.fullDate)
-    displayDate = d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    displayDate = d.toLocaleDateString(activeLocale.value || 'id-ID', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
   } else if (props.year && props.month) {
     fullDate = `${props.year}-${String(props.month).padStart(2, '0')}-${String(log.tanggal).padStart(2, '0')}`
     displayDate = `${log.tanggal}/${props.month}/${props.year}`
@@ -123,28 +129,28 @@ watch(
             <th
               class="px-6 py-3 border-b border-secondary/10 sticky left-0 z-30 bg-background/95 backdrop-blur-md shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)] w-[200px] text-left uppercase text-xs font-bold text-text"
             >
-              Nama
+              {{ t('common.label.name') }}
             </th>
             <th class="px-6 py-3 border-b border-secondary/10 text-center uppercase text-xs font-bold text-text">
-              Tanggal
+              {{ t('common.label.date') }}
             </th>
             <th class="px-6 py-3 border-b border-secondary/10 text-center uppercase text-xs font-bold text-text">
-              Jam Masuk
+              {{ t('hris.detail.clock_in') }}
             </th>
             <th class="px-6 py-3 border-b border-secondary/10 text-center uppercase text-xs font-bold text-text">
-              Mulai Istirahat
+              {{ t('hris.detail.break_start') }}
             </th>
             <th class="px-6 py-3 border-b border-secondary/10 text-center uppercase text-xs font-bold text-text">
-              Selesai Istirahat
+              {{ t('hris.detail.break_end') }}
             </th>
             <th class="px-6 py-3 border-b border-secondary/10 text-center uppercase text-xs font-bold text-text">
-              Jam Keluar
+              {{ t('hris.detail.clock_out') }}
             </th>
             <th class="px-6 py-3 border-b border-secondary/10 text-center uppercase text-xs font-bold text-text">
-              Pardon
+              {{ t('hris.detail.pardon') }}
             </th>
             <th class="px-6 py-3 border-b border-secondary/10 text-left uppercase text-xs font-bold text-text">
-              Keterangan
+              {{ t('common.label.notes') }}
             </th>
           </tr>
         </thead>
@@ -162,7 +168,7 @@ watch(
 
           <tr v-else-if="!allFormattedRows.length" key="empty" class="block md:table-row">
             <td colspan="7" class="py-12 text-center text-text/50 italic block md:table-cell">
-              Tidak ada data untuk periode ini.
+              {{ t('hris.detail.no_data_period') }}
             </td>
           </tr>
 
@@ -189,52 +195,60 @@ watch(
             <td
               class="flex justify-between items-center px-2 md:px-6 py-1 md:py-4 text-center whitespace-nowrap md:table-cell"
             >
-              <span class="md:hidden text-text text-xs uppercase font-semibold">Tanggal</span>
+              <span class="md:hidden text-text text-xs uppercase font-semibold">{{ t('common.label.date') }}</span>
               <span>{{ row.displayDate }}</span>
             </td>
 
             <td
               class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center font-mono text-xs md:text-sm"
             >
-              <span class="md:hidden text-text text-xs uppercase font-semibold">Masuk</span>
+              <span class="md:hidden text-text text-xs uppercase font-semibold">{{
+                t('hris.attendance.clock_in')
+              }}</span>
               <span>{{ row.jamMasukStr }}</span>
             </td>
 
             <td
               class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center font-mono text-xs md:text-sm text-text"
             >
-              <span class="md:hidden text-text text-xs uppercase font-semibold">Mulai Ist</span>
+              <span class="md:hidden text-text text-xs uppercase font-semibold">{{
+                t('hris.detail.break_start_short')
+              }}</span>
               <span>{{ row.breakOut }}</span>
             </td>
             <td
               class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center font-mono text-xs md:text-sm text-text"
             >
-              <span class="md:hidden text-text text-xs uppercase font-semibold">Selesai Ist</span>
+              <span class="md:hidden text-text text-xs uppercase font-semibold">{{
+                t('hris.detail.break_end_short')
+              }}</span>
               <span>{{ row.breakIn }}</span>
             </td>
 
             <td
               class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center font-mono text-xs md:text-sm"
             >
-              <span class="md:hidden text-text text-xs uppercase font-semibold">Keluar</span>
+              <span class="md:hidden text-text text-xs uppercase font-semibold">{{
+                t('hris.attendance.clock_out')
+              }}</span>
               <span>{{ row.jamKeluarStr }}</span>
             </td>
 
             <td
               class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center font-mono text-xs md:text-sm"
             >
-              <span class="md:hidden text-text text-xs uppercase font-semibold">Pardon</span>
+              <span class="md:hidden text-text text-xs uppercase font-semibold">{{ t('hris.detail.pardon') }}</span>
               <span
                 v-if="row.late_pardon_minutes >= 480"
                 class="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded whitespace-nowrap"
               >
-                Diampuni Penuh
+                {{ t('hris.pardon.full_pardon') }}
               </span>
               <span
                 v-else-if="row.late_pardon_minutes > 0"
                 class="text-xs font-bold text-success bg-success/10 px-2 py-1 rounded whitespace-nowrap"
               >
-                Diampuni {{ row.late_pardon_minutes }}m
+                {{ t('hris.pardon.pardoned_minutes', { minutes: row.late_pardon_minutes }) }}
               </span>
               <span v-else class="text-text/30">-</span>
             </td>
@@ -242,15 +256,15 @@ watch(
             <td
               class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 border-t border-secondary/10 md:border-none mt-2 md:mt-0 pt-2 md:pt-4"
             >
-              <span class="md:hidden text-text text-xs uppercase font-semibold">Status</span>
+              <span class="md:hidden text-text text-xs uppercase font-semibold">{{ t('common.label.status') }}</span>
               <span
                 v-if="row.ket"
                 class="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold"
                 :class="{
-                  'bg-danger/10 text-danger': row.ket === 'Tidak hadir',
-                  'bg-warning/10 text-warning': row.ket === 'Data Tidak Lengkap',
-                  'bg-secondary/20 text-text/70': ['Libur'].includes(row.ket),
-                  'bg-accent/10 text-accent': ['Sakit', 'Izin'].includes(row.ket)
+                  'bg-danger/10 text-danger': row.status === 1,
+                  'bg-warning/10 text-warning': row.status === 3,
+                  'bg-secondary/20 text-text/70': row.status === 2,
+                  'bg-accent/10 text-accent': [4, 5].includes(row.status)
                 }"
               >
                 {{ row.ket }}

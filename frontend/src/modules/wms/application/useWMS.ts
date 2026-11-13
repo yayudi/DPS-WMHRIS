@@ -8,21 +8,23 @@ import { useFirebaseSync } from '@/core/presentation/composables/useFirebaseSync
 import { useColumnVisibility } from '@/core/presentation/composables/useColumnVisibility'
 import { transformProduct } from '@/modules/wms/application/useWmsTransform'
 import { usePagination } from '@/core/presentation/composables/usePagination'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const VALID_STOCK_STATUSES = new Set(['all', 'nonzero', 'positive', 'zero', 'negative'])
 
-const AVAILABLE_COLUMNS = [
-  { id: 'sku', label: 'SKU' },
-  { id: 'category', label: 'Kategori' },
-  { id: 'weight', label: 'Berat' },
-  { id: 'dimension', label: 'Dimensi' },
-  { id: 'price', label: 'Harga' },
-  { id: 'location', label: 'Lokasi' },
-  { id: 'stock', label: 'Stok' }
-]
-
 export function useWms() {
+  const { t } = useI18n()
   const auth = useAuthStore()
+
+  const availableColumns = computed(() => [
+    { id: 'sku', label: t('common.label.sku') },
+    { id: 'category', label: t('common.label.category') },
+    { id: 'weight', label: t('wms.table.weight') },
+    { id: 'dimension', label: t('wms.table.dimension') },
+    { id: 'price', label: t('common.label.price') },
+    { id: 'location', label: t('common.label.location') },
+    { id: 'stock', label: t('wms.table.stock') }
+  ])
   const allLocations = ref<any[]>([])
   const activeView = ref('all')
   const displayedProducts = ref<any[]>([])
@@ -225,7 +227,7 @@ export function useWms() {
       totalProducts.value = total
     } catch (err) {
       console.error('Error fetching WMS products from API:', err)
-      if (mode === 'init') error.value = 'Gagal memuat data produk.'
+      if (mode === 'init') error.value = t('wms.dashboard.product_fetch_error')
     } finally {
       if (mode === 'init') loading.value = false
       isLoadingMore.value = false
@@ -316,7 +318,11 @@ export function useWms() {
     }
   )
 
-  const searchPlaceholder = computed(() => `Cari produk berdasarkan ${searchBy.value === 'name' ? 'Nama' : 'SKU'}...`)
+  const searchPlaceholder = computed(() =>
+    t('wms.control.search_placeholder_by', {
+      field: searchBy.value === 'name' ? t('common.label.product_name') : t('common.label.sku')
+    })
+  )
 
   return {
     activeView,
@@ -353,7 +359,7 @@ export function useWms() {
     handleSort,
     toggleAutoRefetch,
     visibleColumns,
-    availableColumns: AVAILABLE_COLUMNS,
+    availableColumns,
     toggleColumn,
     resetAndRefetch,
     fetchProducts

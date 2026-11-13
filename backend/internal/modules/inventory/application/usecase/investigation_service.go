@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"regexp"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
@@ -38,7 +38,7 @@ func (s *investigationServiceImpl) GetDuplicateTransactions(ctx context.Context,
 		t1, err1 := time.Parse("2006-01-02", req.StartDate)
 		t2, err2 := time.Parse("2006-01-02", req.EndDate)
 		if err1 == nil && err2 == nil && t1.After(t2) {
-			return nil, errors.New("tanggal mulai tidak boleh lebih besar dari tanggal akhir")
+			return nil, apperror.Validation("wms.investigation.err_date_range", "Tanggal mulai tidak boleh lebih besar dari tanggal akhir.")
 		}
 	}
 
@@ -143,14 +143,14 @@ func (s *investigationServiceImpl) RevertTransaction(ctx context.Context, transa
 		ext := database.GetExt(ctx, nil)
 		err := ext.GetContext(ctx, &originalTrx, "SELECT id, product_id, quantity, from_location_id, to_location_id, movement_type, notes FROM stock_movements WHERE id = ?", transactionID)
 		if err != nil {
-			return fmt.Errorf("transaksi tidak ditemukan (atau error db): %w", err)
+			return apperror.NotFound("wms.transaction.err_not_found", "transaksi tidak ditemukan (atau error db)")
 		}
 
 		var count int
 		revertNotesPattern := fmt.Sprintf("%%Reversal of Trx #%d%%", transactionID)
 		err = ext.GetContext(ctx, &count, "SELECT COUNT(*) FROM stock_movements WHERE notes LIKE ?", revertNotesPattern)
 		if err == nil && count > 0 {
-			return errors.New("transaksi ini sudah di-revert sebelumnya")
+			return apperror.Conflict("wms.investigation.err_already_reverted", "transaksi ini sudah di-revert sebelumnya")
 		}
 
 		restored := false
@@ -173,7 +173,7 @@ func (s *investigationServiceImpl) RevertTransaction(ctx context.Context, transa
 		}
 
 		if !restored {
-			return errors.New("transaksi tidak valid (tidak ada from_location maupun to_location)")
+			return apperror.Validation("wms.investigation.err_invalid_transaction", "transaksi tidak valid (tidak ada from_location maupun to_location)")
 		}
 
 		origNotes := ""

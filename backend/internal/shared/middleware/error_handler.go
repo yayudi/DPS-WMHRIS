@@ -10,7 +10,7 @@ import (
 // GlobalErrorHandler menangkap panic (recovery) dan memastikan response berbentuk JSON.
 func GlobalErrorHandler() gin.HandlerFunc {
 	return gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Terjadi kesalahan internal pada server.", "SERVER_ERROR")
+		utils.LocalizedError(c, http.StatusInternalServerError, "errors.server_error", nil, "SERVER_ERROR")
 		c.Abort()
 	})
 }

@@ -27,6 +27,7 @@ import (
 	http4 "github.com/dps-wmhris/backend/internal/modules/misc/adapter/inbound/http"
 	mysql4 "github.com/dps-wmhris/backend/internal/modules/misc/adapter/outbound/mysql"
 	usecase4 "github.com/dps-wmhris/backend/internal/modules/misc/application/usecase"
+	"github.com/dps-wmhris/backend/internal/modules/system"
 	"github.com/dps-wmhris/backend/internal/modules/system/adapter/inbound/event"
 	"github.com/dps-wmhris/backend/internal/modules/system/adapter/inbound/http"
 	"github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
@@ -79,7 +80,7 @@ func InitializeAPI(db *sqlx.DB) (*di.Container, error) {
 	mediaService := usecase.NewMediaService(transactionManager, mediaRepository, productRepository, storageService)
 	mediaHandler := http.NewMediaHandler(mediaService, storageService, jobService)
 	localizationRepository := mysql.NewLocalizationRepository(db)
-	localizationUseCase := usecase.NewLocalizationService(localizationRepository, transactionManager, eventBus)
+	localizationUseCase := system.ProvideLocalizationUseCase(localizationRepository, transactionManager, eventBus)
 	localizationHandler := http.NewLocalizationHandler(localizationUseCase)
 	categoryRepository := mysql5.NewCategoryRepository(db)
 	categoryUseCase := usecase5.NewCategoryUseCase(categoryRepository)

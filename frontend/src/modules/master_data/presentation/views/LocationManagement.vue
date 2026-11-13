@@ -18,9 +18,11 @@ import { getLocationBuildingColorClass, getLocationPurposeColorClass } from '@/c
 
 import { useLocations } from '../../application/useLocations'
 import type { Location, CreateLocationPayload, UpdateLocationPayload } from '../../domain/location.entity'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const { isMobile } = useMobile()
 const { toast } = useToast()
+const { t } = useI18n()
 
 const {
   locations: allLocations,
@@ -39,7 +41,7 @@ function isDisallowedFulfillmentPurpose(purpose?: string): boolean {
 
 async function handleToggleFulfillment(loc: Location) {
   if (isDisallowedFulfillmentPurpose(loc.purpose)) {
-    toast(`Lokasi dengan purpose ${loc.purpose} tidak dapat dijadikan sumber fulfillment`, 'warning')
+    toast(t('master_data.location.fulfillment_disallowed_warning', { purpose: loc.purpose }), 'warning')
     return
   }
   const nextVal = !loc.is_fulfillment_source
@@ -178,7 +180,7 @@ function handleContextAction(action: string) {
 async function handleDelete(locationId: number) {
   if (
     await swalConfirm(
-      'Apakah Anda yakin ingin menghapus lokasi ini? Menghapus lokasi yang sedang digunakan akan gagal.'
+      t('master_data.location.confirm_delete')
     )
   ) {
     await deleteLocation(locationId)
@@ -209,7 +211,7 @@ watch(Alt_S, pressed => {
       class="bg-primary text-secondary text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
     >
       <font-awesome-icon icon="fa-solid fa-plus" />
-      <span>Tambah Lokasi</span>
+      <span>{{ t('master_data.location.add_btn') }}</span>
     </button>
   </div>
 
@@ -227,7 +229,7 @@ watch(Alt_S, pressed => {
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Cari kode, gedung, atau nama lokasi..."
+          :placeholder="t('master_data.location.search_placeholder')"
           class="w-full pl-10 pr-4 py-2.5 bg-secondary/5 border border-secondary/20 focus:border-primary focus:bg-background rounded-lg text-sm transition-all focus:ring-4 focus:ring-primary/10 outline-none placeholder:text-text/40"
         />
         <button
@@ -244,7 +246,7 @@ watch(Alt_S, pressed => {
           <TriStateSelect
             v-model="selectedBuilding"
             :options="buildingOptions"
-            placeholder="Semua Gedung"
+            :placeholder="t('common.filter.all_buildings')"
             :searchable="true"
           />
         </div>
@@ -253,7 +255,7 @@ watch(Alt_S, pressed => {
           <TriStateSelect
             v-model="selectedPurpose"
             :options="purposeOptions"
-            placeholder="Semua Purpose"
+            :placeholder="t('common.filter.all_purposes')"
             :searchable="true"
           />
         </div>
@@ -272,13 +274,13 @@ watch(Alt_S, pressed => {
             <th
               class="px-6 py-3 sticky left-0 z-30 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]"
             >
-              Kode
+              {{ t('master_data.location.code') }}
             </th>
-            <th class="px-6 py-3 border-b border-secondary/10">Gedung</th>
-            <th class="px-6 py-3 border-b border-secondary/10">Lantai</th>
-            <th class="px-6 py-3 border-b border-secondary/10">Nama/Deskripsi</th>
-            <th class="px-6 py-3 border-b border-secondary/10">Purpose</th>
-            <th class="px-6 py-3 border-b border-secondary/10 text-center">Sumber Fulfillment</th>
+            <th class="px-6 py-3 border-b border-secondary/10">{{ t('common.label.building') }}</th>
+            <th class="px-6 py-3 border-b border-secondary/10">{{ t('common.label.floor') }}</th>
+            <th class="px-6 py-3 border-b border-secondary/10">{{ t('master_data.location.name') }}</th>
+            <th class="px-6 py-3 border-b border-secondary/10">{{ t('common.label.purpose') }}</th>
+            <th class="px-6 py-3 border-b border-secondary/10 text-center">{{ t('master_data.location.fulfillment_source') }}</th>
           </tr>
         </thead>
         <TransitionGroup
@@ -299,12 +301,12 @@ watch(Alt_S, pressed => {
           </template>
 
           <tr v-else-if="allLocations.length === 0" key="empty">
-            <td colspan="6" class="py-12 text-center text-text/50 italic">Tidak ada data lokasi yang tersedia.</td>
+            <td colspan="6" class="py-12 text-center text-text/50 italic">{{ t('master_data.location.empty') }}</td>
           </tr>
 
           <tr v-else-if="filteredLocations.length === 0" key="not-found">
             <td colspan="6" class="py-12 text-center text-text/50 italic">
-              Tidak ada lokasi yang cocok dengan filter.
+              {{ t('master_data.location.not_found') }}
             </td>
           </tr>
 
@@ -328,7 +330,7 @@ watch(Alt_S, pressed => {
                   : 'px-6 py-4 sticky left-0 z-20 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]'
               "
             >
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans">Kode</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans">{{ t('master_data.location.code') }}</span>
               <span
                 contenteditable="true"
                 class="outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[30px]"
@@ -338,7 +340,7 @@ watch(Alt_S, pressed => {
               >
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'">
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Gedung</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.building') }}</span>
               <span
                 contenteditable="true"
                 class="outline-none focus:ring-2 focus:ring-primary inline-flex items-center px-2 py-1 -mx-2 rounded min-w-[30px] font-medium ring-1 ring-inset"
@@ -349,7 +351,7 @@ watch(Alt_S, pressed => {
               >
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'">
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Lantai</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.floor') }}</span>
               <span
                 contenteditable="true"
                 class="outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[30px]"
@@ -362,7 +364,7 @@ watch(Alt_S, pressed => {
               class="text-text/80"
               :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
             >
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Nama</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('master_data.location.name') }}</span>
               <span
                 contenteditable="true"
                 class="outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[30px]"
@@ -375,7 +377,7 @@ watch(Alt_S, pressed => {
               class="font-mono text-xs"
               :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
             >
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans font-semibold">Purpose</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans font-semibold">{{ t('common.label.purpose') }}</span>
               <span
                 class="inline-flex items-center px-2 py-1 -mx-2 rounded font-medium ring-1 ring-inset"
                 :class="getLocationPurposeColorClass(loc.purpose)"
@@ -395,7 +397,7 @@ watch(Alt_S, pressed => {
               class="text-center"
               :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
             >
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans font-semibold">Sumber Fulfillment</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans font-semibold">{{ t('master_data.location.fulfillment_source') }}</span>
               <div class="inline-flex items-center gap-1.5 justify-center">
                 <button
                   type="button"
@@ -403,7 +405,7 @@ watch(Alt_S, pressed => {
                   @click="handleToggleFulfillment(loc)"
                   class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 disabled:opacity-30 disabled:cursor-not-allowed"
                   :class="loc.is_fulfillment_source ? 'bg-primary' : 'bg-secondary/30'"
-                  :title="isDisallowedFulfillmentPurpose(loc.purpose) ? 'Purpose ini tidak dapat dijadikan sumber fulfillment' : (loc.is_fulfillment_source ? 'Aktif sebagai sumber fulfillment otomatis' : 'Klik untuk mengaktifkan sebagai sumber fulfillment')"
+                  :title="isDisallowedFulfillmentPurpose(loc.purpose) ? t('master_data.location.fulfillment_disallowed_tooltip') : (loc.is_fulfillment_source ? t('master_data.location.fulfillment_active_tooltip') : t('master_data.location.fulfillment_inactive_tooltip'))"
                 >
                   <span
                     class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out"
@@ -414,7 +416,7 @@ watch(Alt_S, pressed => {
                   v-if="loc.is_fulfillment_source"
                   class="text-[11px] font-semibold text-primary uppercase ml-0.5"
                 >
-                  Aktif
+                  {{ t('common.status.active') }}
                 </span>
               </div>
             </td>
@@ -441,8 +443,8 @@ watch(Alt_S, pressed => {
     :x="contextMenu.x"
     :y="contextMenu.y"
     :options="[
-      { label: 'Edit Lengkap', action: 'edit', icon: 'fa-solid fa-pen-to-square' },
-      { label: 'Hapus Lokasi', action: 'delete', icon: 'fa-solid fa-trash', danger: true }
+      { label: t('master_data.location.context_edit'), action: 'edit', icon: 'fa-solid fa-pen-to-square' },
+      { label: t('master_data.location.context_delete'), action: 'delete', icon: 'fa-solid fa-trash', danger: true }
     ]"
     @close="contextMenu.visible = false"
     @action="handleContextAction"
@@ -453,11 +455,11 @@ watch(Alt_S, pressed => {
     <BaseModal
       :show="isModalOpen"
       @close="isModalOpen = false"
-      :title="isEditing ? 'Edit Lokasi' : 'Tambah Lokasi Baru'"
+      :title="isEditing ? t('master_data.location.modal_edit_title') : t('master_data.location.modal_add_title')"
     >
       <form @submit.prevent="handleSave" class="p-6 space-y-4">
         <div>
-          <label class="block text-sm font-medium text-text/80 mb-1">Kode Lokasi</label>
+          <label class="block text-sm font-medium text-text/80 mb-1">{{ t('analytics.capacity.col_location_code') }}</label>
           <input
             v-model="selectedLocation.code"
             type="text"
@@ -467,39 +469,39 @@ watch(Alt_S, pressed => {
           />
         </div>
         <div>
-          <label class="block text-sm font-medium text-text/80 mb-1">Gedung</label>
+          <label class="block text-sm font-medium text-text/80 mb-1">{{ t('common.label.building') }}</label>
           <input
             v-model="selectedLocation.building"
             type="text"
             required
             list="building-datalist"
             class="w-full input-field"
-            placeholder="Pilih atau ketik gedung baru..."
+            :placeholder="t('master_data.location.building_placeholder')"
             autocomplete="off"
           />
           <datalist id="building-datalist">
             <option v-for="b in buildingOptions" :key="b" :value="b" />
           </datalist>
-          <p class="text-[11px] text-text/40 mt-1">Pilih dari daftar, atau ketik nama gedung baru</p>
+          <p class="text-[11px] text-text/40 mt-1">{{ t('master_data.location.building_hint') }}</p>
         </div>
         <div>
-          <label class="block text-sm font-medium text-text/80 mb-1">Purpose</label>
+          <label class="block text-sm font-medium text-text/80 mb-1">{{ t('common.label.purpose') }}</label>
           <input
             v-model="selectedLocation.purpose"
             type="text"
             required
             list="purpose-datalist"
             class="w-full input-field"
-            placeholder="Pilih atau ketik purpose baru..."
+            :placeholder="t('master_data.location.purpose_placeholder')"
             autocomplete="off"
           />
           <datalist id="purpose-datalist">
             <option v-for="p in purposeOptions" :key="p" :value="p" />
           </datalist>
-          <p class="text-[11px] text-text/40 mt-1">Pilih dari daftar, atau ketik purpose baru</p>
+          <p class="text-[11px] text-text/40 mt-1">{{ t('master_data.location.purpose_hint') }}</p>
         </div>
         <div>
-          <label class="block text-sm font-medium text-text/80 mb-1">Lantai (Opsional)</label>
+          <label class="block text-sm font-medium text-text/80 mb-1">{{ t('common.label.floor') }}</label>
           <input
             v-model.number="selectedLocation.floor"
             type="number"
@@ -508,7 +510,7 @@ watch(Alt_S, pressed => {
           />
         </div>
         <div>
-          <label class="block text-sm font-medium text-text/80 mb-1">Nama/Deskripsi (Opsional)</label>
+          <label class="block text-sm font-medium text-text/80 mb-1">{{ t('master_data.location.name_label') }}</label>
           <input
             v-model="selectedLocation.name"
             type="text"
@@ -525,13 +527,13 @@ watch(Alt_S, pressed => {
             class="rounded border-secondary/50 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
           />
           <label for="is_fulfillment_source" class="text-sm font-medium text-text/80 select-none cursor-pointer">
-            Jadikan Sumber Stok Fulfillment Otomatis (Marketplace / Kelja)
+            {{ t('master_data.location.fulfillment_checkbox_label') }}
           </label>
         </div>
       </form>
       <template #footer>
-        <button type="button" @click="isModalOpen = false" class="btn-secondary">Batal</button>
-        <button type="submit" @click="handleSave" class="btn-primary">Simpan</button>
+        <button type="button" @click="isModalOpen = false" class="btn-secondary">{{ t('common.btn.cancel') }}</button>
+        <button type="submit" @click="handleSave" class="btn-primary">{{ t('common.btn.save') }}</button>
       </template>
     </BaseModal>
   </Teleport>

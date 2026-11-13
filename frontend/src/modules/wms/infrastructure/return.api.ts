@@ -8,8 +8,7 @@ export const returnApi = {
   },
 
   async createReturn(payload: ReturnData): Promise<any> {
-    const response = await http.post('/wms/returns', payload)
-    return response.data
+    return http.post('/wms/returns', payload)
   },
 
   async getPendingReturns(params: Record<string, any> = {}): Promise<any> {
@@ -28,7 +27,6 @@ export const returnApi = {
   },
 
   async createManualReturn(payload: any): Promise<any> {
-    const response = await http.post('/returns/manual-entry', payload)
-    return response.data
+    return http.post('/returns/manual-entry', payload)
   }
 }

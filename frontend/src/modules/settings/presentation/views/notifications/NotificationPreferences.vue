@@ -2,10 +2,10 @@
   <div class="p-6 max-w-2xl mx-auto">
     <div class="mb-6">
       <button @click="router.back()" class="text-muted hover:text-text mb-4 inline-flex items-center">
-        <font-awesome-icon icon="fa-solid fa-arrow-left" class="mr-2" /> Kembali
+        <font-awesome-icon icon="fa-solid fa-arrow-left" class="mr-2" /> {{ t('common.btn.back') }}
       </button>
-      <h1 class="text-2xl font-bold text-text">Preferensi Notifikasi</h1>
-      <p class="text-muted mt-1 text-sm">Atur notifikasi mana saja yang ingin Anda terima melalui aplikasi web.</p>
+      <h1 class="text-2xl font-bold text-text">{{ t('settings.notifications.pref_title') }}</h1>
+      <p class="text-muted mt-1 text-sm">{{ t('settings.notifications.pref_subtitle') }}</p>
     </div>
 
     <div class="bg-background rounded-lg border border-secondary shadow-sm overflow-hidden">
@@ -41,7 +41,7 @@
               role="switch"
               :aria-checked="pref.is_enabled"
             >
-              <span class="sr-only">Use setting</span>
+              <span class="sr-only">{{ t('settings.notifications.use_setting') }}</span>
               <span
                 aria-hidden="true"
                 class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
@@ -59,7 +59,7 @@
           class="px-6 py-2 bg-primary text-white font-medium rounded hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           <font-awesome-icon v-if="saving" icon="fa-solid fa-spinner" class="fa-spin mr-2" />
-          {{ saving ? 'Menyimpan...' : 'Simpan Perubahan' }}
+          {{ saving ? t('common.status.saving') : t('common.btn.save_changes') }}
         </button>
       </div>
     </div>
@@ -71,7 +71,9 @@ import { notificationApi } from '../../../infrastructure/notification.api'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
+const { t } = useI18n()
 const router = useRouter()
 const loading = ref(true)
 const saving = ref(false)
@@ -83,7 +85,7 @@ onMounted(async () => {
     const data = await notificationApi.getPreferences()
     preferences.value = data
   } catch {
-    toast('Gagal memuat preferensi', 'error')
+    toast(t('settings.notifications.load_pref_error'), 'error')
   } finally {
     loading.value = false
   }
@@ -96,10 +98,10 @@ const togglePreference = index => {
 const savePreferences = async () => {
   saving.value = true
   try {
-    await notificationApi.updatePreferences(preferences.value)
-    toast('Preferensi disimpan', 'success')
+    const res = await notificationApi.updatePreferences(preferences.value)
+    toast(res?.message || t('common.status.success'), 'success')
   } catch {
-    toast('Gagal menyimpan preferensi', 'error')
+    toast(t('settings.notifications.save_pref_error'), 'error')
   } finally {
     saving.value = false
   }
@@ -107,18 +109,18 @@ const savePreferences = async () => {
 
 const getTitle = type => {
   const titles = {
-    WMS: 'Notifikasi WMS (Gudang)',
-    HRIS: 'Notifikasi HRIS (SDM)',
-    SYSTEM: 'Pembaruan Sistem'
+    WMS: t('settings.notifications.title_wms'),
+    HRIS: t('settings.notifications.title_hris'),
+    SYSTEM: t('settings.notifications.title_system')
   }
   return titles[type] || type
 }
 
 const getDescription = type => {
   const descs = {
-    WMS: 'Peringatan stok menipis, jadwal opname, pesanan masuk, dll.',
-    HRIS: 'Permintaan cuti, peringatan absensi, pengumuman HR, dll.',
-    SYSTEM: 'Maintenance server, fitur baru, dan peringatan keamanan.'
+    WMS: t('settings.notifications.desc_wms'),
+    HRIS: t('settings.notifications.desc_hris'),
+    SYSTEM: t('settings.notifications.desc_system')
   }
   return descs[type] || ''
 }

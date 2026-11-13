@@ -6,7 +6,6 @@ import (
 
 	"net/http"
 
-	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 
 	"github.com/gin-gonic/gin"
@@ -27,29 +26,28 @@ func (h *LocationHandler) Create(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	location, err := h.locationService.CreateLocation(c.Request.Context(), userID, req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusCreated, "Lokasi berhasil dibuat", location)
+	utils.SuccessResponse(c, http.StatusCreated, "master_data.location.create_success", location)
 }
 
 func (h *LocationHandler) GetAll(c *gin.Context) {
 	locations, err := h.locationService.GetAllLocations(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Berhasil mengambil data lokasi", locations)
+	utils.SuccessDataResponse(c, http.StatusOK, locations)
 }
 
 func (h *LocationHandler) Update(c *gin.Context) {
@@ -64,18 +62,17 @@ func (h *LocationHandler) Update(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	if err := h.locationService.UpdateLocation(c.Request.Context(), userID, id, req); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Lokasi berhasil diperbarui.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "master_data.location.update_success", nil)
 }
 
 func (h *LocationHandler) Delete(c *gin.Context) {
@@ -84,18 +81,17 @@ func (h *LocationHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	if err := h.locationService.DeleteLocation(c.Request.Context(), userID, id); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Lokasi berhasil dihapus.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "master_data.location.delete_success", nil)
 }
 
 func (h *LocationHandler) GetStockSample(c *gin.Context) {
@@ -106,7 +102,7 @@ func (h *LocationHandler) GetStockSample(c *gin.Context) {
 
 	results, err := h.locationService.GetStockSample(c.Request.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -119,9 +115,8 @@ func (h *LocationHandler) ToggleFulfillmentSource(c *gin.Context) {
 		return
 	}
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -129,14 +124,14 @@ func (h *LocationHandler) ToggleFulfillmentSource(c *gin.Context) {
 		IsFulfillmentSource bool `json:"is_fulfillment_source"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Request body tidak valid", "INVALID_REQUEST")
+		utils.ErrorResponse(c, http.StatusBadRequest, "errors.validation_error", "INVALID_REQUEST")
 		return
 	}
 
 	if err := h.locationService.ToggleFulfillmentSource(c.Request.Context(), userID, id, req.IsFulfillmentSource); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "TOGGLE_FULFILLMENT_SOURCE_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Status sumber fulfillment berhasil diubah", nil)
+	utils.SuccessResponse(c, http.StatusOK, "master_data.location.fulfillment_source_updated", nil)
 }

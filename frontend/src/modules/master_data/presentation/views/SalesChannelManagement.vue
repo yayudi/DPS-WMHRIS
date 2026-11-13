@@ -11,12 +11,14 @@ import { usePagination } from '@/core/presentation/composables/usePagination'
 import BaseContextMenu from '@/core/presentation/components/ui/BaseContextMenu.vue'
 import { useContextMenu } from '@/core/presentation/composables/useContextMenu'
 import { useInstantInlineEdit } from '@/core/presentation/composables/useInstantInlineEdit'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 import { useSalesChannels } from '../../application/useSalesChannels'
 import type { SalesChannel } from '../../domain/sales_channel.entity'
 
 const { isMobile } = useMobile()
 const { toast } = useToast()
+const { t } = useI18n()
 
 const {
   salesChannels: channels,
@@ -92,7 +94,7 @@ const closeModal = () => {
 
 const saveChannel = async () => {
   if (!formData.value.name) {
-    toast('Nama Toko / Sales harus diisi.', 'warning')
+    toast(t('master_data.channel.empty_name_error'), 'warning')
     return
   }
 
@@ -122,8 +124,8 @@ const saveChannel = async () => {
 const confirmDelete = async (item: any) => {
   if (
     !(await swalConfirm(
-      'Konfirmasi Hapus',
-      `Apakah Anda yakin ingin menghapus saluran ${item.name}? Data ini akan dinonaktifkan (soft delete) untuk menjaga integritas data riwayat penjualan.`
+      t('master_data.channel.confirm_delete_title'),
+      t('master_data.channel.confirm_delete_desc', { name: item.name })
     ))
   )
     return
@@ -151,7 +153,7 @@ const { handleCellBlur, handleDropdownChange } = useInstantInlineEdit(
 
 const validateChannelName = (val: string) => {
   if (!val) {
-    toast('Nama Toko / Sales harus diisi.', 'warning')
+    toast(t('master_data.channel.empty_name_error'), 'warning')
     return false
   }
   return true
@@ -175,7 +177,7 @@ const handleContextAction = (action: string) => {
         class="bg-primary text-secondary text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-md shadow-primary/20"
       >
         <font-awesome-icon icon="fa-solid fa-plus" />
-        <span>Tambah Saluran</span>
+        <span>{{ t('master_data.channel.add_btn') }}</span>
       </button>
     </div>
 
@@ -190,10 +192,10 @@ const handleContextAction = (action: string) => {
             :class="isMobile ? 'hidden' : 'sticky top-0 z-30'"
           >
             <tr class="text-xs text-text/80 uppercase">
-              <th class="px-6 py-3 border-b border-secondary/10">Platform</th>
-              <th class="px-6 py-3 border-b border-secondary/10">Nama Toko / Sales</th>
-              <th class="px-6 py-3 border-b border-secondary/10">Keterangan</th>
-              <th class="px-6 py-3 border-b border-secondary/10 text-center">Status</th>
+              <th class="px-6 py-3 border-b border-secondary/10">{{ t('master_data.channel.col_platform') }}</th>
+              <th class="px-6 py-3 border-b border-secondary/10">{{ t('master_data.channel.col_store_name') }}</th>
+              <th class="px-6 py-3 border-b border-secondary/10">{{ t('master_data.channel.col_notes') }}</th>
+              <th class="px-6 py-3 border-b border-secondary/10 text-center">{{ t('common.label.status') }}</th>
             </tr>
           </thead>
           <TransitionGroup
@@ -217,7 +219,7 @@ const handleContextAction = (action: string) => {
             <tr v-else-if="channels.length === 0" key="empty">
               <td colspan="4" class="py-12 text-center text-text/50 italic">
                 <font-awesome-icon icon="fa-solid fa-store-slash" class="text-3xl text-text/20 mb-3 block" />
-                Belum ada data saluran penjualan.
+                {{ t('master_data.channel.empty_desc') }}
               </td>
             </tr>
 
@@ -236,7 +238,7 @@ const handleContextAction = (action: string) => {
               <td
                 :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Platform</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('master_data.channel.col_platform') }}</span>
                 <select
                   class="outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded text-xs text-background font-bold cursor-pointer"
                   :class="
@@ -257,7 +259,7 @@ const handleContextAction = (action: string) => {
               <td
                 :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Nama Toko</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('master_data.channel.col_store_name') }}</span>
                 <span
                   class="font-medium text-text outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[50px]"
                   contenteditable="true"
@@ -269,7 +271,7 @@ const handleContextAction = (action: string) => {
               <td
                 :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Keterangan</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('master_data.channel.col_notes') }}</span>
                 <span
                   class="text-text/60 truncate max-w-xs outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[50px]"
                   contenteditable="true"
@@ -285,15 +287,15 @@ const handleContextAction = (action: string) => {
                     : 'px-6 py-4 text-center'
                 "
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Status</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.status') }}</span>
                 <select
                   class="text-background outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded text-xs font-bold cursor-pointer"
                   :class="item.is_active === 1 || item.is_active === true ? 'bg-success' : 'bg-danger'"
                   :value="item.is_active === 1 || item.is_active === true"
                   @change="handleDropdownChange(item, 'is_active', ($event.target as HTMLSelectElement).value === 'true')"
                 >
-                  <option :value="true" class="bg-background text-text">Aktif</option>
-                  <option :value="false" class="bg-background text-text">Nonaktif</option>
+                  <option :value="true" class="bg-background text-text">{{ t('common.status.active') }}</option>
+                  <option :value="false" class="bg-background text-text">{{ t('common.status.inactive') }}</option>
                 </select>
               </td>
             </tr>
@@ -319,8 +321,8 @@ const handleContextAction = (action: string) => {
       :x="contextMenu.x"
       :y="contextMenu.y"
       :options="[
-        { label: 'Edit Lengkap', action: 'edit', icon: 'fa-solid fa-pen-to-square' },
-        { label: 'Hapus Saluran', action: 'delete', icon: 'fa-solid fa-trash', danger: true }
+        { label: t('master_data.location.context_edit'), action: 'edit', icon: 'fa-solid fa-pen-to-square' },
+        { label: t('master_data.channel.context_delete'), action: 'delete', icon: 'fa-solid fa-trash', danger: true }
       ]"
       @close="contextMenu.visible = false"
       @action="handleContextAction"
@@ -332,14 +334,14 @@ const handleContextAction = (action: string) => {
         <template #title>
           <div class="-mt-1">
             <h3 class="font-bold text-text">
-              {{ modalMode === 'add' ? 'Tambah Saluran Penjualan' : 'Edit Saluran Penjualan' }}
+              {{ modalMode === 'add' ? t('master_data.channel.modal_title_add') : t('master_data.channel.modal_title_edit') }}
             </h3>
           </div>
         </template>
 
         <div class="space-y-4">
           <div>
-            <label class="block text-xs font-bold text-text/70 mb-1">Platform <span class="text-danger">*</span></label>
+            <label class="block text-xs font-bold text-text/70 mb-1">{{ t('master_data.channel.platform_label') }} <span class="text-danger">*</span></label>
             <select
               v-model="formData.platform"
               class="w-full bg-background border border-secondary/30 rounded-lg px-3 py-2 text-sm text-text focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none"
@@ -350,22 +352,22 @@ const handleContextAction = (action: string) => {
 
           <div>
             <label class="block text-xs font-bold text-text/70 mb-1"
-              >Nama Toko / Sales <span class="text-danger">*</span></label
+              >{{ t('master_data.channel.store_name_label') }} <span class="text-danger">*</span></label
             >
             <input
               v-model="formData.name"
               type="text"
-              placeholder="Contoh: Toko Maju Jaya"
+              :placeholder="t('master_data.channel.store_name_placeholder')"
               class="w-full bg-background border border-secondary/30 rounded-lg px-3 py-2 text-sm text-text focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-text/70 mb-1">Keterangan (Opsional)</label>
+            <label class="block text-xs font-bold text-text/70 mb-1">{{ t('master_data.channel.notes_label') }}</label>
             <textarea
               v-model="formData.description"
               rows="2"
-              placeholder="Contoh: Akun cabang Budi"
+              :placeholder="t('master_data.channel.notes_placeholder')"
               class="w-full bg-background border border-secondary/30 rounded-lg px-3 py-2 text-sm text-text focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none resize-none"
             ></textarea>
           </div>
@@ -383,9 +385,9 @@ const handleContextAction = (action: string) => {
               </div>
               <div>
                 <span class="text-sm font-bold text-text group-hover:text-primary transition-colors"
-                  >Saluran Aktif</span
+                  >{{ t('master_data.channel.active_label') }}</span
                 >
-                <p class="text-[10px] text-text/50">Nonaktifkan jika toko tutup / sales resign.</p>
+                <p class="text-[10px] text-text/50">{{ t('master_data.channel.active_hint') }}</p>
               </div>
             </label>
           </div>
@@ -397,7 +399,7 @@ const handleContextAction = (action: string) => {
               @click="closeModal"
               class="px-4 py-2 text-sm font-bold text-text/60 hover:text-text transition-colors"
             >
-              Batal
+              {{ t('common.btn.cancel') }}
             </button>
             <button
               @click="saveChannel"
@@ -405,7 +407,7 @@ const handleContextAction = (action: string) => {
               class="px-6 py-2 bg-primary text-secondary text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               <font-awesome-icon v-if="isSaving" icon="fa-solid fa-spinner" spin />
-              Simpan
+              {{ t('common.btn.save') }}
             </button>
           </div>
         </template>

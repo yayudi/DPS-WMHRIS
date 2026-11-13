@@ -4,6 +4,7 @@ import { onClickOutside } from '@vueuse/core'
 import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/vue'
 import 'cropperjs' // This auto-registers the web components (e.g. <cropper-canvas>)
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const props = defineProps({
   show: Boolean,
@@ -11,6 +12,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'save'])
+const { t } = useI18n()
 
 const cropperKey = ref(0)
 const cropperImage = ref(null)
@@ -144,7 +146,7 @@ const closeModal = () => {
     <template #title>
       <div class="flex items-center gap-2">
         <font-awesome-icon icon="fa-solid fa-crop-simple" class="text-primary" />
-        Edit Gambar
+        {{ t('core.media.cropper_title') }}
       </div>
     </template>
 
@@ -154,7 +156,7 @@ const closeModal = () => {
     >
       <div v-if="!isModalReady" class="text-text/50 flex flex-col items-center gap-2">
         <font-awesome-icon icon="fa-solid fa-spinner" spin class="text-2xl text-primary" />
-        <span class="text-sm">Menyiapkan editor...</span>
+        <span class="text-sm">{{ t('core.media.cropper_preparing') }}</span>
       </div>
       <cropper-canvas
         v-if="isModalReady"
@@ -201,28 +203,28 @@ const closeModal = () => {
           <button
             @click="rotateLeft"
             class="px-4 py-2 rounded-lg bg-secondary text-text font-medium hover:brightness-95 transition-all flex items-center gap-2"
-            title="Putar Kiri"
+            :title="t('core.media.cropper_rotate_left')"
           >
             <font-awesome-icon icon="fa-solid fa-rotate-left" />
           </button>
           <button
             @click="rotateRight"
             class="px-4 py-2 rounded-lg bg-secondary text-text font-medium hover:brightness-95 transition-all flex items-center gap-2"
-            title="Putar Kanan"
+            :title="t('core.media.cropper_rotate_right')"
           >
             <font-awesome-icon icon="fa-solid fa-rotate-right" />
           </button>
           <button
             @click="flipHorizontal"
             class="px-4 py-2 rounded-lg bg-secondary text-text font-medium hover:brightness-95 transition-all flex items-center gap-2"
-            title="Flip Horizontal"
+            :title="t('core.media.cropper_flip_horizontal')"
           >
             <font-awesome-icon icon="fa-solid fa-arrows-left-right" />
           </button>
           <button
             @click="flipVertical"
             class="px-4 py-2 rounded-lg bg-secondary text-text font-medium hover:brightness-95 transition-all flex items-center gap-2"
-            title="Flip Vertical"
+            :title="t('core.media.cropper_flip_vertical')"
           >
             <font-awesome-icon icon="fa-solid fa-arrows-up-down" />
           </button>
@@ -232,9 +234,9 @@ const closeModal = () => {
               ref="dropdownBtnRef"
               @click="toggleRatioDropdown"
               class="px-4 py-2 rounded-lg bg-secondary text-text font-medium hover:brightness-95 transition-all flex items-center gap-2"
-              title="Aspect Ratio"
+              :title="t('core.media.cropper_aspect_ratio')"
             >
-              <font-awesome-icon icon="fa-solid fa-expand" /> Rasio
+              <font-awesome-icon icon="fa-solid fa-expand" /> {{ t('core.media.cropper_aspect_ratio') }}
             </button>
 
             <Teleport to="body">
@@ -248,7 +250,7 @@ const closeModal = () => {
                   <a
                     @click="setAspectRatio(NaN)"
                     :class="{ 'bg-primary/20 text-primary font-bold': aspectRatio === undefined }"
-                    >Bebas</a
+                    >{{ t('core.media.cropper_ratio_free') }}</a
                   >
                 </li>
                 <li>
@@ -278,9 +280,9 @@ const closeModal = () => {
           <button
             @click="reset"
             class="px-4 py-2 rounded-lg bg-secondary text-text font-medium hover:brightness-95 transition-all flex items-center gap-2"
-            title="Reset"
+            :title="t('common.btn.reset')"
           >
-            <font-awesome-icon icon="fa-solid fa-arrow-rotate-left" /> Reset
+            <font-awesome-icon icon="fa-solid fa-arrow-rotate-left" /> {{ t('common.btn.reset') }}
           </button>
         </div>
 
@@ -291,7 +293,7 @@ const closeModal = () => {
             class="px-4 py-2 rounded-lg text-text hover:bg-secondary transition-colors"
             :disabled="isProcessing"
           >
-            Batal
+            {{ t('common.btn.cancel') }}
           </button>
           <button
             @click="save"
@@ -300,7 +302,7 @@ const closeModal = () => {
           >
             <font-awesome-icon v-if="isProcessing" icon="fa-solid fa-spinner" spin />
             <font-awesome-icon v-else icon="fa-solid fa-check" />
-            Simpan Perubahan
+            {{ t('common.btn.save_changes') }}
           </button>
         </div>
       </div>

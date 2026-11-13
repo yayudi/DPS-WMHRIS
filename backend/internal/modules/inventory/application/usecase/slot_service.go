@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 )
@@ -255,7 +255,7 @@ func (s *slotServiceImpl) GetSlotLogs(ctx context.Context, productID int, locati
 // GetPickingLocationsForKelja resolves detailed physical locations and ambalan coordinates for an order reference.
 func (s *slotServiceImpl) GetPickingLocationsForKelja(ctx context.Context, referenceID string) (*inventory_dto.KeljaPickingLocationsResponse, error) {
 	if referenceID == "" {
-		return nil, errors.New("reference_id is required")
+		return nil, apperror.Validation("wms.slotting.err_ref_required", "Parameter reference_id wajib diisi")
 	}
 
 	trx, err := s.trxRepo.GetByReference(ctx, "KELJA_FULFILLMENT", referenceID)
@@ -263,7 +263,7 @@ func (s *slotServiceImpl) GetPickingLocationsForKelja(ctx context.Context, refer
 		return nil, err
 	}
 	if trx == nil {
-		return nil, fmt.Errorf("fulfillment with reference %s not found", referenceID)
+		return nil, apperror.NotFound("wms.slotting.err_fulfillment_not_found", fmt.Sprintf("fulfillment with reference %s not found", referenceID), map[string]any{"reference": referenceID})
 	}
 
 	fullTrx, err := s.trxRepo.GetByID(ctx, trx.ID)
@@ -271,7 +271,7 @@ func (s *slotServiceImpl) GetPickingLocationsForKelja(ctx context.Context, refer
 		return nil, err
 	}
 	if fullTrx == nil {
-		return nil, fmt.Errorf("fulfillment transaction %d not found", trx.ID)
+		return nil, apperror.NotFound("wms.slotting.err_fulfillment_trx_not_found", fmt.Sprintf("fulfillment transaction %d not found", trx.ID), map[string]any{"id": trx.ID})
 	}
 
 	resp := &inventory_dto.KeljaPickingLocationsResponse{

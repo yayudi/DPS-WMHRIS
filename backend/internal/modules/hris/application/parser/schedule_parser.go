@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/dps-wmhris/backend/internal/parser"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 )
 
 type ScheduleRow struct {
@@ -17,11 +18,11 @@ type ScheduleRow struct {
 func ParseScheduleExcel(filepath string) ([]ScheduleRow, []string, error) {
 	records, err := parser.ReadExcelFile(filepath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("file Excel tidak valid atau rusak: %v", err)
+		return nil, nil, apperror.Validation("hris.schedule.err_excel_invalid", "file Excel tidak valid atau rusak", map[string]any{"error": err.Error()})
 	}
 
 	if len(records) == 0 {
-		return nil, nil, fmt.Errorf("file Excel kosong")
+		return nil, nil, apperror.Validation("hris.schedule.err_excel_empty", "file Excel kosong")
 	}
 
 	var schedules []ScheduleRow

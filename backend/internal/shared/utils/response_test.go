@@ -74,6 +74,81 @@ func TestParseIntParam(t *testing.T) {
 	}
 }
 
+func TestRequireUserID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name       string
+		setupCtx   func(c *gin.Context)
+		expectID   int
+		expectOk   bool
+		expectCode int
+	}{
+		{
+			name: "Valid integer user ID",
+			setupCtx: func(c *gin.Context) {
+				c.Set(ContextUserIDKey, 42)
+			},
+			expectID:   42,
+			expectOk:   true,
+			expectCode: http.StatusOK,
+		},
+		{
+			name: "Valid float64 user ID",
+			setupCtx: func(c *gin.Context) {
+				c.Set(ContextUserIDKey, float64(99))
+			},
+			expectID:   99,
+			expectOk:   true,
+			expectCode: http.StatusOK,
+		},
+		{
+			name: "Zero user ID",
+			setupCtx: func(c *gin.Context) {
+				c.Set(ContextUserIDKey, 0)
+			},
+			expectID:   0,
+			expectOk:   false,
+			expectCode: http.StatusUnauthorized,
+		},
+		{
+			name:       "Missing user ID",
+			setupCtx:   func(c *gin.Context) {},
+			expectID:   0,
+			expectOk:   false,
+			expectCode: http.StatusUnauthorized,
+		},
+		{
+			name: "Non-numeric user ID",
+			setupCtx: func(c *gin.Context) {
+				c.Set(ContextUserIDKey, "not-an-id")
+			},
+			expectID:   0,
+			expectOk:   false,
+			expectCode: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			tt.setupCtx(c)
+
+			id, ok := RequireUserID(c)
+			if ok != tt.expectOk {
+				t.Errorf("RequireUserID() ok = %v, want %v", ok, tt.expectOk)
+			}
+			if id != tt.expectID {
+				t.Errorf("RequireUserID() id = %v, want %v", id, tt.expectID)
+			}
+			if !tt.expectOk && w.Code != tt.expectCode {
+				t.Errorf("RequireUserID() status code = %v, want %v", w.Code, tt.expectCode)
+			}
+		})
+	}
+}
+
 func TestParsePagination(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

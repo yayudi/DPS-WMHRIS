@@ -2,7 +2,9 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import notFoundGif from '@/assets/img/404.gif'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
+const { t } = useI18n()
 const router = useRouter()
 const countdown = ref(10)
 let timer = null
@@ -44,16 +46,16 @@ const goBack = () => {
       <!-- Text Content -->
       <div class="space-y-3">
         <h1 class="text-6xl font-black text-primary tracking-tight">404</h1>
-        <h2 class="text-xl font-bold text-text">Halaman Tidak Ditemukan</h2>
+        <h2 class="text-xl font-bold text-text">{{ t('common.not_found.title') }}</h2>
         <p class="text-sm text-text/50 leading-relaxed max-w-sm mx-auto">
-          Sepertinya halaman yang Anda cari sudah dipindahkan, dihapus, atau memang tidak pernah ada.
+          {{ t('common.not_found.description') }}
         </p>
       </div>
 
       <!-- Countdown -->
       <div class="flex items-center justify-center gap-2 text-xs text-text/40">
         <font-awesome-icon icon="fa-solid fa-clock" class="animate-pulse" />
-        <span>Dialihkan ke beranda dalam <b class="text-primary">{{ countdown }}</b> detik</span>
+        <span>{{ t('common.not_found.redirect_prefix') }} <b class="text-primary">{{ countdown }}</b> {{ t('common.not_found.seconds') }}</span>
       </div>
 
       <!-- Action Buttons -->
@@ -61,12 +63,12 @@ const goBack = () => {
         <button @click="goBack"
           class="px-5 py-2.5 bg-secondary/20 hover:bg-secondary/40 text-text rounded-xl text-sm font-bold transition-all flex items-center gap-2 border border-secondary/20">
           <font-awesome-icon icon="fa-solid fa-arrow-left" />
-          Kembali
+          {{ t('common.btn.back') }}
         </button>
         <button @click="goHome"
           class="px-5 py-2.5 bg-primary hover:bg-primary/90 text-background rounded-xl text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-primary/20">
           <font-awesome-icon icon="fa-solid fa-house" />
-          Ke Beranda
+          {{ t('common.btn.home') }}
         </button>
       </div>
 

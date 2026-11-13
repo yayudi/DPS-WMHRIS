@@ -4,6 +4,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useFirebaseSync } from '@/core/presentation/composables/useFirebaseSync'
 import { useMagicKeys } from '@vueuse/core'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { useProducts } from '../../application/useProducts'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import debounce from 'lodash/debounce'
@@ -33,6 +34,7 @@ import BaseSwitch from '@/core/presentation/components/ui/BaseSwitch.vue'
 import { useCatalogManagement } from '../composables/useCatalogManagement'
 
 const { toast } = useToast()
+const { t } = useI18n()
 const masterStore = useMasterDataStore()
 
 // --- CATALOG COMPOSABLE ---
@@ -75,20 +77,20 @@ const toggleSelectAll = () => baseToggleSelectAll(products.value)
 const products = ref([])
 // loading state is now handled by Vue Query
 const filterType = ref('all')
-const filterTypeTabs = [
-  { value: 'all', label: 'Semua Tipe', icon: 'fa-layer-group' },
-  { value: 'single', label: 'Satuan', icon: 'fa-box' },
-  { value: 'package', label: 'Paket', icon: 'fa-boxes-stacked' }
-]
+const filterTypeTabs = computed(() => [
+  { value: 'all', label: t('common.filter.all'), icon: 'fa-layer-group' },
+  { value: 'single', label: t('master_data.product.unit_single'), icon: 'fa-box' },
+  { value: 'package', label: t('master_data.product.badge_package'), icon: 'fa-boxes-stacked' }
+])
 
 const categoryOptions = ref([])
 const filterCategory = ref({ include: [], exclude: [] })
 const showFilters = ref(false)
 
-const searchByOptions = [
-  { id: 'name', label: 'Nama' },
-  { id: 'sku', label: 'SKU' }
-]
+const searchByOptions = computed(() => [
+  { id: 'name', label: t('common.label.product_name') },
+  { id: 'sku', label: t('common.label.sku') }
+])
 
 // Product-specific Modal State
 const showImageModal = ref(false)
@@ -249,7 +251,7 @@ const handleExport = async ({ format, includeImages, columns }) => {
     const response = await productApi.exportProducts(params)
 
     if (response?.success) {
-      toast('Permintaan export produk diterima.', 'success')
+      toast(response?.message || t('common.status.success'), 'success')
       downloadStore.notifyNewJob()
     }
   } catch (err) {
@@ -268,7 +270,7 @@ const handleImport = async formData => {
   isImporting.value = true
   try {
     await productApi.uploadPriceUpdate(formData)
-    toast('File diunggah. Buka kembali Batch Edit > Tab Riwayat & Log untuk memantau status.', 'info')
+    toast(t('master_data.product.upload_info'), 'info')
     uploadStore.notifyNewJob()
     showBatchEditModal.value = false
     fetchProducts()
@@ -350,7 +352,7 @@ watch(Slash, pressed => {
           class="px-4 py-2 bg-danger hover:bg-danger/90 text-secondary rounded-xl font-medium flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
         >
           <font-awesome-icon icon="fa-solid fa-times" />
-          <span class="hidden sm:inline">Batal</span>
+          <span class="hidden sm:inline">{{ t('common.btn.cancel') }}</span>
         </button>
         <button
           v-if="dirtyProducts.size > 0"
@@ -360,7 +362,7 @@ watch(Slash, pressed => {
         >
           <font-awesome-icon v-if="isSavingInline" icon="fa-solid fa-spinner" spin class="mr-2" />
           <font-awesome-icon v-else icon="fa-solid fa-save" class="mr-2" />
-          Simpan Semua ({{ dirtyProducts.size }})
+          {{ t('common.btn.save') }} ({{ dirtyProducts.size }})
         </button>
         <button
           @click="showBatchEditModal = true"
@@ -368,7 +370,7 @@ watch(Slash, pressed => {
           title="Edit produk secara massal (Export & Import)"
         >
           <font-awesome-icon icon="fa-solid fa-pen-to-square" />
-          <span class="hidden sm:inline">Batch Edit</span>
+          <span class="hidden sm:inline">{{ t('master_data.product.btn_batch_edit') }}</span>
         </button>
         <button
           @click="handleBulkPrintLabel"
@@ -376,14 +378,14 @@ watch(Slash, pressed => {
           title="Cetak Label untuk produk terpilih atau semua produk di halaman ini"
         >
           <font-awesome-icon icon="fa-solid fa-print" />
-          <span class="hidden sm:inline">Cetak Label</span>
+          <span class="hidden sm:inline">{{ t('master_data.product.btn_print_label') }}</span>
         </button>
         <button
           @click="openAddModal"
           class="px-5 py-2 bg-primary hover:bg-primary/90 text-background rounded-xl font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
         >
           <font-awesome-icon icon="fa-solid fa-plus" />
-          <span>Tambah</span>
+          <span>{{ t('common.btn.add') }}</span>
         </button>
       </div>
 
@@ -402,8 +404,8 @@ watch(Slash, pressed => {
                 <BaseSwitch
                   :model-value="filterStatus === 'archived'"
                   @update:model-value="val => (filterStatus = val ? 'archived' : 'active')"
-                  left-label="Produk Aktif"
-                  right-label="Diarsipkan"
+                  :left-label="t('common.status.active')"
+                  :right-label="t('common.status.archived')"
                 />
               </div>
 
@@ -414,7 +416,7 @@ watch(Slash, pressed => {
                   :options="categoryOptions"
                   label="label"
                   track="id"
-                  placeholder="Semua Kategori"
+                  :placeholder="t('master_data.product.all_categories')"
                   :searchable="true"
                 />
               </div>
@@ -493,14 +495,14 @@ watch(Slash, pressed => {
           <span class="bg-primary/10 text-primary p-2 flex items-center justify-center rounded-full text-xs">{{
             selectionCount
           }}</span>
-          <span>Dipilih</span>
+          <span>{{ t('master_data.product.selected_count') }}</span>
         </div>
         <div class="flex items-center gap-3">
           <button
             @click="handleBulkPrintLabel"
             class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-secondary/10 text-text/80 hover:text-primary font-medium"
           >
-            <font-awesome-icon icon="fa-solid fa-print" /> Cetak Label
+            <font-awesome-icon icon="fa-solid fa-print" /> {{ t('master_data.product.btn_print_label') }}
           </button>
           <button
             v-if="filterStatus === 'archived'"
@@ -509,7 +511,7 @@ watch(Slash, pressed => {
             :disabled="isProcessingBulk"
           >
             <font-awesome-icon icon="fa-solid fa-rotate-left" :spin="isProcessingBulk" />
-            Pulihkan
+            {{ t('master_data.context_menu.restore_product') }}
           </button>
           <button
             v-else
@@ -518,13 +520,13 @@ watch(Slash, pressed => {
             :disabled="isProcessingBulk"
           >
             <font-awesome-icon icon="fa-solid fa-box-archive" :spin="isProcessingBulk" />
-            Arsipkan
+            {{ t('master_data.context_menu.archive_product') }}
           </button>
         </div>
         <button
           @click="selectedIds.clear()"
           class="ml-2 text-text/40 hover:text-text text-xl leading-none"
-          title="Batalkan Pilihan"
+          :title="t('common.btn.cancel')"
         >
           &times;
         </button>

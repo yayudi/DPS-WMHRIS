@@ -1,6 +1,8 @@
 import { ref } from 'vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 export function useProductContextMenu({ props, emit, features = [] }) {
+  const { t } = useI18n()
   const contextMenu = ref({
     visible: false,
     x: 0,
@@ -18,27 +20,27 @@ export function useProductContextMenu({ props, emit, features = [] }) {
 
     // CELL ACTIONS
     if (['sku', 'name', 'weight', 'price'].includes(colId) && isEditable) {
-      options.push({ label: 'Salin Teks', action: 'copy', icon: 'fa-solid fa-copy', shortcut: 'Ctrl+C' })
-      options.push({ label: 'Tempel Teks', action: 'paste', icon: 'fa-solid fa-paste', shortcut: 'Ctrl+V' })
+      options.push({ label: t('master_data.context_menu.copy_text'), action: 'copy', icon: 'fa-solid fa-copy', shortcut: 'Ctrl+C' })
+      options.push({ label: t('master_data.context_menu.paste_text'), action: 'paste', icon: 'fa-solid fa-paste', shortcut: 'Ctrl+V' })
       if (props.dirtyProducts?.has(row.id) && props.dirtyProducts.get(row.id)[colId] !== undefined) {
-        options.push({ label: 'Reset Sel', action: 'reset', icon: 'fa-solid fa-rotate-left' })
+        options.push({ label: t('master_data.context_menu.reset_cell'), action: 'reset', icon: 'fa-solid fa-rotate-left' })
       }
       options.push({ divider: true })
     }
 
     // ROW ACTIONS
-    options.push({ label: 'Edit Data Lengkap', action: 'edit_modal', icon: 'fa-solid fa-pen-to-square' })
-    options.push({ label: 'Duplikat Baris', action: 'duplicate', icon: 'fa-solid fa-diagram-next' })
-    options.push({ label: 'Riwayat Pergerakan', action: 'history', icon: 'fa-solid fa-clock-rotate-left' })
+    options.push({ label: t('master_data.context_menu.edit_full'), action: 'edit_modal', icon: 'fa-solid fa-pen-to-square' })
+    options.push({ label: t('master_data.context_menu.duplicate_row'), action: 'duplicate', icon: 'fa-solid fa-diagram-next' })
+    options.push({ label: t('master_data.context_menu.movement_history'), action: 'history', icon: 'fa-solid fa-clock-rotate-left' })
     
     if (features.includes('sticker')) {
-      options.push({ label: 'Cetak Sticker', action: 'sticker', icon: 'fa-solid fa-print' })
+      options.push({ label: t('master_data.context_menu.print_sticker'), action: 'sticker', icon: 'fa-solid fa-print' })
     }
 
     if (isArchived(row)) {
-      options.push({ label: 'Pulihkan Produk', action: 'restore', icon: 'fa-solid fa-rotate-left', danger: false })
+      options.push({ label: t('master_data.context_menu.restore_product'), action: 'restore', icon: 'fa-solid fa-rotate-left', danger: false })
     } else {
-      options.push({ label: 'Arsipkan Produk', action: 'archive', icon: 'fa-solid fa-box-archive', danger: true })
+      options.push({ label: t('master_data.context_menu.archive_product'), action: 'archive', icon: 'fa-solid fa-box-archive', danger: true })
     }
 
     contextMenu.value = {
@@ -76,7 +78,7 @@ export function useProductContextMenu({ props, emit, features = [] }) {
           }
         } catch (err) {
           console.error('Paste failed:', err)
-          alert('Gagal mengakses clipboard. Pastikan browser memberikan izin.')
+          alert(t('master_data.context_menu.clipboard_perm_error'))
         }
         break
       case 'reset':

@@ -13,49 +13,24 @@ export const stockRequestApi = {
     }
   },
 
-  async createStockRequest(payload: any): Promise<any> {
-    try {
-      const response = await http.post('/stock-requests', payload)
-      return response.data
-    } catch (error: any) {
-      throw error.response?.data || error
-    }
+  createStockRequest(payload: any): Promise<any> {
+    return http.post('/stock-requests', payload)
   },
 
-  async approveStockRequest(id: number): Promise<any> {
-    try {
-      const response = await http.post(`/stock-requests/${id}/approve`)
-      return response.data
-    } catch (error: any) {
-      throw error.response?.data || error
-    }
+  approveStockRequest(id: number): Promise<any> {
+    return http.post(`/stock-requests/${id}/approve`)
   },
 
-  async rejectStockRequest(id: number): Promise<any> {
-    try {
-      const response = await http.post(`/stock-requests/${id}/reject`)
-      return response.data
-    } catch (error: any) {
-      throw error.response?.data || error
-    }
+  rejectStockRequest(id: number): Promise<any> {
+    return http.post(`/stock-requests/${id}/reject`)
   },
 
-  async dispatchStockRequest(id: number): Promise<any> {
-    try {
-      const response = await http.post(`/stock-requests/${id}/dispatch`)
-      return response.data
-    } catch (error: any) {
-      throw error.response?.data || error
-    }
+  dispatchStockRequest(id: number): Promise<any> {
+    return http.post(`/stock-requests/${id}/dispatch`)
   },
 
-  async completeStockRequest(id: number, receivedItems: any[]): Promise<any> {
-    try {
-      const response = await http.post(`/stock-requests/${id}/complete`, { receivedItems })
-      return response.data
-    } catch (error: any) {
-      throw error.response?.data || error
-    }
+  completeStockRequest(id: number, receivedItems: any[]): Promise<any> {
+    return http.post(`/stock-requests/${id}/complete`, { receivedItems })
   },
 
   async bulkActionStockRequests(action: string, requestIds: number[]): Promise<any> {

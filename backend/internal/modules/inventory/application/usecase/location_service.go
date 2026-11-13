@@ -2,12 +2,12 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"strconv"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/eventbus"
 	"github.com/dps-wmhris/backend/internal/shared/kernel"
@@ -110,10 +110,10 @@ func (s *locationServiceImpl) ToggleFulfillmentSource(ctx context.Context, userI
 			return err
 		}
 		if loc == nil {
-			return errors.New("location not found")
+			return apperror.NotFound("master_data.location.err_not_found", "Lokasi tidak ditemukan")
 		}
 		if isFulfillmentSource && (loc.Purpose == "BAD_STOCK" || loc.Purpose == "WORKSHOP" || loc.Purpose == "BRANCH") {
-			return errors.New("lokasi dengan purpose " + loc.Purpose + " tidak dapat dijadikan sumber fulfillment")
+			return apperror.Validation("master_data.location.err_purpose_invalid", "lokasi dengan purpose "+loc.Purpose+" tidak dapat dijadikan sumber fulfillment", map[string]any{"purpose": loc.Purpose})
 		}
 
 		if err := s.locationRepo.UpdateFulfillmentSourceFlag(ctx, locationID, isFulfillmentSource); err != nil {

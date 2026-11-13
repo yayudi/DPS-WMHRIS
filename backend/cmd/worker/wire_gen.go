@@ -18,6 +18,7 @@ import (
 	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/erp"
 	mysql3 "github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/mysql"
 	usecase4 "github.com/dps-wmhris/backend/internal/modules/inventory/application/usecase"
+	"github.com/dps-wmhris/backend/internal/modules/system"
 	"github.com/dps-wmhris/backend/internal/modules/system/adapter/inbound/event"
 	"github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
 	"github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
@@ -64,6 +65,8 @@ func InitializeWorker(db *sqlx.DB) (*di.WorkerContainer, error) {
 	outboxRepository := mysql3.NewOutboxRepository(db)
 	keljaClient := erp.NewKeljaClient()
 	stockTransactionUseCase := usecase4.NewStockTransactionService(transactionManager, stockTransactionRepository, locationRepository, outboxRepository, keljaClient, productRepository, eventBus)
-	workerContainer := di.NewWorkerContainer(transactionManager, logListener, jobService, statisticService, storageService, exportService, firebaseSignalService, eventBus, mediaService, attendanceUseCase, scheduleUseCase, stockUseCase, productUseCase, stockTransactionUseCase)
+	localizationRepository := mysql.NewLocalizationRepository(db)
+	localizationUseCase := system.ProvideLocalizationUseCase(localizationRepository, transactionManager, eventBus)
+	workerContainer := di.NewWorkerContainer(transactionManager, logListener, jobService, statisticService, storageService, exportService, firebaseSignalService, eventBus, mediaService, attendanceUseCase, scheduleUseCase, stockUseCase, productUseCase, stockTransactionUseCase, localizationUseCase)
 	return workerContainer, nil
 }

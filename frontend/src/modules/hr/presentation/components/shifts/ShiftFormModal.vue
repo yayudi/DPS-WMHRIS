@@ -1,11 +1,13 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
 import { useToast } from '@/core/presentation/composables/useToast'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import { useShift } from '@/modules/hr/application/useShift'
 import { shiftSchema } from '@/modules/hr/domain/shift.validator'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
+const { t } = useI18n()
 const { createShift, updateShift } = useShift()
 
 const props = defineProps({
@@ -26,15 +28,15 @@ const form = ref({
 })
 
 const isLoading = ref(false)
-const daysOptions = [
-  { value: '1', label: 'Sen' },
-  { value: '2', label: 'Sel' },
-  { value: '3', label: 'Rab' },
-  { value: '4', label: 'Kam' },
-  { value: '5', label: 'Jum' },
-  { value: '6', label: 'Sab' },
-  { value: '7', label: 'Min' },
-]
+const daysOptions = computed(() => [
+  { value: '1', label: t('common.day.short_mon') },
+  { value: '2', label: t('common.day.short_tue') },
+  { value: '3', label: t('common.day.short_wed') },
+  { value: '4', label: t('common.day.short_thu') },
+  { value: '5', label: t('common.day.short_fri') },
+  { value: '6', label: t('common.day.short_sat') },
+  { value: '7', label: t('common.day.short_sun') },
+])
 
 // Parse/Serialize work_days for checkbox handling
 const selectedDays = ref(['1', '2', '3', '4', '5'])
@@ -78,11 +80,11 @@ async function handleSave() {
   isLoading.value = true
   try {
     if (props.shift) {
-      await updateShift(props.shift.id, form.value)
-      toast('Shift berhasil diperbarui', 'success')
+      const res = await updateShift(props.shift.id, form.value)
+      toast(res?.message || t('common.status.success'), 'success')
     } else {
-      await createShift(form.value)
-      toast('Shift berhasil dibuat', 'success')
+      const res = await createShift(form.value)
+      toast(res?.message || t('common.status.success'), 'success')
     }
     emit('updated')
     emit('close')
@@ -104,34 +106,34 @@ watch(Alt_S, (pressed) => {
 </script>
 
 <template>
-  <BaseModal :show="props.show" @close="emit('close')" :title="props.shift ? 'Edit Shift' : 'Tambah Shift Baru'">
+  <BaseModal :show="props.show" @close="emit('close')" :title="props.shift ? t('hris.shift.edit_title') : t('hris.shift.add_title')">
     <div class="p-6 space-y-4">
       <div>
-        <label class="block text-sm font-medium text-text/80 mb-1">Nama Shift</label>
-        <input v-model="form.name" type="text" placeholder="Contoh: Shift Pagi" class="w-full input-field" />
+        <label class="block text-sm font-medium text-text/80 mb-1">{{ t('hris.shift.name') }}</label>
+        <input v-model="form.name" type="text" :placeholder="t('hris.shift.name_placeholder')" class="w-full input-field" />
       </div>
 
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-text/80 mb-1">Jam Masuk</label>
+          <label class="block text-sm font-medium text-text/80 mb-1">{{ t('hris.shift.start_time') }}</label>
           <input v-model="form.start_time" type="time" class="w-full input-field" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-text/80 mb-1">Jam Pulang</label>
+          <label class="block text-sm font-medium text-text/80 mb-1">{{ t('hris.shift.end_time') }}</label>
           <input v-model="form.end_time" type="time" class="w-full input-field" />
         </div>
       </div>
 
       <div>
         <label class="block text-sm font-medium text-text/80 mb-1">
-          Toleransi Keterlambatan (Menit)
-          <span class="text-xs text-text/60 font-normal">- Beri 0 untuk Fixed Shift (Absolut)</span>
+          {{ t('hris.shift.flexible_minutes') }}
+          <span class="text-xs text-text/60 font-normal">{{ t('hris.shift.flexible_minutes_hint') }}</span>
         </label>
         <input v-model="form.flexible_minutes" type="number" min="0" class="w-full input-field" />
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-text/80 mb-2">Hari Kerja</label>
+        <label class="block text-sm font-medium text-text/80 mb-2">{{ t('hris.shift.work_days') }}</label>
         <div class="flex flex-wrap gap-2">
           <label v-for="day in daysOptions" :key="day.value"
             class="cursor-pointer border px-3 py-1 rounded-md text-sm transition-colors select-none"
@@ -145,18 +147,17 @@ watch(Alt_S, (pressed) => {
       <div class="flex items-center gap-2 mt-2">
         <input type="checkbox" id="default" v-model="form.is_default"
           class="rounded text-primary focus:ring-primary bg-background border-secondary/50">
-        <label for="default" class="text-sm font-medium text-text/80 select-none cursor-pointer">Set sebagai Shift
-          Default</label>
+        <label for="default" class="text-sm font-medium text-text/80 select-none cursor-pointer">{{ t('hris.shift.set_default') }}</label>
       </div>
     </div>
 
     <template #footer>
       <button @click="emit('close')" class="btn-secondary">
-        Batal
+        {{ t('common.btn.cancel') }}
       </button>
       <button @click="handleSave" :disabled="isLoading" class="btn-primary flex items-center gap-2">
         <font-awesome-icon v-if="isLoading" icon="fa-solid fa-spinner" spin />
-        <span>Simpan</span>
+        <span>{{ t('common.btn.save') }}</span>
       </button>
     </template>
   </BaseModal>

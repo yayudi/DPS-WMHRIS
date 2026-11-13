@@ -83,6 +83,14 @@ func NormalizeLocale(loc string) string {
 	return clean
 }
 
+// WithLocale returns a copy of parent context with the given locale attached.
+func WithLocale(ctx context.Context, locale string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, LocaleContextKey, NormalizeLocale(locale))
+}
+
 // GetLocaleFromContext extracts the active locale from standard context.Context.
 func GetLocaleFromContext(ctx context.Context) string {
 	if ctx == nil {
@@ -133,22 +141,42 @@ func TranslateByLocale(ctx context.Context, locale, fullKey string, params ...ma
 	return translated
 }
 
+// IsKeyFormat checks if a string matches the hierarchical dictionary key format (e.g., "module.sub.key").
+func IsKeyFormat(str string) bool {
+	trimmed := strings.TrimSpace(str)
+	if trimmed == "" {
+		return false
+	}
+	return strings.Contains(trimmed, ".") && !strings.ContainsAny(trimmed, " \t\r\n")
+}
+
 // TranslateErrorCode resolves standardized error codes to localized error messages.
-// If locale is DefaultLocale and fallbackMsg is non-empty, fallbackMsg is preserved.
-// If locale is not DefaultLocale, it looks up "errors.<error_code_lowercase>". If found, it returns the translation.
+// If fallbackMsg is in key format (e.g. "errors.not_found"), it resolves the key directly.
+// If locale is DefaultLocale and a human-readable custom message is provided, fallbackMsg is preserved.
+// Otherwise, it attempts to resolve "errors.<error_code_lowercase>".
 func TranslateErrorCode(ctx context.Context, locale, errorCode, fallbackMsg string) string {
 	if locale == "" {
 		locale = DefaultLocale
 	}
+
+	// 1. If fallbackMsg is already an i18n key, resolve it
+	trimmedFallback := strings.TrimSpace(fallbackMsg)
+	if IsKeyFormat(trimmedFallback) {
+		return TranslateByLocale(ctx, locale, trimmedFallback)
+	}
+
 	codeKey := strings.ToLower(strings.TrimSpace(errorCode))
+	if codeKey == "invalid_request" {
+		codeKey = "bad_request"
+	}
 	if codeKey == "" {
 		return fallbackMsg
 	}
 
 	fullKey := fmt.Sprintf("errors.%s", codeKey)
 
-	// When user is on default locale (id-ID) and a custom domain message is provided, prioritize it.
-	if locale == DefaultLocale && strings.TrimSpace(fallbackMsg) != "" {
+	// 2. When user is on default locale (id-ID) and a non-generic message is provided, prioritize it.
+	if locale == DefaultLocale && trimmedFallback != "" && !strings.EqualFold(trimmedFallback, errorCode) {
 		return fallbackMsg
 	}
 
@@ -158,14 +186,14 @@ func TranslateErrorCode(ctx context.Context, locale, errorCode, fallbackMsg stri
 
 	if hook != nil {
 		if val, found := hook(ctx, locale, fullKey); found && strings.TrimSpace(val) != "" {
-			if parts := strings.SplitN(fallbackMsg, ": ", 2); len(parts) == 2 && strings.TrimSpace(parts[1]) != "" {
+			if parts := strings.SplitN(trimmedFallback, ": ", 2); len(parts) == 2 && strings.TrimSpace(parts[1]) != "" {
 				return fmt.Sprintf("%s: %s", val, parts[1])
 			}
 			return val
 		}
 	}
 
-	if strings.TrimSpace(fallbackMsg) != "" {
+	if trimmedFallback != "" {
 		return fallbackMsg
 	}
 	return errorCode

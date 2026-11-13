@@ -7,6 +7,8 @@ dist/
 .agent/*
 !.agent/context
 !.agent/context/**
+.agent/context/*.sql
+!.agent/context/schema.sql
 .agents/
 backend/uploads/
 backend-node/

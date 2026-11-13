@@ -4,6 +4,9 @@ import { computed, ref, watch } from 'vue';
 import { formatJamMenit } from "@/core/utils/time";
 import { formatCurrency } from "@/core/utils/formatters";
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue';
+import { useI18n } from '@/core/presentation/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
   summary: { type: Object, required: true },
@@ -89,18 +92,18 @@ watch(weeklyDetails, (newDetails) => {
     <template #title>
       <div class="-mt-1">
         <h3 class="text-xl font-bold text-text">{{ summary.nama }}</h3>
-        <p class="text-sm text-text/70 font-normal mt-1">Rincian Absensi</p>
+        <p class="text-sm text-text/70 font-normal mt-1">{{ t('hris.summary.attendance_details') }}</p>
       </div>
     </template>
 
     <div class="space-y-5 text-sm">
         <!-- Rincian Uang Lembur (Tetap di atas) -->
         <section>
-          <h4 class="font-semibold mb-2 text-text/90">Rincian Uang Lembur</h4>
+          <h4 class="font-semibold mb-2 text-text/90">{{ t('hris.summary.overtime_details') }}</h4>
           <div class="text-xs space-y-1 text-text/80 bg-secondary/10 p-3 rounded-md">
-            <p class="flex justify-between"><span>Uang Lembur Kotor:</span> <span class="font-mono">{{ formatCurrency(summary.uangLemburKotor) }}</span></p>
-            <p class="flex justify-between"><span>Potongan Denda Telat:</span> <span class="font-mono text-accent">- {{ formatCurrency(summary.dendaTelat) }}</span></p>
-            <p class="font-bold border-t border-secondary/20 pt-2 mt-2 flex justify-between text-text"><span>Uang Lembur Diterima:</span> <span class="font-mono text-primary">{{ formatCurrency(summary.uangLembur) }}</span></p>
+            <p class="flex justify-between"><span>{{ t('hris.summary.gross_overtime') }}</span> <span class="font-mono">{{ formatCurrency(summary.uangLemburKotor) }}</span></p>
+            <p class="flex justify-between"><span>{{ t('hris.summary.late_penalty_deduction') }}</span> <span class="font-mono text-accent">- {{ formatCurrency(summary.dendaTelat) }}</span></p>
+            <p class="font-bold border-t border-secondary/20 pt-2 mt-2 flex justify-between text-text"><span>{{ t('hris.summary.net_overtime') }}</span> <span class="font-mono text-primary">{{ formatCurrency(summary.uangLembur) }}</span></p>
           </div>
         </section>
 
@@ -118,7 +121,7 @@ watch(weeklyDetails, (newDetails) => {
                   : 'border-transparent text-text/60 hover:border-secondary hover:text-text'
               ]"
             >
-              Minggu ke-{{ weekNumber }}
+              {{ t('hris.summary.week_number', { number: weekNumber }) }}
             </button>
           </div>
 
@@ -128,18 +131,18 @@ watch(weeklyDetails, (newDetails) => {
             <!-- Kolom Kiri: Absen & Pulang Cepat -->
             <div class="space-y-4">
               <div v-if="weeklyDetails[activeWeek].overtime.length > 0">
-                <h5 class="text-xs font-bold text-text/80 mb-1">Lembur ({{ weeklyDetails[activeWeek].overtime.length }} hari)</h5>
+                <h5 class="text-xs font-bold text-text/80 mb-1">{{ t('hris.summary.overtime_days', { count: weeklyDetails[activeWeek].overtime.length }) }}</h5>
                 <ul class="text-xs space-y-1 list-disc pl-4 text-text/80">
                   <li v-for="item in weeklyDetails[activeWeek].overtime" :key="item.tanggal">
-                    Tgl {{ item.tanggal }}: <span class="font-mono font-semibold">{{ formatJamMenit(item.lembur) }}</span>
+                    {{ t('hris.summary.date_prefix', { date: item.tanggal }) }} <span class="font-mono font-semibold">{{ formatJamMenit(item.lembur) }}</span>
                   </li>
                 </ul>
               </div>
               <div v-if="weeklyDetails[activeWeek].late.length > 0">
-                <h5 class="text-xs font-bold text-text/80 mb-1">Telat ({{ weeklyDetails[activeWeek].late.length }} hari)</h5>
+                <h5 class="text-xs font-bold text-text/80 mb-1">{{ t('hris.summary.late_days', { count: weeklyDetails[activeWeek].late.length }) }}</h5>
                 <ul class="text-xs space-y-1 list-disc pl-4 text-text/80">
                   <li v-for="item in weeklyDetails[activeWeek].late" :key="item.tanggal">
-                    Tgl {{ item.tanggal }}: <span class="font-mono font-semibold">{{ item.telat }} mnt</span> (Denda {{ formatCurrency(item.denda) }})
+                    {{ t('hris.summary.date_prefix', { date: item.tanggal }) }} <span class="font-mono font-semibold">{{ item.telat }} {{ t('hris.summary.minutes_abbr') }}</span> {{ t('hris.summary.penalty_prefix', { penalty: formatCurrency(item.denda) }) }}
                   </li>
                 </ul>
               </div>
@@ -149,14 +152,14 @@ watch(weeklyDetails, (newDetails) => {
             <!-- Kolom Kanan: Lembur & Telat -->
             <div class="space-y-4">
               <div v-if="weeklyDetails[activeWeek].absent.length > 0">
-                <h5 class="text-xs font-bold text-text/80 mb-1">Absen ({{ weeklyDetails[activeWeek].absent.length }} hari)</h5>
-                <p class="text-xs text-text/80 bg-secondary/10 p-2 rounded-md">Tanggal: <span class="font-mono">{{ weeklyDetails[activeWeek].absent.join(', ') }}</span></p>
+                <h5 class="text-xs font-bold text-text/80 mb-1">{{ t('hris.summary.absent_days', { count: weeklyDetails[activeWeek].absent.length }) }}</h5>
+                <p class="text-xs text-text/80 bg-secondary/10 p-2 rounded-md">{{ t('common.label.date') }}: <span class="font-mono">{{ weeklyDetails[activeWeek].absent.join(', ') }}</span></p>
               </div>
               <div v-if="weeklyDetails[activeWeek].earlyOut.length > 0">
-                <h5 class="text-xs font-bold text-text/80 mb-1">Pulang Cepat ({{ weeklyDetails[activeWeek].earlyOut.length }} hari)</h5>
+                <h5 class="text-xs font-bold text-text/80 mb-1">{{ t('hris.summary.early_out_days', { count: weeklyDetails[activeWeek].earlyOut.length }) }}</h5>
                 <ul class="text-xs space-y-1 list-disc pl-4 text-text/80">
                   <li v-for="item in weeklyDetails[activeWeek].earlyOut" :key="item.tanggal">
-                    Tgl {{ item.tanggal }}: <span class="font-mono font-semibold">{{ formatJamMenit(item.jamKeluar) }}</span>
+                    {{ t('hris.summary.date_prefix', { date: item.tanggal }) }} <span class="font-mono font-semibold">{{ formatJamMenit(item.jamKeluar) }}</span>
                   </li>
                 </ul>
               </div>

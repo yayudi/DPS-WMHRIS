@@ -3,6 +3,7 @@ import { ref, onMounted, toRaw, computed, watch } from 'vue'
 import { useMagicKeys, useLocalStorage } from '@vueuse/core'
 import { useRouter } from 'vue-router'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { swalAlert } from '@/core/presentation/composables/useSweetAlert'
 import Swal from 'sweetalert2'
 import { useReturns } from '../../application/useReturns'
@@ -10,14 +11,15 @@ import ProductSearchSelector from '@/modules/wms/presentation/components/transfe
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 
-const conditionOptions = [
-  { id: 'GOOD', label: 'Bagus' },
-  { id: 'BAD', label: 'Rusak' }
-]
-
 const router = useRouter()
 const { toast } = useToast()
+const { t } = useI18n()
 const { createReturn } = useReturns()
+
+const conditionOptions = computed(() => [
+  { id: 'GOOD', label: t('wms.manual_return.condition_good') },
+  { id: 'BAD', label: t('wms.manual_return.condition_bad') }
+])
 
 const isLoading = ref(false)
 const locations = ref([])
@@ -55,23 +57,23 @@ function removeItemRow(index) {
   if (form.value.items.length > 1) {
     form.value.items.splice(index, 1)
   } else {
-    toast('Minimal harus ada 1 barang.', 'warning')
+    toast(t('wms.manual_return.min_item'), 'warning')
   }
 }
 
 async function submitForm() {
   const formData = toRaw(form.value)
-  if (!formData.invoiceId || formData.invoiceId.trim() === '') return toast('Nomor Invoice wajib diisi!', 'warning')
+  if (!formData.invoiceId || formData.invoiceId.trim() === '') return toast(t('wms.manual_return.invoice_required'), 'warning')
 
   const validItems = []
 
   for (const [index, item] of formData.items.entries()) {
-    if (!item.selectedProduct) return toast(`Baris ke-${index + 1}: Produk belum dipilih!`, 'warning')
+    if (!item.selectedProduct) return toast(t('wms.manual_return.row_product_required', { row: index + 1 }), 'warning')
 
     const productId = item.selectedProduct.id || item.selectedProduct.product_id
 
-    if (!item.quantity || item.quantity < 1) return toast(`Baris ke-${index + 1}: Qty minimal 1.`, 'warning')
-    if (!item.locationId) return toast(`Baris ke-${index + 1}: Lokasi belum dipilih!`, 'warning')
+    if (!item.quantity || item.quantity < 1) return toast(t('wms.manual_return.row_qty_min', { row: index + 1 }), 'warning')
+    if (!item.locationId) return toast(t('wms.manual_return.row_location_required', { row: index + 1 }), 'warning')
 
     // Pisahkan payload sesuai backend controller
     validItems.push({
@@ -98,7 +100,7 @@ async function submitForm() {
     }
 
     if (successCount > 0) {
-      toast(`Berhasil memproses ${successCount} item. Stok telah bertambah.`, 'success')
+      toast(t('wms.manual_return.process_success', { count: successCount }), 'success')
       form.value = {
         invoiceId: '',
         items: [{ selectedProduct: null, quantity: 1, condition: 'GOOD', locationId: '', notes: '' }]
@@ -106,7 +108,7 @@ async function submitForm() {
       router.go(-1)
     }
   } catch {
-    swalAlert('Gagal Memproses', 'Terjadi kesalahan sistem saat menyimpan data', 'error')
+    swalAlert(t('wms.manual_return.process_failed_title'), t('wms.manual_return.process_failed_msg'), 'error')
   } finally {
     isLoading.value = false
   }
@@ -171,8 +173,8 @@ watch(Alt_S, pressed => {
             <font-awesome-icon icon="fa-solid fa-arrow-left" />
           </button>
           <div>
-            <h1 class="text-2xl font-bold text-text">Input Retur Manual</h1>
-            <p class="text-sm text-text/50">Barang akan langsung masuk ke stok (Instant Process).</p>
+            <h1 class="text-2xl font-bold text-text">{{ t('wms.manual_return.title') }}</h1>
+            <p class="text-sm text-text/50">{{ t('wms.manual_return.subtitle') }}</p>
           </div>
         </div>
         <div class="w-full md:w-96">
@@ -183,7 +185,7 @@ watch(Alt_S, pressed => {
             <input
               v-model="form.invoiceId"
               type="text"
-              placeholder="Nomor Invoice / Customer..."
+              :placeholder="t('wms.manual_return.invoice_placeholder')"
               class="w-full pl-12 pr-4 py-3 bg-secondary/80 border border-secondary rounded-xl text-text font-mono font-bold focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm group-hover:border-primary/50 placeholder-text/30"
             />
           </div>
@@ -198,11 +200,11 @@ watch(Alt_S, pressed => {
             class="hidden md:flex bg-secondary border-b border-primary px-6 py-3 items-center gap-4 text-xs font-bold text-text uppercase tracking-wider"
           >
             <div class="w-8 text-center">#</div>
-            <div class="flex-1">Produk</div>
-            <div class="w-32">Kondisi</div>
-            <div class="w-40">Lokasi Simpan</div>
-            <div class="w-24 text-center">Qty</div>
-            <div class="w-1/3">Catatan</div>
+            <div class="flex-1">{{ t('wms.batch_logs.th_product') }}</div>
+            <div class="w-32">{{ t('common.filter.condition') }}</div>
+            <div class="w-40">{{ t('common.label.location') }}</div>
+            <div class="w-24 text-center">{{ t('common.label.qty') }}</div>
+            <div class="w-1/3">{{ t('common.label.notes') }}</div>
             <div class="w-10"></div>
           </div>
 
@@ -222,7 +224,7 @@ watch(Alt_S, pressed => {
               </div>
 
               <div class="w-full md:flex-1 min-w-0">
-                <ProductSearchSelector v-model="item.selectedProduct" placeholder="Cari SKU atau Nama Barang..." />
+                <ProductSearchSelector v-model="item.selectedProduct" :placeholder="t('wms.manual_return.product_search_placeholder')" />
                 <div v-if="item.selectedProduct" class="md:hidden mt-1.5 text-xs text-success font-medium">
                   <font-awesome-icon icon="fa-solid fa-check-circle" />
                   {{ item.selectedProduct.name }}
@@ -236,7 +238,7 @@ watch(Alt_S, pressed => {
                     :options="conditionOptions"
                     label="label"
                     track-by="id"
-                    placeholder="Kondisi"
+                    :placeholder="t('common.filter.condition')"
                     :searchable="false"
                     emit-value
                   />
@@ -248,7 +250,7 @@ watch(Alt_S, pressed => {
                     :options="locationOptions"
                     label="label"
                     track-by="id"
-                    placeholder="Pilih Lokasi..."
+                    :placeholder="t('wms.manual_return.location_placeholder')"
                     :searchable="true"
                     emit-value
                   />
@@ -263,7 +265,7 @@ watch(Alt_S, pressed => {
                       type="number"
                       min="1"
                       class="w-full px-3 py-2.5 bg-background border border-secondary rounded-lg text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary text-text placeholder-text/30"
-                      placeholder="Qty"
+                      :placeholder="t('common.label.qty')"
                     />
                   </div>
                 </div>
@@ -272,7 +274,7 @@ watch(Alt_S, pressed => {
                   <input
                     v-model="item.notes"
                     type="text"
-                    placeholder="Catatan (Opsional)..."
+                    :placeholder="t('wms.manual_return.notes_placeholder')"
                     class="w-full px-3 py-2.5 bg-background border border-secondary rounded-lg text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary text-text placeholder-text/30"
                   />
                 </div>
@@ -281,7 +283,7 @@ watch(Alt_S, pressed => {
                   <button
                     @click="removeItemRow(index)"
                     class="w-8 h-8 flex items-center justify-center text-text/30 hover:text-danger hover:bg-danger/10 rounded-lg transition-all"
-                    title="Hapus baris ini"
+                    :title="t('wms.manual_return.delete_row_title')"
                   >
                     <font-awesome-icon icon="fa-solid fa-trash-alt" />
                   </button>
@@ -294,9 +296,9 @@ watch(Alt_S, pressed => {
             <div class="w-16 h-16 bg-secondary/50 rounded-full flex items-center justify-center mb-3">
               <font-awesome-icon icon="fa-solid fa-box-open" class="text-2xl text-text/30" />
             </div>
-            <p class="text-sm">Belum ada barang yang ditambahkan.</p>
+            <p class="text-sm">{{ t('wms.batch_adj_view.no_import_history') }}</p>
             <button @click="addItemRow" class="mt-4 text-primary font-bold text-sm hover:underline">
-              + Tambah Barang Pertama
+              + {{ t('wms.manual_return.btn_add_row') }}
             </button>
           </div>
 
@@ -305,7 +307,7 @@ watch(Alt_S, pressed => {
               @click="addItemRow"
               class="w-full py-3 border-2 border-dashed border-secondary rounded-xl text-text/60 font-bold text-sm hover:border-primary hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
             >
-              <font-awesome-icon icon="fa-solid fa-plus-circle" /> Tambah Baris Baru
+              <font-awesome-icon icon="fa-solid fa-plus-circle" /> {{ t('wms.manual_return.btn_add_row') }}
             </button>
           </div>
         </div>
@@ -317,7 +319,7 @@ watch(Alt_S, pressed => {
     >
       <div class="max-w-7xl mx-auto flex items-center justify-between">
         <div class="hidden md:flex flex-col">
-          <span class="text-xs text-text/50 font-bold uppercase">Total Item</span>
+          <span class="text-xs text-text/50 font-bold uppercase">{{ t('common.label.total') }} Item</span>
           <span class="text-xl font-bold text-text"
             >{{ form.items.length }} <span class="text-sm font-normal text-text/50">Baris</span></span
           >
@@ -327,14 +329,14 @@ watch(Alt_S, pressed => {
             @click="goBack"
             class="flex-1 md:flex-none px-6 py-3 rounded-xl border border-secondary text-text/70 font-bold hover:bg-secondary/50 transition-all"
           >
-            Batal
+            {{ t('common.btn.cancel') }}
           </button>
           <button
             @click="submitForm"
             :disabled="isLoading"
             class="flex-1 md:flex-none md:w-64 bg-primary text-secondary px-6 py-3 rounded-xl font-bold text-lg hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-all disabled:opacity-70 disabled:cursor-not-allowed group"
           >
-            <span v-if="isLoading">Memproses...</span><span v-else>Simpan Retur</span
+            <span v-if="isLoading">{{ t('common.processing') }}</span><span v-else>{{ t('wms.manual_return.btn_submit') }}</span
             ><font-awesome-icon v-if="isLoading" icon="fa-solid fa-spinner" spin /><font-awesome-icon
               v-else
               icon="fa-solid fa-check"

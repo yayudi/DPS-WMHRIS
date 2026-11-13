@@ -102,12 +102,12 @@ onUnmounted(() => {
         </nav>
       </div>
 
-      <div class="flex items-center gap-2 shrink-0" title="User Dropdown">
+      <div class="flex items-center gap-2 shrink-0" :title="t('nav.user_dropdown')">
         <button
           v-if="auth.hasPermission('product_price.view')"
           @click="isSimulationModalOpen = true"
           class="w-12 text-text/80 hover:text-primary transition-colors rounded-lg hidden sm:block"
-          title="Simulasi Harga & Berat"
+          :title="t('nav.price_simulation')"
         >
           <font-awesome-icon icon="fa-solid fa-calculator" class="text-xl" />
         </button>
@@ -115,7 +115,7 @@ onUnmounted(() => {
         <button
           @click="isStickerModalOpen = true"
           class="w-12 text-text/80 hover:text-primary transition-colors rounded-lg hidden sm:block"
-          title="Batch Sticker Generator"
+          :title="t('nav.batch_sticker_generator')"
         >
           <font-awesome-icon icon="fa-solid fa-print" class="text-xl" />
         </button>
@@ -123,7 +123,7 @@ onUnmounted(() => {
         <button
           @click="isCheatSheetOpen = true"
           class="w-12 text-text/80 hover:text-primary transition-colors rounded-lg hidden sm:block"
-          title="Keyboard Shortcuts (Alt + Q)"
+          :title="t('nav.keyboard_shortcuts')"
         >
           <font-awesome-icon icon="fa-solid fa-keyboard" class="text-xl" />
         </button>

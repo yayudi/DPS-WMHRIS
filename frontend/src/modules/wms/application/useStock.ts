@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { stockApi } from '../infrastructure/stock.api'
 import type { StockFilter, ProductStock } from '../domain/stock.entity'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { useDownload } from '@/core/presentation/composables/useDownload'
 
 export function useStock() {
@@ -10,6 +11,7 @@ export function useStock() {
   const error = ref<string | null>(null)
   const totalItems = ref(0)
   const { toast } = useToast()
+  const { t } = useI18n()
   const { downloadBlob } = useDownload()
 
   async function fetchStocks(filter: StockFilter) {
@@ -21,7 +23,7 @@ export function useStock() {
       totalItems.value = response.meta?.total || 0
       return response
     } catch (err: any) {
-      error.value = err?.message || 'Gagal mengambil data stok'
+      error.value = err?.message || t('wms.stock.fetch_error')
       throw err
     } finally {
       isLoading.value = false
@@ -34,7 +36,7 @@ export function useStock() {
       const blob = await stockApi.exportStock(filter)
       downloadBlob(blob, `Stock_Export_${new Date().toISOString()}.xlsx`)
     } catch (err: any) {
-      toast('Gagal mengekspor data stok', 'error')
+      toast(t('wms.stock.export_error'), 'error')
       throw err
     } finally {
       isLoading.value = false

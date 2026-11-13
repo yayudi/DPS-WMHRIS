@@ -8,6 +8,7 @@ import (
 
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
 	"github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 
 	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
 )
@@ -40,17 +41,51 @@ func NewNotificationService(txManager database.TransactionManager, notificationR
 	}
 }
 
-// FetchRecentPending returns recent pending notifications for a user.
+// FetchRecentPending returns recent pending notifications for a user, resolving _i18n metadata based on context locale.
 func (s *notificationServiceImpl) FetchRecentPending(ctx context.Context, userID int, limit int) ([]system_dto.NotificationResponse, error) {
 	if limit <= 0 {
 		limit = 5
 	}
-	return s.notificationRepo.GetRecentPending(ctx, userID, limit)
+	notifs, err := s.notificationRepo.GetRecentPending(ctx, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	return s.localizeNotifications(ctx, notifs), nil
 }
 
-// FetchAll returns all notifications for a user, optionally filtered by type.
+// FetchAll returns all notifications for a user, optionally filtered by type, resolving _i18n metadata.
 func (s *notificationServiceImpl) FetchAll(ctx context.Context, userID int, filterType string) ([]system_dto.NotificationResponse, error) {
-	return s.notificationRepo.GetAll(ctx, userID, filterType)
+	notifs, err := s.notificationRepo.GetAll(ctx, userID, filterType)
+	if err != nil {
+		return nil, err
+	}
+	return s.localizeNotifications(ctx, notifs), nil
+}
+
+func (s *notificationServiceImpl) localizeNotifications(ctx context.Context, notifs []system_dto.NotificationResponse) []system_dto.NotificationResponse {
+	for i := range notifs {
+		if notifs[i].ActionPayload == nil || len(*notifs[i].ActionPayload) == 0 {
+			continue
+		}
+		var meta struct {
+			I18n *system_dto.NotificationI18nMeta `json:"_i18n"`
+		}
+		if err := json.Unmarshal(*notifs[i].ActionPayload, &meta); err == nil && meta.I18n != nil {
+			if meta.I18n.TitleKey != "" {
+				translatedTitle := i18n.T(ctx, meta.I18n.TitleKey, meta.I18n.Params)
+				if translatedTitle != meta.I18n.TitleKey && translatedTitle != "" {
+					notifs[i].Title = translatedTitle
+				}
+			}
+			if meta.I18n.MessageKey != "" {
+				translatedMsg := i18n.T(ctx, meta.I18n.MessageKey, meta.I18n.Params)
+				if translatedMsg != meta.I18n.MessageKey && translatedMsg != "" {
+					notifs[i].Message = translatedMsg
+				}
+			}
+		}
+	}
+	return notifs
 }
 
 // MarkNotificationAsDone marks a single notification as done within a transaction.

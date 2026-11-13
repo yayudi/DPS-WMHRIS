@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
 import { dayjs } from '@/core/utils/time'
+import { useI18n } from '@/core/infrastructure/localization'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { useTheme } from '@/core/presentation/composables/useTheme'
@@ -21,6 +22,7 @@ import { formatNumber, generateDynamicExportName } from '@/core/utils/formatters
 import { usePagination } from '@/core/presentation/composables/usePagination'
 import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
 
+const { t } = useI18n()
 const authStore = useAuthStore()
 const masterData = useMasterDataStore()
 const downloadStore = useDownloadStore()
@@ -69,10 +71,10 @@ const totalOutAll = computed(() => {
 const getNetFlowInfo = (item: any) => {
   const net = Number(item.total_inbound) - Number(item.total_sold)
   if (net > 0)
-    return { value: `+${formatNumber(net)}`, label: 'Surplus', class: 'text-success', icon: 'fa-solid fa-arrow-up' }
+    return { value: `+${formatNumber(net)}`, label: t('analytics.movement.net_surplus'), class: 'text-success', icon: 'fa-solid fa-arrow-up' }
   if (net < 0)
-    return { value: formatNumber(net), label: 'Defisit', class: 'text-danger', icon: 'fa-solid fa-arrow-down' }
-  return { value: '0', label: 'Seimbang', class: 'text-text/60', icon: 'fa-solid fa-minus' }
+    return { value: formatNumber(net), label: t('analytics.movement.net_deficit'), class: 'text-danger', icon: 'fa-solid fa-arrow-down' }
+  return { value: '0', label: t('analytics.movement.net_balanced'), class: 'text-text/60', icon: 'fa-solid fa-minus' }
 }
 
 const getSellThroughRate = (item: any) => {
@@ -119,20 +121,20 @@ const reportFilters = ref<{
   allCategories: []
 })
 
-const stockStatusOptions = [
-  { id: 'safe', label: 'Aman' },
-  { id: 'warning', label: 'Warning' },
-  { id: 'critical', label: 'Kritis (Restock)' },
-  { id: 'overstock', label: 'Overstock' },
-  { id: 'empty', label: 'Stok Kosong' },
-  { id: 'negative', label: 'Stok Minus' }
-]
+const stockStatusOptions = computed(() => [
+  { id: 'safe', label: t('analytics.movement.status_safe') },
+  { id: 'warning', label: t('analytics.movement.status_warning') },
+  { id: 'critical', label: t('analytics.movement.status_critical') },
+  { id: 'overstock', label: t('analytics.movement.status_overstock') },
+  { id: 'empty', label: t('analytics.movement.status_empty') },
+  { id: 'negative', label: t('analytics.movement.status_negative') }
+])
 
-const movementOptions = [
-  { value: 'all', label: 'Semua', icon: 'fa-solid fa-list' },
-  { value: 'active', label: 'Aktif', icon: 'fa-solid fa-bolt' },
-  { value: 'dead', label: 'Dead Stock', icon: 'fa-solid fa-skull' }
-]
+const movementOptions = computed(() => [
+  { value: 'all', label: t('common.filter.all'), icon: 'fa-solid fa-list' },
+  { value: 'active', label: t('common.status.active'), icon: 'fa-solid fa-bolt' },
+  { value: 'dead', label: t('analytics.movement.opt_dead'), icon: 'fa-solid fa-skull' }
+])
 
 const chartMaxCapOptions = [
   { id: 5, label: 'Top 5' },
@@ -145,48 +147,48 @@ const mainFilters = computed(() => [
   {
     type: 'daterange',
     keyStart: 'startDate',
-    label: 'Periode',
+    label: t('analytics.movement.filter_period'),
     keyEnd: 'endDate',
     class: 'md:col-span-1 lg:col-span-1'
   },
   {
     type: 'text',
     key: 'searchQuery',
-    label: 'Produk / SKU',
-    placeholder: 'Cari SKU atau Nama Produk...'
+    label: t('analytics.movement.filter_product_sku'),
+    placeholder: t('common.placeholder.search_sku')
   },
   {
     type: 'triselect',
     key: 'building',
-    label: 'Lokasi / Gedung',
+    label: t('common.label.building'),
     options: reportFilters.value.allBuildings,
-    placeholder: 'Semua Gedung',
+    placeholder: t('common.filter.all_buildings'),
     searchable: true
   },
   {
     type: 'triselect',
     key: 'status',
-    label: 'Status Stok',
-    options: stockStatusOptions,
+    label: t('analytics.movement.filter_status'),
+    options: stockStatusOptions.value,
     optionLabel: 'label',
     trackBy: 'id',
-    placeholder: 'Semua Status'
+    placeholder: t('analytics.movement.filter_all_statuses')
   },
   {
     type: 'triselect',
     key: 'categoryId',
-    label: 'Kategori Produk',
+    label: t('analytics.movement.filter_category'),
     options: reportFilters.value.allCategories,
     optionLabel: 'label',
     trackBy: 'id',
-    placeholder: 'Semua Kategori',
+    placeholder: t('analytics.movement.filter_all_categories'),
     searchable: true
   },
   {
     type: 'segmented',
     key: 'movement',
-    label: 'Aktivitas Transaksi',
-    options: movementOptions
+    label: t('analytics.movement.filter_activity'),
+    options: movementOptions.value
   }
 ])
 
@@ -256,7 +258,7 @@ const handleExport = async () => {
       ...filterValues.value,
       exportName
     }
-    const data = await analyticsApi.requestStatisticExport(prepareFilters(filtersPayload))
+    const data = await analyticsApi.requestStatisticExport(serializeFilterParams(filtersPayload))
     if (data.success) {
       downloadStore.notifyNewJob()
       toast(data.message || 'Sedang memproses export ke background', 'success')
@@ -290,17 +292,17 @@ const getStatusClass = status => {
 const getStatusLabel = status => {
   switch (status) {
     case 'CRITICAL':
-      return 'Kritis'
+      return t('analytics.movement.status_critical_short')
     case 'WARNING':
-      return 'Warning'
+      return t('analytics.movement.status_warning')
     case 'SAFE':
-      return 'Aman'
+      return t('analytics.movement.status_safe')
     case 'OVERSTOCK':
-      return 'Overstock'
+      return t('analytics.movement.status_overstock')
     case 'EMPTY':
-      return 'Kosong'
+      return t('analytics.movement.status_empty_short')
     case 'NEGATIVE':
-      return 'Minus'
+      return t('analytics.movement.status_negative_short')
     default:
       return status
   }
@@ -342,7 +344,14 @@ const totalDeadStockQty = computed(() => {
 
 const chartStatusOptions = computed(() => ({
   chart: { type: 'donut', background: 'transparent' },
-  labels: ['Aman', 'Warning', 'Kritis', 'Overstock', 'Kosong', 'Minus'],
+  labels: [
+    t('analytics.movement.status_safe'),
+    t('analytics.movement.status_warning'),
+    t('analytics.movement.status_critical_short'),
+    t('analytics.movement.status_overstock'),
+    t('analytics.movement.status_empty_short'),
+    t('analytics.movement.status_negative_short')
+  ],
   colors: [
     themeColors.value.success,
     themeColors.value.warning,
@@ -360,7 +369,7 @@ const chartStatusOptions = computed(() => ({
 
 const chartTopSalesSeries = computed(() => {
   const sorted = [...statisticsList.value].sort((a, b) => b.total_sold - a.total_sold).slice(0, chartMaxCap.value)
-  return [{ name: 'Keluar (Out)', data: sorted.map(i => i.total_sold) }]
+  return [{ name: t('analytics.movement.series_out'), data: sorted.map(i => i.total_sold) }]
 })
 const chartTopSalesOptions = computed(() => {
   const sorted = [...statisticsList.value].sort((a, b) => b.total_sold - a.total_sold).slice(0, chartMaxCap.value)
@@ -390,7 +399,7 @@ const chartTopSalesOptions = computed(() => {
 const chartSlowMovingSeries = computed(() => {
   const validData = statisticsList.value.filter(i => i.current_stock > 0)
   const sorted = validData.sort((a, b) => b.current_stock - a.current_stock).slice(0, chartMaxCap.value)
-  return [{ name: 'Sisa Stok Aktual', data: sorted.map(i => i.current_stock) }]
+  return [{ name: t('analytics.movement.series_actual_stock'), data: sorted.map(i => i.current_stock) }]
 })
 const chartSlowMovingOptions = computed(() => {
   const validData = statisticsList.value.filter(i => i.current_stock > 0)
@@ -423,8 +432,8 @@ const chartActivitySeries = computed(() => {
     .sort((a, b) => b.total_sold + b.total_inbound - (a.total_sold + a.total_inbound))
     .slice(0, chartMaxCap.value)
   return [
-    { name: 'Mutasi Keluar', data: sorted.map(i => i.total_sold) },
-    { name: 'Mutasi Masuk', data: sorted.map(i => i.total_inbound) }
+    { name: t('analytics.movement.series_mutation_out'), data: sorted.map(i => i.total_sold) },
+    { name: t('analytics.movement.series_mutation_in'), data: sorted.map(i => i.total_inbound) }
   ]
 })
 const chartActivityOptions = computed(() => {
@@ -463,7 +472,7 @@ const chartFastMovingSeries = computed(() => {
   const sorted = [...statisticsList.value]
     .sort((a, b) => b.avg_daily_sales - a.avg_daily_sales)
     .slice(0, chartMaxCap.value)
-  return [{ name: 'Rata-rata Keluar', data: sorted.map(i => i.avg_daily_sales) }]
+  return [{ name: t('analytics.movement.series_avg_out'), data: sorted.map(i => i.avg_daily_sales) }]
 })
 const chartFastMovingOptions = computed(() => {
   const sorted = [...statisticsList.value]
@@ -497,7 +506,7 @@ const chartUrgentRestockSeries = computed(() => {
     i => i.days_of_inventory !== null && i.days_of_inventory > 0 && i.days_of_inventory < 90
   )
   const sorted = validData.sort((a, b) => a.days_of_inventory - b.days_of_inventory).slice(0, chartMaxCap.value)
-  return [{ name: 'Sisa Umur Stok (Hari)', data: sorted.map(i => i.days_of_inventory) }]
+  return [{ name: t('analytics.movement.series_days_remaining'), data: sorted.map(i => i.days_of_inventory) }]
 })
 const chartUrgentRestockOptions = computed(() => {
   const validData = statisticsList.value.filter(
@@ -538,7 +547,7 @@ const chartFlowBalanceSeries = computed(() => {
 })
 const chartFlowBalanceOptions = computed(() => ({
   chart: { type: 'donut', background: 'transparent' },
-  labels: ['Total Mutasi Masuk (Inbound)', 'Total Mutasi Keluar (Out/Terjual)'],
+  labels: [t('analytics.movement.series_inbound_total'), t('analytics.movement.series_out_total')],
   colors: [themeColors.value.success, themeColors.value.danger],
   theme: { mode: isDarkTheme.value ? 'dark' : 'light' },
   plotOptions: { pie: { donut: { size: '70%' }, expandOnClick: false } },
@@ -573,12 +582,12 @@ const chartScatterSeries = computed(() => {
   })
 
   return [
-    { name: 'Kritis', data: criticalData },
-    { name: 'Aman', data: safeData },
-    { name: 'Warning', data: warningData },
-    { name: 'Overstock', data: overstockData },
-    { name: 'Kosong', data: emptyData },
-    { name: 'Minus', data: negativeData }
+    { name: t('analytics.movement.status_critical_short'), data: criticalData },
+    { name: t('analytics.movement.status_safe'), data: safeData },
+    { name: t('analytics.movement.status_warning'), data: warningData },
+    { name: t('analytics.movement.status_overstock'), data: overstockData },
+    { name: t('analytics.movement.status_empty_short'), data: emptyData },
+    { name: t('analytics.movement.status_negative_short'), data: negativeData }
   ]
 })
 
@@ -599,14 +608,14 @@ const chartScatterOptions = computed(() => ({
   ],
   xaxis: {
     title: {
-      text: 'Sisa Stok Faktual (Pcs)',
+      text: t('analytics.movement.axis_actual_stock'),
       style: { color: labelColor.value, fontSize: '12px' }
     },
     labels: { style: { colors: labelColor.value } }
   },
   yaxis: {
     title: {
-      text: 'Rata-Rata Keluar per Hari',
+      text: t('analytics.movement.axis_avg_out_daily'),
       style: { color: labelColor.value, fontSize: '12px' }
     },
     labels: { style: { colors: labelColor.value } }
@@ -621,10 +630,10 @@ const chartScatterOptions = computed(() => ({
         <strong class="text-sm border-b border-secondary pb-1 mb-2 block">${data.sku}</strong>
         <span class="text-text/70 mb-2 block whitespace-normal leading-tight">${data.name}</span>
         <div class="flex justify-between items-center bg-secondary/20 p-1.5 rounded">
-          <span>Sisa Stok Fisik:</span> <b>${data.x}</b>
+          <span>${t('analytics.movement.tooltip_physical_stock')}</span> <b>${data.x}</b>
         </div>
         <div class="flex justify-between items-center bg-primary/10 p-1.5 mt-1 rounded">
-          <span class="text-primary">Laju Keluar Harian:</span> <b class="text-primary">${data.y}</b>
+          <span class="text-primary">${t('analytics.movement.tooltip_daily_rate')}</span> <b class="text-primary">${data.y}</b>
         </div>
       </div>`
     }
@@ -639,10 +648,10 @@ const chartScatterOptions = computed(() => ({
     >
       <div>
         <div class="flex items-center gap-3">
-          <h3 class="text-lg font-bold text-text">Pergerakan Stok</h3>
+          <h3 class="text-lg font-bold text-text">{{ t('analytics.movement.page_title') }}</h3>
         </div>
         <p class="text-sm text-text/50 mt-1">
-          Data penjualan, inbound, dan estimasi waktu sisa stok berdasarkan rata-rata harian.
+          {{ t('analytics.movement.page_subtitle') }}
         </p>
       </div>
 
@@ -658,8 +667,8 @@ const chartScatterOptions = computed(() => ({
         <BaseTabs
           v-model="viewMode"
           :tabs="[
-            { label: 'Tabel Data', value: 'table' },
-            { label: 'Grafik & Insight', value: 'chart' }
+            { label: t('analytics.movement.tab_table'), value: 'table' },
+            { label: t('analytics.movement.tab_chart'), value: 'chart' }
           ]"
         />
       </div>
@@ -696,11 +705,9 @@ const chartScatterOptions = computed(() => ({
         <font-awesome-icon icon="fa-solid fa-skull" class="text-3xl text-danger" />
       </div>
       <div>
-        <h4 class="font-bold text-danger text-lg mb-1">Peringatan: Stok Mati (Dead Stock)</h4>
+        <h4 class="font-bold text-danger text-lg mb-1">{{ t('analytics.movement.dead_stock_title') }}</h4>
         <p class="text-sm text-text/70">
-          Terdapat <span class="font-bold text-text">{{ deadStockItems.length }} SKU</span> dengan total kuantitas
-          <span class="font-bold text-danger">{{ formatNumber(totalDeadStockQty) }} pcs</span>
-          yang menganggur tanpa ada aktivitas keluar maupun masuk pada rentang waktu ini.
+          {{ t('analytics.movement.dead_stock_banner', { skuCount: deadStockItems.length, totalQty: formatNumber(totalDeadStockQty) }) }}
         </p>
       </div>
     </div>
@@ -721,80 +728,80 @@ const chartScatterOptions = computed(() => ({
                 <th
                   @click="sortBy('sku')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40 relative"
-                  title="Kode unik produk (Stock Keeping Unit)"
+                  :title="t('analytics.movement.col_sku_tooltip')"
                 >
                   <div class="flex items-center gap-2">
-                    SKU
+                    {{ t('common.label.sku') }}
                     <font-awesome-icon :icon="getSortIcon('sku')" class="text-xs opacity-50" />
                   </div>
                 </th>
                 <th
                   @click="sortBy('name')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40 w-full min-w-[250px]"
-                  title="Nama lengkap produk"
+                  :title="t('analytics.movement.col_name_tooltip')"
                 >
                   <div class="flex items-center gap-2">
-                    Nama Produk
+                    {{ t('common.label.product_name') }}
                     <font-awesome-icon :icon="getSortIcon('name')" class="text-xs opacity-50" />
                   </div>
                 </th>
                 <th
                   @click="sortBy('total_sold')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40"
-                  title="Total barang keluar (penjualan, transfer keluar, dll) dalam rentang waktu yang dipilih"
+                  :title="t('analytics.movement.col_out_tooltip')"
                 >
                   <div class="flex items-center gap-2">
-                    Out
+                    {{ t('analytics.movement.col_out') }}
                     <font-awesome-icon :icon="getSortIcon('total_sold')" class="text-xs opacity-50" />
                   </div>
                 </th>
                 <th
                   @click="sortBy('total_inbound')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40"
-                  title="Total barang masuk (pembelian, retur, transfer masuk, dll) dalam rentang waktu yang dipilih"
+                  :title="t('analytics.movement.col_inbound_tooltip')"
                 >
                   <div class="flex items-center gap-2">
-                    Inbound
+                    {{ t('analytics.movement.col_inbound') }}
                     <font-awesome-icon :icon="getSortIcon('total_inbound')" class="text-xs opacity-50" />
                   </div>
                 </th>
                 <th
                   @click="sortBy('current_stock')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40"
-                  title="Jumlah stok saat ini (total di semua lokasi)"
+                  :title="t('analytics.movement.col_stock_tooltip')"
                 >
                   <div class="flex items-center gap-2">
-                    Sisa Stok
+                    {{ t('analytics.movement.col_current_stock') }}
                     <font-awesome-icon :icon="getSortIcon('current_stock')" class="text-xs opacity-50" />
                   </div>
                 </th>
                 <th
                   @click="sortBy('avg_daily_sales')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40"
-                  title="Rata-rata barang keluar per hari (total out ÷ jumlah hari dalam rentang)"
+                  :title="t('analytics.movement.col_avg_out_tooltip')"
                 >
                   <div class="flex items-center gap-2">
-                    Avg. Out
+                    {{ t('analytics.movement.col_avg_out') }}
                     <font-awesome-icon :icon="getSortIcon('avg_daily_sales')" class="text-xs opacity-50" />
                   </div>
                 </th>
                 <th
                   @click="sortBy('days_of_inventory')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40"
-                  title="Estimasi berapa hari stok akan bertahan berdasarkan rata-rata pengeluaran (Sisa Stok ÷ Avg. Out)"
+                  :title="t('analytics.movement.col_days_tooltip')"
                 >
                   <div class="flex items-center gap-2">
-                    Ketahanan
+                    {{ t('analytics.movement.col_days_of_inventory') }}
                     <font-awesome-icon :icon="getSortIcon('days_of_inventory')" class="text-xs opacity-50" />
                   </div>
                 </th>
                 <th
                   @click="sortBy('status')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40 text-center"
-                  title="Status kesehatan stok: Aman (hijau), Waspada (kuning), Kritis (merah), Mati (abu-abu)"
+                  :title="t('analytics.movement.col_status_tooltip')"
                 >
                   <div class="flex justify-center items-center gap-2">
-                    Stat
+                    {{ t('analytics.movement.col_stat') }}
                     <font-awesome-icon :icon="getSortIcon('status')" class="text-xs opacity-50" />
                   </div>
                 </th>
@@ -805,7 +812,7 @@ const chartScatterOptions = computed(() => ({
                 <tr>
                   <td colspan="8" class="text-center py-16 text-text/60">
                     <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-3xl text-primary mb-4" />
-                    <p class="text-sm">Memuat data pergerakan stok...</p>
+                    <p class="text-sm">{{ t('analytics.movement.loading') }}</p>
                   </td>
                 </tr>
               </template>
@@ -813,7 +820,7 @@ const chartScatterOptions = computed(() => ({
                 <tr>
                   <td colspan="8" class="text-center py-16 text-text/60">
                     <font-awesome-icon icon="fa-solid fa-folder-open" class="text-3xl mb-4 opacity-50" />
-                    <p class="font-medium">Tidak ada data untuk saringan ini.</p>
+                    <p class="font-medium">{{ t('analytics.movement.empty_filter') }}</p>
                   </td>
                 </tr>
               </template>
@@ -821,7 +828,7 @@ const chartScatterOptions = computed(() => ({
                 <tr>
                   <td colspan="8" class="text-center py-16 text-text/60">
                     <font-awesome-icon icon="fa-solid fa-search" class="text-3xl mb-4 opacity-50" />
-                    <p class="font-medium">Tidak ada hasil pencarian.</p>
+                    <p class="font-medium">{{ t('analytics.movement.empty_search') }}</p>
                   </td>
                 </tr>
               </template>
@@ -908,20 +915,20 @@ const chartScatterOptions = computed(() => ({
                               Sell-Through Rate
                             </div>
                             <div class="text-lg font-bold text-text">{{ getSellThroughRate(item) }}%</div>
-                            <div class="text-[10px] text-text/40 mt-1">Out ÷ (Out + Sisa Stok)</div>
+                            <div class="text-[10px] text-text/40 mt-1">{{ t('analytics.movement.sell_through_sub') }}</div>
                           </div>
                           <!-- Kontribusi Out -->
                           <div class="bg-background rounded-lg border border-secondary/20 p-3.5">
                             <div class="text-[11px] text-text/50 font-medium uppercase tracking-wider mb-1.5">
-                              Kontribusi Out
+                              {{ t('analytics.movement.contribution_out') }}
                             </div>
                             <div class="text-lg font-bold text-text">{{ getContributionPct(item) }}%</div>
-                            <div class="text-[10px] text-text/40 mt-1">Terhadap total keluar gudang</div>
+                            <div class="text-[10px] text-text/40 mt-1">{{ t('analytics.movement.contribution_out_sub') }}</div>
                           </div>
                           <!-- Saran Restock -->
                           <div class="bg-background rounded-lg border border-secondary/20 p-3.5">
                             <div class="text-[11px] text-text/50 font-medium uppercase tracking-wider mb-1.5">
-                              Saran Restock
+                              {{ t('analytics.movement.restock_suggestion') }}
                             </div>
                             <div
                               class="text-lg font-bold"
@@ -933,7 +940,7 @@ const chartScatterOptions = computed(() => ({
                                   : '---'
                               }}
                             </div>
-                            <div class="text-[10px] text-text/40 mt-1">Estimasi kebutuhan 30 hari</div>
+                            <div class="text-[10px] text-text/40 mt-1">{{ t('analytics.movement.restock_suggestion_sub') }}</div>
                           </div>
                         </div>
                         <!-- Building Breakdown Table -->
@@ -945,14 +952,14 @@ const chartScatterOptions = computed(() => ({
                               class="text-xs font-semibold text-text/60 uppercase tracking-wider flex items-center gap-2"
                             >
                               <font-awesome-icon icon="fa-solid fa-building" class="text-primary/60" />
-                              Distribusi Per Gedung
+                              {{ t('analytics.inventory.building_dist_title') }}
                             </h5>
                             <button
                               @click.stop="openTimelineInvestigation(item.product_id)"
                               class="inline-flex items-center justify-end gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
                             >
                               <font-awesome-icon icon="fa-solid fa-clock-rotate-left" />
-                              Investigasi Timeline
+                              {{ t('analytics.inventory.investigate_timeline') }}
                             </button>
                           </div>
                           <div
@@ -960,7 +967,7 @@ const chartScatterOptions = computed(() => ({
                             class="flex items-center gap-2 text-text/50 text-sm py-4"
                           >
                             <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-primary" />
-                            Memuat data gedung...
+                            {{ t('analytics.inventory.loading_building') }}
                           </div>
                           <div
                             v-else-if="breakdownData[item.product_id]?.length > 0"
@@ -970,16 +977,16 @@ const chartScatterOptions = computed(() => ({
                               <thead>
                                 <tr class="bg-secondary/10 text-text/60">
                                   <th class="px-3 py-2 text-left font-semibold text-xs uppercase tracking-wider">
-                                    Gedung
+                                    {{ t('common.label.building') }}
                                   </th>
                                   <th class="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wider">
-                                    Stok
+                                    {{ t('analytics.inventory.col_physical_stock') }}
                                   </th>
                                   <th class="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wider">
-                                    Out
+                                    {{ t('analytics.movement.col_out') }}
                                   </th>
                                   <th class="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wider">
-                                    Inbound
+                                    {{ t('analytics.movement.col_inbound') }}
                                   </th>
                                 </tr>
                               </thead>
@@ -1015,7 +1022,7 @@ const chartScatterOptions = computed(() => ({
                             </table>
                           </div>
                           <div v-else class="text-text/40 text-xs py-3">
-                            Tidak ada data distribusi gedung untuk produk ini.
+                            {{ t('analytics.inventory.no_building_dist') }}
                           </div>
                         </div>
                       </div>
@@ -1035,7 +1042,7 @@ const chartScatterOptions = computed(() => ({
         <!-- Chart Controls -->
         <div class="flex justify-end mb-4 animate-fade-in" v-if="statisticsList.length > 0">
           <div class="flex items-center gap-3 w-48">
-            <span class="text-sm font-semibold text-text/70 whitespace-nowrap">Data Teratas:</span>
+            <span class="text-sm font-semibold text-text/70 whitespace-nowrap">{{ t('analytics.inventory.display_rank') }}</span>
             <BaseSelect v-model="chartMaxCap" :options="chartMaxCapOptions" emitValue :searchable="false" />
           </div>
         </div>
@@ -1043,7 +1050,7 @@ const chartScatterOptions = computed(() => ({
         <!-- Chart Dashboard -->
         <div class="grid grid-cols-1 gap-6 animate-fade-in md:pb-12" v-if="statisticsList.length > 0">
           <!-- Card: Status Distribusi -->
-          <StatsChartCard title="Distribusi Status Stok">
+          <StatsChartCard :title="t('analytics.movement.chart_status_dist')">
             <VueApexCharts
               v-if="!isThemeChanging"
               width="100%"
@@ -1055,7 +1062,7 @@ const chartScatterOptions = computed(() => ({
           </StatsChartCard>
 
           <!-- Card: Top Sales -->
-          <StatsChartCard :title="`Top ${chartMaxCap} Barang Paling Sering Keluar (Mutasi Out)`">
+          <StatsChartCard :title="t('analytics.movement.chart_top_sales', { count: chartMaxCap })">
             <VueApexCharts
               v-if="!isThemeChanging"
               width="100%"
@@ -1067,7 +1074,7 @@ const chartScatterOptions = computed(() => ({
           </StatsChartCard>
 
           <!-- Card: Aktivitas Tertinggi -->
-          <StatsChartCard title="Volume Aktivitas: Masuk VS Keluar (Top {{ chartMaxCap }})">
+          <StatsChartCard :title="t('analytics.movement.chart_activity_title', { count: chartMaxCap })">
             <VueApexCharts
               v-if="!isThemeChanging"
               width="100%"
@@ -1079,7 +1086,7 @@ const chartScatterOptions = computed(() => ({
           </StatsChartCard>
 
           <!-- Card: Dead / Slow Stock -->
-          <StatsChartCard :title="`Top ${chartMaxCap} Sisa Stok Menumpuk Terbanyak (Overstock / Slow)`">
+          <StatsChartCard :title="t('analytics.movement.chart_slow_stock', { count: chartMaxCap })">
             <VueApexCharts
               v-if="!isThemeChanging"
               width="100%"
@@ -1092,8 +1099,8 @@ const chartScatterOptions = computed(() => ({
 
           <!-- Card: Fast Moving -->
           <StatsChartCard
-            :title="`Top ${chartMaxCap} Laju Penjualan Terkencang (Fast-Moving)`"
-            subtitle="Mengurutkan barang berdasarkan rata-rata mutasi keluar harian tertinggi."
+            :title="t('analytics.movement.chart_fast_moving', { count: chartMaxCap })"
+            :subtitle="t('analytics.movement.chart_fast_moving_sub')"
           >
             <VueApexCharts
               v-if="!isThemeChanging"
@@ -1107,8 +1114,8 @@ const chartScatterOptions = computed(() => ({
 
           <!-- Card: Urgent Restock -->
           <StatsChartCard
-            :title="`Top ${chartMaxCap} Prioritas Restock Darurat (Kritis)`"
-            subtitle='Mengurutkan barang berdasarkan sisa "hari" stok terpendek sebelum habis sepenuhnya.'
+            :title="t('analytics.movement.chart_urgent_restock', { count: chartMaxCap })"
+            :subtitle="t('analytics.movement.chart_urgent_restock_sub')"
           >
             <VueApexCharts
               v-if="!isThemeChanging"
@@ -1122,8 +1129,8 @@ const chartScatterOptions = computed(() => ({
 
           <!-- Card: Flow Balance -->
           <StatsChartCard
-            title="Rasio Volume Mutasi Gudang Total (In vs Out)"
-            subtitle="Menjumlahkan seluruh kuantitas Inbound vs Pengeluaran dalam periode filter ini."
+            :title="t('analytics.movement.chart_flow_balance_title')"
+            :subtitle="t('analytics.movement.chart_flow_balance_sub')"
           >
             <VueApexCharts
               v-if="!isThemeChanging"
@@ -1137,8 +1144,8 @@ const chartScatterOptions = computed(() => ({
 
           <!-- Card: Scatter Analysis -->
           <StatsChartCard
-            title="Kuadran Analisis Gudang (Sisa Stok vs Laju Penjualan)"
-            subtitle="Titik di kanan bawah berarti Kritis (Stok sedikit, keluar sangat kencang). Titik di kiri atas berarti Dead Stock (Terlalu banyak stok, tidak bergerak)."
+            :title="t('analytics.movement.chart_scatter_title')"
+            :subtitle="t('analytics.movement.chart_scatter_sub')"
             minHeight="500px"
           >
             <VueApexCharts
@@ -1157,10 +1164,9 @@ const chartScatterOptions = computed(() => ({
           class="bg-background border border-secondary rounded-xl p-16 flex flex-col items-center justify-center text-center shadow-sm"
         >
           <font-awesome-icon icon="fa-solid fa-chart-pie" class="text-4xl mb-4 text-text/30" />
-          <h4 class="font-bold text-text text-lg">Tidak ada data visualisasi</h4>
+          <h4 class="font-bold text-text text-lg">{{ t('analytics.inventory.no_visualization') }}</h4>
           <p class="text-text/60 mt-2 text-sm max-w-sm">
-            Jalankan filter dan dapatkan hasil pencarian untuk mulai melihat dan menganalisis statistik berbentuk
-            grafik.
+            {{ t('analytics.inventory.no_visualization_desc') }}
           </p>
         </div>
       </main>

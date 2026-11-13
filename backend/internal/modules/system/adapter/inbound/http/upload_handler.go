@@ -27,17 +27,13 @@ func (h *UploadHandler) GetPresignedUrl(c *gin.Context) {
 
 	url, key, publicUrl, err := h.storageService.GeneratePresignedUploadUrl(c.Request.Context(), req.FileName, req.MimeType, req.Folder)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal men-generate URL upload.", "STORAGE_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "system.upload.generate_failed", "STORAGE_ERROR")
 		return
 	}
 
-	utils.RawResponse(c, http.StatusOK, gin.H{
-		"success": true,
-		"message": "Presigned URL berhasil dibuat",
-		"data": gin.H{
-			"url":       url,
-			"key":       key,
-			"publicUrl": publicUrl,
-		},
+	utils.SuccessResponse(c, http.StatusOK, "system.upload.generate_success", gin.H{
+		"url":       url,
+		"key":       key,
+		"publicUrl": publicUrl,
 	})
 }

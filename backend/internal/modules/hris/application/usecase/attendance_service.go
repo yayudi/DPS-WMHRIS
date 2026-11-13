@@ -15,6 +15,8 @@ import (
 	hris_port "github.com/dps-wmhris/backend/internal/modules/hris/port"
 	iam_port "github.com/dps-wmhris/backend/internal/modules/iam/port"
 	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 )
 
@@ -239,13 +241,13 @@ func (s *attendanceUseCaseImpl) ProcessImport(ctx context.Context, jobID int, fi
 	cleanPath := utils.ResolveStoragePath(filePath)
 	file, err := os.Open(cleanPath)
 	if err != nil {
-		return "", fmt.Errorf("gagal membuka file absensi: %v", err)
+		return "", apperror.Validation("hris.attendance.err_open_file", "gagal membuka file absensi", map[string]any{"error": err.Error()})
 	}
 	defer file.Close()
 
 	data, err := hris_parser.ParseAttendanceCSV(file, thresholds)
 	if err != nil {
-		return "", fmt.Errorf("gagal memparsing CSV absensi: %v", err)
+		return "", apperror.Validation("hris.attendance.err_parse_csv", "gagal memparsing CSV absensi", map[string]any{"error": err.Error()})
 	}
 
 	log.Printf("Berhasil memparsing %d user dari CSV", len(data))
@@ -256,7 +258,11 @@ func (s *attendanceUseCaseImpl) ProcessImport(ctx context.Context, jobID int, fi
 
 	if isDryRun {
 		log.Println("Dry run absensi selesai. Tidak ada perubahan yang disimpan.")
-		return fmt.Sprintf("Validasi sukses untuk %d baris/user", len(data)), nil
+		summary := i18n.T(ctx, "hris.attendance.dry_run_summary", map[string]any{"count": len(data)})
+		if summary == "hris.attendance.dry_run_summary" {
+			summary = fmt.Sprintf("Validasi sukses untuk %d baris/user", len(data))
+		}
+		return summary, nil
 	}
 
 	successCount := 0
@@ -343,7 +349,11 @@ func (s *attendanceUseCaseImpl) ProcessImport(ctx context.Context, jobID int, fi
 
 	log.Printf("Import absensi berhasil disimpan ke DB untuk %d user", successCount)
 
-	return fmt.Sprintf("Berhasil mengimpor data untuk %d user", successCount), nil
+	summary := i18n.T(ctx, "hris.attendance.import_summary", map[string]any{"count": successCount})
+	if summary == "hris.attendance.import_summary" {
+		summary = fmt.Sprintf("Berhasil mengimpor data untuk %d user", successCount)
+	}
+	return summary, nil
 }
 
 func (s *attendanceUseCaseImpl) UpdateLog(ctx context.Context, req hris_dto.UpdateLogRequest) error {

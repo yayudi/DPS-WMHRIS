@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useLocalStorage } from '@vueuse/core'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { stockApi } from '@/modules/wms/infrastructure/stock.api'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
@@ -18,6 +19,7 @@ const props = defineProps({
 })
 
 const { toast } = useToast()
+const { t } = useI18n()
 
 const batchList = useLocalStorage('draft-ml-batch', [])
 const notes = useLocalStorage('draft-ml-notes', '')
@@ -65,7 +67,7 @@ async function onProductSelect(product) {
     const validStock = details.filter(item => item.quantity > 0)
 
     if (validStock.length === 0) {
-      toast('Produk ini tidak memiliki stok yang tersedia untuk ditransfer.', 'warning')
+      toast(t('wms.multi_transfer.no_stock_for_transfer'), 'warning')
       selectedProduct.value = null
     } else {
       stockDetails.value = validStock
@@ -82,7 +84,7 @@ function validateQuantity() {
   const maxQty = fromLocation.value.quantity
   if (quantity.value > maxQty) {
     quantity.value = maxQty
-    toast(`Kuantitas tidak boleh melebihi stok di lokasi asal (${maxQty}).`, 'warning')
+    toast(t('wms.multi_transfer.qty_exceed_origin', { max: maxQty }), 'warning')
   }
   if (quantity.value < 1) {
     quantity.value = 1
@@ -92,7 +94,7 @@ function validateQuantity() {
 function validateBatchItemQuantity(item) {
   if (item.quantity > item.maxQuantity) {
     item.quantity = item.maxQuantity
-    toast(`Kuantitas melebihi stok di lokasi asal (${item.maxQuantity}).`, 'warning')
+    toast(t('wms.multi_transfer.qty_exceed_origin', { max: item.maxQuantity }), 'warning')
   }
   if (item.quantity < 1 || isNaN(item.quantity)) {
     item.quantity = 1
@@ -107,12 +109,12 @@ function onBatchItemLocationChange(item) {
 
     if (item.quantity > item.maxQuantity) {
       item.quantity = item.maxQuantity
-      toast(`Kuantitas disesuaikan karena stok di lokasi asal baru hanya ${item.maxQuantity}.`, 'warning')
+      toast(t('wms.multi_transfer.qty_adjusted', { max: item.maxQuantity }), 'warning')
     }
   }
 
   if (item.fromLocationId === item.toLocationId) {
-    toast('Peringatan: Lokasi Asal dan Tujuan sama.', 'warning')
+    toast(t('wms.multi_transfer.same_loc_warning'), 'warning')
   }
 }
 
@@ -123,7 +125,7 @@ function onBatchItemToLocationChange(item) {
   }
 
   if (item.fromLocationId === item.toLocationId) {
-    toast('Peringatan: Lokasi Asal dan Tujuan sama.', 'warning')
+    toast(t('wms.multi_transfer.same_loc_warning'), 'warning')
   }
 }
 
@@ -131,11 +133,11 @@ function onBatchItemToLocationChange(item) {
 
 function addItemToBatch() {
   if (!selectedProduct.value || !fromLocation.value || !toLocation.value || quantity.value < 1) {
-    toast('Harap lengkapi Produk, Lokasi Asal, Lokasi Tujuan, dan Kuantitas.', 'warning')
+    toast(t('wms.multi_transfer.incomplete_fields_warning'), 'warning')
     return
   }
   if (fromLocation.value.location_id === toLocation.value.id) {
-    toast('Lokasi Asal dan Lokasi Tujuan tidak boleh sama.', 'warning')
+    toast(t('wms.multi_transfer.same_loc_error'), 'warning')
     return
   }
   if (quantity.value > fromLocation.value.quantity) {
@@ -154,7 +156,7 @@ function addItemToBatch() {
     existing.quantity += quantity.value
     if (existing.quantity > existing.maxQuantity) {
       existing.quantity = existing.maxQuantity
-      toast('Total kuantitas melebihi stok yang tersedia. Diset ke batas maksimal.', 'warning')
+      toast(t('wms.multi_transfer.max_stock_capped'), 'warning')
     }
   } else {
     batchList.value.push({
@@ -191,7 +193,7 @@ async function copyFromSku() {
   await copyBatchToClipboard(
     batchList.value,
     item => `${item.sku}\t${item.name}\t${item.fromLocationCode}\t${item.toLocationCode}\t${item.quantity}`,
-    'Daftar transfer berhasil disalin ke clipboard.'
+    t('wms.clipboard.copy_success')
   )
 }
 
@@ -206,7 +208,7 @@ async function submitDetailedBatch() {
 
   const hasInvalidLocations = batchList.value.some(item => item.fromLocationId === item.toLocationId)
   if (hasInvalidLocations) {
-    toast('Terdapat item dengan Lokasi Asal dan Tujuan yang sama. Harap perbaiki sebelum memproses.', 'danger')
+    toast(t('wms.multi_transfer.invalid_items_error'), 'danger')
     return
   }
 
@@ -263,19 +265,19 @@ defineExpose({ submitDetailedBatch, hasData, resetData })
     >
       <!-- Cari Produk -->
       <div class="md:col-span-2">
-        <label class="block text-sm font-medium text-text/90 mb-2">Cari Produk</label>
+        <label class="block text-sm font-medium text-text/90 mb-2">{{ t('wms.multi_transfer.search_product_label') }}</label>
         <ProductSearchSelector
           ref="productSearchRef"
           v-model="selectedProduct"
           @update:model-value="onProductSelect"
-          placeholder="Ketik SKU atau Nama..."
+          :placeholder="t('wms.multi_transfer.search_product_placeholder')"
           :in-stock-only="true"
         />
       </div>
 
       <!-- Pindahkan Dari -->
       <div>
-        <label class="block text-sm font-medium text-text/90 mb-2">Pindahkan Dari</label>
+        <label class="block text-sm font-medium text-text/90 mb-2">{{ t('wms.multi_transfer.from_location_label') }}</label>
         <BaseSelect
           v-model="fromLocation"
           :options="stockDetails"
@@ -283,32 +285,32 @@ defineExpose({ submitDetailedBatch, hasData, resetData })
           :disabled="!selectedProduct || isLoadingDetails"
           label="location_code"
           track-by="location_id"
-          placeholder="Pilih asal"
+          :placeholder="t('wms.multi_transfer.select_from_placeholder')"
         >
           <template #option="{ option }">
             <div class="flex justify-between w-full">
               <span>{{ option.location_code }}</span>
-              <span class="font-bold">Stok: {{ option.quantity }}</span>
+              <span class="font-bold">{{ t('wms.multi_transfer.stock_label') }}: {{ option.quantity }}</span>
             </div>
           </template>
-          <template #noResult>Stok tidak ditemukan.</template>
+          <template #noResult>{{ t('wms.multi_transfer.no_stock_found') }}</template>
         </BaseSelect>
       </div>
 
       <!-- Ke Lokasi -->
       <div>
         <div class="flex justify-between items-center mb-2">
-          <label class="block text-sm font-medium text-text/90">Ke Lokasi</label>
+          <label class="block text-sm font-medium text-text/90">{{ t('common.label.to_location') }}</label>
           <button
             @click="isLocationLocked = !isLocationLocked"
             class="text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors"
             :class="isLocationLocked ? 'bg-primary/10 text-primary font-bold' : 'text-text/40 hover:bg-secondary/20'"
             :title="
-              isLocationLocked ? 'Lokasi tujuan dikunci (tidak di-reset)' : 'Lokasi tujuan akan di-reset otomatis'
+              isLocationLocked ? t('wms.multi_transfer.lock_title_locked') : t('wms.multi_transfer.lock_title_unlocked')
             "
           >
             <font-awesome-icon :icon="isLocationLocked ? 'fa-solid fa-lock' : 'fa-solid fa-lock-open'" />
-            <span>Kunci</span>
+            <span>{{ t('wms.multi_transfer.lock_btn') }}</span>
           </button>
         </div>
         <BaseSelect
@@ -317,14 +319,14 @@ defineExpose({ submitDetailedBatch, hasData, resetData })
           :disabled="isLoadingLocations"
           label="code"
           track-by="id"
-          placeholder="Pilih tujuan"
+          :placeholder="t('wms.multi_transfer.select_to_placeholder')"
         />
       </div>
 
       <!-- Jumlah & Tombol Tambah -->
       <div class="flex items-end gap-3">
         <div class="flex-grow">
-          <label class="block text-sm font-medium text-text/90 mb-2">Jumlah</label>
+          <label class="block text-sm font-medium text-text/90 mb-2">{{ t('common.label.quantity') }}</label>
           <div class="flex items-center gap-2">
             <input
               v-model.number="quantity"
@@ -353,23 +355,23 @@ defineExpose({ submitDetailedBatch, hasData, resetData })
 
     <!-- Tabel Daftar Batch (Item yang akan ditransfer) -->
     <div class="border-t border-secondary/20 pt-6">
-      <h3 class="text-lg font-semibold text-text mb-4">Daftar Transfer Rinci ({{ batchList.length }})</h3>
+      <h3 class="text-lg font-semibold text-text mb-4">{{ t('wms.multi_transfer.batch_list_title') }} ({{ batchList.length }})</h3>
       <div
         v-if="batchList.length === 0"
         class="text-center text-text/60 py-8 border-2 border-dashed border-secondary/20 rounded-lg"
       >
-        Belum ada item yang ditambahkan.
+        {{ t('wms.multi_transfer.empty_items') }}
       </div>
       <div v-else class="max-h-96 overflow-y-auto">
         <table class="text-sm" :class="isMobile ? 'w-full block' : 'min-w-full'">
           <thead :class="isMobile ? 'hidden' : 'bg-secondary/10'">
             <tr>
               <th class="p-2 text-left w-44">SKU</th>
-              <th class="p-2 text-left w-[50%] min-w-[200px]">Nama Produk</th>
-              <th class="p-2 text-left">Dari</th>
-              <th class="p-2 text-left">Ke</th>
-              <th class="p-2 text-center w-44">Jumlah</th>
-              <th class="p-2 text-center w-20">Aksi</th>
+              <th class="p-2 text-left w-[50%] min-w-[200px]">{{ t('common.label.product_name') }}</th>
+              <th class="p-2 text-left">{{ t('wms.multi_transfer.th_from') }}</th>
+              <th class="p-2 text-left">{{ t('wms.multi_transfer.th_to') }}</th>
+              <th class="p-2 text-center w-44">{{ t('common.label.quantity') }}</th>
+              <th class="p-2 text-center w-20">{{ t('common.label.action') }}</th>
             </tr>
           </thead>
           <tbody :class="isMobile ? 'block' : 'divide-y divide-secondary/20'">
@@ -392,11 +394,11 @@ defineExpose({ submitDetailedBatch, hasData, resetData })
                 <span class="font-mono">{{ item.sku }}</span>
               </td>
               <td :class="isMobile ? 'flex justify-between items-center py-1.5 border-b border-secondary/10' : 'p-2'">
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Produk</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.product_name') }}</span>
                 <span>{{ item.name }}</span>
               </td>
               <td :class="isMobile ? 'flex justify-between items-center py-1.5 border-b border-secondary/10' : 'p-2'">
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Dari</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.multi_transfer.th_from') }}</span>
                 <select
                   v-model="item.fromLocationId"
                   @change="onBatchItemLocationChange(item)"
@@ -413,7 +415,7 @@ defineExpose({ submitDetailedBatch, hasData, resetData })
                   isMobile ? 'flex justify-between items-center py-1.5 border-b border-secondary/10' : 'p-2 font-mono'
                 "
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Ke</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.multi_transfer.th_to') }}</span>
                 <select
                   v-model="item.toLocationId"
                   @change="onBatchItemToLocationChange(item)"
@@ -430,7 +432,7 @@ defineExpose({ submitDetailedBatch, hasData, resetData })
                   isMobile ? 'flex justify-between items-center py-1.5 border-b border-secondary/10' : 'p-2 text-center'
                 "
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Jumlah</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.quantity') }}</span>
                 <div class="flex items-center" :class="isMobile ? 'justify-end gap-2' : 'justify-center gap-2'">
                   <input
                     v-model.number="item.quantity"
@@ -453,7 +455,7 @@ defineExpose({ submitDetailedBatch, hasData, resetData })
                   "
                 >
                   <font-awesome-icon icon="fa-solid fa-trash" />
-                  <span v-if="isMobile" class="text-sm font-semibold">Hapus Item</span>
+                  <span v-if="isMobile" class="text-sm font-semibold">{{ t('wms.multi_transfer.delete_item') }}</span>
                 </button>
               </td>
             </tr>
@@ -469,11 +471,11 @@ defineExpose({ submitDetailedBatch, hasData, resetData })
     >
       <!-- Input Catatan -->
       <div class="flex-grow">
-        <label class="block text-sm font-medium text-text/90 mb-2">Catatan (Opsional)</label>
+        <label class="block text-sm font-medium text-text/90 mb-2">{{ t('wms.multi_transfer.notes_label') }}</label>
         <input
           v-model="notes"
           type="text"
-          placeholder="e.g., Transfer batch multi-lokasi"
+          :placeholder="t('wms.multi_transfer.notes_placeholder')"
           class="w-full p-2 border border-secondary rounded-lg bg-secondary/20 h-[42px]"
         />
       </div>
@@ -487,7 +489,7 @@ defineExpose({ submitDetailedBatch, hasData, resetData })
           class="px-6 py-3 bg-accent text-secondary rounded-lg font-bold disabled:opacity-50"
         >
           <font-awesome-icon icon="fa-solid fa-copy" />
-          Salin Daftar
+          {{ t('wms.multi_transfer.btn_copy_list') }}
         </button>
         <button
           @click="batchList = []"
@@ -495,7 +497,7 @@ defineExpose({ submitDetailedBatch, hasData, resetData })
           class="px-6 py-3 bg-danger text-secondary rounded-lg font-bold disabled:opacity-50"
         >
           <font-awesome-icon icon="fa-solid fa-trash" />
-          Batal
+          {{ t('common.btn.cancel') }}
         </button>
         <button
           @click="submitDetailedBatch"
@@ -503,7 +505,7 @@ defineExpose({ submitDetailedBatch, hasData, resetData })
           class="px-6 py-3 bg-primary text-secondary rounded-lg font-bold disabled:opacity-50 flex items-center gap-3 group"
         >
           <font-awesome-icon v-if="isSubmitting" icon="fa-solid fa-spinner" class="animate-spin" />
-          <span>{{ isSubmitting ? 'Memproses...' : 'Submit Batch Transfer' }}</span>
+          <span>{{ isSubmitting ? t('common.processing') : t('wms.multi_transfer.btn_submit') }}</span>
           <kbd
             v-if="!isSubmitting"
             class="hidden md:inline-block ml-1 px-1.5 py-0.5 text-[10px] bg-secondary/20 text-secondary border border-secondary/30 rounded font-mono shadow-sm group-hover:bg-secondary/30 transition-colors"

@@ -1,5 +1,8 @@
 <script setup>
 import { ref } from 'vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   accept: {
@@ -132,9 +135,9 @@ function handleSubmit() {
         <!-- Text -->
         <div class="space-y-1">
           <p class="text-sm font-bold text-text/80">
-            {{ files.length > 0 ? `${files.length} File Dipilih` : 'Klik atau Tarik File ke Sini' }}
+            {{ files.length > 0 ? t('core.import.files_selected').replace('{count}', String(files.length)) : t('core.import.drag_or_click') }}
           </p>
-          <p class="text-[10px] text-text/40 uppercase font-bold tracking-wider">Format: {{ accept }}</p>
+          <p class="text-[10px] text-text/40 uppercase font-bold tracking-wider">{{ t('core.import.format_label') }} {{ accept }}</p>
         </div>
       </div>
     </div>
@@ -157,7 +160,7 @@ function handleSubmit() {
         <button
           @click.stop="removeFile(i)"
           class="p-1.5 hover:bg-danger/10 text-text/30 hover:text-danger rounded transition-colors"
-          title="Hapus"
+          :title="t('common.btn.delete')"
           type="button"
         >
           <font-awesome-icon icon="fa-solid fa-xmark" />
@@ -168,12 +171,12 @@ function handleSubmit() {
     <!-- Catatan -->
     <div class="pt-2">
       <label class="block text-[10px] font-bold uppercase text-text/40 mb-2 tracking-wider"
-        >Catatan Tambahan <span class="text-text/40 font-normal">(opsional)</span></label
+        >{{ t('common.label.notes') }} <span class="text-text/40 font-normal">{{ t('common.label.optional') }}</span></label
       >
       <textarea
         v-model="userNotes"
         rows="2"
-        placeholder="Tulis catatan..."
+        :placeholder="t('core.import.notes_placeholder')"
         class="w-full px-3 py-2 border border-secondary/30 rounded-lg bg-background text-text text-sm outline-none focus:border-primary transition-colors resize-none placeholder:text-text/30"
       ></textarea>
     </div>
@@ -195,7 +198,7 @@ function handleSubmit() {
           />
         </div>
         <label for="dryRunCheckGeneric" class="text-xs text-text/70 cursor-pointer select-none font-medium">
-          Mode Simulasi <span class="text-text/40 font-normal">(Cek validasi tanpa simpan)</span>
+          {{ t('core.import.dry_run_mode') }} <span class="text-text/40 font-normal">{{ t('core.import.dry_run_hint') }}</span>
         </label>
       </div>
 
@@ -213,7 +216,7 @@ function handleSubmit() {
       >
         <font-awesome-icon v-if="loading" icon="fa-solid fa-circle-notch" class="animate-spin text-lg" />
         <span class="text-sm tracking-wide">{{
-          loading ? (isDryRun ? 'Simulasi...' : 'Mengupload...') : isDryRun ? 'CEK VALIDASI' : submitLabel
+          loading ? (isDryRun ? t('core.import.simulating') : t('common.status.uploading')) : isDryRun ? t('core.import.check_validation') : submitLabel
         }}</span>
       </button>
     </div>

@@ -1,11 +1,13 @@
 package utils_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/xuri/excelize/v2"
@@ -67,6 +69,34 @@ func TestGenerateTemplateWithDropdown(t *testing.T) {
 
 	if val1 != "LOC-01" || val2 != "LOC-02" || val3 != "LOC-03" {
 		t.Errorf("unexpected validation values: %s, %s, %s", val1, val2, val3)
+	}
+}
+
+func TestSetLocalizedHeaders(t *testing.T) {
+	f := excelize.NewFile()
+	defer f.Close()
+
+	sheetName := "TestSheet"
+	_ = f.SetSheetName("Sheet1", sheetName)
+	styles := utils.InitExcelStyles(f)
+
+	ctx := context.WithValue(context.Background(), i18n.LocaleContextKey, "id-ID")
+	headers := []string{"common.label.sku", "common.label.product_name", "Raw Literal"}
+
+	utils.SetLocalizedHeaders(ctx, f, sheetName, headers, styles.Header)
+
+	cellA1, _ := f.GetCellValue(sheetName, "A1")
+	cellB1, _ := f.GetCellValue(sheetName, "B1")
+	cellC1, _ := f.GetCellValue(sheetName, "C1")
+
+	if cellA1 == "" {
+		t.Errorf("expected cell A1 to be populated, got empty")
+	}
+	if cellB1 == "" {
+		t.Errorf("expected cell B1 to be populated, got empty")
+	}
+	if cellC1 != "Raw Literal" {
+		t.Errorf("expected cell C1 to be 'Raw Literal', got '%s'", cellC1)
 	}
 }
 

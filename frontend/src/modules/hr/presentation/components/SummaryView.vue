@@ -8,6 +8,9 @@ import BaseSkeleton from '@/core/presentation/components/ui/BaseSkeleton.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { usePagination } from '@/core/presentation/composables/usePagination'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   users: {
@@ -73,8 +76,8 @@ function closeModal() {
     <!-- Info Waktu Ideal (Tidak berubah) -->
     <div v-if="globalInfo && globalInfo.idealMinutes" class="text-sm text-text/80 mb-4">
       <span>
-        <span class="text-lg font-bold text-text mb-2 mr-1">Ringkasan Bulanan</span>
-        ( Waktu Kerja Ideal:
+        <span class="text-lg font-bold text-text mb-2 mr-1">{{ t('hris.summary.monthly_summary') }}</span>
+        ( {{ t('hris.summary.ideal_work_time') }}
         <!--  Gunakan 'idealMinutes' dari globalInfo baru -->
         <strong class="font-semibold text-text">{{ formatJamMenit(globalInfo.idealMinutes) }}</strong>
         )
@@ -92,18 +95,18 @@ function closeModal() {
             <th
               class="px-6 py-3 sticky left-0 z-30 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)] w-[250px]"
             >
-              Nama
+              {{ t('common.label.name') }}
             </th>
-            <th class="px-6 py-3 text-center border-b border-secondary/10">Jam Kerja</th>
-            <th class="px-6 py-3 text-center border-b border-secondary/10">Lembur</th>
-            <th class="px-6 py-3 text-center border-b border-secondary/10">Telat</th>
-            <th class="px-6 py-3 text-center border-b border-secondary/10">Early Out</th>
-            <th class="px-6 py-3 text-center border-b border-secondary/10">Absen</th>
+            <th class="px-6 py-3 text-center border-b border-secondary/10">{{ t('hris.summary.col_work_hours') }}</th>
+            <th class="px-6 py-3 text-center border-b border-secondary/10">{{ t('hris.summary.col_overtime') }}</th>
+            <th class="px-6 py-3 text-center border-b border-secondary/10">{{ t('hris.summary.col_late') }}</th>
+            <th class="px-6 py-3 text-center border-b border-secondary/10">{{ t('hris.summary.col_early_out') }}</th>
+            <th class="px-6 py-3 text-center border-b border-secondary/10">{{ t('hris.summary.col_absent') }}</th>
             <th
               v-if="authStore.isAdmin"
               class="px-6 py-3 text-right border-b border-secondary/10 sticky right-0 z-30 bg-background/95 backdrop-blur-md shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]"
             >
-              Uang Lembur
+              {{ t('hris.summary.col_overtime_pay') }}
             </th>
           </tr>
         </thead>
@@ -121,7 +124,7 @@ function closeModal() {
 
           <tr v-else-if="!paginatedSummaries.length" key="empty" class="block md:table-row">
             <td :colspan="authStore.isAdmin ? 7 : 6" class="py-12 text-center text-text/50 italic block md:table-cell">
-              Tidak ada data ringkasan untuk periode ini.
+              {{ t('hris.summary.no_data_period') }}
             </td>
           </tr>
 
@@ -137,37 +140,37 @@ function closeModal() {
               class="flex justify-between items-center md:table-cell px-2 md:px-6 py-2 md:py-4 font-bold text-text whitespace-nowrap md:sticky md:left-0 z-20 md:bg-background md:group-hover:bg-secondary/5 transition-colors md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)] border-b border-secondary/10 md:border-none mb-2 md:mb-0"
             >
               <span class="text-base md:text-sm">{{ s.nama }}</span>
-              <span class="md:hidden text-xs font-normal text-text/60 bg-secondary/10 px-2 py-1 rounded">Detail ></span>
+              <span class="md:hidden text-xs font-normal text-text/60 bg-secondary/10 px-2 py-1 rounded">{{ t('hris.summary.detail_btn') }}</span>
             </td>
             <td class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center">
-              <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Jam Kerja</span>
+              <span class="md:hidden text-text/60 text-xs uppercase font-semibold">{{ t('hris.summary.col_work_hours') }}</span>
               <span class="font-mono text-text/80">{{ s.workHours }}</span>
             </td>
             <td
               class="justify-between items-center px-2 md:px-6 py-1 md:py-4 text-center"
               :class="mobileLayout === 'compact' ? 'hidden md:table-cell' : 'flex md:table-cell'"
             >
-              <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Lembur</span>
+              <span class="md:hidden text-text/60 text-xs uppercase font-semibold">{{ t('hris.summary.col_overtime') }}</span>
               <span class="font-mono text-primary">{{ s.lemburHours }}</span>
             </td>
             <td
               class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center text-danger/80"
               :class="{ 'font-bold': s.telatMinutes > 0 }"
             >
-              <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Telat</span>
+              <span class="md:hidden text-text/60 text-xs uppercase font-semibold">{{ t('hris.summary.col_late') }}</span>
               <span>{{ s.telatHours }}</span>
             </td>
             <td
               class="justify-between items-center px-2 md:px-6 py-1 md:py-4 text-center text-warning/80"
               :class="mobileLayout === 'compact' ? 'hidden md:table-cell' : 'flex md:table-cell'"
             >
-              <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Early Out</span>
+              <span class="md:hidden text-text/60 text-xs uppercase font-semibold">{{ t('hris.summary.col_early_out') }}</span>
               <span>{{ s.earlyOutHours }}</span>
             </td>
             <td class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center">
-              <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Absen</span>
+              <span class="md:hidden text-text/60 text-xs uppercase font-semibold">{{ t('hris.summary.col_absent') }}</span>
               <span v-if="s.absenceDays > 0" class="bg-danger/10 text-danger px-2 py-1 rounded-full text-xs font-bold"
-                >{{ s.absenceDays }} hari</span
+                >{{ t('hris.summary.days_count', { count: s.absenceDays }) }}</span
               >
               <span v-else class="text-text/40">-</span>
             </td>
@@ -176,7 +179,7 @@ function closeModal() {
               class="justify-between items-center px-2 md:px-6 py-1 md:py-4 text-right font-bold text-primary font-mono md:sticky md:right-0 z-20 md:bg-background md:group-hover:bg-secondary/5 transition-colors md:shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)] border-t border-secondary/10 md:border-none mt-2 md:mt-0 pt-2 md:pt-4"
               :class="mobileLayout === 'compact' ? 'hidden md:table-cell' : 'flex md:table-cell'"
             >
-              <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Uang Lembur</span>
+              <span class="md:hidden text-text/60 text-xs uppercase font-semibold">{{ t('hris.summary.col_overtime_pay') }}</span>
               <span>{{ formatCurrency(s.uangLembur) }}</span>
             </td>
           </tr>

@@ -145,7 +145,7 @@ const menuConfig = computed(() => {
     }
     if (auth.hasPermission('system.localization.manage')) {
       settingItems.push(
-        { to: '/settings/localization', label: t('nav.localization') || 'Bahasa & Lokalisasi', icon: 'fa-language' }
+        { to: '/settings/localization', label: t('nav.localization'), icon: 'fa-language' }
       )
     }
 
@@ -171,11 +171,11 @@ const menuConfig = computed(() => {
       @click="$emit('toggle')"
       class="h-[60px] flex items-center shrink-0 border-b border-secondary/20 transition-all hover:bg-secondary/10"
       :class="props.isCollapsed ? 'justify-center px-0' : 'px-6'"
-      title="Toggle Sidebar"
+      :title="t('nav.toggle_sidebar')"
     >
       <img
         src="/android-chrome-512x512.png"
-        alt="WMS Logo"
+        :alt="t('nav.logo_alt')"
         class="h-8 object-contain transition-all duration-300"
         :class="props.isCollapsed ? 'w-8' : 'w-10'"
       />

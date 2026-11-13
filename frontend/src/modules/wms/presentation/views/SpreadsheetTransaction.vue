@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
 import SmartSpreadsheet from '@/modules/wms/presentation/components/transfer/SmartSpreadsheet.vue'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
@@ -9,6 +10,7 @@ import HotkeyBanner from '@/core/presentation/components/ui/HotkeyBanner.vue'
 import BaseTabs from '@/core/presentation/components/ui/BaseTabs.vue'
 
 const { toast } = useToast()
+const { t } = useI18n()
 const masterData = useMasterDataStore()
 const spreadsheetRef = ref(null)
 const allLocations = ref([])
@@ -16,11 +18,11 @@ const isLoading = ref(false)
 const isSubmitting = ref(false)
 const transactionType = ref('TRANSFER_MULTI')
 
-const tabs = [
-  { label: 'Inbound', value: 'INBOUND' },
-  { label: 'Transfer', value: 'TRANSFER_MULTI' },
-  { label: 'Outbound', value: 'OUTBOUND' }
-]
+const tabs = computed(() => [
+  { label: t('wms.spreadsheet_view.tab_inbound'), value: 'INBOUND' },
+  { label: t('wms.spreadsheet_view.tab_transfer'), value: 'TRANSFER_MULTI' },
+  { label: t('wms.spreadsheet_view.tab_outbound'), value: 'OUTBOUND' }
+])
 
 async function loadLocations() {
   isLoading.value = true
@@ -35,7 +37,7 @@ async function loadLocations() {
       }))
     }
   } catch (err) {
-    toast('Gagal memuat daftar lokasi', 'error')
+    toast(t('wms.spreadsheet_view.load_locations_failed'), 'error')
     console.error(err)
   } finally {
     isLoading.value = false
@@ -53,7 +55,7 @@ const handleGlobalKeydown = async e => {
   if (e.altKey && e.key.toLowerCase() === 'r') {
     e.preventDefault()
     if (spreadsheetRef.value) {
-      const isConfirmed = await swalConfirm('Apakah Anda yakin ingin mereset/menghapus semua baris?')
+      const isConfirmed = await swalConfirm(t('wms.spreadsheet_view.confirm_reset'))
       if (isConfirmed) {
         spreadsheetRef.value.resetRows()
       }
@@ -77,7 +79,7 @@ const submitTransaction = async validRows => {
   try {
     const payload = {
       type: transactionType.value,
-      notes: 'Transaksi via Spreadsheet',
+      notes: t('wms.spreadsheet_view.default_notes'),
       movements: validRows.map(r => ({
         sku: r.sku,
         fromLocationId: transactionType.value === 'INBOUND' ? null : r.fromLocationId,
@@ -89,7 +91,7 @@ const submitTransaction = async validRows => {
 
     const response = await stockApi.processBatchMovement(payload)
     if (response.success) {
-      toast('Transaksi berhasil disimpan', 'success')
+      toast(t('wms.spreadsheet_view.save_success'), 'success')
       if (spreadsheetRef.value) {
         spreadsheetRef.value.resetRows()
       }
@@ -102,7 +104,7 @@ const submitTransaction = async validRows => {
 }
 
 const handleReset = async () => {
-  const isConfirmed = await swalConfirm('Apakah Anda yakin ingin mereset/menghapus semua baris?')
+  const isConfirmed = await swalConfirm(t('wms.spreadsheet_view.confirm_reset'))
   if (isConfirmed) {
     spreadsheetRef.value?.resetRows()
   }
@@ -134,7 +136,7 @@ const handleReset = async () => {
         @click="handleReset"
       >
         <font-awesome-icon icon="fa-solid fa-trash" />
-        <span>Reset (Alt+R)</span>
+        <span>{{ t('wms.spreadsheet_view.btn_reset') }}</span>
       </button>
 
       <button
@@ -144,7 +146,7 @@ const handleReset = async () => {
       >
         <font-awesome-icon v-if="isSubmitting" icon="fa-solid fa-spinner" class="animate-spin" />
         <font-awesome-icon v-else icon="fa-solid fa-save" />
-        <span>{{ isSubmitting ? 'Menyimpan...' : 'Simpan Transaksi (Alt+S)' }}</span>
+        <span>{{ isSubmitting ? t('common.status.saving') : t('wms.spreadsheet_view.btn_save') }}</span>
       </button>
     </div>
   </div>

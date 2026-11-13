@@ -4,6 +4,7 @@ import { ref, watch } from 'vue'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { useProductSearch } from '@/modules/wms/application/useProductSearch'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const props = defineProps({
   show: Boolean,
@@ -11,6 +12,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'linked'])
+const { t } = useI18n()
 
 const isSubmitting = ref(false)
 const selectedProducts = ref([])
@@ -69,14 +71,14 @@ const submitAll = async () => {
     await Promise.allSettled(promises)
 
     if (failCount > 0) {
-      await swalAlert(`Berhasil: ${successCount} produk. Gagal: ${failCount} produk.`)
+      await swalAlert(t('core.media.link_summary_result', { success: successCount, fail: failCount }))
     }
 
     emit('linked')
     isSubmitting.value = false // Harus di set false sebelum memanggil close() karena close() punya guard
     close()
   } catch {
-    await swalAlert('Terjadi kesalahan fatal saat menyematkan produk.')
+    await swalAlert(t('core.media.link_fatal_error'))
     isSubmitting.value = false
   }
 }
@@ -91,9 +93,9 @@ const close = () => {
   <BaseModal :show="show" @close="close" maxWidth="max-w-lg">
     <template #title>
       <div class="-mt-1">
-        <h3 class="text-lg font-bold text-text">Tautkan ke Produk</h3>
+        <h3 class="text-lg font-bold text-text">{{ t('core.media.link_product_title') }}</h3>
         <p class="text-xs text-text/60 mt-1 font-normal">
-          Pilih produk tujuan untuk {{ selectedMediaIds?.length || 0 }} gambar.
+          {{ t('core.media.link_product_subtitle', { count: selectedMediaIds?.length || 0 }) }}
         </p>
       </div>
     </template>
@@ -102,7 +104,7 @@ const close = () => {
       <!-- Selected Products Preview -->
       <div v-if="selectedProducts.length > 0" class="mb-4">
         <label class="block text-sm font-semibold text-text/80 mb-2"
-          >Produk Terpilih ({{ selectedProducts.length }})</label
+          >{{ t('core.media.link_selected_label', { count: selectedProducts.length }) }}</label
         >
         <div class="flex flex-wrap gap-2 p-3 bg-secondary/10 rounded-lg border border-secondary/20">
           <div
@@ -124,12 +126,12 @@ const close = () => {
         </div>
       </div>
 
-      <label class="block text-sm font-semibold text-text/80 mb-2">Cari Produk (SKU / Nama)</label>
+      <label class="block text-sm font-semibold text-text/80 mb-2">{{ t('core.media.link_search_label') }}</label>
       <div class="relative">
         <input
           type="text"
           v-model="searchQuery"
-          placeholder="Ketik minimal 2 huruf..."
+          :placeholder="t('core.media.link_search_placeholder')"
           class="input input-bordered w-full bg-background text-text border-secondary focus:border-primary focus:ring-1 focus:ring-primary pl-10"
           :disabled="isSubmitting"
         />
@@ -147,7 +149,7 @@ const close = () => {
         v-else-if="searchQuery.length >= 2 && searchResults.length === 0"
         class="text-center py-8 text-text/50"
       >
-        Tidak ada produk yang cocok.
+        {{ t('core.media.link_no_match') }}
       </div>
 
       <div v-else-if="searchResults.length > 0" class="mt-4 flex flex-col gap-2">
@@ -175,7 +177,7 @@ const close = () => {
               <span
                 v-if="prod.is_active === 0"
                 class="text-[10px] bg-danger/10 text-danger px-2 py-0.5 rounded font-bold"
-                >Arsip</span
+                >{{ t('common.status.archived') }}</span
               >
             </div>
             <span
@@ -208,7 +210,7 @@ const close = () => {
 
       <div v-else class="flex flex-col items-center justify-center py-10 opacity-30">
         <font-awesome-icon icon="fa-solid fa-boxes-stacked" class="text-5xl mb-3" />
-        <p class="text-sm">Gunakan kotak di atas untuk menemukan produk</p>
+        <p class="text-sm">{{ t('core.media.link_search_hint') }}</p>
       </div>
     </div>
 
@@ -220,7 +222,7 @@ const close = () => {
           class="px-4 py-2 rounded-lg text-text border border-secondary hover:bg-secondary transition-colors"
           :disabled="isSubmitting"
         >
-          Batal
+          {{ t('common.btn.cancel') }}
         </button>
         <button
           @click="submitAll"
@@ -228,7 +230,7 @@ const close = () => {
           :disabled="isSubmitting || selectedProducts.length === 0"
         >
           <font-awesome-icon v-if="isSubmitting" icon="fa-solid fa-spinner" spin />
-          <span v-else>Tautkan ({{ selectedProducts.length }})</span>
+          <span v-else>{{ t('core.media.link_btn', { count: selectedProducts.length }) }}</span>
         </button>
       </div>
     </template>

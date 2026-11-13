@@ -75,7 +75,7 @@ export const wmsApi = {
   /**
    * Mengeksekusi transfer manual dari lantai STORAGE ke lantai DISPLAY (mendelegasikan ke stockApi).
    */
-  async transferStock(payload: ManualTransferPayload): Promise<void> {
-    await stockApi.transferStock(payload)
+  async transferStock(payload: ManualTransferPayload): Promise<any> {
+    return await stockApi.transferStock(payload)
   }
 }

@@ -31,7 +31,7 @@ func NewAttendanceHandler(attendanceUseCase hris_port.AttendanceUseCase, jobServ
 func (h *AttendanceHandler) GetIndexes(c *gin.Context) {
 	indexes, err := h.attendanceUseCase.GetIndexes(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 	utils.RawResponse(c, http.StatusOK, indexes) // In Node.js, this returned raw indexes
@@ -46,7 +46,7 @@ func (h *AttendanceHandler) GetHistory(c *gin.Context) {
 
 	data, err := h.attendanceUseCase.GetHistory(c.Request.Context(), req.StartDate, req.EndDate, req.Search)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 	utils.SuccessDataResponse(c, http.StatusOK, data)
@@ -61,7 +61,7 @@ func (h *AttendanceHandler) GetRangeData(c *gin.Context) {
 
 	data, err := h.attendanceUseCase.GetRangeData(c.Request.Context(), req.StartDate, req.EndDate)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 	utils.RawResponse(c, http.StatusOK, data) // In Node.js, returned raw responseJson
@@ -79,7 +79,7 @@ func (h *AttendanceHandler) GetMonthlyData(c *gin.Context) {
 
 	data, err := h.attendanceUseCase.GetMonthlyData(c.Request.Context(), year, month)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 	utils.RawResponse(c, http.StatusOK, data)
@@ -94,10 +94,10 @@ func (h *AttendanceHandler) UpdateLog(c *gin.Context) {
 
 	err := h.attendanceUseCase.UpdateLog(c.Request.Context(), req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
-	utils.SuccessResponse(c, http.StatusOK, "Data updated successfully", nil)
+	utils.SuccessResponse(c, http.StatusOK, "hris.attendance.update_success", nil)
 }
 
 func (h *AttendanceHandler) UploadLogs(c *gin.Context) {
@@ -120,14 +120,14 @@ func (h *AttendanceHandler) UploadLogs(c *gin.Context) {
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
 		_ = os.Remove(savedPath)
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	msg := "File masuk antrian pemrosesan."
+	msgKey := "hris.attendance.job_queued"
 	if isDryRun {
-		msg = "Simulasi validasi berjalan di background..."
+		msgKey = "hris.attendance.simulation_queued"
 	}
 
-	utils.JobCreatedResponse(c, http.StatusOK, msg, jobID)
+	utils.JobCreatedResponse(c, http.StatusOK, msgKey, jobID)
 }

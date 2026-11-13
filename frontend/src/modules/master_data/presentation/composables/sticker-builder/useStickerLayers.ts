@@ -1,7 +1,9 @@
 import { shallowRef, ref } from 'vue'
 import * as fabric from 'fabric'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 export function useStickerLayers(getFabricCanvas, getActiveObject, saveHistory) {
+  const { t } = useI18n()
   const canvasLayers = shallowRef([])
   const draggedLayerIndex = ref(null)
   const dragOverLayerIndex = ref(null)
@@ -24,24 +26,24 @@ export function useStickerLayers(getFabricCanvas, getActiveObject, saveHistory) 
     canvasLayers.value = allObjects
       .map((obj, idx) => {
         let iconType = obj.type
-        let text = obj.name || ('Layer ' + idx)
+        let text = obj.name || t('master_data.sticker.layer_default', { idx })
         
         if (obj.id === 'paper-bg') {
-          text = 'Latar Kertas'
+          text = t('master_data.sticker.layer_paper_bg')
           iconType = 'rect'
         } else if (!obj.name) {
           if (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox') {
-            text = obj.text.substring(0, 15) || 'Teks Kosong'
+            text = obj.text.substring(0, 15) || t('master_data.sticker.layer_empty_text')
           } else if (obj.type === 'image') {
-            text = 'Gambar'
+            text = t('master_data.sticker.layer_image')
           } else if (obj.type === 'rect') {
-            text = 'Kotak'
+            text = t('master_data.sticker.layer_rect')
           } else if (obj.type === 'circle') {
-            text = 'Lingkaran'
+            text = t('master_data.sticker.layer_circle')
           } else if (obj.type === 'triangle') {
-            text = 'Segitiga'
+            text = t('master_data.sticker.layer_triangle')
           } else if (obj.type === 'line') {
-            text = 'Garis'
+            text = t('master_data.sticker.layer_line')
           }
         }
 

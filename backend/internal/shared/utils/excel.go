@@ -1,10 +1,12 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/gin-gonic/gin"
 	"github.com/xuri/excelize/v2"
 )
@@ -61,6 +63,19 @@ func SetHeaders(f *excelize.File, sheetName string, headers []string, styleID in
 		lastCol, _ := excelize.CoordinatesToCellName(len(headers), 1)
 		_ = f.SetCellStyle(sheetName, "A1", lastCol, styleID) // #nosec G104
 	}
+}
+
+// SetLocalizedHeaders translates a slice of i18n keys (or literal strings) using ctx and writes them as styled Excel headers.
+func SetLocalizedHeaders(ctx context.Context, f *excelize.File, sheetName string, headerKeys []string, styleID int) {
+	translated := make([]string, len(headerKeys))
+	for i, k := range headerKeys {
+		if i18n.IsKeyFormat(k) {
+			translated[i] = i18n.T(ctx, k)
+		} else {
+			translated[i] = k
+		}
+	}
+	SetHeaders(f, sheetName, translated, styleID)
 }
 
 // SetColWidths sets the width of multiple columns at once using a map (e.g., map[string]float64{"A": 20, "B": 50}).

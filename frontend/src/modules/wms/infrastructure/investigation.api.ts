@@ -32,7 +32,6 @@ export const investigationApi = {
   },
 
   async revertDuplicateTransaction(id: number | string): Promise<any> {
-    const res = await http.post(`/investigation/revert/${id}`)
-    return res.data
+    return http.post(`/investigation/revert/${id}`)
   }
 }

@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import type {
   OnHoldFulfillmentSummary,
   ReplenishmentDeficit,
@@ -9,6 +10,8 @@ import type {
   ManualTransferPayload
 } from '../../../domain/replenishment.entity'
 import type { StockLocation } from '../../../domain/stock.entity'
+
+const { t } = useI18n()
 
 interface Props {
   show: boolean
@@ -142,7 +145,7 @@ function handleBarcodeScan() {
     errorMessage.value = ''
     return
   }
-  errorMessage.value = `Barcode lokasi "${code}" tidak ditemukan dalam sistem.`
+  errorMessage.value = t('wms.replenishment.error_barcode_not_found', { code })
 }
 
 function handleConfirm() {
@@ -150,22 +153,22 @@ function handleConfirm() {
   if (!props.context) return
 
   if (!fromLocation.value || !fromLocation.value.id) {
-    errorMessage.value = 'Silakan pilih lantai asal (STORAGE).'
+    errorMessage.value = t('wms.replenishment.error_select_source')
     return
   }
 
   if (!toLocation.value || !toLocation.value.id) {
-    errorMessage.value = 'Silakan pilih lantai tujuan (DISPLAY).'
+    errorMessage.value = t('wms.replenishment.error_select_dest')
     return
   }
 
   if (fromLocation.value.id === toLocation.value.id) {
-    errorMessage.value = 'Lantai asal dan tujuan tidak boleh sama.'
+    errorMessage.value = t('wms.replenishment.error_same_location')
     return
   }
 
   if (quantity.value <= 0) {
-    errorMessage.value = 'Jumlah kuantitas yang dipindahkan harus minimal 1 pcs.'
+    errorMessage.value = t('wms.replenishment.error_min_qty')
     return
   }
 
@@ -180,7 +183,7 @@ function handleConfirm() {
 </script>
 
 <template>
-  <BaseModal :show="show" title="Transfer Replenishment Manual" @close="emit('close')">
+  <BaseModal :show="show" :title="t('wms.replenishment.quick_transfer_title')" @close="emit('close')">
     <div v-if="context" class="space-y-4 text-sm text-text">
       <!-- Product & Deficit Banner -->
       <div class="p-3 bg-secondary/15 rounded-xl border border-secondary/30 flex flex-col gap-2">
@@ -189,7 +192,7 @@ function handleConfirm() {
             {{ context.deficit.sku || 'SKU-' + context.deficit.product_id }}
           </span>
           <span class="text-xs text-text/70">
-            Gedung: <strong class="text-text font-semibold">{{ context.fulfillment.assigned_building }}</strong>
+            {{ t('wms.replenishment.building_label') }} <strong class="text-text font-semibold">{{ context.fulfillment.assigned_building }}</strong>
           </span>
         </div>
         <div class="font-medium text-base text-text">
@@ -197,15 +200,15 @@ function handleConfirm() {
         </div>
         <div class="grid grid-cols-3 gap-2 pt-2 border-t border-secondary/20 text-center text-xs">
           <div class="bg-surface/60 p-2 rounded-lg">
-            <div class="text-text/70">Target Order</div>
+            <div class="text-text/70">{{ t('wms.replenishment.target_order') }}</div>
             <div class="font-bold text-text text-sm">{{ context.deficit.target_quantity }} pcs</div>
           </div>
           <div class="bg-surface/60 p-2 rounded-lg">
-            <div class="text-text/70">Saldo Display</div>
+            <div class="text-text/70">{{ t('wms.replenishment.display_balance') }}</div>
             <div class="font-bold text-warning text-sm">{{ context.deficit.display_available_quantity }} pcs</div>
           </div>
           <div class="bg-danger/10 border border-danger/20 p-2 rounded-lg">
-            <div class="text-danger font-semibold">Defisit (Kurang)</div>
+            <div class="text-danger font-semibold">{{ t('wms.replenishment.deficit_less') }}</div>
             <div class="font-extrabold text-danger text-sm">{{ context.deficit.deficit_quantity }} pcs</div>
           </div>
         </div>
@@ -214,13 +217,13 @@ function handleConfirm() {
       <!-- Quick Scan Field -->
       <div>
         <label class="block text-xs font-semibold text-text/80 mb-1">
-          Scan Barcode / Kode Lantai (Opsional untuk Verifikasi Fisik)
+          {{ t('wms.replenishment.scan_label') }}
         </label>
         <div class="flex gap-2">
           <input
             v-model="scannedBarcode"
             type="text"
-            placeholder="Scan barcode atau ketik kode lantai..."
+            :placeholder="t('wms.replenishment.scan_placeholder')"
             class="flex-1 px-3 py-2 bg-background border border-secondary/40 text-text rounded-lg text-xs font-mono focus:outline-none focus:border-primary"
             @keyup.enter="handleBarcodeScan"
           />
@@ -229,7 +232,7 @@ function handleConfirm() {
             class="px-3 py-2 bg-secondary/30 hover:bg-secondary/50 rounded-lg text-xs font-medium transition"
             @click="handleBarcodeScan"
           >
-            Verifikasi
+            {{ t('common.btn.verify') }}
           </button>
         </div>
       </div>
@@ -238,16 +241,16 @@ function handleConfirm() {
       <div>
         <div class="flex items-center justify-between mb-1">
           <label class="block text-xs font-semibold text-text/90">
-            Dari Lantai Asal (STORAGE)
+            {{ t('wms.replenishment.from_storage_label') }}
           </label>
           <span v-if="context.source" class="text-[11px] text-success font-medium">
-            Tersedia: {{ context.source.available_quantity }} pcs
+            {{ t('wms.replenishment.available_pcs', { count: context.source.available_quantity }) }}
           </span>
         </div>
         <BaseSelect
           v-model="fromLocation"
           :options="sourceLocationOptions"
-          placeholder="Pilih lantai asal (STORAGE)"
+          :placeholder="t('wms.replenishment.select_from_storage')"
           label="code"
           track-by="id"
         >
@@ -265,12 +268,12 @@ function handleConfirm() {
       <!-- Destination Rack (DISPLAY) -->
       <div>
         <label class="block text-xs font-semibold text-text/90 mb-1">
-          Ke Lantai Tujuan (DISPLAY)
+          {{ t('wms.replenishment.to_display_label') }}
         </label>
         <BaseSelect
           v-model="toLocation"
           :options="displayLocationOptions"
-          placeholder="Pilih lantai tujuan (DISPLAY)"
+          :placeholder="t('wms.replenishment.select_to_display')"
           label="code"
           track-by="id"
         >
@@ -289,7 +292,7 @@ function handleConfirm() {
       <div>
         <div class="flex items-center justify-between mb-1">
           <label class="block text-xs font-semibold text-text/90">
-            Jumlah Yang Dipindahkan (Pcs)
+            {{ t('wms.replenishment.qty_to_move') }}
           </label>
           <div class="flex gap-1.5">
             <button
@@ -297,7 +300,7 @@ function handleConfirm() {
               class="text-[11px] px-2 py-0.5 rounded bg-secondary/30 hover:bg-secondary/50 font-medium"
               @click="setQuantity(context.deficit.deficit_quantity)"
             >
-              Defisit ({{ context.deficit.deficit_quantity }})
+              {{ t('wms.replenishment.btn_deficit', { count: context.deficit.deficit_quantity }) }}
             </button>
             <button
               v-if="context.source && context.source.available_quantity > 0"
@@ -305,7 +308,7 @@ function handleConfirm() {
               class="text-[11px] px-2 py-0.5 rounded bg-secondary/30 hover:bg-secondary/50 font-medium"
               @click="setQuantity(context.source.available_quantity)"
             >
-              Max Lantai ({{ context.source.available_quantity }})
+              {{ t('wms.replenishment.btn_max_floor', { count: context.source.available_quantity }) }}
             </button>
           </div>
         </div>
@@ -336,11 +339,11 @@ function handleConfirm() {
 
       <!-- Notes -->
       <div>
-        <label class="block text-xs font-semibold text-text/90 mb-1">Catatan Pemindahan</label>
+        <label class="block text-xs font-semibold text-text/90 mb-1">{{ t('wms.replenishment.transfer_notes_label') }}</label>
         <input
           v-model="notes"
           type="text"
-          placeholder="Catatan..."
+          :placeholder="t('wms.replenishment.transfer_notes_placeholder')"
           class="w-full px-3 py-2 bg-background border border-secondary/40 text-text rounded-lg text-xs focus:outline-none focus:border-primary"
         />
       </div>
@@ -357,7 +360,7 @@ function handleConfirm() {
           class="px-4 py-2 rounded-lg bg-secondary/30 hover:bg-secondary/50 text-xs font-medium transition"
           @click="emit('close')"
         >
-          Batal
+          {{ t('common.btn.cancel') }}
         </button>
         <button
           type="button"
@@ -366,7 +369,7 @@ function handleConfirm() {
           @click="handleConfirm"
         >
           <span v-if="loading" class="animate-spin text-sm">⟳</span>
-          <span>Konfirmasi Pindah ke Display</span>
+          <span>{{ t('wms.replenishment.confirm_move_to_display') }}</span>
         </button>
       </div>
     </div>

@@ -18,7 +18,9 @@ import (
 
 	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
 	"github.com/dps-wmhris/backend/internal/parser"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/xuri/excelize/v2"
 )
@@ -102,7 +104,7 @@ func (s *mediaServiceImpl) GetMediaAssetsByIDs(ctx context.Context, mediaIDs []i
 func (s *mediaServiceImpl) DeleteMediaAsset(ctx context.Context, mediaID int) (string, string, error) {
 	asset, err := s.mediaRepo.GetMediaAssetByID(ctx, mediaID)
 	if err != nil || asset == nil {
-		return "", "", fmt.Errorf("Aset tidak ditemukan")
+		return "", "", apperror.NotFound("settings.media.asset_not_found", "aset tidak ditemukan")
 	}
 
 	// Delete from DB (will throw if FK restrict hits)
@@ -145,7 +147,7 @@ func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath 
 	}
 
 	if len(records) == 0 {
-		return "", fmt.Errorf("format kolom tidak sesuai (kosong)")
+		return "", apperror.Validation("settings.media.column_format_empty", "format kolom tidak sesuai (kosong)")
 	}
 
 	var skuKey, titleKey string
@@ -161,7 +163,7 @@ func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath 
 	}
 
 	if skuKey == "" || titleKey == "" {
-		return "", fmt.Errorf("format kolom tidak sesuai. Pastikan ada kolom 'SKU' dan 'Image_URL'")
+		return "", apperror.Validation("settings.media.column_format_invalid", "format kolom tidak sesuai. Pastikan ada kolom 'SKU' dan 'Image_URL'")
 	}
 
 	successCount := 0
@@ -235,7 +237,13 @@ func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath 
 		successCount++
 	}
 
-	summary := fmt.Sprintf("Berhasil: %d, Gagal: %d.", successCount, failCount)
+	summary := i18n.T(ctx, "settings.media.import_summary", map[string]any{
+		"success": successCount,
+		"failed":  failCount,
+	})
+	if summary == "settings.media.import_summary" {
+		summary = fmt.Sprintf("Berhasil: %d, Gagal: %d.", successCount, failCount)
+	}
 	if len(errorsList) > 0 {
 		summary += " Error: " + strings.Join(errorsList, " | ")
 	}

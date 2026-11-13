@@ -5,7 +5,9 @@ import { useMagicKeys } from '@vueuse/core'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { useShift } from '@/modules/hr/application/useShift'
 import ShiftFormModal from '@/modules/hr/presentation/components/shifts/ShiftFormModal.vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
+const { t } = useI18n()
 const { shifts, isLoading: loading, fetchShifts, deleteShift: removeShift } = useShift()
 const isModalOpen = ref(false)
 const selectedShift = ref<any>(null)
@@ -27,11 +29,11 @@ const openEdit = (shift: any) => {
 }
 
 const deleteShiftHandler = async (id: number | string) => {
-  if (!(await swalConfirm('Hapus shift ini? User yang menggunakan shift ini akan kembali ke default.'))) return
+  if (!(await swalConfirm(t('hris.shift.confirm_delete')))) return
 
   try {
-    await removeShift(id)
-    toast('Shift dihapus', 'success')
+    const res = await removeShift(id)
+    toast(res?.message || t('common.status.success'), 'success')
     getShifts()
   } catch (e) {
     console.error(e)
@@ -41,9 +43,9 @@ const deleteShiftHandler = async (id: number | string) => {
 const getWorkDaysLabel = (daysStr: string) => {
   if (!daysStr) return '-'
   const days = daysStr.split(',')
-  if (days.length === 5 && !days.includes('6') && !days.includes('7')) return 'Senin - Jumat'
-  if (days.length === 6 && !days.includes('7')) return 'Senin - Sabtu'
-  return days.length + ' Hari Kerja'
+  if (days.length === 5 && !days.includes('6') && !days.includes('7')) return t('hris.shift.mon_fri')
+  if (days.length === 6 && !days.includes('7')) return t('hris.shift.mon_sat')
+  return t('hris.shift.work_days_count', { count: days.length })
 }
 
 onMounted(getShifts)
@@ -64,7 +66,7 @@ watch(Alt_N, pressed => {
     class="bg-primary mb-8 text-secondary text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 w-full md:w-auto justify-center"
   >
     <font-awesome-icon icon="fa-solid fa-plus" />
-    <span>Tambah Shift</span>
+    <span>{{ t('hris.shift.add_btn') }}</span>
   </button>
   <!-- Shift Cards Grid -->
   <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -83,7 +85,7 @@ watch(Alt_N, pressed => {
         v-if="shift.is_default"
         class="absolute top-0 right-0 bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-bl-lg"
       >
-        DEFAULT
+        {{ t('hris.shift.badge_default') }}
       </div>
 
       <div class="flex items-start justify-between mb-4">
@@ -99,14 +101,14 @@ watch(Alt_N, pressed => {
           <button
             @click="openEdit(shift)"
             class="p-2 text-primary hover:bg-primary/5 rounded-lg transition-colors"
-            title="Edit Shift"
+            :title="t('hris.shift.edit_title')"
           >
             <font-awesome-icon icon="fa-solid fa-pen" />
           </button>
           <button
             @click="deleteShiftHandler(shift.id)"
             class="p-2 text-danger hover:bg-danger/5 rounded-lg transition-colors"
-            title="Hapus Shift"
+            :title="t('common.btn.delete')"
           >
             <font-awesome-icon icon="fa-solid fa-trash" />
           </button>
@@ -115,14 +117,14 @@ watch(Alt_N, pressed => {
 
       <div class="flex items-center gap-4 bg-secondary/20 p-3 rounded-lg border border-secondary/10">
         <div class="text-center">
-          <div class="text-xs text-text/60 uppercase font-semibold">Masuk</div>
+          <div class="text-xs text-text/60 uppercase font-semibold">{{ t('hris.shift.clock_in') }}</div>
           <div class="text-lg font-mono font-bold text-primary">
             {{ shift.start_time.slice(0, 5) }}
           </div>
         </div>
         <div class="h-8 w-px bg-secondary/20"></div>
         <div class="text-center">
-          <div class="text-xs text-text/60 uppercase font-semibold">Pulang</div>
+          <div class="text-xs text-text/60 uppercase font-semibold">{{ t('hris.shift.clock_out') }}</div>
           <div class="text-lg font-mono font-bold text-primary">
             {{ shift.end_time.slice(0, 5) }}
           </div>
@@ -132,16 +134,18 @@ watch(Alt_N, pressed => {
             v-if="shift.flexible_minutes > 0"
             class="text-xs font-medium text-success bg-success/10 px-2 py-1 rounded"
           >
-            Flex {{ shift.flexible_minutes }}m
+            {{ t('hris.shift.badge_flex', { minutes: shift.flexible_minutes }) }}
           </span>
-          <span v-else class="text-xs font-medium text-text/60 bg-secondary/10 px-2 py-1 rounded"> Fixed </span>
+          <span v-else class="text-xs font-medium text-text/60 bg-secondary/10 px-2 py-1 rounded">
+            {{ t('hris.shift.badge_fixed') }}
+          </span>
         </div>
       </div>
     </div>
   </div>
 
   <div v-if="!loading && shifts.length === 0" class="text-center py-20 text-text/40 italic">
-    Belum ada shift yang dibuat.
+    {{ t('hris.shift.no_shifts') }}
   </div>
 
   <!-- Modal -->

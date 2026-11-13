@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <div class="flex items-center justify-between">
       <h2 class="text-2xl font-bold leading-7 text-text sm:truncate sm:text-3xl sm:tracking-tight">
-        Sebaran Stok & Penempatan
+        {{ t('analytics.distribution.title') }}
       </h2>
       <div class="flex space-x-3">
         <button
@@ -13,7 +13,7 @@
         >
           <font-awesome-icon v-if="loading" icon="fa-solid fa-spinner" class="animate-spin -ml-1 mr-2 text-text/50" />
           <font-awesome-icon v-else icon="fa-solid fa-rotate" class="-ml-0.5 mr-1.5 text-text/40" />
-          Refresh Data
+          {{ t('common.btn.refresh') }}
         </button>
       </div>
     </div>
@@ -22,36 +22,36 @@
     <div class="bg-background p-4 rounded-lg shadow-sm border border-secondary/20">
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div>
-          <label class="block text-sm font-medium leading-6 text-text mb-1">Purpose</label>
+          <label class="block text-sm font-medium leading-6 text-text mb-1">{{ t('common.label.purpose') }}</label>
           <TriStateSelect
             v-model="filters.purpose"
             :options="purposeOptions"
             label="label"
             track-by="value"
-            placeholder="Semua Purpose"
+            :placeholder="t('common.filter.all_purposes')"
             @update:model-value="fetchData"
           />
         </div>
         <div>
-          <label class="block text-sm font-medium leading-6 text-text mb-1">Gedung</label>
+          <label class="block text-sm font-medium leading-6 text-text mb-1">{{ t('common.label.building') }}</label>
           <TriStateSelect
             v-model="filters.building"
             :options="buildingOptions"
             label="label"
             track-by="value"
-            placeholder="Semua Gedung"
+            :placeholder="t('common.filter.all_buildings')"
             @update:model-value="fetchData"
             :disabled="!filters.purpose.include.length && !filters.purpose.exclude.length && uniquePurposes.length > 0"
           />
         </div>
         <div>
-          <label class="block text-sm font-medium leading-6 text-text mb-1">Lantai</label>
+          <label class="block text-sm font-medium leading-6 text-text mb-1">{{ t('common.label.floor') }}</label>
           <TriStateSelect
             v-model="filters.floor"
             :options="floorOptions"
             label="label"
             track-by="value"
-            placeholder="Semua Lantai"
+            :placeholder="t('common.filter.all_floors')"
             @update:model-value="fetchData"
             :disabled="!filters.building.include.length && !filters.building.exclude.length"
           />
@@ -62,19 +62,19 @@
     <!-- KPIs -->
     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
       <div class="overflow-hidden rounded-lg bg-background px-4 py-5 shadow-sm border border-secondary/20 sm:p-6">
-        <dt class="truncate text-sm font-medium text-text/60">Total Lokasi Aktif</dt>
+        <dt class="truncate text-sm font-medium text-text/60">{{ t('analytics.distribution.kpi_active_locations') }}</dt>
         <dd class="mt-1 text-3xl font-semibold tracking-tight text-text">{{ locationLoads.length }}</dd>
       </div>
       <div class="overflow-hidden rounded-lg bg-background px-4 py-5 shadow-sm border border-secondary/20 sm:p-6">
-        <dt class="truncate text-sm font-medium text-text/60">Rata-rata Produk per Lokasi</dt>
+        <dt class="truncate text-sm font-medium text-text/60">{{ t('analytics.distribution.kpi_avg_products_per_loc') }}</dt>
         <dd class="mt-1 text-3xl font-semibold tracking-tight text-text">{{ avgProductsPerLocation }}</dd>
       </div>
       <div class="overflow-hidden rounded-lg bg-background px-4 py-5 shadow-sm border border-secondary/20 sm:p-6">
-        <dt class="truncate text-sm font-medium text-text/60">Produk Tersebar</dt>
+        <dt class="truncate text-sm font-medium text-text/60">{{ t('analytics.distribution.kpi_scattered_products') }}</dt>
         <dd class="mt-1 text-3xl font-semibold tracking-tight text-text">{{ duplicateProducts.length }}</dd>
       </div>
       <div class="overflow-hidden rounded-lg bg-background px-4 py-5 shadow-sm border border-secondary/20 sm:p-6">
-        <dt class="truncate text-sm font-medium text-text/60">Total Kuantitas Stok</dt>
+        <dt class="truncate text-sm font-medium text-text/60">{{ t('analytics.distribution.kpi_total_stock_qty') }}</dt>
         <dd class="mt-1 text-3xl font-semibold tracking-tight text-text">{{ formatNumber(totalQuantity) }}</dd>
       </div>
     </div>
@@ -83,8 +83,8 @@
       <!-- Data Table: Beban Lokasi -->
       <div class="bg-background rounded-lg shadow-sm border border-secondary/20 overflow-hidden flex flex-col">
         <div class="px-4 py-5 sm:px-6 border-b border-secondary/20">
-          <h3 class="text-base font-semibold leading-6 text-text">Beban Tiap Lokasi</h3>
-          <p class="mt-1 text-sm text-text/60">Informasi jumlah produk dan kuantitas di setiap lokasi.</p>
+          <h3 class="text-base font-semibold leading-6 text-text">{{ t('analytics.distribution.table_load_title') }}</h3>
+          <p class="mt-1 text-sm text-text/60">{{ t('analytics.distribution.table_load_sub') }}</p>
         </div>
         <div class="overflow-x-auto flex-1 max-h-[600px] custom-scrollbar">
           <table class="min-w-full divide-y divide-secondary">
@@ -93,37 +93,37 @@
                 <th
                   scope="col"
                   class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-text sm:pl-6"
-                  title="Kode unik lokasi penyimpanan"
+                  :title="t('analytics.distribution.col_code_tooltip')"
                 >
-                  Kode
+                  {{ t('analytics.distribution.col_code') }}
                 </th>
                 <th
                   scope="col"
                   class="px-3 py-3.5 text-left text-sm font-semibold text-text"
-                  title="Gedung dan lantai tempat lokasi berada"
+                  :title="t('analytics.distribution.col_building_floor_tooltip')"
                 >
-                  Gedung / Lantai
+                  {{ t('analytics.distribution.col_building_floor') }}
                 </th>
                 <th
                   scope="col"
                   class="px-3 py-3.5 text-left text-sm font-semibold text-text"
-                  title="Tujuan penggunaan atau fungsi lokasi (misal: Bulky, Retail, dll)"
+                  :title="t('analytics.distribution.col_purpose_tooltip')"
                 >
-                  Purpose
+                  {{ t('common.label.purpose') }}
                 </th>
                 <th
                   scope="col"
                   class="px-3 py-3.5 text-right text-sm font-semibold text-text"
-                  title="Jumlah jenis produk/SKU berbeda yang disimpan bercampur di lokasi ini"
+                  :title="t('analytics.distribution.col_product_count_tooltip')"
                 >
-                  Jml Produk
+                  {{ t('analytics.distribution.col_product_count') }}
                 </th>
                 <th
                   scope="col"
                   class="px-3 py-3.5 text-right text-sm font-semibold text-text"
-                  title="Total keseluruhan barang (kuantitas) yang ada di lokasi ini"
+                  :title="t('analytics.distribution.col_quantity_tooltip')"
                 >
-                  Kuantitas
+                  {{ t('analytics.distribution.col_quantity') }}
                 </th>
               </tr>
             </thead>
@@ -135,7 +135,7 @@
                     class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset"
                     :class="getLocationBuildingColorClass(loc.building)"
                   >
-                    {{ loc.building }} <span v-if="loc.floor" class="ml-1 opacity-75"> - Lt {{ loc.floor }}</span>
+                    {{ loc.building }} <span v-if="loc.floor" class="ml-1 opacity-75"> - {{ t('common.label.floor_abbr') }} {{ loc.floor }}</span>
                   </span>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-text/60">
@@ -153,7 +153,7 @@
                 </td>
               </tr>
               <tr v-if="locationLoads.length === 0">
-                <td colspan="5" class="px-3 py-4 text-sm text-text/50 text-center">Tidak ada data lokasi</td>
+                <td colspan="5" class="px-3 py-4 text-sm text-text/50 text-center">{{ t('analytics.distribution.no_location_data') }}</td>
               </tr>
             </tbody>
           </table>
@@ -163,9 +163,9 @@
       <!-- Data Table: Sebaran Lokasi -->
       <div class="bg-background rounded-lg shadow-sm border border-secondary/20 overflow-hidden flex flex-col">
         <div class="px-4 py-5 sm:px-6 border-b border-secondary/20">
-          <h3 class="text-base font-semibold leading-6 text-text">Sebaran Penempatan Produk (Berdasarkan Purpose)</h3>
+          <h3 class="text-base font-semibold leading-6 text-text">{{ t('analytics.distribution.table_scatter_title') }}</h3>
           <p class="mt-1 text-sm text-text/60">
-            Produk yang disimpan di lebih dari satu lokasi dengan purpose yang sama.
+            {{ t('analytics.distribution.table_scatter_sub') }}
           </p>
         </div>
         <div class="overflow-x-auto flex-1 max-h-[600px] custom-scrollbar">
@@ -175,30 +175,30 @@
                 <th
                   scope="col"
                   class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-text sm:pl-6"
-                  title="Nama produk dan kode SKU"
+                  :title="t('analytics.distribution.col_product_tooltip')"
                 >
-                  Produk
+                  {{ t('analytics.distribution.col_product') }}
                 </th>
                 <th
                   scope="col"
                   class="px-3 py-3.5 text-left text-sm font-semibold text-text"
-                  title="Tujuan penggunaan lokasi (misal: Bulky, Retail, dll)"
+                  :title="t('analytics.distribution.col_purpose_tooltip')"
                 >
-                  Purpose
+                  {{ t('common.label.purpose') }}
                 </th>
                 <th
                   scope="col"
                   class="px-3 py-3.5 text-center text-sm font-semibold text-text"
-                  title="Jumlah lokasi berbeda yang menyimpan produk ini"
+                  :title="t('analytics.distribution.col_location_count_tooltip')"
                 >
-                  Jml Lokasi
+                  {{ t('analytics.distribution.col_location_count') }}
                 </th>
                 <th
                   scope="col"
                   class="px-3 py-3.5 text-left text-sm font-semibold text-text"
-                  title="Daftar kode lokasi tempat produk ini disimpan"
+                  :title="t('analytics.distribution.col_locations_list_tooltip')"
                 >
-                  Daftar Lokasi
+                  {{ t('analytics.distribution.col_locations_list') }}
                 </th>
               </tr>
             </thead>
@@ -229,7 +229,7 @@
               </tr>
               <tr v-if="duplicateProducts.length === 0">
                 <td colspan="4" class="px-3 py-4 text-sm text-text/50 text-center">
-                  Tidak ada produk yang tersebar di banyak lokasi
+                  {{ t('analytics.distribution.no_scattered_data') }}
                 </td>
               </tr>
             </tbody>
@@ -241,25 +241,32 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { useI18n } from '@/core/infrastructure/localization'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { analyticsApi } from '../../infrastructure/analytics.api'
 import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
 import { formatNumber, getLocationPurposeColorClass, getLocationBuildingColorClass } from '@/core/utils/formatters'
+import { useLocationHierarchyFilter } from '../composables/useLocationHierarchyFilter'
 
+const { t } = useI18n()
 const { toast } = useToast()
 const loading = ref(false)
 const locationLoads = ref([])
 const duplicateProducts = ref([])
-const uniquePurposes = ref([])
-const uniqueBuildingsByPurpose = ref({})
-const uniqueFloorsByBuilding = ref({})
-const initialLoaded = ref(false)
 const filters = ref({
   purpose: { include: [], exclude: [] },
   building: { include: [], exclude: [] },
   floor: { include: [], exclude: [] }
 })
+
+const {
+  uniquePurposes,
+  purposeOptions,
+  buildingOptions,
+  floorOptions,
+  hydrateFromLocations
+} = useLocationHierarchyFilter(filters, { prefixFloorLabel: true })
 
 const fetchData = async () => {
   loading.value = true
@@ -279,91 +286,15 @@ const fetchData = async () => {
     if (response?.success) {
       locationLoads.value = response.data?.locationLoads || []
       duplicateProducts.value = response.data?.duplicateProducts || []
-
-      // Update filter options only on initial load
-      if (!initialLoaded.value) {
-        const purposes = new Set()
-        const buildingsByPurposeMap = {}
-        const floorsByBuildingMap = {}
-
-        locationLoads.value.forEach(loc => {
-          const p = loc.purpose || 'N/A'
-          purposes.add(p)
-
-          if (!buildingsByPurposeMap[p]) buildingsByPurposeMap[p] = new Set()
-          if (loc.building) {
-            buildingsByPurposeMap[p].add(loc.building)
-            if (!floorsByBuildingMap[loc.building]) floorsByBuildingMap[loc.building] = new Set()
-            if (loc.floor) floorsByBuildingMap[loc.building].add(loc.floor)
-          }
-        })
-
-        uniquePurposes.value = Array.from(purposes).sort()
-        for (const p in buildingsByPurposeMap) buildingsByPurposeMap[p] = Array.from(buildingsByPurposeMap[p]).sort()
-        for (const b in floorsByBuildingMap) floorsByBuildingMap[b] = Array.from(floorsByBuildingMap[b]).sort()
-
-        uniqueBuildingsByPurpose.value = buildingsByPurposeMap
-        uniqueFloorsByBuilding.value = floorsByBuildingMap
-        initialLoaded.value = true
-      }
+      hydrateFromLocations(locationLoads.value)
     }
   } catch (error) {
     console.error('Failed to fetch location analysis:', error)
-    toast(error.response?.data?.message || 'Gagal memuat data analisis lokasi', 'error')
+    toast(error.response?.data?.message || t('analytics.distribution.error_load'), 'error')
   } finally {
     loading.value = false
   }
 }
-
-watch(
-  () => filters.value.purpose,
-  () => {
-    filters.value.building = { include: [], exclude: [] }
-    filters.value.floor = { include: [], exclude: [] }
-  },
-  { deep: true }
-)
-
-watch(
-  () => filters.value.building,
-  () => {
-    filters.value.floor = { include: [], exclude: [] }
-  },
-  { deep: true }
-)
-
-const availableBuildings = computed(() => {
-  const activePurposes = filters.value.purpose.include
-  if (!activePurposes.length) {
-    const all = new Set()
-    Object.values(uniqueBuildingsByPurpose.value).forEach(buildings => {
-      buildings.forEach(b => all.add(b))
-    })
-    return Array.from(all).sort()
-  }
-
-  const validBuildings = new Set()
-  activePurposes.forEach(p => {
-    const bds = uniqueBuildingsByPurpose.value[p] || []
-    bds.forEach(b => validBuildings.add(b))
-  })
-  return Array.from(validBuildings).sort()
-})
-
-const availableFloors = computed(() => {
-  const activeBuildings = filters.value.building.include
-  if (!activeBuildings.length) return []
-  const validFloors = new Set()
-  activeBuildings.forEach(b => {
-    const fls = uniqueFloorsByBuilding.value[b] || []
-    fls.forEach(f => validFloors.add(f))
-  })
-  return Array.from(validFloors).sort()
-})
-
-const purposeOptions = computed(() => uniquePurposes.value.map(p => ({ label: p, value: p })))
-const buildingOptions = computed(() => availableBuildings.value.map(b => ({ label: b, value: b })))
-const floorOptions = computed(() => availableFloors.value.map(f => ({ label: `Lantai ${f}`, value: f })))
 
 const avgProductsPerLocation = computed(() => {
   if (locationLoads.value.length === 0) return 0

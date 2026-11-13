@@ -12,8 +12,10 @@ import { resolveUrl } from '@/modules/master_data/presentation/composables/useIm
 import { useMobile } from '@/core/presentation/composables/useMobile'
 import { formatTags } from '@/core/utils/formatters'
 import { useFloating, autoUpdate, offset, flip, shift, size } from '@floating-ui/vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const { isMobile } = useMobile()
+const { t } = useI18n()
 
 const props = defineProps({
   show: Boolean,
@@ -83,8 +85,8 @@ async function saveTags() {
 
   loadingTags.value = true
   try {
-    await mediaApi.updateMediaTags(props.mediaId, rawTags)
-    toast('Tag berhasil diperbarui', 'success')
+    const res = await mediaApi.updateMediaTags(props.mediaId, rawTags)
+    toast(res?.message || t('common.status.success'), 'success')
     isEditingTags.value = false
     await fetchMediaDetails()
     emit('refresh')
@@ -127,15 +129,15 @@ async function linkProduct(product) {
   if (!product || !props.mediaId) return
   const existing = mediaData.value?.products?.find(p => p.id === product.id)
   if (existing) {
-    toast('Produk sudah terkait dengan gambar ini.', 'warning')
+    toast(t('core.media.product_already_linked'), 'warning')
     return
   }
 
   loading.value = true
   try {
     const payload = { mediaIds: [Number(props.mediaId)] }
-    await productApi.linkMedia(product.id, payload)
-    toast('Produk berhasil disematkan!', 'success')
+    const res = await productApi.linkMedia(product.id, payload)
+    toast(res?.message || t('common.status.success'), 'success')
     clearSearch()
     await fetchMediaDetails() // Refresh within the modal to show newly linked
     emit('refresh') // Refresh the list underneath
@@ -147,11 +149,11 @@ async function linkProduct(product) {
 }
 
 async function unlinkProduct(productRaw) {
-  if (!(await swalConfirm(`Lepaskan gambar dari produk ${productRaw.sku}?`))) return
+  if (!(await swalConfirm(t('core.media.unlink_confirm', { sku: productRaw.sku })))) return
   loading.value = true
   try {
-    await productApi.deleteProductImage(productRaw.id, productRaw.pivot_id)
-    toast('Tautan produk dilepaskan.', 'success')
+    const res = await productApi.deleteProductImage(productRaw.id, productRaw.pivot_id)
+    toast(res?.message || t('common.status.success'), 'success')
     await fetchMediaDetails()
     emit('refresh')
   } catch (err) {
@@ -173,13 +175,13 @@ const startEditTitle = () => {
 
 const saveTitle = async () => {
   if (!editTitle.value.trim()) {
-    toast('Judul tidak boleh kosong', 'warning')
+    toast(t('core.media.title_empty_warning'), 'warning')
     return
   }
   loadingTitle.value = true
   try {
-    await mediaApi.updateMediaTitle(props.mediaId, editTitle.value)
-    toast('Judul berhasil diperbarui', 'success')
+    const res = await mediaApi.updateMediaTitle(props.mediaId, editTitle.value)
+    toast(res?.message || t('common.status.success'), 'success')
     isEditingTitle.value = false
     await fetchMediaDetails()
     emit('refresh')
@@ -235,7 +237,7 @@ watch(Alt_S, pressed => {
           class="w-full h-64 flex flex-col items-center justify-center text-text/20 rounded-xl border border-secondary/20 bg-secondary/5"
         >
           <font-awesome-icon icon="fa-solid fa-image" class="text-6xl mb-2" />
-          <span class="text-sm font-medium">Gambar tidak tersedia</span>
+          <span class="text-sm font-medium">{{ t('core.media.not_available') }}</span>
         </div>
 
         <button
@@ -258,7 +260,7 @@ watch(Alt_S, pressed => {
 
         <div class="p-4 flex-1 overflow-y-auto w-full">
           <div class="mb-2">
-            <h3 class="font-bold text-xl text-text mb-1">Detail Media</h3>
+            <h3 class="font-bold text-xl text-text mb-1">{{ t('core.media.detail_title') }}</h3>
 
             <div v-if="!isEditingTitle" class="flex items-center gap-2 group">
               <p class="text-xs text-text/50 font-mono truncate max-w-sm" :title="mediaData?.title">
@@ -276,7 +278,7 @@ watch(Alt_S, pressed => {
                 @keyup.enter="saveTitle"
                 @keyup.esc="isEditingTitle = false"
                 class="flex-1 bg-background border border-primary/30 rounded px-2 py-1 text-xs text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none font-mono"
-                placeholder="Judul gambar..."
+                :placeholder="t('core.media.title_placeholder')"
                 :disabled="loadingTitle"
               />
               <button @click="saveTitle" :disabled="loadingTitle" class="text-success hover:text-success/80">
@@ -295,7 +297,7 @@ watch(Alt_S, pressed => {
             <!-- Meta Stats -->
             <div class="grid grid-cols-2 gap-4 mb-2">
               <div class="bg-secondary/5 rounded-lg p-3 border border-secondary/10">
-                <span class="block text-[10px] text-text/50 font-bold uppercase mb-1">Status</span>
+                <span class="block text-[10px] text-text/50 font-bold uppercase mb-1">{{ t('common.label.status') }}</span>
                 <span
                   class="text-sm font-semibold flex items-center gap-1"
                   :class="mediaData.status === 'COMPLETED' ? 'text-success' : 'text-primary'"
@@ -308,7 +310,7 @@ watch(Alt_S, pressed => {
                 </span>
               </div>
               <div class="bg-secondary/5 rounded-lg p-3 border border-secondary/10">
-                <span class="block text-[10px] text-text/50 font-bold uppercase mb-1">Diunggah</span>
+                <span class="block text-[10px] text-text/50 font-bold uppercase mb-1">{{ t('core.media.uploaded_at') }}</span>
                 <span class="text-sm font-mono text-text/80">{{
                   new Date(mediaData.created_at).toLocaleDateString('id-ID')
                 }}</span>
@@ -317,7 +319,7 @@ watch(Alt_S, pressed => {
 
             <!-- Informasi File -->
             <div v-if="mediaData.width || mediaData.size_bytes" class="mb-4">
-              <span class="block text-[10px] text-text/50 font-bold uppercase mb-2">Informasi File</span>
+              <span class="block text-[10px] text-text/50 font-bold uppercase mb-2">{{ t('core.media.file_info') }}</span>
               <div class="grid grid-cols-2 gap-3">
                 <div
                   v-if="mediaData.width && mediaData.height"
@@ -325,7 +327,7 @@ watch(Alt_S, pressed => {
                 >
                   <font-awesome-icon icon="fa-solid fa-ruler-combined" class="text-primary/60 text-sm" />
                   <div>
-                    <span class="block text-[10px] text-text/50 font-bold uppercase">Dimensi</span>
+                    <span class="block text-[10px] text-text/50 font-bold uppercase">{{ t('core.media.dimensions') }}</span>
                     <span class="text-sm font-mono text-text/80"
                       >{{ mediaData.width }} × {{ mediaData.height }} px</span
                     >
@@ -337,7 +339,7 @@ watch(Alt_S, pressed => {
                 >
                   <font-awesome-icon icon="fa-solid fa-file" class="text-primary/60 text-sm" />
                   <div>
-                    <span class="block text-[10px] text-text/50 font-bold uppercase">Ukuran</span>
+                    <span class="block text-[10px] text-text/50 font-bold uppercase">{{ t('core.media.size') }}</span>
                     <span class="text-sm font-mono text-text/80">{{ formatBytes(mediaData.size_bytes) }}</span>
                   </div>
                 </div>
@@ -347,13 +349,13 @@ watch(Alt_S, pressed => {
             <!-- Tags -->
             <div class="mb-2 border border-secondary rounded-lg p-2">
               <div class="flex justify-between items-center mb-2">
-                <span class="block text-[10px] text-text/50 font-bold uppercase">Global Tags</span>
+                <span class="block text-[10px] text-text/50 font-bold uppercase">{{ t('core.media.global_tags') }}</span>
                 <button
                   v-if="!isEditingTags && canUpload"
                   @click="startEditTags"
                   class="text-[10px] text-primary hover:underline font-semibold flex items-center gap-1 transition-colors"
                 >
-                  <font-awesome-icon icon="fa-solid fa-pen" /> Edit Tag
+                  <font-awesome-icon icon="fa-solid fa-pen" /> {{ t('core.media.edit_tags') }}
                 </button>
               </div>
 
@@ -363,7 +365,7 @@ watch(Alt_S, pressed => {
                     type="text"
                     v-model="tagsInput"
                     @keyup.enter="saveTags"
-                    placeholder="Ketik tag, pisahkan dengan koma (mis: promo, front)"
+                    :placeholder="t('core.media.tags_placeholder')"
                     class="input input-sm border-secondary focus:border-primary bg-background text-text w-full text-xs transition-colors"
                     :disabled="loadingTags"
                   />
@@ -374,7 +376,7 @@ watch(Alt_S, pressed => {
                     class="px-3 py-1.5 rounded-md text-[10px] font-bold uppercase bg-background border border-secondary hover:bg-secondary text-text transition-colors"
                     :disabled="loadingTags"
                   >
-                    Batal
+                    {{ t('common.btn.cancel') }}
                   </button>
                   <button
                     @click="saveTags"
@@ -382,7 +384,7 @@ watch(Alt_S, pressed => {
                     :disabled="loadingTags"
                   >
                     <font-awesome-icon v-if="loadingTags" icon="fa-solid fa-spinner" spin />
-                    <span v-else><font-awesome-icon icon="fa-solid fa-save" class="mr-1" /> Simpan</span>
+                    <span v-else><font-awesome-icon icon="fa-solid fa-save" class="mr-1" /> {{ t('common.btn.save') }}</span>
                   </button>
                 </div>
               </div>
@@ -396,7 +398,7 @@ watch(Alt_S, pressed => {
                   #{{ tag }}
                 </span>
                 <span v-if="formatTags(mediaData.tags).length === 0" class="text-xs text-text/40 italic">
-                  Tidak ada tag.
+                  {{ t('core.media.no_tags') }}
                 </span>
               </div>
             </div>
@@ -404,7 +406,7 @@ watch(Alt_S, pressed => {
             <!-- Attached Products -->
             <div class="mb-1">
               <h4 class="font-bold text-sm text-text flex items-center justify-between mb-3">
-                Sematan Produk
+                {{ t('core.media.attached_products') }}
                 <span class="bg-primary/10 text-primary text-[10px] px-2 py-1 rounded-full font-mono">
                   {{ mediaData.products?.length || 0 }}
                 </span>
@@ -412,7 +414,7 @@ watch(Alt_S, pressed => {
 
               <!-- Product Search & Attach -->
               <div class="mb-2 relative" v-if="canUpload && mediaData.status === 'COMPLETED'">
-                <span class="block text-[10px] text-text/50 font-bold uppercase mb-2">Tautkan ke Produk Baru</span>
+                <span class="block text-[10px] text-text/50 font-bold uppercase mb-2">{{ t('core.media.link_new_product') }}</span>
                 <div class="relative" ref="triggerRef">
                   <font-awesome-icon
                     icon="fa-solid fa-search"
@@ -421,7 +423,7 @@ watch(Alt_S, pressed => {
                   <input
                     type="text"
                     v-model="searchQuery"
-                    placeholder="Cari Kode SKU / Nama Produk..."
+                    :placeholder="t('core.media.search_product_sku_name')"
                     class="w-full bg-background border-2 border-secondary rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-text/30 text-text transition-colors"
                   />
                   <font-awesome-icon
@@ -465,7 +467,7 @@ watch(Alt_S, pressed => {
                 class="p-3 bg-secondary/10 rounded-lg border border-secondary/20 text-center flex flex-col items-center justify-center"
               >
                 <font-awesome-icon icon="fa-solid fa-info-circle" class="text-text/40 text-lg mb-1" />
-                <p class="text-[10px] font-bold text-text/50 uppercase">Tunggu Kompresi Selesai Sebelum Menautkan</p>
+                <p class="text-[10px] font-bold text-text/50 uppercase">{{ t('core.media.wait_compression') }}</p>
               </div>
 
               <div
@@ -492,7 +494,7 @@ watch(Alt_S, pressed => {
                     @click="unlinkProduct(prod)"
                     :disabled="loading"
                     class="w-7 h-7 flex items-center justify-center rounded-md bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors flex-shrink-0"
-                    title="Lepaskan Produk"
+                    :title="t('core.media.unlink_title')"
                   >
                     <font-awesome-icon icon="fa-solid fa-link-slash" class="text-xs" />
                   </button>
@@ -503,7 +505,7 @@ watch(Alt_S, pressed => {
                 class="text-center p-4 border border-dashed border-secondary/30 rounded-xl bg-secondary/5 mt-2"
               >
                 <font-awesome-icon icon="fa-solid fa-box-open" class="text-text/30 text-2xl mb-2" />
-                <p class="text-xs text-text/50 font-semibold mb-1">Aset ini belum dipasang ke produk apapun.</p>
+                <p class="text-xs text-text/50 font-semibold mb-1">{{ t('core.media.no_products_attached') }}</p>
               </div>
             </div>
           </template>

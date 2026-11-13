@@ -9,7 +9,9 @@ import { useEventListener, useResizeObserver, onClickOutside } from '@vueuse/cor
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import { useMobile } from '@/core/presentation/composables/useMobile'
 import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
+const { t, activeLocale } = useI18n()
 const { isMobile } = useMobile()
 const masterData = useMasterDataStore()
 const { fetchSchedules, createSchedule, deleteSchedule } = useShift()
@@ -28,8 +30,24 @@ const userOptions = computed(() => {
 
 // Calendar State
 const currentDate = ref(new Date())
-const weekDays = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
-const weekDaysShort = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
+const weekDays = computed(() => [
+  t('common.day.sun'),
+  t('common.day.mon'),
+  t('common.day.tue'),
+  t('common.day.wed'),
+  t('common.day.thu'),
+  t('common.day.fri'),
+  t('common.day.sat')
+])
+const weekDaysShort = computed(() => [
+  t('common.day.short_sun'),
+  t('common.day.short_mon'),
+  t('common.day.short_tue'),
+  t('common.day.short_wed'),
+  t('common.day.short_thu'),
+  t('common.day.short_fri'),
+  t('common.day.short_sat')
+])
 
 // Popover State
 const popover = ref({
@@ -64,7 +82,7 @@ const { toast } = useToast()
 
 // --- Computed Props for Calendar ---
 const currentMonthLabel = computed(() => {
-  return currentDate.value.toLocaleString('id-ID', { month: 'long', year: 'numeric' })
+  return currentDate.value.toLocaleString(activeLocale.value || 'id-ID', { month: 'long', year: 'numeric' })
 })
 
 const calendarDays = computed(() => {
@@ -150,7 +168,7 @@ const changeMonth = delta => {
 const openPopover = (event, dayObj) => {
   if (dayObj.isPadding) return
   if (!selectedUserId.value) {
-    toast('Pilih karyawan terlebih dahulu', 'warning')
+    toast(t('hris.shift.select_employee_warning'), 'warning')
     return
   }
 
@@ -171,14 +189,14 @@ const closePopover = () => {
 const selectShift = async shiftId => {
   isProcessing.value = true
   try {
-    await createSchedule({
+    const res = await createSchedule({
       userId: selectedUserId.value,
       shiftId: shiftId,
       date: popover.value.dateStr
     })
     closePopover()
     await loadSchedules() // Reload to reflect changes
-    toast('Jadwal diperbarui', 'success')
+    toast(res?.message || t('common.status.success'), 'success')
   } catch (e) {
     console.error(e)
   } finally {
@@ -191,10 +209,10 @@ const clearSchedule = async () => {
 
   isProcessing.value = true
   try {
-    await deleteSchedule(selectedUserId.value, popover.value.dateStr)
+    const res = await deleteSchedule(selectedUserId.value, popover.value.dateStr)
     closePopover()
     await loadSchedules()
-    toast('Jadwal dikembalikan ke default', 'success')
+    toast(res?.message || t('common.status.success'), 'success')
   } catch (e) {
     console.error(e)
   } finally {
@@ -235,7 +253,7 @@ useResizeObserver(document.body, () => {
       class="px-3 py-2 bg-secondary/20 border-b border-primary/10 text-xs font-bold text-text/70 flex justify-between items-center"
     >
       <span>{{
-        new Date(popover.dateStr).toLocaleDateString('id-ID', {
+        new Date(popover.dateStr).toLocaleDateString(activeLocale.value || 'id-ID', {
           weekday: 'short',
           day: 'numeric',
           month: 'short'
@@ -268,7 +286,7 @@ useResizeObserver(document.body, () => {
         class="w-full text-left px-3 py-2 rounded-md text-xs text-danger hover:bg-danger/10 transition-colors flex items-center gap-2"
       >
         <font-awesome-icon icon="fa-solid fa-trash" />
-        <span>Hapus / Reset Default</span>
+        <span>{{ t('hris.shift.reset_default') }}</span>
       </button>
     </div>
   </div>
@@ -279,7 +297,7 @@ useResizeObserver(document.body, () => {
       @click="isImportModalOpen = true"
       class="px-3 h-[40px] bg-success/5 text-success border border-success/20 rounded-lg text-sm font-bold hover:bg-success hover:text-background transition-all flex items-center gap-2"
     >
-      <font-awesome-icon icon="fa-solid fa-file-excel" /> Import Excel
+      <font-awesome-icon icon="fa-solid fa-file-excel" /> {{ t('common.btn.import_excel') }}
     </button>
 
     <BaseSelect
@@ -287,7 +305,7 @@ useResizeObserver(document.body, () => {
       :options="userOptions"
       track-by="id"
       emit-value
-      placeholder="Pilih Karyawan..."
+      :placeholder="t('hris.shift.select_employee_placeholder')"
       class="w-full md:w-[250px]"
     />
   </div>
@@ -368,7 +386,7 @@ useResizeObserver(document.body, () => {
 
   <div v-else class="text-center py-20 bg-secondary/5 rounded-xl border border-dashed border-secondary/30">
     <font-awesome-icon icon="fa-solid fa-user-clock" class="text-4xl text-text/20 mb-3" />
-    <p class="text-text/60">Silakan pilih karyawan untuk melihat dan mengatur jadwal shift.</p>
+    <p class="text-text/60">{{ t('hris.shift.select_employee_hint') }}</p>
   </div>
   <!-- Popover -->
   <!-- (Existing Popover Code) -->

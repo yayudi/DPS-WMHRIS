@@ -23,19 +23,19 @@ import (
 func SaveImportUpload(c *gin.Context, field, subdir string) (string, string, bool) {
 	file, err := c.FormFile(field)
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Tidak ada file yang diunggah.", "VALIDATION_ERROR")
+		LocalizedError(c, http.StatusBadRequest, "errors.no_file_uploaded", nil, "VALIDATION_ERROR")
 		return "", "", false
 	}
 
 	cleanBase := filepath.Base(file.Filename)
 	if cleanBase == "" || cleanBase == "." || cleanBase == "/" || cleanBase == "\\" {
-		ErrorResponse(c, http.StatusBadRequest, "Nama file tidak valid.", "VALIDATION_ERROR")
+		LocalizedError(c, http.StatusBadRequest, "errors.invalid_filename", nil, "VALIDATION_ERROR")
 		return "", "", false
 	}
 
 	ext := strings.ToLower(filepath.Ext(cleanBase))
 	if ext != ".xlsx" && ext != ".xls" && ext != ".csv" {
-		ErrorResponse(c, http.StatusBadRequest, "Format file tidak didukung. Gunakan file .xlsx, .xls, atau .csv.", "VALIDATION_ERROR")
+		LocalizedError(c, http.StatusBadRequest, "errors.unsupported_file_format", nil, "VALIDATION_ERROR")
 		return "", "", false
 	}
 
@@ -46,7 +46,7 @@ func SaveImportUpload(c *gin.Context, field, subdir string) (string, string, boo
 
 	uploadDir := filepath.Join(storageBase, "uploads", subdir)
 	if err := os.MkdirAll(uploadDir, 0750); err != nil {
-		ErrorResponse(c, http.StatusInternalServerError, "Gagal menyiapkan direktori penyimpanan: "+err.Error(), "INTERNAL_ERROR")
+		LocalizedError(c, http.StatusInternalServerError, "errors.storage_dir_failed", map[string]any{"detail": err.Error()}, "INTERNAL_ERROR")
 		return "", "", false
 	}
 
@@ -54,7 +54,7 @@ func SaveImportUpload(c *gin.Context, field, subdir string) (string, string, boo
 	savePath := filepath.Join(uploadDir, uniqueFilename)
 
 	if err := c.SaveUploadedFile(file, savePath); err != nil {
-		ErrorResponse(c, http.StatusInternalServerError, "Gagal menyimpan file: "+err.Error(), "INTERNAL_ERROR")
+		LocalizedError(c, http.StatusInternalServerError, "errors.file_save_failed", map[string]any{"detail": err.Error()}, "INTERNAL_ERROR")
 		return "", "", false
 	}
 

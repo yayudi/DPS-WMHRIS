@@ -1,5 +1,5 @@
-// frontend/src/composables/useSweetAlert.js
 import Swal from 'sweetalert2'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 // Custom class based on standard Tailwind to match the project's vibe
 const tailwindCustomClass = {
@@ -15,18 +15,35 @@ const tailwindCustomClass = {
  * Dialog konfirmasi (Pengganti window.confirm)
  * @param {string} title - Judul konfirmasi
  * @param {string} text - Pesan detail konfirmasi
- * @param {string} confirmText - Teks tombol konfirmasi (default: 'Ya')
- * @param {string} cancelText - Teks tombol batal (default: 'Batal')
+ * @param {string} [confirmText] - Teks tombol konfirmasi
+ * @param {string} [cancelText] - Teks tombol batal
  * @returns {Promise<boolean>} True jika user klik konfirmasi, False jika batal.
  */
-export const swalConfirm = async (title, text = '', confirmText = 'Ya (Enter)', cancelText = 'Batal (Esc)') => {
+export const swalConfirm = async (
+  title: string,
+  text: string = '',
+  confirmText?: string,
+  cancelText?: string
+): Promise<boolean> => {
+  let resolvedConfirm = confirmText
+  let resolvedCancel = cancelText
+
+  try {
+    const { t } = useI18n()
+    resolvedConfirm = resolvedConfirm ?? t('common.btn.yes_enter', undefined, 'Ya (Enter)')
+    resolvedCancel = resolvedCancel ?? t('common.btn.cancel_esc', undefined, 'Batal (Esc)')
+  } catch {
+    resolvedConfirm = resolvedConfirm ?? 'Ya (Enter)'
+    resolvedCancel = resolvedCancel ?? 'Batal (Esc)'
+  }
+
   const result = await Swal.fire({
     title,
     text,
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: confirmText,
-    cancelButtonText: cancelText,
+    confirmButtonText: resolvedConfirm,
+    cancelButtonText: resolvedCancel,
     reverseButtons: true, // Typically, cancel on left, confirm on right looks better
     customClass: tailwindCustomClass,
     buttonsStyling: false, // Disable default Swal styles for buttons to use Tailwind
@@ -44,11 +61,24 @@ export const swalConfirm = async (title, text = '', confirmText = 'Ya (Enter)', 
  * @param {boolean} isHtml - Jika true, content akan di-render sebagai HTML
  * @returns {Promise<void>}
  */
-export const swalAlert = async (title, content = '', icon = 'info', isHtml = false) => {
-  const options = {
+export const swalAlert = async (
+  title: string,
+  content: string = '',
+  icon: 'success' | 'error' | 'warning' | 'info' | 'question' = 'info',
+  isHtml: boolean = false
+): Promise<void> => {
+  let resolvedClose = 'Tutup'
+  try {
+    const { t } = useI18n()
+    resolvedClose = t('common.btn.close', undefined, 'Tutup')
+  } catch {
+    resolvedClose = 'Tutup'
+  }
+
+  const options: Record<string, any> = {
     title,
     icon,
-    confirmButtonText: 'Tutup',
+    confirmButtonText: resolvedClose,
     customClass: tailwindCustomClass,
     buttonsStyling: false,
     background: 'hsl(var(--color-background))'

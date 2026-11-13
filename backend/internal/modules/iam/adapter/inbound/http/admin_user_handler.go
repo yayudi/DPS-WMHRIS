@@ -22,7 +22,7 @@ func NewAdminUserHandler(adminUserUseCase port.AdminUserUseCase) *AdminUserHandl
 func (h *AdminUserHandler) GetUsers(c *gin.Context) {
 	users, err := h.adminUserUseCase.GetAllUsers(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil data user", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.user.fetch_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
@@ -36,7 +36,7 @@ func (h *AdminUserHandler) GetUsers(c *gin.Context) {
 func (h *AdminUserHandler) GetRoles(c *gin.Context) {
 	roles, err := h.adminUserUseCase.GetRoles(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil data role", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.roles.fetch_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
@@ -60,7 +60,7 @@ func (h *AdminUserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusCreated, "Pengguna berhasil dibuat.", newUser)
+	utils.SuccessResponse(c, http.StatusCreated, "settings.user.create_success", newUser)
 }
 
 func (h *AdminUserHandler) UpdateUser(c *gin.Context) {
@@ -82,7 +82,7 @@ func (h *AdminUserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Data pengguna berhasil diperbarui.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "settings.user.update_success", nil)
 }
 
 func (h *AdminUserHandler) DeleteUser(c *gin.Context) {
@@ -98,7 +98,7 @@ func (h *AdminUserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "User berhasil dihapus.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "settings.user.delete_success", nil)
 }
 
 func (h *AdminUserHandler) GetUserLocations(c *gin.Context) {
@@ -109,7 +109,7 @@ func (h *AdminUserHandler) GetUserLocations(c *gin.Context) {
 
 	locationIDs, err := h.adminUserUseCase.GetUserLocations(c.Request.Context(), targetID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil lokasi user", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.user.fetch_locations_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
@@ -135,5 +135,5 @@ func (h *AdminUserHandler) UpdateUserLocations(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Izin lokasi pengguna berhasil diperbarui.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "settings.user.update_locations_success", nil)
 }

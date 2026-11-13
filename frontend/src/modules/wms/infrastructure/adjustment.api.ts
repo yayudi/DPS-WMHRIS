@@ -8,12 +8,10 @@ export const adjustmentApi = {
   },
 
   async createAdjustment(payload: Adjustment): Promise<any> {
-    const response = await http.post('/wms/adjustments', payload)
-    return response.data
+    return http.post('/wms/adjustments', payload)
   },
 
   async batchAdjust(payload: { items: any[], notes?: string }): Promise<any> {
-    const response = await http.post('/wms/adjustments/batch', payload)
-    return response.data
+    return http.post('/wms/adjustments/batch', payload)
   }
 }

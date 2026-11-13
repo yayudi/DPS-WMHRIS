@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { movementApi } from '../infrastructure/movement.api'
 import type { Movement } from '../domain/movement.entity'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 export function useMovement() {
   const movements = ref<Movement[]>([])
@@ -9,6 +10,7 @@ export function useMovement() {
   const error = ref<string | null>(null)
   const totalItems = ref(0)
   const { toast } = useToast()
+  const { t } = useI18n()
 
   async function fetchMovements(params: Record<string, any>) {
     isLoading.value = true
@@ -18,7 +20,7 @@ export function useMovement() {
       totalItems.value = response.meta?.total || 0
       return response
     } catch (err: any) {
-      error.value = err?.message || 'Gagal mengambil data movement'
+      error.value = err?.message || t('wms.movement.fetch_error')
       toast(error.value || 'Error', 'error')
       throw err
     } finally {
@@ -31,7 +33,7 @@ export function useMovement() {
     try {
       return await movementApi.fetchMovementById(id)
     } catch (err: any) {
-      toast('Gagal memuat detail movement', 'error')
+      toast(t('wms.movement.detail_error'), 'error')
       throw err
     } finally {
       isLoading.value = false
@@ -42,10 +44,10 @@ export function useMovement() {
     isLoading.value = true
     try {
       const response = await movementApi.createMovement(payload)
-      toast('Movement berhasil dicatat', 'success')
+      toast(response?.message || t('common.status.success'), 'success')
       return response
     } catch (err: any) {
-      toast(err?.response?.data?.message || 'Gagal mencatat movement', 'error')
+      toast(err?.response?.data?.message || t('wms.movement.save_error'), 'error')
       throw err
     } finally {
       isLoading.value = false
@@ -56,10 +58,10 @@ export function useMovement() {
     isLoading.value = true
     try {
       const response = await movementApi.batchMove(payload)
-      toast('Batch movement berhasil dicatat', 'success')
+      toast(response?.message || t('common.status.success'), 'success')
       return response
     } catch (err: any) {
-      toast(err?.response?.data?.message || 'Gagal memproses batch movement', 'error')
+      toast(err?.response?.data?.message || t('wms.movement.batch_error'), 'error')
       throw err
     } finally {
       isLoading.value = false

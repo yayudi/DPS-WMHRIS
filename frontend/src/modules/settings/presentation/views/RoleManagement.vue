@@ -4,11 +4,13 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import { useMobile } from '@/core/presentation/composables/useMobile'
+import { useI18n } from '@/core/infrastructure/localization'
 import { useRoles } from '../../application/useRoles'
-import type { Role, Permission, CreateRolePayload, UpdateRolePayload } from '../../domain/role.entity'
+import type { Role, Permission, UpdateRolePayload } from '../../domain/role.entity'
 
 // --- STATE ---
 const { isMobile } = useMobile()
+const { t } = useI18n()
 const {
   roles: allRoles,
   permissions: allPermissions,
@@ -36,7 +38,7 @@ const roleForm = ref<UpdateRolePayload & { id: number | null }>({ id: null, name
  */
 const groupedPermissions = computed(() => {
   return allPermissions.value.reduce((acc, permission) => {
-    const group = permission.group || 'Lainnya'
+    const group = permission.group || t('common.label.other')
     if (!acc[group]) {
       acc[group] = []
     }
@@ -74,7 +76,7 @@ onMounted(loadInitialData)
  * Memilih peran dan memuat izin (permissions) yang terkait.
  */
 async function selectRole(role: Role) {
-  if (isSaving.value || (isDirty.value && !(await swalConfirm('Ada perubahan belum disimpan. Yakin pindah?')))) {
+  if (isSaving.value || (isDirty.value && !(await swalConfirm(t('settings.roles.unsaved_changes'))))) {
     return
   }
   selectedRole.value = role
@@ -159,7 +161,7 @@ async function handleSaveRole() {
  * Menghapus peran (setelah konfirmasi).
  */
 async function handleDeleteRole(role: Role) {
-  if (!(await swalConfirm(`Apakah Anda yakin ingin menghapus peran "${role.name}"? Ini tidak bisa dibatalkan.`))) {
+  if (!(await swalConfirm(t('settings.roles.confirm_delete_named', { name: role.name })))) {
     return
   }
   isSaving.value = true
@@ -215,16 +217,16 @@ watch(Alt_S, pressed => {
     <!-- Kolom Kiri: Daftar Peran -->
     <div class="md:col-span-1">
       <div class="flex justify-between items-center mb-2">
-        <h3 class="font-semibold text-text">Daftar Peran</h3>
+        <h3 class="font-semibold text-text">{{ t('settings.roles.list_title') }}</h3>
         <button
           @click="openCreateRoleModal"
           class="px-2 py-1 bg-primary text-secondary text-xs font-bold rounded-md hover:bg-primary/80 flex items-center gap-1"
         >
           <font-awesome-icon icon="fa-solid fa-plus" />
-          <span>Baru</span>
+          <span>{{ t('common.action.new') }}</span>
         </button>
       </div>
-      <div v-if="isLoadingRoles" class="text-center text-text/60">Memuat peran...</div>
+      <div v-if="isLoadingRoles" class="text-center text-text/60">{{ t('settings.roles.loading_roles') }}</div>
       <ul v-else class="space-y-1">
         <li v-for="role in allRoles" :key="role.id" class="group">
           <button
@@ -274,7 +276,7 @@ watch(Alt_S, pressed => {
     <!-- Kolom Kanan: Daftar Izin -->
     <div class="md:col-span-3 bg-secondary/5 rounded-xl shadow-md border border-secondary/20 p-6">
       <div v-if="!selectedRole" class="text-center text-text/60 py-16">
-        Pilih sebuah peran di sebelah kiri untuk melihat dan mengedit izinnya.
+        {{ t('settings.roles.select_role_hint') }}
       </div>
       <div v-else>
         <div
@@ -282,7 +284,7 @@ watch(Alt_S, pressed => {
         >
           <div>
             <h3 class="text-lg font-bold text-text">
-              Izin untuk: <span class="text-primary">{{ selectedRole.name }}</span>
+              {{ t('settings.roles.permissions_for') }} <span class="text-primary">{{ selectedRole.name }}</span>
             </h3>
             <p class="text-sm text-text/60">{{ selectedRole.description }}</p>
           </div>
@@ -294,11 +296,11 @@ watch(Alt_S, pressed => {
           >
             <font-awesome-icon v-if="isSaving" icon="fa-solid fa-spinner" spin />
             <font-awesome-icon v-else icon="fa-solid fa-save" />
-            <span>{{ isSaving ? 'Menyimpan...' : 'Simpan Perubahan' }}</span>
+            <span>{{ isSaving ? t('common.status.saving') : t('common.btn.save_changes') }}</span>
           </button>
         </div>
 
-        <div v-if="isLoadingPermissions" class="text-center py-16">Memuat izin...</div>
+        <div v-if="isLoadingPermissions" class="text-center py-16">{{ t('settings.roles.loading_permissions') }}</div>
         <div v-else class="space-y-6 custom-scrollbar max-h-[60vh] overflow-y-auto">
           <!-- v-for untuk Grup Izin -->
           <div
@@ -316,14 +318,14 @@ watch(Alt_S, pressed => {
                   class="text-primary hover:underline flex items-center gap-1"
                 >
                   <font-awesome-icon icon="fa-solid fa-check-double" />
-                  <span>Pilih Semua</span>
+                  <span>{{ t('common.select.select_all') }}</span>
                 </button>
                 <button
                   @click="toggleGroup(String(groupName), false)"
                   class="text-danger hover:underline flex items-center gap-1"
                 >
                   <font-awesome-icon icon="fa-solid fa-times" />
-                  <span>Batal Semua</span>
+                  <span>{{ t('settings.roles.deselect_all') }}</span>
                 </button>
               </div>
             </div>
@@ -362,11 +364,11 @@ watch(Alt_S, pressed => {
     <BaseModal
       :show="isRoleModalOpen"
       @close="isRoleModalOpen = false"
-      :title="isEditingRole ? 'Edit Peran' : 'Buat Peran Baru'"
+      :title="isEditingRole ? t('settings.roles.edit_title') : t('settings.roles.create_title')"
     >
       <form @submit.prevent="handleSaveRole" class="p-6 space-y-4">
         <div>
-          <label for="roleName" class="block text-sm font-medium text-text/80 mb-1">Nama Peran</label>
+          <label for="roleName" class="block text-sm font-medium text-text/80 mb-1">{{ t('settings.roles.name_label') }}</label>
           <input
             id="roleName"
             v-model="roleForm.name"
@@ -375,10 +377,10 @@ watch(Alt_S, pressed => {
             class="w-full input-field"
             placeholder="e.g., supervisor_gudang"
           />
-          <p class="text-xs text-text/60 mt-1">Gunakan huruf kecil dan underscore.</p>
+          <p class="text-xs text-text/60 mt-1">{{ t('settings.roles.name_hint') }}</p>
         </div>
         <div>
-          <label for="roleDesc" class="block text-sm font-medium text-text/80 mb-1">Deskripsi</label>
+          <label for="roleDesc" class="block text-sm font-medium text-text/80 mb-1">{{ t('settings.roles.desc_label') }}</label>
           <input
             id="roleDesc"
             v-model="roleForm.description"
@@ -387,14 +389,14 @@ watch(Alt_S, pressed => {
             class="w-full input-field"
             placeholder="e.g., Supervisor Gudang"
           />
-          <p class="text-xs text-text/60 mt-1">Deskripsi yang mudah dibaca.</p>
+          <p class="text-xs text-text/60 mt-1">{{ t('settings.roles.desc_hint') }}</p>
         </div>
       </form>
       <template #footer>
         <div class="flex gap-4 justify-center pb-6 px-4">
           <button type="button" @click="isRoleModalOpen = false" class="btn-secondary flex items-center gap-2">
             <font-awesome-icon icon="fa-solid fa-times" />
-            <span>Batal</span>
+            <span>{{ t('common.btn.cancel') }}</span>
           </button>
           <button
             type="submit"
@@ -404,7 +406,7 @@ watch(Alt_S, pressed => {
           >
             <font-awesome-icon v-if="isSaving" icon="fa-solid fa-spinner" spin />
             <font-awesome-icon v-else icon="fa-solid fa-save" />
-            <span>{{ isSaving ? 'Menyimpan...' : 'Simpan' }}</span>
+            <span>{{ isSaving ? t('common.status.saving') : t('common.btn.save') }}</span>
           </button>
         </div>
       </template>

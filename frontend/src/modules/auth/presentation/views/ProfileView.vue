@@ -46,11 +46,11 @@ onMounted(async () => {
 
 async function handleUpdate() {
   if (newPassword.value && newPassword.value !== confirmNewPassword.value) {
-    toast('Password baru dan konfirmasi tidak cocok.', 'warning')
+    toast(t('auth.profile.toast_password_mismatch'), 'warning')
     return
   }
   if (!currentPassword.value) {
-    toast('Password saat ini wajib diisi.', 'warning')
+    toast(t('auth.profile.toast_current_password_required'), 'warning')
     return
   }
 
@@ -64,7 +64,7 @@ async function handleUpdate() {
 
     const response = await authApi.updateProfile(payload)
 
-    toast('Data akun berhasil diperbarui!', 'success')
+    toast(response?.message || t('common.status.success'), 'success')
 
     auth.updateUserNickname((response.data as any)?.user?.nickname || nickname.value)
 
@@ -83,15 +83,15 @@ async function handleUpdatePreferences() {
   savingPreferences.value = true
   try {
     await setLocale(selectedLocale.value)
-    await authApi.updatePreferences({
+    const res = await authApi.updatePreferences({
       locale: selectedLocale.value,
       timezone: selectedTimezone.value,
       date_format: selectedDateFormat.value
     })
-    toast('Preferensi bahasa dan regional berhasil disimpan!', 'success')
+    toast(res?.message || t('common.status.success'), 'success')
   } catch (err) {
     console.error(err)
-    toast('Gagal menyimpan preferensi', 'error')
+    toast(t('auth.profile.toast_preferences_failed'), 'error')
   } finally {
     savingPreferences.value = false
   }
@@ -109,37 +109,35 @@ watch(Alt_S, (pressed) => {
 
 <template>
   <div class="p-6">
-    <h2 class="text-2xl font-bold text-text mb-6">Pengaturan Akun</h2>
+    <h2 class="text-2xl font-bold text-text mb-6">{{ t('auth.profile.account_settings') }}</h2>
 
     <div class="max-w-2xl mx-auto bg-background p-8 rounded-xl shadow-md border border-secondary/20">
       <form @submit.prevent="handleUpdate" class="space-y-6">
         <!-- Bagian Informasi Akun -->
         <div>
-          <label for="username" class="block text-sm font-medium text-text/80 mb-1">Username (untuk Login)</label>
+          <label for="username" class="block text-sm font-medium text-text/80 mb-1">{{ t('auth.profile.username_label') }}</label>
           <input id="username" :value="username" type="text" disabled
             class="w-full px-3 py-2 bg-secondary/20 border border-secondary/30 rounded-lg text-text/60 cursor-not-allowed" />
-          <p class="text-xs text-text/60 mt-1">Username tidak dapat diubah.</p>
+          <p class="text-xs text-text/60 mt-1">{{ t('auth.profile.username_immutable') }}</p>
         </div>
 
         <div>
-          <label for="nickname" class="block text-sm font-medium text-text/80 mb-1">Nickname (Nama Tampilan)</label>
+          <label for="nickname" class="block text-sm font-medium text-text/80 mb-1">{{ t('auth.profile.nickname_label') }}</label>
           <input id="nickname" v-model="nickname" type="text"
             class="w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/50" />
         </div>
 
         <!-- Bagian Ubah Password -->
         <div class="border-t border-secondary/20 pt-6 space-y-4">
-          <h3 class="font-semibold text-lg text-text">Ubah Password</h3>
+          <h3 class="font-semibold text-lg text-text">{{ t('auth.profile.change_password') }}</h3>
           <div>
-            <label for="newPassword" class="block text-sm font-medium text-text/80 mb-1">Password Baru
-              (opsional)</label>
+            <label for="newPassword" class="block text-sm font-medium text-text/80 mb-1">{{ t('auth.profile.new_password') }}</label>
             <input id="newPassword" v-model="newPassword" type="password"
-              placeholder="Kosongkan jika tidak ingin diubah"
+              :placeholder="t('auth.profile.new_password_placeholder')"
               class="w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/50" />
           </div>
           <div>
-            <label for="confirmNewPassword" class="block text-sm font-medium text-text/80 mb-1">Konfirmasi Password
-              Baru</label>
+            <label for="confirmNewPassword" class="block text-sm font-medium text-text/80 mb-1">{{ t('auth.profile.confirm_new_password') }}</label>
             <input id="confirmNewPassword" v-model="confirmNewPassword" type="password"
               class="w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/50" />
           </div>
@@ -147,12 +145,12 @@ watch(Alt_S, (pressed) => {
 
         <!-- Bagian Verifikasi -->
         <div class="border-t border-secondary/20 pt-6 space-y-4">
-          <h3 class="font-semibold text-lg text-text">Verifikasi Perubahan</h3>
+          <h3 class="font-semibold text-lg text-text">{{ t('auth.profile.verify_changes') }}</h3>
           <p class="text-sm text-text/70">
-            Masukkan password Anda saat ini untuk menyimpan perubahan.
+            {{ t('auth.profile.verify_changes_desc') }}
           </p>
           <div>
-            <label for="currentPassword" class="block text-sm font-medium text-text/80 mb-1">Password Saat Ini</label>
+            <label for="currentPassword" class="block text-sm font-medium text-text/80 mb-1">{{ t('auth.profile.current_password') }}</label>
             <input id="currentPassword" v-model="currentPassword" type="password" required
               class="w-full px-3 py-2 bg-background border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/50" />
           </div>
@@ -161,7 +159,7 @@ watch(Alt_S, (pressed) => {
         <div class="pt-2">
           <button type="submit" :disabled="loading"
             class="w-full bg-primary text-secondary py-2 px-4 rounded-lg hover:bg-primary/90 transition disabled:opacity-50">
-            {{ loading ? 'Menyimpan...' : 'Simpan Perubahan Akun' }}
+            {{ loading ? t('common.status.saving') : t('auth.profile.btn_save_account') }}
           </button>
         </div>
       </form>
@@ -169,12 +167,12 @@ watch(Alt_S, (pressed) => {
 
     <!-- Bagian Preferensi Regional & Bahasa -->
     <div class="max-w-2xl mx-auto bg-background p-8 rounded-xl shadow-md border border-secondary/20 mt-8">
-      <h3 class="text-lg font-bold text-text mb-2">Preferensi Bahasa & Regional</h3>
-      <p class="text-xs text-text/60 mb-6">Sesuaikan bahasa antarmuka dan format penanggalan untuk akun Anda.</p>
+      <h3 class="text-lg font-bold text-text mb-2">{{ t('auth.profile.regional_preferences') }}</h3>
+      <p class="text-xs text-text/60 mb-6">{{ t('auth.profile.regional_desc') }}</p>
 
       <form @submit.prevent="handleUpdatePreferences" class="space-y-5">
         <div>
-          <label for="locale" class="block text-sm font-medium text-text/80 mb-1">Bahasa Antarmuka (Language)</label>
+          <label for="locale" class="block text-sm font-medium text-text/80 mb-1">{{ t('auth.profile.language_label') }}</label>
           <select
             id="locale"
             v-model="selectedLocale"
@@ -188,7 +186,7 @@ watch(Alt_S, (pressed) => {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label for="timezone" class="block text-sm font-medium text-text/80 mb-1">Zona Waktu (Timezone)</label>
+            <label for="timezone" class="block text-sm font-medium text-text/80 mb-1">{{ t('auth.profile.timezone_label') }}</label>
             <select
               id="timezone"
               v-model="selectedTimezone"
@@ -202,7 +200,7 @@ watch(Alt_S, (pressed) => {
           </div>
 
           <div>
-            <label for="dateFormat" class="block text-sm font-medium text-text/80 mb-1">Format Tanggal</label>
+            <label for="dateFormat" class="block text-sm font-medium text-text/80 mb-1">{{ t('auth.profile.date_format_label') }}</label>
             <select
               id="dateFormat"
               v-model="selectedDateFormat"
@@ -221,7 +219,7 @@ watch(Alt_S, (pressed) => {
             :disabled="savingPreferences"
             class="w-full bg-secondary/20 hover:bg-secondary/30 text-text font-medium py-2 px-4 rounded-lg transition disabled:opacity-50 text-sm border border-secondary/30"
           >
-            {{ savingPreferences ? 'Menyimpan...' : 'Simpan Preferensi Bahasa' }}
+            {{ savingPreferences ? t('common.status.saving') : t('auth.profile.btn_save_preferences') }}
           </button>
         </div>
       </form>

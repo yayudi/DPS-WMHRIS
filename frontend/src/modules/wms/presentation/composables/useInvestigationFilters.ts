@@ -1,11 +1,13 @@
 import { ref } from 'vue'
 import { investigationApi } from '../../infrastructure/investigation.api'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { useDownload } from '@/core/presentation/composables/useDownload'
 import { usePagination } from '@/core/presentation/composables/usePagination'
 
 export function useInvestigationFilters() {
   const { toast } = useToast()
+  const { t } = useI18n()
   const { downloadBlob } = useDownload()
 
   const loading = ref(false)
@@ -141,9 +143,9 @@ export function useInvestigationFilters() {
       if ((response as any).total !== undefined) {
         totalGroups.value = (response as any).total
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Fetch error:', error)
-      toast(error.response?.data?.message || 'Terjadi kesalahan pada server.', 'error')
+      toast(error?.response?.data?.message || t('errors.internal_server_error'), 'error')
     } finally {
       loading.value = false
     }

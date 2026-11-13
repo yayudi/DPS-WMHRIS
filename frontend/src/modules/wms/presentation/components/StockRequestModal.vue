@@ -2,6 +2,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useLocalStorage } from '@vueuse/core'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { userApi } from '@/modules/settings/infrastructure/user.api'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import { stockRequestApi } from '@/modules/wms/infrastructure/stockRequest.api'
@@ -19,6 +20,7 @@ defineProps({
 
 const emit = defineEmits(['close', 'request-created'])
 const { toast } = useToast()
+const { t } = useI18n()
 const isLoading = ref(false)
 const myLocations = ref([])
 const allLocations = ref([])
@@ -57,10 +59,10 @@ watch(fromLocationId, async (newVal, oldVal) => {
   }
   if (batchList.value.length > 0 && newVal && oldVal && newVal !== oldVal) {
     const isConfirmed = await swalConfirm(
-      'Reset Daftar Produk?',
-      'Mengubah lokasi asal akan mereset seluruh daftar produk yang sudah dipilih. Yakin?',
-      'Ya, Reset',
-      'Batal'
+      t('wms.stock_req.swal_reset_title'),
+      t('wms.stock_req.swal_reset_desc_from'),
+      t('wms.stock_req.swal_reset_confirm'),
+      t('common.btn.cancel')
     )
     if (isConfirmed) {
       batchList.value = []
@@ -79,10 +81,10 @@ watch(toLocationId, async (newVal, oldVal) => {
   }
   if (batchList.value.length > 0 && newVal && oldVal && newVal !== oldVal) {
     const isConfirmed = await swalConfirm(
-      'Reset Daftar Produk?',
-      'Mengubah lokasi tujuan akan mereset seluruh daftar produk yang sudah dipilih. Yakin?',
-      'Ya, Reset',
-      'Batal'
+      t('wms.stock_req.swal_reset_title'),
+      t('wms.stock_req.swal_reset_desc_to'),
+      t('wms.stock_req.swal_reset_confirm'),
+      t('common.btn.cancel')
     )
     if (isConfirmed) {
       batchList.value = []
@@ -95,7 +97,7 @@ watch(toLocationId, async (newVal, oldVal) => {
 
 function handleAddProduct({ product, quantity }) {
   if (!product || !quantity || quantity <= 0) {
-    toast('Pilih produk dan masukkan kuantitas yang valid (Lebih dari 0).', 'warning')
+    toast(t('wms.stock_req.invalid_qty'), 'warning')
     return
   }
   const existing = batchList.value.find(item => item.sku === product.sku)
@@ -147,8 +149,8 @@ async function submitRequest() {
       }))
     }
 
-    await stockRequestApi.createStockRequest(payload)
-    toast('Permintaan stok berhasil dibuat', 'success')
+    const res = await stockRequestApi.createStockRequest(payload)
+    toast(res?.message || t('common.status.success'), 'success')
     emit('request-created')
     clearDraft()
     emit('close')
@@ -172,14 +174,14 @@ function clearDraft() {
 async function closeModal() {
   if (batchList.value.length > 0 || notes.value.trim() !== '') {
     const result = await Swal.fire({
-      title: 'Tutup Form?',
-      text: 'Form belum selesai. Simpan sebagai draf atau hapus seluruh isian?',
+      title: t('wms.stock_req.swal_close_title'),
+      text: t('wms.stock_req.swal_close_desc'),
       icon: 'question',
       showDenyButton: true,
       showCancelButton: true,
-      confirmButtonText: 'Simpan Draf',
-      denyButtonText: 'Hapus Isian',
-      cancelButtonText: 'Batal',
+      confirmButtonText: t('wms.stock_req.save_draft'),
+      denyButtonText: t('wms.stock_req.clear_fields'),
+      cancelButtonText: t('common.btn.cancel'),
       customClass: {
         popup: 'bg-background text-text rounded-xl shadow-2xl border border-secondary/50',
         title: 'text-text font-bold',
@@ -213,7 +215,7 @@ async function closeModal() {
         <div class="px-6 py-4 border-b border-secondary/20 flex justify-between items-center bg-secondary/5">
           <h3 class="text-lg font-bold text-text flex items-center gap-2">
             <font-awesome-icon icon="fa-solid fa-file-invoice" class="text-primary" />
-            Buat Permintaan Stok Baru
+            {{ t('wms.stock_req.modal_title') }}
           </h3>
           <button @click="closeModal" class="text-text/50 hover:text-danger transition-colors">
             <font-awesome-icon icon="fa-solid fa-xmark" class="text-xl" />
@@ -226,23 +228,23 @@ async function closeModal() {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-secondary/5 p-4 rounded-xl border border-secondary/20">
             <div class="space-y-4">
               <div>
-                <label class="block text-xs font-bold text-text/60 uppercase mb-1.5">Tipe Permintaan</label>
+                <label class="block text-xs font-bold text-text/60 uppercase mb-1.5">{{ t('wms.stock_req.type_label') }}</label>
                 <select
                   v-model="type"
                   class="w-full p-2.5 bg-background border border-secondary/30 rounded-lg text-sm text-text focus:ring-1 focus:ring-primary outline-none"
                 >
-                  <option value="TRANSFER">Transfer Stok</option>
-                  <option value="STOCK_OPNAME">Stock Opname</option>
+                  <option value="TRANSFER">{{ t('wms.stock_req.type_transfer') }}</option>
+                  <option value="STOCK_OPNAME">{{ t('wms.stock_req.type_stock_opname') }}</option>
                 </select>
               </div>
 
               <div v-if="type === 'TRANSFER'">
-                <label class="block text-xs font-bold text-text/60 uppercase mb-1.5">Minta Dari Lokasi (Asal)</label>
+                <label class="block text-xs font-bold text-text/60 uppercase mb-1.5">{{ t('wms.stock_req.from_location_label') }}</label>
                 <select
                   v-model="fromLocationId"
                   class="w-full p-2.5 bg-background border border-secondary/30 rounded-lg text-sm text-text focus:ring-1 focus:ring-primary outline-none"
                 >
-                  <option :value="null" disabled>Pilih Lokasi Asal</option>
+                  <option :value="null" disabled>{{ t('wms.stock_req.select_from_location') }}</option>
                   <option v-for="loc in allLocations" :key="loc.id" :value="loc.id">
                     {{ loc.code }} - {{ loc.name }}
                   </option>
@@ -251,13 +253,13 @@ async function closeModal() {
 
               <div>
                 <label class="block text-xs font-bold text-text/60 uppercase mb-1.5">
-                  {{ type === 'TRANSFER' ? 'Kirim Ke Lokasi (Tujuan)' : 'Lokasi Opname' }}
+                  {{ type === 'TRANSFER' ? t('wms.stock_req.to_location_transfer') : t('wms.stock_req.to_location_opname') }}
                 </label>
                 <select
                   v-model="toLocationId"
                   class="w-full p-2.5 bg-background border border-secondary/30 rounded-lg text-sm text-text focus:ring-1 focus:ring-primary outline-none"
                 >
-                  <option :value="null" disabled>Pilih Lokasi</option>
+                  <option :value="null" disabled>{{ t('wms.stock_req.select_location') }}</option>
                   <!-- Untuk opname, operator bebas pilih semua lokasi -->
                   <option v-for="loc in type === 'TRANSFER' ? myLocations : allLocations" :key="loc.id" :value="loc.id">
                     {{ loc.code }} - {{ loc.name }}
@@ -267,18 +269,18 @@ async function closeModal() {
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-text/60 uppercase mb-1.5">Catatan / Alasan</label>
+              <label class="block text-xs font-bold text-text/60 uppercase mb-1.5">{{ t('wms.stock_req.notes_label') }}</label>
               <textarea
                 v-model="notes"
                 rows="3"
                 class="w-full p-3 bg-background border border-secondary/30 rounded-lg text-sm text-text focus:ring-1 focus:ring-primary outline-none resize-none placeholder:text-text/30"
-                placeholder="Contoh: Stok untuk event akhir pekan..."
+                :placeholder="t('wms.stock_req.notes_placeholder')"
               ></textarea>
             </div>
           </div>
 
           <div class="border-t border-secondary/20 pt-4">
-            <h4 class="text-sm font-bold text-text/80 uppercase mb-3">Daftar Produk</h4>
+            <h4 class="text-sm font-bold text-text/80 uppercase mb-3">{{ t('wms.stock_req.product_list_title') }}</h4>
 
             <!-- Pakai komponen yg sama dgn Batch Adjustment -->
             <ProductSearchAddForm
@@ -304,7 +306,7 @@ async function closeModal() {
             @click="closeModal"
             class="px-5 py-2.5 rounded-lg text-sm font-bold text-text/70 bg-background border border-secondary/30 hover:bg-secondary/10 transition-colors"
           >
-            Batal
+            {{ t('common.btn.cancel') }}
           </button>
           <button
             @click="submitRequest"
@@ -313,7 +315,7 @@ async function closeModal() {
           >
             <font-awesome-icon v-if="isLoading" icon="fa-solid fa-spinner" class="animate-spin" />
             <font-awesome-icon v-else icon="fa-solid fa-paper-plane" />
-            Kirim Permintaan
+            {{ t('wms.stock_req.btn_send_request') }}
           </button>
         </div>
       </div>

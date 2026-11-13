@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -34,7 +33,7 @@ func (h *ReturnHandler) GetPendingReturns(c *gin.Context) {
 
 	rows, total, err := h.returnService.GetPendingReturns(c.Request.Context(), params)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -59,14 +58,14 @@ func (h *ReturnHandler) GetReturnHistory(c *gin.Context) {
 	marketplaceResult, err := h.returnService.GetMarketplaceReturnHistory(c.Request.Context(), page, limit, search)
 	if err != nil {
 		log.Printf("[ReturnHistory] MarketplaceReturnHistory error: %v", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
 	manualResult, err := h.returnService.GetManualReturnHistory(c.Request.Context(), page, limit, search)
 	if err != nil {
 		log.Printf("[ReturnHistory] ManualReturnHistory error: %v", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -92,19 +91,18 @@ func (h *ReturnHandler) ApproveReturn(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	err := h.returnService.ApproveReturn(c.Request.Context(), userID, req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Retur berhasil diproses.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "wms.return.process_success", nil)
 }
 
 func (h *ReturnHandler) CreateManualReturn(c *gin.Context) {
@@ -114,18 +112,17 @@ func (h *ReturnHandler) CreateManualReturn(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	err := h.returnService.CreateManualReturn(c.Request.Context(), userID, req)
 	if err != nil {
 		log.Printf("[CreateManualReturn] error: %v", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Retur manual berhasil dicatat.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "wms.return.manual_record_success", nil)
 }

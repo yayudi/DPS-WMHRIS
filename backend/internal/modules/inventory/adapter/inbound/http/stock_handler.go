@@ -6,7 +6,6 @@ import (
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
 
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 
@@ -55,7 +54,7 @@ func (h *StockHandler) ImportBatchInbound(c *gin.Context) {
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
 		_ = os.Remove(savedPath)
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -69,7 +68,7 @@ func (h *StockHandler) ImportBatchInbound(c *gin.Context) {
 func (h *StockHandler) GetAllStocks(c *gin.Context) {
 	stocks, err := h.stockService.GetAllStocks(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 	utils.SuccessDataResponse(c, http.StatusOK, stocks)
@@ -82,9 +81,8 @@ func (h *StockHandler) TransferStock(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -99,11 +97,11 @@ func (h *StockHandler) TransferStock(c *gin.Context) {
 	}
 
 	if err := h.stockService.MoveStock(c.Request.Context(), userID, moveReq); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Transfer stok berhasil.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "wms.stock.transfer_success", nil)
 }
 
 func (h *StockHandler) AdjustStock(c *gin.Context) {
@@ -113,9 +111,8 @@ func (h *StockHandler) AdjustStock(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -142,7 +139,7 @@ func (h *StockHandler) AdjustStock(c *gin.Context) {
 	} else if qty < 0 {
 		fromLocationID = &req.LocationID
 	} else {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Quantity tidak boleh 0", "")
+		utils.ErrorResponse(c, http.StatusBadRequest, "wms.stock.err_qty_not_zero", "VALIDATION_ERROR")
 		return
 	}
 
@@ -162,11 +159,11 @@ func (h *StockHandler) AdjustStock(c *gin.Context) {
 	}
 
 	if err := h.stockService.MoveStock(c.Request.Context(), userID, moveReq); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Penyesuaian stok berhasil.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "wms.stock.adjustment_success", nil)
 }
 
 func (h *StockHandler) BatchProcess(c *gin.Context) {
@@ -181,17 +178,17 @@ func (h *StockHandler) BatchProcess(c *gin.Context) {
 
 	err := h.stockService.ProcessBatchMovements(c.Request.Context(), req, userID, userRoleID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.RawResponse(c, http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("Batch %s berhasil.", req.Type)})
+	utils.SuccessResponse(c, http.StatusOK, "wms.stock.batch_transfer_success", nil)
 }
 
 func (h *StockHandler) GetMovementTypes(c *gin.Context) {
 	types, err := h.stockService.GetMovementTypes(c.Request.Context())
 	if err != nil {
-		utils.RawResponse(c, http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal mengambil tipe pergerakan stok", "error": err.Error()})
+		utils.HandleDomainError(c, err)
 		return
 	}
 	utils.SuccessDataResponse(c, http.StatusOK, types)
@@ -206,13 +203,13 @@ func (h *StockHandler) GetBatchLogs(c *gin.Context) {
 
 	// Set default start/end dates if not provided
 	if filter.StartDate == "" || filter.EndDate == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Tanggal mulai dan selesai harus diisi", "")
+		utils.ErrorResponse(c, http.StatusBadRequest, "wms.investigation.err_date_range", "VALIDATION_ERROR")
 		return
 	}
 
 	result, err := h.stockService.GetBatchLogs(c.Request.Context(), filter)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil log stok: "+err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -222,17 +219,17 @@ func (h *StockHandler) GetBatchLogs(c *gin.Context) {
 func (h *StockHandler) GetStockHistory(c *gin.Context) {
 	var filter inventory_dto.StockHistoryFilter
 	if err := c.ShouldBindUri(&filter); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID produk tidak valid: "+err.Error(), "VALIDATION_ERROR")
+		utils.ErrorResponse(c, http.StatusBadRequest, "errors.validation_error", "VALIDATION_ERROR")
 		return
 	}
 	if err := c.ShouldBindQuery(&filter); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Filter tidak valid: "+err.Error(), "VALIDATION_ERROR")
+		utils.ErrorResponse(c, http.StatusBadRequest, "errors.validation_error", "VALIDATION_ERROR")
 		return
 	}
 
 	result, err := h.stockService.GetStockHistory(c.Request.Context(), filter)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil riwayat stok: "+err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -245,12 +242,11 @@ func (h *StockHandler) BatchTransfer(c *gin.Context) {
 		return
 	}
 	req := *req_ptr
-	userID := middleware.GetUserID(c)
-	roleID := middleware.GetRoleID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
+	roleID := middleware.GetRoleID(c)
 
 	processReq := inventory_dto.BatchProcessRequest{
 		Type:           "TRANSFER",
@@ -261,10 +257,10 @@ func (h *StockHandler) BatchTransfer(c *gin.Context) {
 
 	err := h.stockService.ProcessBatchMovements(c.Request.Context(), processReq, userID, roleID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
-	utils.SuccessResponse(c, http.StatusOK, "Batch transfer berhasil.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "wms.stock.batch_transfer_success", nil)
 }
 
 func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {
@@ -273,9 +269,8 @@ func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {
 		return
 	}
 	req := *req_ptr
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -303,17 +298,17 @@ func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateExportJob(c.Request.Context(), jobReq)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.JobCreatedResponse(c, http.StatusAccepted, "Permintaan ekspor batch log diterima. File sedang diproses.", jobID)
+	utils.JobCreatedResponse(c, http.StatusAccepted, "wms.stock.batch_log_export_queued", jobID)
 }
 
 func (h *StockHandler) GetInboundTemplate(c *gin.Context) {
 	f, err := h.stockService.GenerateInboundTemplate(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -323,7 +318,7 @@ func (h *StockHandler) GetInboundTemplate(c *gin.Context) {
 func (h *StockHandler) DownloadAdjustmentTemplate(c *gin.Context) {
 	f, err := h.stockService.GenerateAdjustmentTemplate(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -331,9 +326,8 @@ func (h *StockHandler) DownloadAdjustmentTemplate(c *gin.Context) {
 }
 
 func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -360,7 +354,7 @@ func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
 		_ = os.Remove(savedPath)
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 

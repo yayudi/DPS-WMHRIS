@@ -2,13 +2,13 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 )
@@ -42,7 +42,7 @@ func (s *returnServiceImpl) GetManualReturnHistory(ctx context.Context, page, li
 }
 
 func (s *returnServiceImpl) ApproveReturn(ctx context.Context, userID int, req inventory_dto.ApproveReturnRequest) error {
-	return errors.New("Fitur ApproveReturn sudah dinonaktifkan (Fulfilment Teardown)")
+	return apperror.Validation("wms.return.err_feature_disabled", "Fitur ApproveReturn sudah dinonaktifkan (Fulfilment Teardown)")
 }
 
 func (s *returnServiceImpl) CreateManualReturn(ctx context.Context, userID int, req inventory_dto.CreateManualReturnRequest) error {

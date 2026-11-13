@@ -59,7 +59,7 @@ export const userApi = {
       return []
     } catch (error: any) {
       console.error('Error fetching my locations:', error)
-      throw new Error(error.response?.data?.message || 'Gagal mengambil lokasi saya')
+      throw new Error(error.response?.data?.message || error.message || 'FAILED_TO_FETCH_MY_LOCATIONS')
     }
   }
 }

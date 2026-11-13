@@ -205,10 +205,10 @@ async function showPriceTooltip(event, product) {
       if (dateStr) {
         priceUpdatesCache.value[product.id] = formatDate(dateStr, true, false)
       } else {
-        priceUpdatesCache.value[product.id] = 'Belum ada data'
+        priceUpdatesCache.value[product.id] = t('common.empty.no_data')
       }
     } catch {
-      priceUpdatesCache.value[product.id] = 'Gagal memuat'
+      priceUpdatesCache.value[product.id] = t('wms.table.load_failed')
     } finally {
       isFetchingPriceUpdate.value = false
     }
@@ -280,14 +280,14 @@ onUnmounted(() => {
             class="px-6 py-3 md:sticky md:left-16 md:border-r md:border-secondary/50 z-10 bg-background md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)] text-left cursor-pointer hover:text-primary transition-colors min-w-[250px] md:w-[350px]"
             @click="handleSort('name')"
           >
-            <div class="flex items-center gap-2">{{ t('wms.table.product_name') }} <font-awesome-icon :icon="sortIcon('name')" /></div>
+            <div class="flex items-center gap-2">{{ t('common.label.product_name') }} <font-awesome-icon :icon="sortIcon('name')" /></div>
           </th>
           <th
             v-if="visibleColumns.has('sku')"
             class="px-6 py-3 text-left md:border-r md:border-secondary/50 cursor-pointer hover:text-primary transition-colors"
             @click="handleSort('sku')"
           >
-            <div class="flex items-center gap-2">{{ t('wms.table.sku') }} <font-awesome-icon :icon="sortIcon('sku')" /></div>
+            <div class="flex items-center gap-2">{{ t('common.label.sku') }} <font-awesome-icon :icon="sortIcon('sku')" /></div>
           </th>
           <th
             v-if="visibleColumns.has('category')"
@@ -313,7 +313,7 @@ onUnmounted(() => {
             class="px-6 py-3 text-right md:border-r md:border-secondary/50 cursor-pointer hover:text-primary transition-colors"
             @click="handleSort('price')"
           >
-            <div class="flex items-center justify-end gap-2">Harga <font-awesome-icon :icon="sortIcon('price')" /></div>
+            <div class="flex items-center justify-end gap-2">{{ t('common.label.price') }} <font-awesome-icon :icon="sortIcon('price')" /></div>
           </th>
           <th v-if="visibleColumns.has('location')" class="px-6 py-3 text-center md:border-r md:border-secondary/50">
             {{ t('wms.table.locations') }}
@@ -324,7 +324,7 @@ onUnmounted(() => {
           <th
             class="p-3 md:sticky md:right-0 z-10 bg-background md:border-r md:border-secondary/50 md:shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)] text-center w-[40px]"
           >
-            {{ t('wms.table.actions') }}
+            {{ t('common.label.actions') }}
           </th>
         </tr>
       </thead>
@@ -350,7 +350,7 @@ onUnmounted(() => {
         <tr v-else-if="!products.length" key="empty">
           <td :colspan="auth.canViewPrices ? 9 : 8" class="py-12 text-center text-text/50">
             <div class="flex flex-col items-center justify-center gap-3">
-              <span class="italic">{{ t('common.label.no_data') }}</span>
+              <span class="italic">{{ t('common.empty.no_data') }}</span>
               <slot name="empty-action" />
             </div>
           </td>
@@ -392,7 +392,7 @@ onUnmounted(() => {
               <div class="flex flex-col w-full">
                 <div class="flex items-center gap-2 w-full">
                   <span
-                    @click.stop="copyToClipboard(product.name, 'Nama Produk')"
+                    @click.stop="copyToClipboard(product.name, t('common.label.product_name'))"
                     class="font-bold text-text cursor-pointer hover:text-primary transition-colors text-sm md:text-base w-full"
                     :title="product.name"
                   >
@@ -403,7 +403,7 @@ onUnmounted(() => {
                     @click.stop="togglePackageTooltip($event, product)"
                     class="package-badge-trigger shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-accent/10 text-accent border border-accent/20 tracking-wide cursor-pointer hover:bg-accent/20 transition-colors"
                   >
-                    PAKET
+                    {{ t('wms.type.package') }}
                   </span>
                 </div>
                 <!-- SKU Mobile Compact -->
@@ -478,9 +478,9 @@ onUnmounted(() => {
             class="md:table-cell flex justify-between items-center px-4 py-2 md:px-3 md:py-2 text-right whitespace-nowrap text-sm text-text/70 font-mono border-b border-secondary/10 md:border-secondary/80"
             :class="{ 'hidden md:flex': mobileLayout === 'compact' }"
           >
-            <span class="md:hidden text-[10px] font-bold text-text/50 uppercase tracking-wide">Harga</span>
+            <span class="md:hidden text-[10px] font-bold text-text/50 uppercase tracking-wide">{{ t('common.label.price') }}</span>
             <span
-              @click.stop="copyToClipboard(product.price, 'Harga')"
+              @click.stop="copyToClipboard(product.price, t('common.label.price'))"
               @mouseenter="showPriceTooltip($event, product)"
               @mouseleave="hidePriceTooltip"
               class="cursor-pointer hover:text-primary transition-colors"
@@ -501,7 +501,7 @@ onUnmounted(() => {
             ]"
             @click.stop="toggleLocationTooltip($event, product)"
           >
-            <span class="md:hidden text-[10px] font-bold text-text/50 uppercase tracking-wide">Lokasi</span>
+            <span class="md:hidden text-[10px] font-bold text-text/50 uppercase tracking-wide">{{ t('common.label.location') }}</span>
             <div
               v-if="getVisibleLocations(product).length > 0"
               class="flex items-center gap-1.5 flex-wrap ml-auto md:mx-auto justify-end md:justify-center max-w-[200px]"
@@ -515,7 +515,7 @@ onUnmounted(() => {
                     ? 'bg-accent/10 border-accent/30 text-accent font-bold'
                     : 'bg-secondary/25 hover:bg-primary/10 border-secondary/40 hover:border-primary/40 text-text/90'
                 ]"
-                :title="`Stok: ${loc.quantity}${loc.slots?.length ? ' (' + loc.slots.length + ' ambalan)' : ' (Belum ada rak)'}`"
+                :title="t('wms.table.stock_slot_tooltip', { count: loc.quantity, slots: loc.slots?.length ? t('wms.table.slots_count', { n: loc.slots.length }) : t('wms.table.no_rack') })"
               >
                 <span>{{ loc.location_code }}</span>
                 <button
@@ -523,7 +523,7 @@ onUnmounted(() => {
                   type="button"
                   @click.stop="handleOpenSlotting(product, loc.location_id)"
                   class="inline-flex items-center text-amber-500 hover:text-amber-600 transition-colors cursor-pointer"
-                  title="Belum ada ambalan/rak! Klik untuk atur sekarang"
+                  :title="t('wms.table.no_rack_hint')"
                 >
                   <font-awesome-icon icon="fa-solid fa-exclamation-triangle" class="text-[9px]" />
                 </button>
@@ -532,7 +532,7 @@ onUnmounted(() => {
               <span
                 v-if="getVisibleLocations(product).length > 2"
                 class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-secondary/40 text-text/60 border border-secondary/30"
-                :title="`${getVisibleLocations(product).length - 2} lokasi lainnya`"
+                :title="t('wms.table.other_locations', { count: getVisibleLocations(product).length - 2 })"
               >
                 +{{ getVisibleLocations(product).length - 2 }}
               </span>
@@ -548,7 +548,7 @@ onUnmounted(() => {
           >
             <div class="md:hidden flex flex-col items-end gap-0.5">
               <span v-if="mobileLayout === 'card'" class="text-[10px] font-bold text-text/50 uppercase tracking-wide"
-                >Stok Total</span
+                >{{ t('wms.table.total_stock') }}</span
               >
               <span
                 class="text-sm font-mono font-bold"
@@ -562,7 +562,7 @@ onUnmounted(() => {
                 <!-- Virtual Stock Info -->
                 <div v-if="product.is_package" class="text-[10px] text-text/50 font-normal leading-tight">
                   (Virtual: {{ getVirtualStock(product) }}
-                  <span class="text-[9px] cursor-help" title="Stok Virtual (Kalkulasi dari Komponen)">[V]</span>)
+                  <span class="text-[9px] cursor-help" :title="t('wms.table.virtual_stock_hint')">[V]</span>)
                 </div>
               </span>
               <!-- Price for Compact Mode -->
@@ -587,7 +587,7 @@ onUnmounted(() => {
               <!-- Virtual Stock Info -->
               <span v-if="product.is_package" class="text-[10px] text-text/50 font-normal ml-1">
                 (Virtual: {{ getVirtualStock(product) }}
-                <span class="text-[9px] cursor-help" title="Stok Virtual (Kalkulasi dari Komponen)">[V]</span>)
+                <span class="text-[9px] cursor-help" :title="t('wms.table.virtual_stock_hint')">[V]</span>)
               </span>
             </span>
           </td>
@@ -615,7 +615,7 @@ onUnmounted(() => {
       class="tooltip-teleported"
       :show="isLocationTooltipVisible"
       :reference-el="locationTargetRef"
-      title="Detail Lokasi & Rak"
+      :title="t('wms.table.location_rack_detail')"
       interactive
     >
       <div v-if="locationsForTooltip.length > 0" class="space-y-3 min-w-[260px] max-w-[340px] py-1 text-xs">
@@ -631,7 +631,7 @@ onUnmounted(() => {
               <span class="font-mono">{{ loc.location_code }}</span>
             </span>
             <div class="flex items-center gap-1">
-              <span class="text-[10px] text-text/50 font-medium">Stok:</span>
+              <span class="text-[10px] text-text/50 font-medium">{{ t('wms.table.stock') }}:</span>
               <span
                 class="font-mono font-bold px-1.5 py-0.5 rounded text-[11px]"
                 :class="loc.quantity < 0 ? 'bg-accent/15 text-accent' : 'bg-primary/10 text-primary'"
@@ -658,13 +658,13 @@ onUnmounted(() => {
                 v-if="s.is_primary"
                 class="shrink-0 text-[9px] font-bold px-1 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
               >
-                UTAMA
+                {{ t('wms.location.primary') }}
               </span>
               <span
                 v-else
                 class="shrink-0 text-[9px] font-semibold px-1 py-0.5 rounded bg-secondary/30 text-text/50"
               >
-                BUFFER
+                {{ t('wms.location.buffer') }}
               </span>
             </div>
             <!-- Quick Link to manage -->
@@ -674,7 +674,7 @@ onUnmounted(() => {
               class="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary-focus font-medium pt-0.5 transition-colors cursor-pointer"
             >
               <font-awesome-icon icon="fa-solid fa-pencil" class="text-[9px]" />
-              <span>Kelola Rak</span>
+              <span>{{ t('wms.table.manage_rack') }}</span>
             </button>
           </div>
 
@@ -682,7 +682,7 @@ onUnmounted(() => {
           <div v-else class="pl-3.5 pt-0.5 flex flex-col items-start gap-1">
             <span class="text-[11px] text-amber-500 dark:text-amber-400 flex items-center gap-1 font-medium">
               <font-awesome-icon icon="fa-solid fa-exclamation-triangle" class="text-[10px]" />
-              <span>Belum ada rak terdaftar</span>
+              <span>{{ t('wms.table.no_rack_registered') }}</span>
             </span>
             <button
               type="button"
@@ -690,13 +690,13 @@ onUnmounted(() => {
               class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-semibold transition-all border border-primary/20 active:scale-95 cursor-pointer"
             >
               <font-awesome-icon icon="fa-solid fa-plus" class="text-[9px]" />
-              <span>Atur Rak Sekarang</span>
+              <span>{{ t('wms.table.setup_rack_now') }}</span>
             </button>
           </div>
         </div>
       </div>
       <div v-else class="text-center py-2 text-text/50 italic text-xs">
-        Tidak ada lokasi aktif
+        {{ t('wms.table.no_active_location') }}
       </div>
     </FloatingTooltip>
 
@@ -705,7 +705,7 @@ onUnmounted(() => {
       class="package-tooltip-teleported"
       :show="isPackageTooltipVisible"
       :reference-el="packageTargetRef"
-      title="Komponen Paket"
+      :title="t('wms.table.package_components')"
       :loading="isLoadingComponents"
       interactive
     >
@@ -721,7 +721,7 @@ onUnmounted(() => {
             </div>
             <div class="flex flex-col min-w-0">
               <span
-                @click.stop="copyToClipboard(comp.name, 'Nama Produk')"
+                @click.stop="copyToClipboard(comp.name, t('common.label.product_name'))"
                 class="font-semibold text-text truncate leading-tight hover:text-primary cursor-pointer"
                 >{{ comp.name }}</span
               >
@@ -730,7 +730,7 @@ onUnmounted(() => {
           </li>
         </ul>
       </div>
-      <div v-else class="text-center py-2 text-text/50 italic">Tidak ada data komponen</div>
+      <div v-else class="text-center py-2 text-text/50 italic">{{ t('wms.table.no_components_data') }}</div>
     </FloatingTooltip>
 
     <!-- Price Tooltip -->
@@ -738,7 +738,7 @@ onUnmounted(() => {
       v-if="activeProduct"
       :show="isPriceTooltipVisible"
       :reference-el="priceTargetRef"
-      title="Harga + PPN"
+      :title="t('wms.table.price_with_vat')"
     >
       <div class="flex justify-between gap-4 min-w-[120px]">
         <span class="text-text/70">DPP:</span>
@@ -751,10 +751,10 @@ onUnmounted(() => {
 
       <div class="mt-2 pt-2 border-t border-secondary/20 text-[10px] text-text/50 flex flex-col items-center">
         <span v-if="isFetchingPriceUpdate && !priceUpdatesCache[activeProduct.id]" class="flex items-center gap-1">
-          <font-awesome-icon icon="fa-solid fa-spinner" spin /> Memuat...
+          <font-awesome-icon icon="fa-solid fa-spinner" spin /> {{ t('common.status.loading') }}
         </span>
         <span v-else class="text-center">
-          Update: <span class="font-bold">{{ priceUpdatesCache[activeProduct.id] }}</span>
+          {{ t('common.label.updated_at') }}: <span class="font-bold">{{ priceUpdatesCache[activeProduct.id] }}</span>
         </span>
       </div>
     </FloatingTooltip>

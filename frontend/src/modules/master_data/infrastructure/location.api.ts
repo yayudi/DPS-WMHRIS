@@ -14,33 +14,29 @@ export const locationApi = {
    * Membuat lokasi baru.
    */
   async createLocation(payload: CreateLocationPayload): Promise<any> {
-    const response = await http.post('/locations', payload)
-    return response.data
+    return http.post('/locations', payload)
   },
 
   /**
    * Mengedit lokasi yang sudah ada.
    */
   async updateLocation(id: number | string, payload: UpdateLocationPayload): Promise<any> {
-    const response = await http.put(`/locations/${id}`, payload)
-    return response.data
+    return http.put(`/locations/${id}`, payload)
   },
 
   /**
    * Menghapus sebuah lokasi.
    */
   async deleteLocation(id: number | string): Promise<any> {
-    const response = await http.delete(`/locations/${id}`)
-    return response.data
+    return http.delete(`/locations/${id}`)
   },
 
   /**
    * Mengubah status sumber fulfillment untuk lokasi.
    */
   async toggleFulfillmentSource(id: number | string, isFulfillmentSource: boolean): Promise<any> {
-    const response = await http.put(`/locations/${id}/fulfillment-source`, {
+    return http.put(`/locations/${id}/fulfillment-source`, {
       is_fulfillment_source: isFulfillmentSource
     })
-    return response.data
   }
 }

@@ -11,7 +11,7 @@ const props = withDefaults(
   }
 )
 
-const { currentLocale, availableLocales, setLocale, isLoading } = useI18n()
+const { currentLocale, availableLocales, setLocale, isLoading, t } = useI18n()
 const isOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 
@@ -46,7 +46,7 @@ onUnmounted(() => {
       type="button"
       @click="toggleDropdown"
       class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm font-medium text-text/80 hover:text-primary hover:bg-secondary/10 transition-colors focus:outline-none"
-      :title="`Pilih Bahasa (Saat ini: ${currentLocale})`"
+      :title="`${t('core.locale.select_language')} (${currentLocale})`"
       :disabled="isLoading"
     >
       <font-awesome-icon icon="fa-solid fa-language" class="text-base text-primary" />

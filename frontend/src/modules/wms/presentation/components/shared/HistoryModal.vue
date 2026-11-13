@@ -1,16 +1,17 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
 import { stockApi } from '@/modules/wms/infrastructure/stock.api'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import { useMobile } from '@/core/presentation/composables/useMobile'
-import { onMounted } from 'vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { formatDate } from '@/core/utils/formatters'
 import { usePagination } from '@/core/presentation/composables/usePagination'
 import DateRangeFilter from '@/core/presentation/components/ui/DateRangeFilter.vue'
 
 const { isMobile } = useMobile()
+const { t } = useI18n()
 
 const props = defineProps({
   show: Boolean,
@@ -49,16 +50,16 @@ onMounted(async () => {
   }
 })
 
-const movementTypes = [
-  { label: 'Semua Tipe', value: 'all' },
-  { label: 'Inbound', value: 'INBOUND' },
-  { label: 'Transfer', value: 'TRANSFER' },
-  { label: 'Transfer Multi', value: 'TRANSFER_MULTI' },
-  { label: 'Penyesuaian (Adjustment)', value: 'ADJUSTMENT' },
-  { label: 'Opname', value: 'OPNAME' },
-  { label: 'Penjualan (Sales)', value: 'SALES' },
-  { label: 'Retur (Return)', value: 'RETURN' }
-]
+const movementTypes = computed(() => [
+  { label: t('wms.history.type_all'), value: 'all' },
+  { label: t('wms.history.type_inbound'), value: 'INBOUND' },
+  { label: t('wms.history.type_transfer'), value: 'TRANSFER' },
+  { label: t('wms.history.type_transfer_multi'), value: 'TRANSFER_MULTI' },
+  { label: t('wms.history.type_adjustment'), value: 'ADJUSTMENT' },
+  { label: t('wms.history.type_opname'), value: 'OPNAME' },
+  { label: t('wms.history.type_sales'), value: 'SALES' },
+  { label: t('wms.history.type_return'), value: 'RETURN' }
+])
 
 async function loadHistory(page) {
   if (!props.product) return
@@ -80,7 +81,7 @@ async function loadHistory(page) {
       currentPage.value = response.pagination.page
     }
   } catch {
-    error.value = 'Gagal memuat riwayat stok.'
+    error.value = t('wms.history.load_error')
   } finally {
     loading.value = false
   }
@@ -108,7 +109,7 @@ watch(
 )
 </script>
 <template>
-  <BaseModal :show="show" @close="emit('close')" :title="`Riwayat Stok: ${product?.name}`" maxWidth="max-w-4xl">
+  <BaseModal :show="show" @close="emit('close')" :title="t('wms.history.title', { name: product?.name })" maxWidth="max-w-4xl">
     <div
       class="px-4 py-3 grid gap-2 items-center border-b border-secondary/20 bg-background/50"
       :class="isMobile ? 'grid-cols-2' : 'grid-cols-4'"
@@ -125,7 +126,7 @@ watch(
         v-model="locationId"
         class="w-full bg-background border border-secondary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
       >
-        <option value="all">Semua Lokasi</option>
+        <option value="all">{{ t('common.label.all_locations') }}</option>
         <option v-for="loc in locations" :key="loc.id" :value="loc.id">
           {{ loc.code || loc.name }}
         </option>
@@ -133,7 +134,7 @@ watch(
       <input
         type="text"
         v-model="userFilter"
-        placeholder="Cari user..."
+        :placeholder="t('wms.history.search_user_placeholder')"
         class="w-full bg-background border border-secondary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
       />
       <DateRangeFilter
@@ -144,19 +145,19 @@ watch(
       />
     </div>
     <div class="max-h-[70vh] overflow-y-auto">
-      <div v-if="loading" class="text-center p-8">Memuat riwayat...</div>
+      <div v-if="loading" class="text-center p-8">{{ t('wms.history.loading') }}</div>
       <div v-else-if="error" class="text-center p-8 text-accent">{{ error }}</div>
-      <div v-else-if="history.length === 0" class="text-center p-8 text-text/60">Tidak ada riwayat pergerakan.</div>
+      <div v-else-if="history.length === 0" class="text-center p-8 text-text/60">{{ t('wms.history.empty') }}</div>
       <table v-else class="text-sm" :class="isMobile ? 'w-full block' : 'min-w-full'">
         <thead class="bg-secondary/10 text-xs uppercase text-text/70" :class="isMobile ? 'hidden' : ''">
           <tr>
-            <th class="p-2 text-left">Tanggal</th>
-            <th class="p-2 text-left">Tipe</th>
-            <th class="p-2 text-center">Jumlah</th>
-            <th class="p-2 text-left">Dari</th>
-            <th class="p-2 text-left">Ke</th>
-            <th class="p-2 text-left">Oleh</th>
-            <th class="p-2 text-left">Catatan</th>
+            <th class="p-2 text-left">{{ t('common.label.date') }}</th>
+            <th class="p-2 text-left">{{ t('wms.history.th_type') }}</th>
+            <th class="p-2 text-center">{{ t('common.label.qty') }}</th>
+            <th class="p-2 text-left">{{ t('wms.history.th_from') }}</th>
+            <th class="p-2 text-left">{{ t('wms.history.th_to') }}</th>
+            <th class="p-2 text-left">{{ t('wms.history.th_by') }}</th>
+            <th class="p-2 text-left">{{ t('common.label.notes') }}</th>
           </tr>
         </thead>
         <tbody :class="isMobile ? 'block' : 'divide-y divide-secondary/20'">
@@ -177,11 +178,11 @@ watch(
                   : 'p-2 whitespace-nowrap'
               "
             >
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Tanggal</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.date') }}</span>
               <span>{{ formatDate(item.created_at) }}</span>
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-1.5 border-b border-secondary/10' : 'p-2'">
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Tipe</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.history.th_type') }}</span>
               <span>{{ item.movement_type }}</span>
             </td>
             <td
@@ -191,7 +192,7 @@ watch(
                   : 'p-2 text-center font-bold'
               "
             >
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Jumlah</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.qty') }}</span>
               <span class="font-bold">{{ item.quantity }}</span>
             </td>
             <td
@@ -199,7 +200,7 @@ watch(
                 isMobile ? 'flex justify-between items-center py-1.5 border-b border-secondary/10' : 'p-2 font-mono'
               "
             >
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Dari</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.history.th_from') }}</span>
               <span class="font-mono">{{ item.from_location || '-' }}</span>
             </td>
             <td
@@ -207,15 +208,15 @@ watch(
                 isMobile ? 'flex justify-between items-center py-1.5 border-b border-secondary/10' : 'p-2 font-mono'
               "
             >
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Ke</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.history.th_to') }}</span>
               <span class="font-mono">{{ item.to_location || '-' }}</span>
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-1.5 border-b border-secondary/10' : 'p-2'">
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Oleh</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.history.th_by') }}</span>
               <span>{{ item.user }}</span>
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-1.5' : 'p-2 text-xs text-text/80'">
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Catatan</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.notes') }}</span>
               <span class="text-xs text-text/80">{{ item.notes }}</span>
             </td>
           </tr>

@@ -30,7 +30,7 @@ func (h *JobHandler) GetImportJobs(c *gin.Context) {
 
 	result, err := h.jobService.GetImportJobs(c.Request.Context(), page, limit, targetUserID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 	utils.PaginatedResponse(c, http.StatusOK, result.Data, result.Page, result.Limit, result.Total, result.TotalPages)
@@ -49,10 +49,10 @@ func (h *JobHandler) CancelImportJob(c *gin.Context) {
 
 	err := h.jobService.CancelImportJob(c.Request.Context(), id, targetUserID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "BAD_REQUEST")
+		utils.HandleDomainError(c, err)
 		return
 	}
-	utils.SuccessResponse(c, http.StatusOK, "Import job cancelled", nil)
+	utils.SuccessResponse(c, http.StatusOK, "system.jobs.import_cancelled", nil)
 }
 
 func (h *JobHandler) GetExportJobs(c *gin.Context) {
@@ -67,7 +67,7 @@ func (h *JobHandler) GetExportJobs(c *gin.Context) {
 
 	result, err := h.jobService.GetExportJobs(c.Request.Context(), page, limit, targetUserID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 	utils.PaginatedResponse(c, http.StatusOK, result.Data, result.Page, result.Limit, result.Total, result.TotalPages)
@@ -86,8 +86,8 @@ func (h *JobHandler) CancelExportJob(c *gin.Context) {
 
 	err := h.jobService.CancelExportJob(c.Request.Context(), id, targetUserID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "BAD_REQUEST")
+		utils.HandleDomainError(c, err)
 		return
 	}
-	utils.SuccessResponse(c, http.StatusOK, "Export job cancelled", nil)
+	utils.SuccessResponse(c, http.StatusOK, "system.jobs.export_cancelled", nil)
 }

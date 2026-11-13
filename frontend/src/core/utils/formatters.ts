@@ -87,14 +87,47 @@ export const generateDynamicExportName = (prefix, parts = []) => {
   return [prefix, ...validParts].join('_').substring(0, 100)
 }
 
+export type TranslateFn = (key: string, params?: Record<string, string | number>, defaultValue?: string) => string
+
+export const JOB_TYPE_I18N_MAP: Readonly<Record<string, string>> = {
+  STOCK_REPORT: 'analytics.reports.job_stock_report',
+  PRODUCT_MASTER: 'analytics.reports.job_product_master',
+  PACKAGES: 'analytics.reports.job_packages',
+  EXPORT_PACKAGES: 'analytics.reports.job_packages',
+  BATCH_LOG: 'analytics.reports.job_batch_log',
+  BATCH_LOG_EXPORT: 'analytics.reports.job_batch_log',
+  STOCK_MOVEMENT: 'analytics.reports.job_stock_movement',
+  STATISTICS_STOCK_MOVEMENT: 'analytics.reports.job_stock_movement',
+  STOCK_TIMELINE: 'analytics.reports.job_stock_timeline',
+  STATISTICS_STOCK_TIMELINE: 'analytics.reports.job_stock_timeline',
+  LOCATION_CAPACITY: 'analytics.reports.job_location_capacity',
+  STATISTICS_LOCATION_CAPACITY: 'analytics.reports.job_location_capacity'
+}
+
+/**
+ * Menerjemahkan kode job_type (e.g. 'STOCK_REPORT') menjadi label yang ramah pengguna.
+ */
+export const formatJobType = (type?: string | null, t: TranslateFn | null = null): string => {
+  if (!type) return '-'
+  const i18nKey = JOB_TYPE_I18N_MAP[type]
+  if (i18nKey && t) {
+    return t(i18nKey)
+  }
+  return type
+    .split('_')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+}
+
 /**
  * Format string file path ke nama file yang lebih rapi
  * @param {string} filePath - Path / URL asli
  * @param {string} type - Tipe job (e.g. 'STOCK_REPORT', 'BATCH_LOG')
+ * @param {TranslateFn|null} [t] - Optional translation function from useI18n
  * @returns {string} - Nama file yang sudah di-format
  */
-export const formatFileName = (filePath, type) => {
-  if (!filePath) return 'Memproses file...'
+export const formatFileName = (filePath?: string | null, type?: string | null, t: TranslateFn | null = null): string => {
+  if (!filePath) return t ? t('core.import.processing_file') : 'Memproses file...'
 
   const parts = filePath.split('/')
   let filename = parts[parts.length - 1]
@@ -106,12 +139,9 @@ export const formatFileName = (filePath, type) => {
 
   // Deteksi nama file random UUID dari backend lama (misal: 1788406595673-e33fefc5-....xlsx)
   if (/^\d{13}-[a-f0-9-]+\.[a-z0-9]+$/i.test(filename)) {
-    if (!type) return 'Laporan Dokumen'
-    const prettyType = type
-      .split('_')
-      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(' ')
-    return `Laporan ${prettyType}`
+    if (!type) return t ? t('core.import.document_report') : 'Laporan Dokumen'
+    const prettyType = formatJobType(type, t)
+    return t ? `${t('core.import.report_prefix')} ${prettyType}` : `Laporan ${prettyType}`
   }
 
   // Deteksi format baru: timestamp-namakustom.xlsx (strip timestamp-nya)

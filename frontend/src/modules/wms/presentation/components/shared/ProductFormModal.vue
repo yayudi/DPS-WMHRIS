@@ -1,7 +1,8 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { categoryApi } from '@/modules/master_data/infrastructure/category.api'
 import debounce from 'lodash/debounce'
@@ -12,10 +13,12 @@ import SegmentedControl from '@/core/presentation/components/ui/SegmentedControl
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import { productSchema } from '@/modules/master_data/domain/product.validator'
 
-const packageTypeOptions = [
-  { label: 'Produk Tunggal', value: false, icon: 'fa-solid fa-box' },
-  { label: 'Produk Paket', value: true, icon: 'fa-solid fa-boxes-stacked' }
-]
+const { t } = useI18n()
+
+const packageTypeOptions = computed(() => [
+  { label: t('wms.product_form.type_single'), value: false, icon: 'fa-solid fa-box' },
+  { label: t('wms.product_form.type_package'), value: true, icon: 'fa-solid fa-boxes-stacked' }
+])
 
 const props = defineProps({
   show: Boolean,
@@ -73,10 +76,10 @@ async function handleCreateCategory() {
     const data = await categoryApi.createCategory({
       name: categorySearchQuery.value.trim()
     })
-    toast('Kategori berhasil ditambahkan', 'success')
+    toast(t('wms.product_form.toast_category_added'), 'success')
     await fetchCategories()
 
-    const newCatId = data?.id || data?.insertId || data?.data?.id
+    const newCatId = data?.data?.id || data?.id || data?.insertId
     if (newCatId) {
       form.value.category_id = newCatId
     } else {
@@ -88,7 +91,6 @@ async function handleCreateCategory() {
     categorySearchQuery.value = ''
   } catch (err) {
     console.error(err)
-    //     const msg = err.response?.data?.message || 'Gagal menambahkan kategori' // Disabled due to unused var
   } finally {
     isCreatingCategory.value = false
   }
@@ -359,7 +361,8 @@ async function handleSubmit() {
       await productApi.updateProduct(props.productData.id, finalPayload)
     }
 
-    toast(`Produk berhasil ${props.mode === 'edit' ? 'diperbarui' : 'dibuat'}!`, 'success')
+    const actionLabel = props.mode === 'edit' ? t('common.label.updated') : t('common.label.created')
+    toast(t('wms.product_form.toast_saved', { action: actionLabel }), 'success')
     emit('refresh') // Memberitahu parent untuk refresh tabel
     emit('close')
   } catch (err) {
@@ -390,21 +393,27 @@ watch(Alt_S, pressed => {
 <template>
   <BaseModal :show="show" @close="$emit('close')" maxWidth="max-w-2xl">
     <template #title>
-      {{ mode === 'create' ? 'Tambah Produk Baru' : mode === 'duplicate' ? 'Duplikasi Produk' : 'Edit Produk' }}
+      {{
+        mode === 'create'
+          ? t('wms.product_form.create_title')
+          : mode === 'duplicate'
+            ? t('wms.product_form.duplicate_title')
+            : t('wms.product_form.edit_title')
+      }}
     </template>
 
     <div class="flex flex-col gap-4">
       <!-- Loading State saat fetch detail edit -->
       <div v-if="fetchLoading" class="text-center py-10">
         <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-3xl text-primary" />
-        <p class="text-sm text-text/50 mt-2">Memuat detail produk...</p>
+        <p class="text-sm text-text/50 mt-2">{{ t('wms.product_form.loading_detail') }}</p>
       </div>
 
       <template v-else>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <!-- SKU Input -->
           <div class="col-span-1">
-            <label class="block text-xs font-bold text-text/60 mb-1">SKU (Kode Unik)</label>
+            <label class="block text-xs font-bold text-text/60 mb-1">{{ t('wms.product_form.sku_label') }}</label>
             <div class="relative">
               <input
                 v-model="form.sku"
@@ -415,19 +424,23 @@ watch(Alt_S, pressed => {
               />
               <font-awesome-icon icon="fa-solid fa-barcode" class="absolute left-3 top-2.5 text-text/40" />
             </div>
-            <p v-if="mode === 'edit'" class="text-[10px] text-text/40 mt-1 italic">SKU tidak dapat diubah.</p>
+            <p v-if="mode === 'edit'" class="text-[10px] text-text/40 mt-1 italic">
+              {{ t('wms.product_form.sku_fixed_hint') }}
+            </p>
             <!-- Feedback Check SKU -->
             <div v-if="duplicateStatus.sku.checking" class="text-xs text-primary mt-1 animate-pulse">
-              <font-awesome-icon icon="fa-solid fa-circle-notch" class="animate-spin mr-1" /> Mengecek ketersediaan...
+              <font-awesome-icon icon="fa-solid fa-circle-notch" class="animate-spin mr-1" />
+              {{ t('wms.product_form.sku_checking') }}
             </div>
             <div v-else-if="duplicateStatus.sku.exists" class="text-xs text-danger mt-1 font-bold">
-              <font-awesome-icon icon="fa-solid fa-exclamation-circle" class="mr-1" /> SKU sudah digunakan!
+              <font-awesome-icon icon="fa-solid fa-exclamation-circle" class="mr-1" />
+              {{ t('wms.product_form.sku_exists') }}
             </div>
           </div>
 
           <!-- Harga Input -->
           <div class="col-span-1">
-            <label class="block text-xs font-bold text-text/60 mb-1">Harga Jual (Rp)</label>
+            <label class="block text-xs font-bold text-text/60 mb-1">{{ t('wms.product_form.price_label') }}</label>
             <div class="relative">
               <span class="absolute left-3 top-2 text-text/40 font-bold text-xs">Rp</span>
               <input
@@ -442,37 +455,44 @@ watch(Alt_S, pressed => {
 
         <!-- Nama Produk -->
         <div>
-          <label class="block text-xs font-bold text-text/60 mb-1">Nama Produk</label>
+          <label class="block text-xs font-bold text-text/60 mb-1">{{ t('common.label.product_name') }}</label>
           <input
             v-model="form.name"
             type="text"
             class="w-full px-3 py-2 bg-secondary/10 border border-secondary/30 rounded-lg focus:outline-none focus:border-primary text-text transition-all"
             :class="{ 'border-danger focus:border-danger': duplicateStatus.name.exists }"
-            placeholder="Contoh: Paket Bundling Hemat A"
+            :placeholder="t('wms.product_form.name_placeholder')"
           />
 
           <!-- Feedback Check Name -->
           <div v-if="duplicateStatus.name.checking" class="text-xs text-primary mt-1 animate-pulse">
-            <font-awesome-icon icon="fa-solid fa-circle-notch" class="animate-spin mr-1" /> Mengecek nama...
+            <font-awesome-icon icon="fa-solid fa-circle-notch" class="animate-spin mr-1" />
+            {{ t('wms.product_form.name_checking') }}
           </div>
           <div v-else-if="duplicateStatus.name.exists" class="text-xs text-danger mt-1 font-bold">
-            <font-awesome-icon icon="fa-solid fa-exclamation-circle" class="mr-1" /> Nama produk ini sudah ada!
+            <font-awesome-icon icon="fa-solid fa-exclamation-circle" class="mr-1" />
+            {{ t('wms.product_form.name_exists') }}
           </div>
-          <div v-else-if="duplicateStatus.name.similar && duplicateStatus.name.similar.length > 0" class="text-xs text-warning mt-2 bg-warning/10 border border-warning/20 p-2 rounded-lg">
-            <div class="font-bold mb-1 text-warning/90"><font-awesome-icon icon="fa-solid fa-lightbulb" class="mr-1" /> Mirip dengan produk berikut:</div>
+          <div
+            v-else-if="duplicateStatus.name.similar && duplicateStatus.name.similar.length > 0"
+            class="text-xs text-warning mt-2 bg-warning/10 border border-warning/20 p-2 rounded-lg"
+          >
+            <div class="font-bold mb-1 text-warning/90">
+              <font-awesome-icon icon="fa-solid fa-lightbulb" class="mr-1" />
+              {{ t('wms.product_form.name_similar_title') }}
+            </div>
             <ul class="list-disc list-inside space-y-0.5">
               <li v-for="sim in duplicateStatus.name.similar" :key="sim.id" class="text-text/70">
                 <span class="font-mono text-text/50 mr-1">{{ sim.sku }}</span> {{ sim.name }}
               </li>
             </ul>
-            <div class="mt-1 text-text/50 italic text-[10px]">Pastikan Anda tidak membuat produk ganda.</div>
+            <div class="mt-1 text-text/50 italic text-[10px]">{{ t('wms.product_form.name_similar_hint') }}</div>
           </div>
         </div>
 
-
         <!-- Kategori Produk -->
         <div>
-          <label class="block text-xs font-bold text-text/60 mb-1">Kategori</label>
+          <label class="block text-xs font-bold text-text/60 mb-1">{{ t('common.label.category') }}</label>
           <BaseSelect
             v-model="form.category_id"
             :options="categories"
@@ -480,7 +500,7 @@ watch(Alt_S, pressed => {
             label="name"
             emit-value
             :searchable="true"
-            placeholder="Pilih Kategori (Opsional)"
+            :placeholder="t('wms.product_form.category_placeholder')"
             @search-change="handleCategorySearchChange"
             class="w-full"
           >
@@ -494,7 +514,7 @@ watch(Alt_S, pressed => {
                 >
                   <font-awesome-icon v-if="isCreatingCategory" icon="fa-solid fa-spinner" class="animate-spin" />
                   <font-awesome-icon v-else icon="fa-solid fa-plus" />
-                  <span>Tambahkan "{{ categorySearchQuery }}"</span>
+                  <span>{{ t('wms.product_form.add_category_btn', { name: categorySearchQuery }) }}</span>
                 </button>
               </li>
             </template>
@@ -505,7 +525,7 @@ watch(Alt_S, pressed => {
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <!-- Berat -->
           <div>
-            <label class="block text-xs font-bold text-text/60 mb-1">Berat (gr)</label>
+            <label class="block text-xs font-bold text-text/60 mb-1">{{ t('wms.product_form.weight_label') }}</label>
             <div class="relative">
               <input
                 v-model.number="form.weight"
@@ -518,7 +538,7 @@ watch(Alt_S, pressed => {
           </div>
           <!-- Panjang -->
           <div>
-            <label class="block text-xs font-bold text-text/60 mb-1">Panjang (cm)</label>
+            <label class="block text-xs font-bold text-text/60 mb-1">{{ t('wms.product_form.length_label') }}</label>
             <div class="relative">
               <input
                 v-model.number="form.length"
@@ -531,7 +551,7 @@ watch(Alt_S, pressed => {
           </div>
           <!-- Lebar -->
           <div>
-            <label class="block text-xs font-bold text-text/60 mb-1">Lebar (cm)</label>
+            <label class="block text-xs font-bold text-text/60 mb-1">{{ t('wms.product_form.width_label') }}</label>
             <div class="relative">
               <input
                 v-model.number="form.width"
@@ -544,7 +564,7 @@ watch(Alt_S, pressed => {
           </div>
           <!-- Tinggi -->
           <div>
-            <label class="block text-xs font-bold text-text/60 mb-1">Tinggi (cm)</label>
+            <label class="block text-xs font-bold text-text/60 mb-1">{{ t('wms.product_form.height_label') }}</label>
             <div class="relative">
               <input
                 v-model.number="form.height"
@@ -559,11 +579,11 @@ watch(Alt_S, pressed => {
 
         <!-- Tipe Produk (Tunggal / Paket) -->
         <div class="pt-2 border-t border-secondary/10">
-          <label class="block text-xs font-bold text-text/60 mb-2">Tipe Produk</label>
+          <label class="block text-xs font-bold text-text/60 mb-2">{{ t('wms.product_form.type_label') }}</label>
           <SegmentedControl v-model="form.is_package" :options="packageTypeOptions" />
           <p v-if="form.is_package" class="text-xs text-text/50 mt-2">
             <font-awesome-icon icon="fa-solid fa-info-circle" class="text-primary mr-1" />
-            Produk paket adalah gabungan beberapa produk lain (stok otomatis dipotong dari komponen).
+            {{ t('wms.product_form.package_hint') }}
           </p>
         </div>
 
@@ -574,18 +594,20 @@ watch(Alt_S, pressed => {
         >
           <h4 class="font-bold text-sm text-text mb-3 flex items-center gap-2">
             <font-awesome-icon icon="fa-solid fa-layer-group" class="text-primary" />
-            Komponen Paket
+            {{ t('wms.product_form.components_title') }}
           </h4>
 
           <!-- Search Component -->
           <div class="relative mb-4">
-            <label class="text-xs font-bold text-text/40 mb-1 block">Cari Produk Komponen</label>
+            <label class="text-xs font-bold text-text/40 mb-1 block">{{
+              t('wms.product_form.search_components_label')
+            }}</label>
             <div class="relative">
               <input
                 v-model="componentSearch"
                 @input="handleSearch"
                 type="text"
-                placeholder="Ketik SKU atau Nama produk..."
+                :placeholder="t('wms.product_form.search_components_placeholder')"
                 class="w-full pl-9 pr-4 py-2 bg-background border border-secondary/30 rounded-lg text-sm focus:outline-none focus:border-primary text-text"
               />
               <font-awesome-icon
@@ -615,7 +637,7 @@ watch(Alt_S, pressed => {
                   class="text-primary text-xs font-bold"
                   :class="isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
                 >
-                  + Tambahkan
+                  {{ t('wms.product_form.add_component_action') }}
                 </div>
               </div>
             </div>
@@ -624,9 +646,9 @@ watch(Alt_S, pressed => {
           <!-- List Components Table -->
           <div v-if="components.length > 0" class="space-y-1">
             <div class="grid grid-cols-12 gap-2 text-[10px] uppercase font-bold text-text/40 px-3 pb-1">
-              <div class="col-span-7">Nama Produk</div>
-              <div class="col-span-3 text-center">Qty</div>
-              <div class="col-span-2 text-right">Hapus</div>
+              <div class="col-span-7">{{ t('common.label.product_name') }}</div>
+              <div class="col-span-3 text-center">{{ t('common.label.qty') }}</div>
+              <div class="col-span-2 text-right">{{ t('common.btn.delete') }}</div>
             </div>
 
             <div
@@ -652,7 +674,7 @@ watch(Alt_S, pressed => {
                 <button
                   @click="removeComponent(idx)"
                   class="w-7 h-7 inline-flex items-center justify-center rounded-full text-danger hover:bg-danger/10 transition-colors"
-                  title="Hapus komponen"
+                  :title="t('wms.product_form.delete_component_tooltip')"
                 >
                   <font-awesome-icon icon="fa-solid fa-trash-alt" class="text-xs" />
                 </button>
@@ -664,7 +686,7 @@ watch(Alt_S, pressed => {
           <div v-else class="text-center py-6 border-2 border-dashed border-secondary/10 rounded-lg">
             <font-awesome-icon icon="fa-solid fa-basket-shopping" class="text-2xl text-text/20 mb-2" />
             <p class="text-xs text-text/40">
-              Belum ada komponen yang ditambahkan.<br />Cari produk di atas untuk menambahkan.
+              {{ t('wms.product_form.components_empty_title') }}<br />{{ t('wms.product_form.components_empty_desc') }}
             </p>
           </div>
         </div>
@@ -683,7 +705,7 @@ watch(Alt_S, pressed => {
           @click="$emit('close')"
           class="px-5 py-2.5 rounded-lg text-text/60 font-bold hover:bg-secondary/10 transition-colors text-sm"
         >
-          Batal
+          {{ t('common.btn.cancel') }}
         </button>
         <button
           @click="handleSubmit"
@@ -692,13 +714,13 @@ watch(Alt_S, pressed => {
         >
           <font-awesome-icon v-if="loading" icon="fa-solid fa-circle-notch" class="animate-spin" />
           <span v-else><font-awesome-icon icon="fa-solid fa-save" /></span>
-          <span>{{ mode === 'create' ? 'Simpan Produk' : 'Simpan Perubahan' }}</span>
+          <span>{{
+            mode === 'create' ? t('wms.product_form.save_product_btn') : t('common.btn.save_changes')
+          }}</span>
         </button>
       </div>
     </template>
   </BaseModal>
-
-
 </template>
 
 <style scoped>

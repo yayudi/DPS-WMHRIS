@@ -38,11 +38,13 @@ func TestI18n_ContextAndTranslation(t *testing.T) {
 			"common.hello":       "Halo {name}, stok: {qty}",
 			"errors.unauthorized": "Sesi telah berakhir atau tidak memiliki izin",
 			"errors.forbidden":    "Anda tidak memiliki akses ke fitur ini",
+			"errors.bad_request":  "Format permintaan tidak valid",
 		},
 		"en-US": {
 			"common.hello":       "Hello {name}, stock: {qty}",
 			"errors.unauthorized": "Session expired or unauthorized",
 			"errors.forbidden":    "You do not have access to this feature",
+			"errors.bad_request":  "Invalid request format",
 		},
 	}
 
@@ -78,6 +80,12 @@ func TestI18n_ContextAndTranslation(t *testing.T) {
 	errEN := i18n.TranslateErrorCode(ctxEN, "en-US", "FORBIDDEN", "Tidak boleh masuk gudang A")
 	if errEN != "You do not have access to this feature" {
 		t.Errorf("expected translated error for en-US, got: %s", errEN)
+	}
+
+	// Test TranslateErrorCode: INVALID_REQUEST correctly maps to errors.bad_request
+	invalidReqErr := i18n.TranslateErrorCode(ctxEN, "en-US", "INVALID_REQUEST", "INVALID_REQUEST")
+	if invalidReqErr != "Invalid request format" {
+		t.Errorf("expected INVALID_REQUEST to map to errors.bad_request, got: %s", invalidReqErr)
 	}
 
 	// Test TranslateErrorCode: missing key falls back to message

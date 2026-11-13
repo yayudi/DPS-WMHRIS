@@ -2,11 +2,13 @@
 import { ref, watch } from 'vue'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { formatCurrency, formatDate } from '@/core/utils/formatters'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const props = defineProps({
   productId: { type: Number, required: true },
 })
 
+const { t } = useI18n()
 const history = ref([])
 const loading = ref(false)
 
@@ -28,7 +30,7 @@ watch(() => props.productId, fetchHistory, { immediate: true })
 function formatValue(field, val) {
   if (field === 'price') return formatCurrency(val)
   if (field === 'weight') return `${val} gr`
-  if (field === 'is_package') return val == 1 ? 'Paket' : 'Satuan'
+  if (field === 'is_package') return val == 1 ? t('master_data.product.badge_package') : t('master_data.product.unit_single')
   if (field === 'status') return val // Active / Archived
   return val
 }
@@ -48,21 +50,21 @@ function getBadgeColor(action) {
     <!-- Header -->
     <div
       class="px-4 py-3 bg-secondary/5 border-b border-secondary/20 font-bold text-sm text-text flex justify-between items-center">
-      <span>Audit Log Perubahan</span>
+      <span>{{ t('master_data.product.history_title') }}</span>
       <button @click="fetchHistory" class="text-xs text-primary hover:underline font-medium">
-        Refresh
+        {{ t('common.btn.refresh') }}
       </button>
     </div>
 
     <!-- Loading State -->
     <div v-if="loading" class="p-6 text-center text-xs text-text/50">
       <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-lg mb-2 text-primary" />
-      <p>Memuat data...</p>
+      <p>{{ t('common.status.loading') }}</p>
     </div>
 
     <!-- Empty State -->
     <div v-else-if="history.length === 0" class="p-6 text-center text-xs text-text/40 italic">
-      Belum ada riwayat perubahan tercatat.
+      {{ t('master_data.product.history_empty') }}
     </div>
 
     <!-- Data Table -->
@@ -70,11 +72,11 @@ function getBadgeColor(action) {
       <table class="w-full text-xs text-left">
         <thead class="bg-secondary/5 text-text/70 uppercase font-bold sticky top-0 backdrop-blur-sm">
           <tr>
-            <th class="px-4 py-2">Waktu</th>
-            <th class="px-4 py-2">User</th>
-            <th class="px-4 py-2">Aksi</th>
+            <th class="px-4 py-2">{{ t('common.label.time') }}</th>
+            <th class="px-4 py-2">{{ t('common.label.user') }}</th>
+            <th class="px-4 py-2">{{ t('common.label.action') }}</th>
             <th class="px-4 py-2">Field</th>
-            <th class="px-4 py-2">Lama -> Baru</th>
+            <th class="px-4 py-2">{{ t('master_data.product.col_old_new') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-secondary/10">
@@ -97,7 +99,7 @@ function getBadgeColor(action) {
             <td class="px-4 py-2 font-mono text-text/60">{{ log.field }}</td>
             <!-- Nilai -->
             <td class="px-4 py-2">
-              <div v-if="log.action === 'CREATE'" class="text-text/40 italic">New Data Created</div>
+              <div v-if="log.action === 'CREATE'" class="text-text/40 italic">{{ t('master_data.product.history_new_created') }}</div>
               <div v-else class="flex items-center gap-2">
                 <span class="line-through text-danger/70 opacity-80">{{
                   formatValue(log.field, log.old_value)

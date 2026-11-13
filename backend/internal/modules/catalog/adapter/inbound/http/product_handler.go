@@ -38,19 +38,18 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "UNAUTHORIZED")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	product, err := h.productService.CreateProduct(c.Request.Context(), userID, req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusCreated, "Produk berhasil ditambahkan", product)
+	utils.SuccessResponse(c, http.StatusCreated, "master_data.product.create_success", product)
 }
 
 func (h *ProductHandler) SearchProducts(c *gin.Context) {
@@ -62,7 +61,7 @@ func (h *ProductHandler) SearchProducts(c *gin.Context) {
 
 	results, err := h.productService.SearchProducts(c.Request.Context(), q, locationId, inStockOnly, page, limit)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 	utils.RawResponse(c, http.StatusOK, results)
@@ -71,7 +70,7 @@ func (h *ProductHandler) SearchProducts(c *gin.Context) {
 func (h *ProductHandler) GetAdminList(c *gin.Context) {
 	results, err := h.productService.GetAllActiveProducts(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 	utils.SuccessDataResponse(c, http.StatusOK, results)
@@ -86,13 +85,13 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 
 	results, total, err := h.productService.GetProductsWithFilters(c.Request.Context(), req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Berhasil mengambil data produk",
+		"message": "master_data.product.fetch_success",
 		"data":    results,
 		"total":   total,
 		"meta": gin.H{
@@ -114,13 +113,13 @@ func (h *ProductHandler) GetPackages(c *gin.Context) {
 
 	results, total, err := h.productService.GetProductsWithFilters(c.Request.Context(), req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Berhasil mengambil data paket",
+		"message": "master_data.package.fetch_success",
 		"data":    results,
 		"total":   total,
 		"meta": gin.H{
@@ -139,7 +138,7 @@ func (h *ProductHandler) GetProductById(c *gin.Context) {
 
 	product, err := h.productService.GetProductDetailWithStock(c.Request.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusNotFound, "Product not found", "")
+		utils.ErrorResponse(c, http.StatusNotFound, "master_data.product.not_found", "NOT_FOUND")
 		return
 	}
 
@@ -154,7 +153,7 @@ func (h *ProductHandler) GetProductStockDetails(c *gin.Context) {
 
 	results, err := h.productService.GetProductStockDetails(c.Request.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -169,7 +168,7 @@ func (h *ProductHandler) GetProductHistory(c *gin.Context) {
 
 	results, err := h.productService.GetProductHistory(c.Request.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -184,7 +183,7 @@ func (h *ProductHandler) GetProductLastPriceUpdate(c *gin.Context) {
 
 	lastUpdate, err := h.productService.GetProductLastPriceUpdate(c.Request.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -205,28 +204,27 @@ func (h *ProductHandler) Update(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	if err := h.productService.UpdateProduct(c.Request.Context(), userID, id, req); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Produk berhasil diperbarui.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "master_data.product.update_success", nil)
 }
 
 func (h *ProductHandler) GetAll(c *gin.Context) {
 	products, err := h.productService.GetAllProducts(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Berhasil mengambil data produk", products)
+	utils.SuccessDataResponse(c, http.StatusOK, products)
 }
 
 func (h *ProductHandler) ImportBatchProductUpdate(c *gin.Context) {
@@ -254,11 +252,11 @@ func (h *ProductHandler) ImportBatchProductUpdate(c *gin.Context) {
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
 		_ = os.Remove(savedPath)
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.JobCreatedResponse(c, http.StatusOK, "File berhasil diunggah. Proses update berjalan di latar belakang.", jobID)
+	utils.JobCreatedResponse(c, http.StatusOK, "master_data.product.batch_job_queued", jobID)
 }
 
 func (h *ProductHandler) Delete(c *gin.Context) {
@@ -267,25 +265,23 @@ func (h *ProductHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "UNAUTHORIZED")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	if err := h.productService.DeleteProduct(c.Request.Context(), userID, productID); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Produk berhasil dihapus", nil)
+	utils.SuccessResponse(c, http.StatusOK, "master_data.product.delete_success", nil)
 }
 
 // ExportProducts creates an export job for products. Matches GET /api/products/export.
 func (h *ProductHandler) ExportProducts(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -325,11 +321,11 @@ func (h *ProductHandler) ExportProducts(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateExportJob(c.Request.Context(), jobReq)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.JobCreatedResponse(c, http.StatusOK, "Permintaan ekspor diterima. Silakan cek menu 'Laporan Saya' untuk mengunduh.", jobID)
+	utils.JobCreatedResponse(c, http.StatusOK, "master_data.product.export_job_queued", jobID)
 }
 
 // GetProductStockTimeline returns the paginated stock timeline. Matches GET /api/products/:id/stock-timeline.
@@ -349,7 +345,7 @@ func (h *ProductHandler) GetProductStockTimeline(c *gin.Context) {
 
 	result, err := h.productService.GetHistoricalStockTimeline(c.Request.Context(), id, page, limit, buildings)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -363,9 +359,8 @@ func (h *ProductHandler) LinkMedia(c *gin.Context) {
 		return
 	}
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -376,11 +371,11 @@ func (h *ProductHandler) LinkMedia(c *gin.Context) {
 	req := *req_ptr
 
 	if err := h.productService.LinkMediaToProduct(c.Request.Context(), id, req.MediaIDs, userID); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Media berhasil disematkan.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "master_data.product.link_media_success", nil)
 }
 
 // SetPrimaryImage sets a specific image as primary. Matches PUT /api/products/:id/images/:imageId/primary.
@@ -397,11 +392,11 @@ func (h *ProductHandler) SetPrimaryImage(c *gin.Context) {
 
 	userID := middleware.GetUserID(c)
 	if err := h.productService.SetPrimaryImage(c.Request.Context(), productID, imageID, userID); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Gambar utama berhasil diatur.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "master_data.product.set_primary_image_success", nil)
 }
 
 // DeleteProductImage removes a specific product image. Matches DELETE /api/products/:id/images/:imageId.
@@ -413,9 +408,9 @@ func (h *ProductHandler) DeleteProductImage(c *gin.Context) {
 
 	userID := middleware.GetUserID(c)
 	if err := h.productService.DeleteProductImage(c.Request.Context(), imageID, userID); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Gambar berhasil dihapus.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "master_data.product.delete_image_success", nil)
 }

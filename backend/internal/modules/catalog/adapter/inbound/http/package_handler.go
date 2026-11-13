@@ -9,7 +9,6 @@ import (
 
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
 
-	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -28,9 +27,8 @@ func (h *PackageHandler) ExportPackages(c *gin.Context) {
 	searchBy := c.Query("searchBy")
 	status := c.Query("status")
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -53,17 +51,16 @@ func (h *PackageHandler) ExportPackages(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateExportJob(c.Request.Context(), req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.JobCreatedResponse(c, http.StatusOK, "Export job created successfully", jobID)
+	utils.JobCreatedResponse(c, http.StatusOK, "master_data.package.export_job_queued", jobID)
 }
 
 func (h *PackageHandler) ImportPackagesBatch(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -90,9 +87,9 @@ func (h *PackageHandler) ImportPackagesBatch(c *gin.Context) {
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
 		_ = os.Remove(savedPath)
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.JobCreatedResponse(c, http.StatusOK, "Import job created successfully", jobID)
+	utils.JobCreatedResponse(c, http.StatusOK, "master_data.package.import_job_queued", jobID)
 }

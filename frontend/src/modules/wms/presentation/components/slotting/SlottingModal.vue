@@ -1,8 +1,9 @@
-  <script setup>
+<script setup>
 import { ref, watch, computed } from 'vue'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import { useSlotting } from '@/modules/wms/application/useSlotting'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { formatDate } from '@/core/utils/time'
 
 const props = defineProps({
@@ -26,6 +27,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'saved'])
 const { toast } = useToast()
+const { t } = useI18n()
 
 const activeTab = ref('config') // 'config' | 'history'
 const selectedLocationId = ref(null)
@@ -123,15 +125,15 @@ async function loadDataForSelectedLocation() {
 
 async function handleAddSlot() {
   if (!props.product?.id) {
-    toast('Data produk tidak ditemukan', 'warning')
+    toast(t('wms.slotting.product_not_found'), 'warning')
     return
   }
   if (!selectedLocationId.value) {
-    toast('Pilih lokasi terlebih dahulu', 'warning')
+    toast(t('wms.slotting.select_location_first'), 'warning')
     return
   }
   if (!form.room.trim() || !form.rack.trim()) {
-    toast('Ruang dan Rak wajib diisi', 'warning')
+    toast(t('wms.slotting.room_rack_required'), 'warning')
     return
   }
   const success = await addSlot(Number(props.product.id), Number(selectedLocationId.value))
@@ -175,15 +177,15 @@ function handleTabChange(tab) {
 function getActionBadge(action) {
   switch (action) {
     case 'INITIAL_ASSIGN':
-      return { label: 'Penempatan Awal', bg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' }
+      return { label: t('wms.slotting.action.initial_assign'), bg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' }
     case 'ADDED':
-      return { label: 'Tambah Rak', bg: 'bg-teal-500/10 text-teal-400 border-teal-500/20' }
+      return { label: t('wms.slotting.action.added'), bg: 'bg-teal-500/10 text-teal-400 border-teal-500/20' }
     case 'MOVED':
-      return { label: 'Pindah/Ubah Utama', bg: 'bg-sky-500/10 text-sky-400 border-sky-500/20' }
+      return { label: t('wms.slotting.action.moved'), bg: 'bg-sky-500/10 text-sky-400 border-sky-500/20' }
     case 'REMOVED':
-      return { label: 'Hapus Rak', bg: 'bg-rose-500/10 text-rose-400 border-rose-500/20' }
+      return { label: t('wms.slotting.action.removed'), bg: 'bg-rose-500/10 text-rose-400 border-rose-500/20' }
     case 'CLEARED':
-      return { label: 'Dikosongkan', bg: 'bg-rose-500/10 text-rose-400 border-rose-500/20' }
+      return { label: t('wms.slotting.action.cleared'), bg: 'bg-rose-500/10 text-rose-400 border-rose-500/20' }
     default:
       return { label: action, bg: 'bg-secondary/20 text-text/70 border-secondary/40' }
   }
@@ -191,7 +193,7 @@ function getActionBadge(action) {
 </script>
 
 <template>
-  <BaseModal :show="show" @close="emit('close')" max-width="max-w-2xl" title="Atur Ambalan / Multi-Rak (Slotting)">
+  <BaseModal :show="show" @close="emit('close')" max-width="max-w-2xl" :title="t('wms.slotting.modal_title')">
     <div v-if="product" class="space-y-4">
       <!-- Product Header Bar -->
       <div class="flex items-start justify-between gap-4 p-3 bg-secondary/10 rounded-xl border border-secondary/20">
@@ -212,17 +214,17 @@ function getActionBadge(action) {
         <!-- Location Dropdown Selector -->
         <div class="shrink-0 text-right">
           <label class="block text-[11px] font-semibold text-text/60 uppercase tracking-wider mb-1">
-            Pilih Lokasi
+            {{ t('wms.slotting.select_location') }}
           </label>
           <select
             v-model.number="selectedLocationId"
             class="px-3 py-1.5 bg-background border border-secondary/40 rounded-lg text-xs font-mono font-medium text-text focus:outline-none focus:border-primary transition-colors cursor-pointer"
           >
             <option v-if="availableLocations.length === 0" :value="null" disabled>
-              Pilih Lokasi...
+              {{ t('wms.slotting.select_location_placeholder') }}
             </option>
             <option v-for="loc in availableLocations" :key="loc.id" :value="loc.id">
-              {{ loc.code }} (Stok: {{ loc.quantity ?? 0 }})
+              {{ loc.code }} ({{ t('wms.slotting.stock_label') }}: {{ loc.quantity ?? 0 }})
             </option>
           </select>
         </div>
@@ -237,7 +239,7 @@ function getActionBadge(action) {
           :class="activeTab === 'config' ? 'text-primary border-b-2 border-primary' : 'text-text/60 hover:text-text'"
         >
           <font-awesome-icon icon="fa-solid fa-boxes-stacked" />
-          <span>Daftar Rak ({{ slots.length }})</span>
+          <span>{{ t('wms.slotting.tabs.racks') }} ({{ slots.length }})</span>
         </button>
 
         <button
@@ -247,7 +249,7 @@ function getActionBadge(action) {
           :class="activeTab === 'history' ? 'text-primary border-b-2 border-primary' : 'text-text/60 hover:text-text'"
         >
           <font-awesome-icon icon="fa-solid fa-clock-rotate-left" />
-          <span>Riwayat Perpindahan</span>
+          <span>{{ t('wms.slotting.tabs.history') }}</span>
           <span
             v-if="logs.length > 0"
             class="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-secondary/30 text-text/70 font-mono"
@@ -262,16 +264,16 @@ function getActionBadge(action) {
         <!-- Active Racks List -->
         <div class="space-y-2">
           <div class="flex items-center justify-between text-xs font-semibold text-text/70">
-            <span>Rak Terdaftar di Lokasi Ini:</span>
-            <span class="text-[11px] text-text/50 font-normal">Prioritas picking mengikuti Rak Utama</span>
+            <span>{{ t('wms.slotting.registered_racks') }}</span>
+            <span class="text-[11px] text-text/50 font-normal">{{ t('wms.slotting.priority_hint') }}</span>
           </div>
 
           <div v-if="loading" class="p-4 text-center text-xs text-text/50 italic bg-secondary/5 rounded-xl border border-secondary/15">
-            Memuat daftar ambalan/rak...
+            {{ t('wms.slotting.loading_racks') }}
           </div>
 
           <div v-else-if="slots.length === 0" class="p-4 text-center text-xs text-text/50 italic bg-secondary/5 rounded-xl border border-secondary/15">
-            Belum ada ambalan/rak terdaftar untuk produk ini di lokasi terpilih.
+            {{ t('wms.slotting.empty_racks') }}
           </div>
 
           <div v-else class="space-y-2 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
@@ -295,7 +297,7 @@ function getActionBadge(action) {
                       class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider border"
                       :class="s.is_primary ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-secondary/30 text-text/60 border-secondary/40'"
                     >
-                      {{ s.is_primary ? 'Utama' : 'Buffer / Cadangan' }}
+                      {{ s.is_primary ? t('wms.slotting.primary') : t('wms.slotting.buffer') }}
                     </span>
                   </div>
                 </div>
@@ -308,17 +310,17 @@ function getActionBadge(action) {
                   type="button"
                   @click="handleSetPrimary(s.id)"
                   class="px-2 py-1 text-[11px] rounded bg-secondary/20 hover:bg-primary/10 text-text/70 hover:text-primary transition-colors flex items-center gap-1 font-medium"
-                  title="Jadikan sebagai rak pengambilan utama"
+                  :title="t('wms.slotting.set_primary_title')"
                 >
                   <font-awesome-icon icon="fa-solid fa-star" class="text-[10px]" />
-                  <span>Jadikan Utama</span>
+                  <span>{{ t('wms.slotting.set_primary') }}</span>
                 </button>
 
                 <button
                   type="button"
                   @click="handleDeleteSlot(s.id)"
                   class="w-7 h-7 rounded hover:bg-rose-500/10 text-text/40 hover:text-rose-400 transition-colors flex items-center justify-center text-xs"
-                  title="Hapus rak ini"
+                  :title="t('wms.slotting.delete_rack_title')"
                 >
                   <font-awesome-icon icon="fa-solid fa-trash" />
                 </button>
@@ -332,7 +334,7 @@ function getActionBadge(action) {
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-text uppercase tracking-wider flex items-center gap-1.5">
               <font-awesome-icon icon="fa-solid fa-plus" class="text-primary text-[10px]" />
-              <span>Tambah Rak Baru</span>
+              <span>{{ t('wms.slotting.add_new_rack') }}</span>
             </span>
             <!-- Live Preview -->
             <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded font-mono font-bold text-[11px]">
@@ -345,12 +347,12 @@ function getActionBadge(action) {
             <!-- Ruang -->
             <div>
               <label class="block text-[11px] font-semibold text-text/80 mb-1">
-                Ruang <span class="text-rose-500">*</span>
+                {{ t('wms.slotting.room') }} <span class="text-rose-500">*</span>
               </label>
               <input
                 v-model="form.room"
                 type="text"
-                placeholder="Misal: R.UTAMA"
+                :placeholder="t('wms.slotting.room_placeholder')"
                 @keydown.enter="handleAddSlot"
                 class="w-full px-2.5 py-1.5 bg-background border border-secondary/40 rounded-lg text-xs text-text font-mono uppercase focus:outline-none focus:border-primary transition-colors"
               />
@@ -359,12 +361,12 @@ function getActionBadge(action) {
             <!-- Rak -->
             <div>
               <label class="block text-[11px] font-semibold text-text/80 mb-1">
-                Rak <span class="text-rose-500">*</span>
+                {{ t('wms.slotting.rack') }} <span class="text-rose-500">*</span>
               </label>
               <input
                 v-model="form.rack"
                 type="text"
-                placeholder="Misal: B-02"
+                :placeholder="t('wms.slotting.rack_placeholder')"
                 @keydown.enter="handleAddSlot"
                 class="w-full px-2.5 py-1.5 bg-background border border-secondary/40 rounded-lg text-xs text-text font-mono uppercase focus:outline-none focus:border-primary transition-colors"
               />
@@ -373,12 +375,12 @@ function getActionBadge(action) {
             <!-- Tingkat / Ambalan -->
             <div>
               <label class="block text-[11px] font-semibold text-text/80 mb-1">
-                Tingkat <span class="text-text/40 text-[10px]">(Opsional)</span>
+                {{ t('wms.slotting.tier') }} <span class="text-text/40 text-[10px]">({{ t('common.optional') }})</span>
               </label>
               <input
                 v-model="form.tier"
                 type="text"
-                placeholder="Misal: T3"
+                :placeholder="t('wms.slotting.tier_placeholder')"
                 @keydown.enter="handleAddSlot"
                 class="w-full px-2.5 py-1.5 bg-background border border-secondary/40 rounded-lg text-xs text-text font-mono uppercase focus:outline-none focus:border-primary transition-colors"
               />
@@ -390,7 +392,7 @@ function getActionBadge(action) {
             <input
               v-model="form.notes"
               type="text"
-              placeholder="Catatan penambahan rak (opsional)..."
+              :placeholder="t('wms.slotting.notes_placeholder')"
               @keydown.enter="handleAddSlot"
               class="w-full px-2.5 py-1.5 bg-background border border-secondary/40 rounded-lg text-xs text-text focus:outline-none focus:border-primary transition-colors"
             />
@@ -401,7 +403,7 @@ function getActionBadge(action) {
                 type="checkbox"
                 class="rounded border-secondary/40 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
               />
-              <span>Jadikan Rak Utama</span>
+              <span>{{ t('wms.slotting.set_as_primary') }}</span>
             </label>
           </div>
 
@@ -413,7 +415,7 @@ function getActionBadge(action) {
               class="px-3.5 py-1.5 bg-primary hover:bg-primary-dark disabled:opacity-50 text-secondary rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow"
             >
               <font-awesome-icon v-if="submitting" icon="fa-solid fa-spinner" spin />
-              <span>{{ submitting ? 'Menyimpan...' : '+ Tambahkan Rak' }}</span>
+              <span>{{ submitting ? t('common.status.saving') : t('wms.slotting.btn_add_rack') }}</span>
             </button>
           </div>
         </div>
@@ -423,12 +425,12 @@ function getActionBadge(action) {
       <div v-else-if="activeTab === 'history'" class="space-y-3 min-h-[200px]">
         <div v-if="loadingLogs" class="py-12 text-center text-text/50 space-y-2">
           <font-awesome-icon icon="fa-solid fa-spinner" spin class="text-2xl text-primary" />
-          <p class="text-xs">Memuat riwayat perpindahan...</p>
+          <p class="text-xs">{{ t('wms.slotting.loading_history') }}</p>
         </div>
 
         <div v-else-if="logs.length === 0" class="py-12 text-center text-text/50 space-y-2">
           <font-awesome-icon icon="fa-solid fa-clock-rotate-left" class="text-3xl text-secondary/40" />
-          <p class="text-xs">Belum ada riwayat perpindahan ambalan/rak untuk lokasi ini.</p>
+          <p class="text-xs">{{ t('wms.slotting.empty_history') }}</p>
         </div>
 
         <div v-else class="space-y-2 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
@@ -458,7 +460,7 @@ function getActionBadge(action) {
               >
                 {{ log.from_coordinate }}
               </span>
-              <span v-else class="text-text/40 italic text-[11px]">(Belum ada rak)</span>
+              <span v-else class="text-text/40 italic text-[11px]">({{ t('wms.slotting.no_prior_rack') }})</span>
 
               <font-awesome-icon icon="fa-solid fa-arrow-right" class="text-[10px] text-text/40" />
 
@@ -468,7 +470,7 @@ function getActionBadge(action) {
               >
                 {{ log.to_coordinate }}
               </span>
-              <span v-else class="text-rose-400 italic text-[11px]">(Dihapus/Dikosongkan)</span>
+              <span v-else class="text-rose-400 italic text-[11px]">({{ t('wms.slotting.cleared_rack') }})</span>
             </div>
 
             <!-- Operator & Notes -->
@@ -494,7 +496,7 @@ function getActionBadge(action) {
           @click="emit('close')"
           class="px-4 py-2 bg-secondary/20 hover:bg-secondary/30 text-text/80 rounded-lg text-sm font-medium transition-colors"
         >
-          Selesai
+          {{ t('common.btn.done') }}
         </button>
       </div>
     </template>

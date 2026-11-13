@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
+import { useI18n } from '@/core/infrastructure/localization'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { analyticsApi } from '../../infrastructure/analytics.api'
 import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
@@ -8,16 +9,14 @@ import { useMasterDataStore } from '@/modules/master_data/application/masterData
 import ProductSearchSelector from '@/modules/wms/presentation/components/transfer/ProductSearchSelector.vue'
 import ExportDropdown from '@/core/presentation/components/ui/ExportDropdown.vue'
 import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
+import { useLocationHierarchyFilter } from '../composables/useLocationHierarchyFilter'
 
+const { t } = useI18n()
 const masterDataStore = useMasterDataStore()
 const downloadStore = useDownloadStore()
 const { toast } = useToast()
 const loading = ref(false)
 const locationLoads = ref([])
-const uniquePurposes = ref([])
-const uniqueBuildingsByPurpose = ref({})
-const uniqueFloorsByBuilding = ref({})
-const initialLoaded = ref(false)
 const expandedRows = ref([])
 const detailData = ref({})
 const loadingDetails = ref({})
@@ -31,6 +30,13 @@ const filters = ref({
   searchQuery: '',
   hideEmpty: true
 })
+
+const {
+  purposeOptions,
+  buildingOptions,
+  floorOptions,
+  hydrateFromLocations
+} = useLocationHierarchyFilter(filters, { prefixFloorLabel: false })
 
 const selectedProduct = ref(null)
 
@@ -202,47 +208,15 @@ const fetchData = async () => {
     const response = await analyticsApi.fetchLocationAnalysis(params)
     if (response?.success) {
       locationLoads.value = response.data?.locationLoads || []
-
-      // Update filter options only on initial load
-      if (!initialLoaded.value) {
-        const purposes = new Set()
-        const buildingsByPurposeMap = {}
-        const floorsByBuildingMap = {}
-
-        locationLoads.value.forEach(loc => {
-          const p = loc.purpose || 'N/A'
-          purposes.add(p)
-
-          if (!buildingsByPurposeMap[p]) buildingsByPurposeMap[p] = new Set()
-          if (loc.building) {
-            buildingsByPurposeMap[p].add(loc.building)
-            if (!floorsByBuildingMap[loc.building]) floorsByBuildingMap[loc.building] = new Set()
-            if (loc.floor) floorsByBuildingMap[loc.building].add(loc.floor)
-          }
-        })
-
-        uniquePurposes.value = Array.from(purposes).sort()
-        for (const p in buildingsByPurposeMap) buildingsByPurposeMap[p] = Array.from(buildingsByPurposeMap[p]).sort()
-        for (const b in floorsByBuildingMap) floorsByBuildingMap[b] = Array.from(floorsByBuildingMap[b]).sort()
-
-        uniqueBuildingsByPurpose.value = buildingsByPurposeMap
-        uniqueFloorsByBuilding.value = floorsByBuildingMap
-        initialLoaded.value = true
-      }
+      hydrateFromLocations(locationLoads.value)
     }
   } catch (error) {
     console.error('Failed to fetch location capacity analysis:', error)
-    toast(error.response?.data?.message || 'Gagal memuat data statistik lokasi', 'error')
+    toast(error.response?.data?.message || t('analytics.capacity.error_load_stats'), 'error')
   } finally {
     loading.value = false
   }
 }
-
-const purposeOptions = computed(() => {
-  return uniquePurposes.value.map(p => ({ value: p, label: p }))
-})
-
-console.log(uniquePurposes.value)
 
 const toggleExpand = async loc => {
   const locId = loc.location_id
@@ -273,69 +247,16 @@ const fetchDetails = async locId => {
     }
   } catch (error) {
     console.error('Failed to fetch details:', error)
-    toast('Gagal memuat detail produk', 'error')
+    toast(error.response?.data?.message || t('analytics.capacity.error_load_details'), 'error')
   } finally {
     loadingDetails.value[locId] = false
   }
 }
 
-const buildingOptions = computed(() => {
-  const inc = filters.value.purpose.include
-  if (inc.length > 0) {
-    const blds = new Set()
-    inc.forEach(p => {
-      if (uniqueBuildingsByPurpose.value[p]) {
-        uniqueBuildingsByPurpose.value[p].forEach(b => blds.add(b))
-      }
-    })
-    return Array.from(blds)
-      .sort()
-      .map(b => ({ value: b, label: b }))
-  }
-
-  const allBlds = new Set()
-  Object.values(uniqueBuildingsByPurpose.value).forEach(list => list.forEach(b => allBlds.add(b)))
-  return Array.from(allBlds)
-    .sort()
-    .map(b => ({ value: b, label: b }))
-})
-
-const floorOptions = computed(() => {
-  const inc = filters.value.building.include
-  if (inc.length > 0) {
-    const flrs = new Set()
-    inc.forEach(b => {
-      if (uniqueFloorsByBuilding.value[b]) {
-        uniqueFloorsByBuilding.value[b].forEach(f => flrs.add(f))
-      }
-    })
-    return Array.from(flrs)
-      .sort()
-      .map(f => ({ value: f, label: f }))
-  }
-
-  const allFlrs = new Set()
-  Object.values(uniqueFloorsByBuilding.value).forEach(list => list.forEach(f => allFlrs.add(f)))
-  return Array.from(allFlrs)
-    .sort()
-    .map(f => ({ value: f, label: f }))
-})
-
-watch(
-  () => filters.value.purpose,
-  () => {
-    filters.value.building = { include: [], exclude: [] }
-  },
-  { deep: true }
-)
-
-watch(
-  () => filters.value.building,
-  () => {
-    filters.value.floor = { include: [], exclude: [] }
-  },
-  { deep: true }
-)
+const exportOptions = computed(() => [
+  { key: 'summary', label: t('analytics.capacity.export_summary'), icon: 'fa-file-excel', iconClass: 'text-success' },
+  { key: 'detailed', label: t('analytics.capacity.export_detailed'), icon: 'fa-file-excel', iconClass: 'text-success' }
+])
 
 const handleExport = async format => {
   try {
@@ -359,9 +280,9 @@ const handleExport = async format => {
 
     await analyticsApi.exportLocationAnalysis(payload)
     downloadStore.notifyNewJob()
-    toast(`Job export (${format}) berhasil dibuat. Silakan cek menu Laporan > My Export Jobs.`, 'success')
+    toast(t('analytics.capacity.export_success'), 'success')
   } catch (err) {
-    toast(err.response?.data?.message || 'Gagal membuat job export', 'error')
+    toast(err.response?.data?.message || t('analytics.capacity.error_load_stats'), 'error')
   }
 }
 
@@ -376,16 +297,13 @@ onMounted(async () => {
   <div class="space-y-6">
     <div class="flex items-center justify-between">
       <h2 class="text-2xl font-bold leading-7 text-text sm:truncate sm:text-3xl sm:tracking-tight">
-        Statistik Kapasitas Lokasi
+        {{ t('analytics.capacity.title') }}
       </h2>
       <div class="flex space-x-3">
         <!-- Export Dropdown -->
         <ExportDropdown
           @select="handleExport"
-          :options="[
-            { key: 'summary', label: 'Summary (Tabel Utama)', icon: 'fa-file-excel', iconClass: 'text-success' },
-            { key: 'detailed', label: 'Detailed (Rincian SKU)', icon: 'fa-file-excel', iconClass: 'text-success' }
-          ]"
+          :options="exportOptions"
         />
 
         <button
@@ -396,7 +314,7 @@ onMounted(async () => {
         >
           <font-awesome-icon v-if="loading" icon="fa-solid fa-spinner" class="animate-spin -ml-1 mr-2 text-text/50" />
           <font-awesome-icon v-else icon="fa-solid fa-rotate" class="-ml-0.5 mr-1.5 text-text/40" />
-          Refresh Data
+          {{ t('common.btn.refresh') }}
         </button>
       </div>
     </div>
@@ -405,52 +323,52 @@ onMounted(async () => {
     <div class="bg-background p-4 rounded-lg shadow-sm border border-secondary/20">
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div>
-          <label class="block text-sm font-medium leading-6 text-text mb-1">Purpose</label>
+          <label class="block text-sm font-medium leading-6 text-text mb-1">{{ t('common.label.purpose') }}</label>
           <TriStateSelect
             v-model="filters.purpose"
             :options="purposeOptions"
             label="label"
             track-by="value"
-            placeholder="Semua Purpose"
+            :placeholder="t('common.filter.all_purposes')"
             @update:model-value="fetchData"
           />
         </div>
         <div>
-          <label class="block text-sm font-medium leading-6 text-text mb-1">Gedung</label>
+          <label class="block text-sm font-medium leading-6 text-text mb-1">{{ t('common.label.building') }}</label>
           <TriStateSelect
             v-model="filters.building"
             :options="buildingOptions"
             label="label"
             track-by="value"
-            placeholder="Semua Gedung"
+            :placeholder="t('common.filter.all_buildings')"
             @update:model-value="fetchData"
           />
         </div>
         <div>
-          <label class="block text-sm font-medium leading-6 text-text mb-1">Lantai</label>
+          <label class="block text-sm font-medium leading-6 text-text mb-1">{{ t('common.label.floor') }}</label>
           <TriStateSelect
             v-model="filters.floor"
             :options="floorOptions"
             label="label"
             track-by="value"
-            placeholder="Semua Lantai"
+            :placeholder="t('common.filter.all_floors')"
             @update:model-value="fetchData"
           />
         </div>
         <div>
-          <label class="block text-sm font-medium leading-6 text-text mb-1">Kategori Produk</label>
+          <label class="block text-sm font-medium leading-6 text-text mb-1">{{ t('analytics.capacity.filter_category') }}</label>
           <TriStateSelect
             v-model="filters.categoryId"
             :options="categoryOptions"
             label="label"
             track-by="value"
-            placeholder="Semua Kategori"
+            :placeholder="t('analytics.capacity.all_categories')"
             @update:model-value="fetchData"
           />
         </div>
         <div>
-          <label class="block text-sm font-medium leading-6 text-text mb-1">Cari Produk</label>
-          <ProductSearchSelector v-model="selectedProduct" placeholder="Ketik SKU atau Nama..." />
+          <label class="block text-sm font-medium leading-6 text-text mb-1">{{ t('analytics.capacity.filter_search') }}</label>
+          <ProductSearchSelector v-model="selectedProduct" :placeholder="t('analytics.capacity.search_placeholder')" />
         </div>
         <div class="flex items-center gap-3 ml-2 pt-4">
           <label class="relative inline-flex items-center cursor-pointer">
@@ -458,7 +376,7 @@ onMounted(async () => {
             <div
               class="w-9 h-5 bg-secondary/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"
             ></div>
-            <span class="ml-3 text-sm font-medium text-text/80">Sembunyikan Lokasi Kosong (Qty 0)</span>
+            <span class="ml-3 text-sm font-medium text-text/80">{{ t('analytics.capacity.hide_empty') }}</span>
           </label>
         </div>
       </div>
@@ -467,23 +385,23 @@ onMounted(async () => {
     <!-- KPIs -->
     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
       <div class="overflow-hidden rounded-lg bg-background px-4 py-5 shadow-sm border border-secondary/20 sm:p-6">
-        <dt class="truncate text-sm font-medium text-text/60">Total Lokasi Aktif</dt>
+        <dt class="truncate text-sm font-medium text-text/60">{{ t('analytics.capacity.kpi_active_locations') }}</dt>
         <dd class="mt-1 text-3xl font-semibold tracking-tight text-text">{{ locationLoads.length }}</dd>
       </div>
       <div class="overflow-hidden rounded-lg bg-background px-4 py-5 shadow-sm border border-secondary/20 sm:p-6">
-        <dt class="truncate text-sm font-medium text-text/60">Total Beban Berat</dt>
+        <dt class="truncate text-sm font-medium text-text/60">{{ t('analytics.capacity.kpi_total_weight') }}</dt>
         <dd class="mt-1 text-3xl font-semibold tracking-tight text-text">
           {{ formatNumber(totalWeight / 1000) }} <span class="text-lg font-normal text-text/50">kg</span>
         </dd>
       </div>
       <div class="overflow-hidden rounded-lg bg-background px-4 py-5 shadow-sm border border-secondary/20 sm:p-6">
-        <dt class="truncate text-sm font-medium text-text/60">Total Kubikasi</dt>
+        <dt class="truncate text-sm font-medium text-text/60">{{ t('analytics.capacity.kpi_total_cbm') }}</dt>
         <dd class="mt-1 text-3xl font-semibold tracking-tight text-text">
           {{ formatNumber(totalCBM, 2) }} <span class="text-lg font-normal text-text/50">m³</span>
         </dd>
       </div>
       <div class="overflow-hidden rounded-lg bg-background px-4 py-5 shadow-sm border border-secondary/20 sm:p-6">
-        <dt class="truncate text-sm font-medium text-text/60">Rata-rata Berat per Lokasi</dt>
+        <dt class="truncate text-sm font-medium text-text/60">{{ t('analytics.capacity.kpi_avg_weight') }}</dt>
         <dd class="mt-1 text-3xl font-semibold tracking-tight text-text">
           {{ formatNumber(avgWeightPerLocation, 2) }} <span class="text-lg font-normal text-text/50">kg</span>
         </dd>
@@ -497,8 +415,8 @@ onMounted(async () => {
           class="px-4 py-5 sm:px-6 border-b border-secondary/20 flex flex-col sm:flex-row sm:justify-between sm:items-center"
         >
           <div>
-            <h3 class="text-base font-semibold leading-6 text-text">Detail Beban Kapasitas Lokasi</h3>
-            <p class="mt-1 text-sm text-text/60">Informasi berat (kg) dan kubikasi (CBM) di setiap lokasi.</p>
+            <h3 class="text-base font-semibold leading-6 text-text">{{ t('analytics.capacity.table_title') }}</h3>
+            <p class="mt-1 text-sm text-text/60">{{ t('analytics.capacity.table_sub') }}</p>
           </div>
         </div>
         <div class="overflow-x-auto flex-1 max-h-[800px] custom-scrollbar">
@@ -509,10 +427,10 @@ onMounted(async () => {
                 <th
                   scope="col"
                   class="py-3.5 px-3 text-left text-sm font-semibold text-text cursor-pointer hover:bg-secondary/10 transition-colors group select-none"
-                  title="Kode unik lokasi penyimpanan"
+                  :title="t('analytics.capacity.col_code_tooltip')"
                   @click="handleSort('code')"
                 >
-                  Kode Lokasi
+                  {{ t('analytics.capacity.col_location_code') }}
                   <font-awesome-icon
                     v-if="sortState.field === 'code'"
                     :icon="sortState.direction === 'asc' ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down'"
@@ -527,10 +445,10 @@ onMounted(async () => {
                 <th
                   scope="col"
                   class="px-3 py-3.5 text-left text-sm font-semibold text-text cursor-pointer hover:bg-secondary/10 transition-colors group select-none"
-                  title="Gedung dan lantai tempat lokasi berada"
+                  :title="t('analytics.capacity.col_building_floor_tooltip')"
                   @click="handleSort('building')"
                 >
-                  Gedung / Lantai
+                  {{ t('analytics.capacity.col_building_floor') }}
                   <font-awesome-icon
                     v-if="sortState.field === 'building'"
                     :icon="sortState.direction === 'asc' ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down'"
@@ -545,10 +463,10 @@ onMounted(async () => {
                 <th
                   scope="col"
                   class="px-3 py-3.5 text-left text-sm font-semibold text-text cursor-pointer hover:bg-secondary/10 transition-colors group select-none"
-                  title="Tujuan penggunaan atau fungsi lokasi"
+                  :title="t('analytics.capacity.col_purpose_tooltip')"
                   @click="handleSort('purpose')"
                 >
-                  Purpose
+                  {{ t('common.label.purpose') }}
                   <font-awesome-icon
                     v-if="sortState.field === 'purpose'"
                     :icon="sortState.direction === 'asc' ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down'"
@@ -563,7 +481,7 @@ onMounted(async () => {
                 <th
                   scope="col"
                   class="px-3 py-3.5 text-right text-sm font-semibold text-text cursor-pointer hover:bg-secondary/10 transition-colors group select-none"
-                  title="Jumlah jenis produk/SKU berbeda yang ada di lokasi ini"
+                  :title="t('analytics.capacity.col_sku_count_tooltip')"
                   @click="handleSort('total_products')"
                 >
                   <font-awesome-icon
@@ -576,12 +494,12 @@ onMounted(async () => {
                     icon="fa-solid fa-sort"
                     class="mr-1 text-text/30 group-hover:text-text/50"
                   />
-                  Jumlah SKU
+                  {{ t('analytics.capacity.col_sku_count') }}
                 </th>
                 <th
                   scope="col"
                   class="px-3 py-3.5 text-right text-sm font-semibold text-text cursor-pointer hover:bg-secondary/10 transition-colors group select-none"
-                  title="Total keseluruhan barang (kuantitas) di lokasi ini"
+                  :title="t('analytics.capacity.col_quantity_tooltip')"
                   @click="handleSort('total_quantity')"
                 >
                   <font-awesome-icon
@@ -594,12 +512,12 @@ onMounted(async () => {
                     icon="fa-solid fa-sort"
                     class="mr-1 text-text/30 group-hover:text-text/50"
                   />
-                  Kuantitas
+                  {{ t('analytics.capacity.col_quantity') }}
                 </th>
                 <th
                   scope="col"
                   class="px-3 py-3.5 text-right text-sm font-semibold text-text cursor-pointer hover:bg-secondary/10 transition-colors group select-none"
-                  title="Estimasi total berat barang di lokasi ini dalam kilogram (kg)"
+                  :title="t('analytics.capacity.col_weight_tooltip')"
                   @click="handleSort('total_weight')"
                 >
                   <font-awesome-icon
@@ -612,12 +530,12 @@ onMounted(async () => {
                     icon="fa-solid fa-sort"
                     class="mr-1 text-text/30 group-hover:text-text/50"
                   />
-                  Berat (kg)
+                  {{ t('analytics.capacity.col_weight') }}
                 </th>
                 <th
                   scope="col"
                   class="px-3 py-3.5 text-right text-sm font-semibold text-text cursor-pointer hover:bg-secondary/10 transition-colors group select-none"
-                  title="Estimasi total volume/kubikasi barang di lokasi ini dalam meter kubik (m³)"
+                  :title="t('analytics.capacity.col_cbm_tooltip')"
                   @click="handleSort('total_cbm')"
                 >
                   <font-awesome-icon
@@ -630,7 +548,7 @@ onMounted(async () => {
                     icon="fa-solid fa-sort"
                     class="mr-1 text-text/30 group-hover:text-text/50"
                   />
-                  Kubikasi (m³)
+                  {{ t('analytics.capacity.col_cbm') }}
                 </th>
               </tr>
             </thead>
@@ -652,7 +570,7 @@ onMounted(async () => {
                       class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset"
                       :class="getLocationBuildingColorClass(loc.building)"
                     >
-                      {{ loc.building }} <span v-if="loc.floor" class="ml-1 opacity-75"> - Lt {{ loc.floor }}</span>
+                      {{ loc.building }} <span v-if="loc.floor" class="ml-1 opacity-75"> - {{ t('common.label.floor_abbr') }} {{ loc.floor }}</span>
                     </span>
                   </td>
                   <td class="whitespace-nowrap px-3 py-4 text-sm text-text/60">
@@ -703,8 +621,7 @@ onMounted(async () => {
                   <td colspan="8" class="p-0 border-b border-secondary/20">
                     <div class="p-4">
                       <div v-if="loadingDetails[loc.location_id]" class="text-sm text-text/50 py-2">
-                        <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin mr-2" /> Memuat detail
-                        produk...
+                        <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin mr-2" /> {{ t('analytics.capacity.loading_details') }}
                       </div>
                       <table
                         v-else-if="detailData[loc.location_id] && detailData[loc.location_id].length"
@@ -732,7 +649,7 @@ onMounted(async () => {
                               class="px-4 py-2 text-left text-xs font-semibold text-text cursor-pointer hover:bg-secondary/20 transition-colors select-none"
                               @click="handleDetailSort(loc.location_id, 'name')"
                             >
-                              Nama Produk
+                              {{ t('common.label.product_name') }}
                               <font-awesome-icon
                                 v-if="detailSortState[loc.location_id]?.field === 'name'"
                                 :icon="
@@ -758,7 +675,7 @@ onMounted(async () => {
                                 class="mr-1 text-primary"
                               />
                               <font-awesome-icon v-else icon="fa-solid fa-sort" class="mr-1 text-text/30" />
-                              Qty
+                              {{ t('common.label.qty') }}
                             </th>
                             <th
                               class="px-4 py-2 text-right text-xs font-semibold text-text cursor-pointer hover:bg-secondary/20 transition-colors select-none"
@@ -774,7 +691,7 @@ onMounted(async () => {
                                 class="mr-1 text-primary"
                               />
                               <font-awesome-icon v-else icon="fa-solid fa-sort" class="mr-1 text-text/30" />
-                              Berat (kg)
+                              {{ t('analytics.capacity.col_weight') }}
                             </th>
                             <th
                               class="px-4 py-2 text-right text-xs font-semibold text-text cursor-pointer hover:bg-secondary/20 transition-colors select-none"
@@ -790,7 +707,7 @@ onMounted(async () => {
                                 class="mr-1 text-primary"
                               />
                               <font-awesome-icon v-else icon="fa-solid fa-sort" class="mr-1 text-text/30" />
-                              Kubikasi (m³)
+                              {{ t('analytics.capacity.col_cbm') }}
                             </th>
                           </tr>
                         </thead>
@@ -810,14 +727,14 @@ onMounted(async () => {
                           </tr>
                         </tbody>
                       </table>
-                      <div v-else class="text-sm text-text/50 py-2">Tidak ada detail produk.</div>
+                      <div v-else class="text-sm text-text/50 py-2">{{ t('analytics.capacity.no_details') }}</div>
                     </div>
                   </td>
                 </tr>
               </template>
               <tr v-if="locationLoads.length === 0">
                 <td colspan="8" class="px-3 py-8 text-sm text-text/50 text-center">
-                  Tidak ada data kapasitas lokasi yang ditemukan
+                  {{ t('analytics.capacity.no_data') }}
                 </td>
               </tr>
             </tbody>

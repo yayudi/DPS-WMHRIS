@@ -2,11 +2,12 @@
 import { ref, watch, toRef, onMounted, onUnmounted } from 'vue'
 import { useProductSearch } from '@/modules/wms/application/useProductSearch'
 import { useListNavigation } from '@/core/presentation/composables/useListNavigation'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { useFloating, autoUpdate, offset, flip, shift, size } from '@floating-ui/vue'
 
 const props = defineProps({
   modelValue: { type: Object, default: null },
-  placeholder: { type: String, default: 'Ketik nama / SKU' },
+  placeholder: { type: String, default: '' },
   locationId: { type: [Number, String], default: null },
   disabled: { type: Boolean, default: false },
   enableScanner: { type: Boolean, default: false },
@@ -15,6 +16,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'scanner-match'])
+const { t } = useI18n()
 
 const {
   results: searchResults,
@@ -206,7 +208,7 @@ defineExpose({ focusInput })
             }
           }
         "
-        :placeholder="placeholder"
+        :placeholder="placeholder || t('wms.product_selector.placeholder')"
         :disabled="disabled"
         class="w-full h-full pl-9 pr-8 py-1.5 bg-background border rounded-lg text-sm text-text focus:outline-none transition-all font-medium placeholder-text/40"
         :class="[
@@ -268,7 +270,7 @@ defineExpose({ focusInput })
                 class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded border whitespace-nowrap ml-2"
                 :class="getStockColor(item.current_stock)"
               >
-                Stok: {{ item.current_stock }}
+                {{ t('wms.product_selector.stock') }}: {{ item.current_stock }}
               </div>
             </li>
 
@@ -276,7 +278,7 @@ defineExpose({ focusInput })
               v-if="!isLoading && searchResults.length === 0"
               class="px-3 py-4 text-center text-text/40 italic text-xs"
             >
-              Tidak ada hasil.
+              {{ t('wms.product_selector.no_results') }}
             </li>
 
             <li v-if="hasNextPage" ref="bottomSentinelRef" class="h-2 w-full"></li>
@@ -285,7 +287,7 @@ defineExpose({ focusInput })
               class="px-3 py-2 text-center text-text/50 text-xs flex justify-center items-center gap-2"
             >
               <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-primary" />
-              <span>Memuat...</span>
+              <span>{{ t('wms.product_selector.loading') }}</span>
             </li>
           </ul>
         </div>

@@ -29,6 +29,13 @@ type UpdatePreferencesRequest struct {
 	Preferences []NotificationPreference `json:"preferences" binding:"required"`
 }
 
+// NotificationI18nMeta mendefinisikan metadata lokalisasi read-time yang disimpan di action_payload.
+type NotificationI18nMeta struct {
+	TitleKey   string         `json:"title_key"`
+	MessageKey string         `json:"msg_key"`
+	Params     map[string]any `json:"params,omitempty"`
+}
+
 // CreateNotificationPayload is used internally by services to create a notification.
 type CreateNotificationPayload struct {
 	UserID           *int        `json:"user_id"`

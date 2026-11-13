@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from '@/core/infrastructure/localization'
 import { analyticsApi } from '../../infrastructure/analytics.api'
 import OverviewDashboard from '@/modules/analytics/presentation/components/OverviewDashboard.vue'
 
+const { t } = useI18n()
 const kpiData = ref(null)
 const isLoading = ref(true)
 const errorMessage = ref(null)
@@ -15,7 +17,7 @@ async function loadKpiData() {
     kpiData.value = data
   } catch (error) {
     console.error(error)
-    errorMessage.value = error.message || 'Gagal terhubung ke server.'
+    errorMessage.value = error.message || t('analytics.dashboard.conn_error')
   } finally {
     isLoading.value = false
   }
@@ -30,14 +32,14 @@ onMounted(() => {
   <div class="bg-background rounded-xl shadow-md border border-secondary/20 p-6 min-h-[calc(50vh+20rem)] relative overflow-visible animate-fade-in">
     <div v-if="isLoading" class="flex flex-col items-center justify-center h-80">
       <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-primary text-4xl mb-3" />
-      <span class="text-text/50 font-medium">Memuat Data...</span>
+      <span class="text-text/50 font-medium">{{ t('common.status.loading') }}</span>
     </div>
 
     <div v-else-if="errorMessage" class="flex flex-col items-center justify-center h-80 text-danger">
       <div class="bg-danger/10 p-4 rounded-full mb-3">
         <font-awesome-icon icon="fa-solid fa-triangle-exclamation" class="text-3xl" />
       </div>
-      <h3 class="font-bold text-lg">Gagal Memuat Data</h3>
+      <h3 class="font-bold text-lg">{{ t('analytics.dashboard.error_load') }}</h3>
       <p class="text-sm opacity-80 mt-1">{{ errorMessage }}</p>
     </div>
 

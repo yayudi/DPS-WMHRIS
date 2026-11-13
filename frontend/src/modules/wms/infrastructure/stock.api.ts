@@ -95,5 +95,9 @@ export const stockApi = {
       console.error('Error fetching movement types', error)
       return []
     }
+  },
+
+  async getMovementTypes(): Promise<string[]> {
+    return this.fetchMovementTypes()
   }
 }

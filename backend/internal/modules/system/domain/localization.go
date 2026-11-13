@@ -1,15 +1,16 @@
 package domain
 
 import (
-	"errors"
 	"time"
+
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 )
 
 var (
 	// ErrLocaleNotFoundOrInactive is returned when a requested locale does not exist or is inactive.
-	ErrLocaleNotFoundOrInactive = errors.New("kode bahasa tidak ditemukan atau tidak aktif")
+	ErrLocaleNotFoundOrInactive = apperror.Validation("errors.localization.locale_not_found_or_inactive", "kode bahasa tidak ditemukan atau tidak aktif")
 	// ErrInvalidTranslationKey is returned when module or translation key contains invalid characters.
-	ErrInvalidTranslationKey = errors.New("format modul atau kunci terjemahan tidak valid")
+	ErrInvalidTranslationKey = apperror.Validation("errors.localization.invalid_translation_key", "format modul atau kunci terjemahan tidak valid")
 )
 
 // Locale represents a supported language catalog item.

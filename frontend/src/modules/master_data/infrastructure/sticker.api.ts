@@ -24,19 +24,16 @@ export const stickerApi = {
     return res.data || []
   },
 
-  async createPaperSize(payload: PaperSize): Promise<any> {
-    const res = await http.post('/paper-sizes', payload)
-    return res.data
+  createPaperSize(payload: PaperSize): Promise<any> {
+    return http.post('/paper-sizes', payload)
   },
 
-  async updatePaperSize(id: number | string, payload: PaperSize): Promise<any> {
-    const res = await http.put(`/paper-sizes/${id}`, payload)
-    return res.data
+  updatePaperSize(id: number | string, payload: PaperSize): Promise<any> {
+    return http.put(`/paper-sizes/${id}`, payload)
   },
 
-  async deletePaperSize(id: number | string): Promise<any> {
-    const res = await http.delete(`/paper-sizes/${id}`)
-    return res.data
+  deletePaperSize(id: number | string): Promise<any> {
+    return http.delete(`/paper-sizes/${id}`)
   },
 
   // Sticker Templates

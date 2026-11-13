@@ -30,16 +30,14 @@ export const mediaApi = {
    * Memperbarui tags dari media
    */
   async updateMediaTags(id: number | string, tags: string[]): Promise<any> {
-    const response = await http.put(`/media/${id}/tags`, { tags })
-    return response.data
+    return http.put(`/media/${id}/tags`, { tags })
   },
 
   /**
    * Memperbarui judul dari media
    */
   async updateMediaTitle(id: number | string, title: string): Promise<any> {
-    const response = await http.put(`/media/${id}/title`, { title })
-    return response.data
+    return http.put(`/media/${id}/title`, { title })
   },
 
   /**

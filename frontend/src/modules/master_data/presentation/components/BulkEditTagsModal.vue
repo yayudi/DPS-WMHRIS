@@ -4,6 +4,7 @@ import { ref, watch } from 'vue'
 import { mediaApi } from '@/modules/master_data/infrastructure/media.api'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const props = defineProps({
   show: Boolean,
@@ -11,6 +12,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'updated'])
+const { t } = useI18n()
 const tagsInput = ref('')
 const isSubmitting = ref(false)
 const { toast } = useToast()
@@ -31,13 +33,16 @@ const submitTags = async () => {
     .map(t => t.trim())
     .filter(Boolean)
   if (rawTags.length === 0) {
-    await swalAlert('Masukkan setidaknya 1 tag.')
+    await swalAlert(t('core.media.tag_input_required'))
     return
   }
 
   if (
     !(await swalConfirm(
-      `Terapkan ${rawTags.length} tag ini ke ${props.selectedMediaIds?.length || 0} gambar terpilih?`
+      t('core.media.tag_confirm_apply', {
+        tagCount: rawTags.length,
+        mediaCount: props.selectedMediaIds?.length || 0
+      })
     ))
   )
     return
@@ -50,7 +55,7 @@ const submitTags = async () => {
       await mediaApi.updateMediaTags(id, rawTags)
       successCount++
     }
-    toast(`Berhasil memperbarui tag untuk ${successCount} gambar.`, 'success')
+    toast(t('core.media.tag_update_success', { count: successCount }), 'success')
     emit('updated')
     close()
   } catch (error) {
@@ -72,19 +77,19 @@ const close = () => {
   <BaseModal :show="show" @close="close" maxWidth="max-w-md">
     <template #title>
       <div class="-mt-1">
-        <h3 class="text-lg font-bold text-text">Label Masal (Tagging)</h3>
+        <h3 class="text-lg font-bold text-text">{{ t('core.media.tag_bulk_title') }}</h3>
         <p class="text-xs text-text/60 mt-1 font-normal">
-          Timpa tag pada {{ selectedMediaIds?.length || 0 }} gambar terpilih.
+          {{ t('core.media.tag_bulk_subtitle', { count: selectedMediaIds?.length || 0 }) }}
         </p>
       </div>
     </template>
 
     <div>
-      <label class="block text-sm font-semibold text-text/80 mb-2">Masukkan Label (Pisahkan dgn koma)</label>
+      <label class="block text-sm font-semibold text-text/80 mb-2">{{ t('core.media.tag_input_label') }}</label>
       <textarea
         v-model="tagsInput"
         rows="3"
-        placeholder="contoh: promo2026, banner depan, poster"
+        :placeholder="t('core.media.tag_input_placeholder')"
         class="textarea textarea-bordered w-full bg-background text-text border-secondary focus:border-primary"
       ></textarea>
     </div>
@@ -97,7 +102,7 @@ const close = () => {
           class="px-4 py-2 font-semibold text-text hover:bg-secondary/20 rounded-lg transition-colors"
           :disabled="isSubmitting"
         >
-          Batal
+          {{ t('common.btn.cancel') }}
         </button>
         <button
           @click="submitTags"
@@ -105,7 +110,7 @@ const close = () => {
           :disabled="isSubmitting"
         >
           <font-awesome-icon v-if="isSubmitting" icon="fa-solid fa-spinner" spin />
-          Terapkan Tag
+          {{ t('core.media.tag_apply_btn') }}
         </button>
       </div>
     </template>

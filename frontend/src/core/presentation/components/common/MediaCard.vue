@@ -1,8 +1,10 @@
 <script setup>
 import { useBrokenImages } from '@/modules/master_data/presentation/composables/useImageUrl'
 import { useMobile } from '@/core/presentation/composables/useMobile'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const { isMobile } = useMobile()
+const { t } = useI18n()
 
 defineProps({
   /** Full resolved image URL */
@@ -62,7 +64,7 @@ const { brokenImages, onImgError } = useBrokenImages()
         class="w-full h-full flex flex-col items-center justify-center text-text/20"
       >
         <font-awesome-icon icon="fa-solid fa-image" class="text-4xl mb-1" />
-        <span class="text-[10px] font-medium">No Image</span>
+        <span class="text-[10px] font-medium">{{ t('core.media.no_image') }}</span>
       </div>
 
       <div v-else class="flex flex-col items-center justify-center w-full h-full opacity-60 text-text">

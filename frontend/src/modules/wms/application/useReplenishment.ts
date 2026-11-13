@@ -1,6 +1,7 @@
 import { ref, computed, watch } from 'vue'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { wmsApi } from '../infrastructure/wms.api'
 import { stockApi } from '../infrastructure/stock.api'
 import type {
@@ -42,8 +43,9 @@ const activeTransferContext = ref<{
 const SLA_LIMIT_MINUTES = 24 * 60
 
 export function calculateSla(createdAtStr: string): SlaInfo {
+  const { t } = useI18n()
   if (!createdAtStr) {
-    return { remainingMinutes: SLA_LIMIT_MINUTES, level: 'NORMAL', formattedText: '> 6 Jam', isOverdue: false }
+    return { remainingMinutes: SLA_LIMIT_MINUTES, level: 'NORMAL', formattedText: t('wms.replenishment.sla_more_than_six_hours'), isOverdue: false }
   }
 
   const createdTime = new Date(createdAtStr).getTime()
@@ -64,11 +66,11 @@ export function calculateSla(createdAtStr: string): SlaInfo {
     const overdueMin = Math.abs(remainingMinutes)
     const hours = Math.floor(overdueMin / 60)
     const mins = overdueMin % 60
-    formattedText = `Terlewat ${hours}j ${mins}m`
+    formattedText = t('wms.replenishment.sla_overdue', { h: hours, m: mins })
   } else {
     const hours = Math.floor(remainingMinutes / 60)
     const mins = remainingMinutes % 60
-    formattedText = `Sisa ${hours}j ${mins}m`
+    formattedText = t('wms.replenishment.sla_remaining', { h: hours, m: mins })
   }
 
   return { remainingMinutes, level, formattedText, isOverdue }
@@ -109,6 +111,7 @@ export function playAudioAlert(type: 'critical' | 'success' = 'critical') {
 
 export function useReplenishment() {
   const { toast } = useToast()
+  const { t } = useI18n()
 
   async function loadOnHoldFulfillments() {
     loading.value = true
@@ -124,7 +127,7 @@ export function useReplenishment() {
         playAudioAlert('critical')
       }
     } catch (err: any) {
-      toast(err.message || 'Gagal memuat antrean replenishment', 'error')
+      toast(err.message || t('wms.replenishment.load_failed'), 'error')
     } finally {
       loading.value = false
     }
@@ -156,8 +159,8 @@ export function useReplenishment() {
   async function submitQuickTransfer(payload: ManualTransferPayload): Promise<boolean> {
     transferring.value = true
     try {
-      await wmsApi.transferStock(payload)
-      toast('Transfer stok ke lantai DISPLAY berhasil dilakukan', 'success')
+      const res = await wmsApi.transferStock(payload)
+      toast(res?.message || t('common.status.success'), 'success')
       if (soundEnabled.value) {
         playAudioAlert('success')
       }
@@ -165,7 +168,7 @@ export function useReplenishment() {
       await Promise.all([loadOnHoldFulfillments(), loadLocations()])
       return true
     } catch (err: any) {
-      toast(err.message || 'Gagal memproses transfer stok', 'error')
+      toast(err.message || t('wms.replenishment.transfer_failed'), 'error')
       return false
     } finally {
       transferring.value = false
@@ -174,7 +177,7 @@ export function useReplenishment() {
 
   async function releaseFulfillment(fulfillment: OnHoldFulfillmentSummary) {
     const isConfirmed = await swalConfirm(
-      `Apakah Anda yakin stok fisik untuk pesanan ${fulfillment.reference_id} telah tersedia di lantai DISPLAY?`
+      t('wms.replenishment.confirm_release', { ref: fulfillment.reference_id })
     )
     if (!isConfirmed) return
 
@@ -182,7 +185,7 @@ export function useReplenishment() {
     try {
       await wmsApi.releaseHeldFulfillment(fulfillment.transaction_id)
       toast(
-        `Pesanan ${fulfillment.reference_id} berhasil dirilis & dialokasikan ke lantai DISPLAY!`,
+        t('wms.replenishment.release_success', { ref: fulfillment.reference_id }),
         'success'
       )
       if (soundEnabled.value) {
@@ -192,7 +195,7 @@ export function useReplenishment() {
         f => f.transaction_id !== fulfillment.transaction_id
       )
     } catch (err: any) {
-      toast(err.message || 'Gagal merilis pesanan. Pastikan stok DISPLAY mencukupi.', 'error')
+      toast(err.message || t('wms.replenishment.release_failed'), 'error')
     } finally {
       releasingId.value = null
     }

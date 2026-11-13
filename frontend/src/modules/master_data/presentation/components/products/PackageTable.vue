@@ -9,8 +9,10 @@ import { formatCurrency, formatNumber } from '@/core/utils/formatters'
 import BaseContextMenu from '@/core/presentation/components/ui/BaseContextMenu.vue'
 import { useProductContextMenu } from '@/modules/master_data/presentation/composables/useProductContextMenu'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const { isMobile } = useMobile()
+const { t } = useI18n()
 
 const props = defineProps({
   products: { type: Array, required: true, default: () => [] },
@@ -90,7 +92,7 @@ const isAllSelected = computed(() => {
 const { getSortIcon } = useSortIcon(toRef(props, 'sortBy'), toRef(props, 'sortOrder'))
 
 // --- COLUMNS ---
-const columns = [
+const columns = computed(() => [
   {
     id: 'select',
     header: () => null,
@@ -100,7 +102,7 @@ const columns = [
   {
     id: 'name',
     accessorKey: 'name',
-    header: 'Nama Paket',
+    header: t('common.label.package_name'),
     meta: {
       width: '100%',
       sticky: 'left-12 z-20 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]',
@@ -111,31 +113,31 @@ const columns = [
   {
     id: 'sku',
     accessorKey: 'sku',
-    header: 'SKU Paket',
+    header: t('master_data.package.sku'),
     meta: { width: '15%', editable: true, type: 'string' }
   },
   {
     id: 'components',
-    header: 'Komponen',
+    header: t('master_data.package.components'),
     meta: { width: '15%', editable: false }
   },
   {
     id: 'price',
     accessorKey: 'price',
-    header: 'Harga',
+    header: t('common.label.price'),
     meta: { width: '15%', editable: true, type: 'number', align: 'right' }
   },
   {
     id: 'status',
-    header: 'Status',
+    header: t('common.label.status'),
     meta: { width: '12%', editable: false, align: 'center' }
   },
   {
     id: 'actions',
-    header: 'Aksi',
+    header: t('common.label.actions'),
     meta: { width: '50px', sticky: 'right-0 z-20 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]', align: 'center' }
   }
-]
+])
 
 // --- SMART GRID ---
 const parentRef = ref(null)
@@ -195,18 +197,18 @@ const getReadinessScore = product => {
   const missing = []
 
   if (p.name && p.name.toString().trim() !== '') score++
-  else missing.push('Nama Paket')
+  else missing.push(t('common.label.package_name'))
   if (p.sku && p.sku.toString().trim() !== '') score++
   else missing.push('SKU')
   if (Number(p.price) > 0) score++
-  else missing.push('Harga')
+  else missing.push(t('common.label.price'))
   if (p.component_count > 0 || (p.components && p.components.length > 0)) score++
-  else missing.push('Komponen')
+  else missing.push(t('master_data.package.components'))
 
   const percentage = Math.round((score / total) * 100)
   return {
     percentage,
-    tooltip: missing.length ? `Data kurang: ${missing.join(', ')}` : 'Data sudah lengkap (100%)',
+    tooltip: missing.length ? t('master_data.package.data_incomplete', { fields: missing.join(', ') }) : t('master_data.package.data_complete'),
     color: percentage === 100 ? 'bg-success' : percentage >= 50 ? 'bg-warning' : 'bg-danger'
   }
 }
@@ -227,7 +229,7 @@ const getValidationClass = product => {
     <div v-if="isSaving" class="absolute inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-sm">
       <div class="flex flex-col items-center gap-2">
         <div class="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-        <span class="text-sm font-bold text-primary">Menyimpan data...</span>
+        <span class="text-sm font-bold text-primary">{{ t('master_data.package.saving') }}</span>
       </div>
     </div>
 
@@ -320,8 +322,8 @@ const getValidationClass = product => {
                 >
                   <font-awesome-icon icon="fa-solid fa-box-open" />
                 </div>
-                <h3 class="text-lg font-bold text-text mb-2">Tidak ada paket ditemukan</h3>
-                <p class="text-sm text-text/60 max-w-xs mx-auto">Coba sesuaikan kata kunci pencarian atau filter.</p>
+                <h3 class="text-lg font-bold text-text mb-2">{{ t('master_data.package.empty_title') }}</h3>
+                <p class="text-sm text-text/60 max-w-xs mx-auto">{{ t('master_data.package.empty_hint') }}</p>
               </div>
             </td>
           </tr>
@@ -377,7 +379,7 @@ const getValidationClass = product => {
                       <div
                         class="font-bold text-text text-sm truncate focus:whitespace-normal focus:overflow-visible outline-none focus:ring-2 focus:ring-inset focus:ring-primary focus:bg-background/80 px-1 -mx-1 w-full"
                         :contenteditable="getRow(virtualRow.index).is_active && !isSaving"
-                        :title="col.meta?.type === 'number' ? 'Hanya angka dan titik yang diperbolehkan' : ''"
+                        :title="col.meta?.type === 'number' ? t('master_data.package.number_only_hint') : ''"
                         @blur="handleCellBlur($event, getRow(virtualRow.index), 'name', 'string')"
                         @keydown="onCellKeydown($event, col.meta?.type)"
                       >
@@ -446,9 +448,9 @@ const getValidationClass = product => {
                         class="text-[10px]"
                       />
                       <span v-if="getRow(virtualRow.index).component_count > 0">
-                        {{ getRow(virtualRow.index).component_count }} Komponen
+                        {{ t('master_data.package.component_count', { count: getRow(virtualRow.index).component_count }) }}
                       </span>
-                      <span v-else>Tanpa Komponen</span>
+                      <span v-else>{{ t('master_data.package.no_components') }}</span>
                     </button>
                   </div>
 
@@ -462,7 +464,7 @@ const getValidationClass = product => {
                           : 'bg-secondary/20 text-text/50 border-secondary/30'
                       "
                     >
-                      {{ getRow(virtualRow.index).is_active ? 'Aktif' : 'Arsip' }}
+                      {{ getRow(virtualRow.index).is_active ? t('common.status.active') : t('common.status.archived') }}
                     </span>
                   </div>
 
@@ -474,7 +476,7 @@ const getValidationClass = product => {
                     <button
                       @click.stop="openContextMenu($event, getRow(virtualRow.index), col.id)"
                       class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-primary/10 text-text/40 hover:text-primary transition-colors"
-                      title="Opsi Lanjutan"
+                      :title="t('master_data.package.more_options')"
                     >
                       <font-awesome-icon icon="fa-solid fa-ellipsis-vertical" />
                     </button>
@@ -486,7 +488,7 @@ const getValidationClass = product => {
                     class="text-sm font-medium text-text outline-none focus:ring-2 focus:ring-inset focus:ring-primary focus:bg-background/80 px-1 -mx-1"
                     :class="col.meta?.type === 'number' ? 'font-mono' : ''"
                     :contenteditable="col.meta?.editable && getRow(virtualRow.index).is_active && !isSaving"
-                    :title="col.meta?.type === 'number' ? 'Hanya angka dan titik yang diperbolehkan' : ''"
+                    :title="col.meta?.type === 'number' ? t('master_data.package.number_only_hint') : ''"
                     @focus="handleCellFocus($event, getRow(virtualRow.index)[col.id], col.meta?.type)"
                     @blur="handleCellBlur($event, getRow(virtualRow.index), col.id, col.meta?.type)"
                     @keydown="onCellKeydown($event, col.meta?.type)"
@@ -503,7 +505,7 @@ const getValidationClass = product => {
                     <div class="flex-1 max-w-2xl">
                       <p class="text-xs font-bold text-text/50 uppercase mb-3 flex items-center gap-2">
                         <font-awesome-icon icon="fa-solid fa-layer-group" />
-                        Rincian Komponen
+                        {{ t('master_data.package.component_details') }}
                       </p>
 
                       <!-- Loading Skeleton -->
@@ -525,8 +527,8 @@ const getValidationClass = product => {
                           <thead class="bg-secondary/10 text-xs font-semibold text-text/70">
                             <tr>
                               <th class="px-4 py-2">SKU</th>
-                              <th class="px-4 py-2">Nama Barang</th>
-                              <th class="px-4 py-2 text-center">Qty / Paket</th>
+                              <th class="px-4 py-2">{{ t('master_data.package.col_item_name') }}</th>
+                              <th class="px-4 py-2 text-center">{{ t('master_data.package.col_qty_package') }}</th>
                             </tr>
                           </thead>
                           <tbody class="divide-y divide-secondary/10">
@@ -547,11 +549,11 @@ const getValidationClass = product => {
                     </div>
                     <div class="w-64 shrink-0 flex flex-col gap-3 border-l border-secondary/10 pl-6 border-dashed">
                       <div>
-                        <span class="text-xs text-text/50 block mb-1">Berat Total (Est.)</span>
+                        <span class="text-xs text-text/50 block mb-1">{{ t('master_data.package.est_weight') }}</span>
                         <div class="font-mono text-sm font-medium">{{ getRow(virtualRow.index).weight }} kg</div>
                       </div>
                       <div>
-                        <span class="text-xs text-text/50 block mb-1">Update Terakhir</span>
+                        <span class="text-xs text-text/50 block mb-1">{{ t('master_data.package.last_updated') }}</span>
                         <div class="text-xs text-text/80">{{ new Date().toLocaleDateString('id-ID') }}</div>
                       </div>
                     </div>
@@ -575,7 +577,7 @@ const getValidationClass = product => {
             <td :colspan="columns.length" class="py-6 text-center text-primary/70 font-bold text-sm">
               <div class="flex items-center justify-center gap-2">
                 <font-awesome-icon icon="fa-solid fa-circle-notch" spin />
-                <span>Memuat data selanjutnya...</span>
+                <span>{{ t('master_data.package.loading_next') }}</span>
               </div>
             </td>
           </tr>

@@ -12,6 +12,7 @@ import FilterBar from '@/core/presentation/components/ui/FilterBar.vue'
 import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
 import DateRangeFilter from '@/core/presentation/components/ui/DateRangeFilter.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 // Lazy load tab components
 const DetailView = defineAsyncComponent(() => import('@/modules/hr/presentation/components/DetailView.vue'))
@@ -21,6 +22,7 @@ const AttendanceUploadTab = defineAsyncComponent(() => import('@/modules/hr/pres
 const AttendanceExclusionsModal = defineAsyncComponent(() => import('@/modules/hr/presentation/components/AttendanceExclusionsModal.vue'))
 
 // --- STATE ---
+const { t } = useI18n()
 const { toast } = useToast()
 const { fetchAbsensiRange, attendanceData } = useAttendance()
 const authStore = useAuthStore()
@@ -47,6 +49,21 @@ watch(isMobile, mobile => {
   mobileLayout.value = mobile ? 'card' : 'compact'
 })
 const canViewAll = computed(() => authStore.hasPermission('attendance.view_other'))
+
+const tabs = computed(() =>
+  canViewAll.value
+    ? [
+        { label: t('hris.tab.statistics'), value: 'statistik' },
+        { label: t('hris.tab.summary'), value: 'summary' },
+        { label: t('hris.tab.detail'), value: 'detail' },
+        { label: t('hris.tab.upload'), value: 'upload' }
+      ]
+    : [
+        { label: t('hris.tab.statistics'), value: 'statistik' },
+        { label: t('hris.tab.summary'), value: 'summary' },
+        { label: t('hris.tab.detail'), value: 'detail' }
+      ]
+)
 
 const displayedUsers = computed(() => {
   if (canViewAll.value && filterValues.value.name && filterValues.value.name.length > 0) {
@@ -86,7 +103,7 @@ async function fetchAttendanceData() {
       users.value = fetchedUsers
     }
   } catch {
-    toast('Gagal memuat data absensi.', 'error')
+    toast(t('hris.attendance.fetch_data_error'), 'error')
     users.value = []
     summary.value = null
   } finally {
@@ -102,7 +119,7 @@ watch([() => filterValues.value.startDate, () => filterValues.value.endDate, () 
 
 function handleRefresh() {
   fetchAttendanceData()
-  toast('Data berhasil diperbarui', 'success')
+  toast(t('hris.attendance.data_updated_success'), 'success')
 }
 
 // Watcher User Login: Init Data Awal
@@ -141,10 +158,10 @@ function clearFilters() {
 // --- EXPORT ---
 async function handleExportExcel() {
   if (displayedUsers.value.length === 0) {
-    toast('Tidak ada data untuk diekspor', 'warning')
+    toast(t('hris.attendance.no_data_export'), 'warning')
     return
   }
-  toast('Sedang menyiapkan file Excel...', 'info')
+  toast(t('hris.attendance.preparing_excel'), 'info')
 
   try {
     // Siapkan Sheet Ringkasan
@@ -199,7 +216,7 @@ async function handleExportExcel() {
     // Download file
     const filename = `Laporan_Absensi_${filterValues.value.startDate}_to_${filterValues.value.endDate}.xlsx`
     XLSX.writeFile(wb, filename)
-    toast('Berhasil mengunduh Excel', 'success')
+    toast(t('hris.attendance.excel_downloaded'), 'success')
   } catch (err) {
     console.error('Export Excel failed:', err)
   }
@@ -222,20 +239,7 @@ async function handleExportExcel() {
           <!-- TOP ROW: Tabs and Action Buttons -->
           <div class="flex flex-col md:flex-row justify-between items-center gap-3 w-full">
             <BaseTabs
-              :tabs="
-                canViewAll
-                  ? [
-                      { label: 'Statistik', value: 'statistik' },
-                      { label: 'Ringkasan', value: 'summary' },
-                      { label: 'Detail Log', value: 'detail' },
-                      { label: 'Unggah Data', value: 'upload' }
-                    ]
-                  : [
-                      { label: 'Statistik', value: 'statistik' },
-                      { label: 'Ringkasan', value: 'summary' },
-                      { label: 'Detail Log', value: 'detail' }
-                    ]
-              "
+              :tabs="tabs"
               v-model="activeTab"
               class="overflow-x-auto shrink-0 w-full md:w-auto custom-scrollbar"
             />
@@ -245,17 +249,17 @@ async function handleExportExcel() {
               <button
                 v-if="canViewAll"
                 @click="handleExportExcel"
-                title="Export Excel"
+                :title="t('common.btn.export')"
                 class="h-[42px] px-4 flex items-center justify-center gap-2 border border-primary/30 rounded-lg text-sm font-semibold text-primary hover:bg-primary/10 transition-all bg-primary/5 active:scale-[0.98] whitespace-nowrap flex-1 md:flex-none shadow-sm"
               >
                 <font-awesome-icon icon="fa-solid fa-file-export" />
-                <span class="hidden md:inline">Export</span>
+                <span class="hidden md:inline">{{ t('common.btn.export') }}</span>
               </button>
 
               <button
                 v-if="canViewAll"
                 @click="isExclusionsModalOpen = true"
-                title="Pengecualian Absen"
+                :title="t('hris.attendance.exclusion_title')"
                 class="bg-accent/10 border border-accent/30 text-accent hover:bg-accent/30 text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap flex-1 md:flex-none shadow-sm"
               >
                 <font-awesome-icon icon="fa-solid fa-user-shield" />
@@ -284,7 +288,7 @@ async function handleExportExcel() {
                       :disabled="isLoadingUsers"
                       label="label"
                       track-by="value"
-                      placeholder="Cari nama karyawan..."
+                      :placeholder="t('hris.attendance.search_employee_placeholder')"
                       class="w-full"
                     />
                   </div>
@@ -302,7 +306,7 @@ async function handleExportExcel() {
                         ? 'bg-primary text-secondary shadow-sm'
                         : 'text-text/60 hover:text-primary'
                     "
-                    title="Tampilan Card"
+                    :title="t('hris.attendance.card_view')"
                   >
                     <font-awesome-icon icon="fa-solid fa-grip" />
                   </button>
@@ -314,7 +318,7 @@ async function handleExportExcel() {
                         ? 'bg-primary text-secondary shadow-sm'
                         : 'text-text/60 hover:text-primary'
                     "
-                    title="Tampilan Compact"
+                    :title="t('hris.attendance.compact_view')"
                   >
                     <font-awesome-icon icon="fa-solid fa-list" />
                   </button>
@@ -330,7 +334,7 @@ async function handleExportExcel() {
     <div
       @click="isHeaderExpanded = !isHeaderExpanded"
       class="lg:hidden flex justify-center items-center py-1 cursor-pointer hover:bg-secondary/10 text-text/40 hover:text-primary transition-colors border-t border-secondary/10"
-      title="Toggle Header"
+      :title="t('hris.attendance.toggle_header')"
     >
       <font-awesome-icon :icon="isHeaderExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'" />
     </div>
@@ -341,7 +345,7 @@ async function handleExportExcel() {
       <KeepAlive>
         <div v-if="activeTab === 'summary'" key="summary">
           <p v-if="dataNotFoundForCurrentUser" class="text-center text-text/60 py-10">
-            Data absensi Anda untuk periode ini tidak ditemukan.
+            {{ t('hris.attendance.no_user_data_period') }}
           </p>
           <SummaryView
             v-else-if="displayedUsers.length > 0 || isDataLoading"
@@ -355,7 +359,7 @@ async function handleExportExcel() {
             :mobile-layout="mobileLayout"
           />
           <p v-else class="text-center text-text/60 py-10">
-            Pilih tanggal untuk menampilkan data, atau tidak ada data yang cocok dengan filter.
+            {{ t('hris.attendance.no_matching_data_filter') }}
           </p>
         </div>
 
@@ -374,7 +378,7 @@ async function handleExportExcel() {
 
         <div v-else-if="activeTab === 'detail'" key="detail">
           <p v-if="dataNotFoundForCurrentUser" class="text-center text-text/60 py-10">
-            Data absensi Anda untuk periode ini tidak ditemukan.
+            {{ t('hris.attendance.no_user_data_period') }}
           </p>
           <DetailView
             v-else-if="displayedUsers.length > 0"
@@ -396,7 +400,7 @@ async function handleExportExcel() {
             @refresh="handleRefresh"
             :mobile-layout="mobileLayout"
           />
-          <p v-else class="text-center text-text/60 py-10">Belum ada log detail.</p>
+          <p v-else class="text-center text-text/60 py-10">{{ t('hris.attendance.no_detail_logs') }}</p>
         </div>
 
         <div v-else-if="activeTab === 'upload' && canViewAll" key="upload">

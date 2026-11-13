@@ -1,8 +1,10 @@
 import { ref } from 'vue'
 import { attendanceApi } from '../infrastructure/attendance.api'
 import { AttendanceData } from '../domain/attendance.entity'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 export function useAttendance() {
+  const { t } = useI18n()
   const attendanceData = ref<AttendanceData | null>(null)
   const availableIndexes = ref<any[]>([])
   const isLoading = ref(false)
@@ -14,7 +16,7 @@ export function useAttendance() {
       error.value = null
       availableIndexes.value = await attendanceApi.getAvailableIndexes()
     } catch (err: any) {
-      error.value = err.message || 'Gagal mengambil index absensi'
+      error.value = err.message || t('hris.attendance.fetch_index_error')
     } finally {
       isLoading.value = false
     }
@@ -26,7 +28,7 @@ export function useAttendance() {
       error.value = null
       attendanceData.value = await attendanceApi.getAbsensiData(year, month)
     } catch (err: any) {
-      error.value = err.message || 'Gagal mengambil data absensi'
+      error.value = err.message || t('hris.attendance.fetch_data_error')
       attendanceData.value = null
     } finally {
       isLoading.value = false
@@ -39,7 +41,7 @@ export function useAttendance() {
       error.value = null
       attendanceData.value = await attendanceApi.getAbsensiRange(startDate, endDate)
     } catch (err: any) {
-      error.value = err.message || 'Gagal mengambil data absensi range'
+      error.value = err.message || t('hris.attendance.fetch_range_error')
       attendanceData.value = null
     } finally {
       isLoading.value = false
@@ -52,7 +54,7 @@ export function useAttendance() {
       error.value = null
       return await attendanceApi.uploadAbsensiFile(formData)
     } catch (err: any) {
-      error.value = err.message || 'Gagal mengupload file absensi'
+      error.value = err.message || t('hris.attendance.upload_error')
       throw err
     } finally {
       isLoading.value = false

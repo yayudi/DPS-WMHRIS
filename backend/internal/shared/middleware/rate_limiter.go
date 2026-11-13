@@ -39,7 +39,7 @@ func RateLimiter(requestsPerSecond float64, burst int) gin.HandlerFunc {
 
 		// Tolak jika token habis
 		if !limiter.Allow() {
-			utils.ErrorResponse(c, http.StatusTooManyRequests, "Too many requests. Please try again later.", "RATE_LIMIT_EXCEEDED")
+			utils.LocalizedError(c, http.StatusTooManyRequests, "errors.rate_limit_exceeded", nil, "RATE_LIMIT_EXCEEDED")
 			c.Abort()
 			return
 		}

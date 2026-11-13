@@ -19,6 +19,7 @@ import BaseContextMenu from '@/core/presentation/components/ui/BaseContextMenu.v
 import { useContextMenu } from '@/core/presentation/composables/useContextMenu'
 import { useInstantInlineEdit } from '@/core/presentation/composables/useInstantInlineEdit'
 import { useMobile } from '@/core/presentation/composables/useMobile'
+import { useI18n } from '@/core/infrastructure/localization'
 import { useUsers } from '../../application/useUsers'
 import { useRoles } from '../../application/useRoles'
 import { shiftApi } from '@/modules/hr/infrastructure/shift.api'
@@ -26,6 +27,7 @@ import type { UserManagementUser } from '../../domain/user.entity'
 
 const masterData = useMasterDataStore()
 const { isMobile } = useMobile()
+const { t } = useI18n()
 
 // Composables for Users and Roles
 const { users, isLoading: loadingUsers, fetchUsers, createUser, updateUser, deleteUser } = useUsers()
@@ -50,7 +52,7 @@ const newUser = ref({ username: '', password: '', role_id: null as number | null
 
 const shiftOptions = computed(() => {
   return [
-    { id: null, label: 'Default (Regular Office)' },
+    { id: null, label: t('settings.user.shift_default') },
     ...(allShifts.value || []).map(s => ({
       id: s.id,
       label: `${s.name} (${s.start_time?.slice(0, 5)} - ${s.end_time?.slice(0, 5)})`
@@ -61,6 +63,12 @@ const shiftOptions = computed(() => {
 const roleOptions = computed(() => {
   return (allRoles.value || []).map(r => ({ id: r.id, label: r.name }))
 })
+
+const contextMenuOptions = computed(() => [
+  { label: t('settings.user.menu_edit'), action: 'edit', icon: 'fa-solid fa-edit' },
+  { label: t('common.label.location'), action: 'location', icon: 'fa-solid fa-map-marker-alt' },
+  { label: t('settings.user.menu_delete'), action: 'delete', icon: 'fa-solid fa-trash', danger: true }
+])
 
 // Filter Logic Client-Side
 const filteredUsers = computed(() => {
@@ -143,8 +151,8 @@ async function handleCreateUser() {
 async function handleDeleteUser(user: UserManagementUser) {
   if (
     !(await swalConfirm(
-      'Konfirmasi Hapus',
-      'Apakah Anda yakin ingin menghapus pengguna ini? Pengguna akan dinonaktifkan dan tidak dapat login lagi.'
+      t('settings.user.confirm_delete_title'),
+      t('settings.user.confirm_delete_desc')
     ))
   )
     return
@@ -216,7 +224,7 @@ onMounted(fetchData)
       class="bg-primary text-secondary text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90 hover:shadow-sm transition-colors flex items-center gap-2 w-full md:w-auto justify-center"
     >
       <font-awesome-icon icon="fa-solid fa-plus" />
-      <span>Tambah Pengguna</span>
+      <span>{{ t('settings.user.add_btn') }}</span>
     </button>
   </div>
   <!-- Filter Section -->
@@ -226,7 +234,7 @@ onMounted(fetchData)
         <div class="grid grid-cols-1 md:grid-cols-2 lg:flex xl:flex-row lg:justify-between items-end gap-4">
           <!-- Search -->
           <div class="space-y-1.5 flex-1">
-            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">Pencarian</label>
+            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">{{ t('common.filter.search') }}</label>
             <div class="relative group lg:min-w-[400px]">
               <span
                 class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text/40 group-focus-within:text-primary transition-colors"
@@ -237,42 +245,42 @@ onMounted(fetchData)
                 v-model="searchQuery"
                 type="text"
                 class="w-full pl-10 pr-4 py-2.5 bg-background border border-secondary hover:border-primary/50 focus:border-primary rounded-lg text-sm transition-all shadow-sm"
-                placeholder="Cari username atau nickname..."
+                :placeholder="t('settings.user.search_placeholder')"
               />
             </div>
           </div>
 
           <!-- Role Filter -->
           <div class="space-y-1.5 w-full lg:w-[150px]">
-            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">Role</label>
+            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">{{ t('settings.user.role') }}</label>
             <TriStateSelect
               v-model="searchRole"
               :options="roleOptions"
               label="label"
               track="id"
-              placeholder="Semua Role"
+              :placeholder="t('settings.user.all_roles')"
             />
           </div>
 
           <!-- Shift Filter -->
           <div class="space-y-1.5 w-full lg:w-[150px]">
-            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">Shift</label>
+            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">{{ t('settings.user.shift') }}</label>
             <TriStateSelect
               v-model="searchShift"
               :options="shiftOptions"
               label="label"
               track="id"
-              placeholder="Semua Shift"
+              :placeholder="t('settings.user.all_shifts')"
             />
           </div>
 
           <button
             @click="handleResetFilters"
             class="h-[41px] px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-lg border border-danger bg-danger/10 hover:bg-danger/20 hover:text-danger transition-all text-danger shadow-sm"
-            title="Reset Filter"
+            :title="t('common.action.reset_filter')"
           >
             <font-awesome-icon icon="fa-solid fa-undo" />
-            <span class="hidden sm:inline">Reset</span>
+            <span class="hidden sm:inline">{{ t('common.btn.reset') }}</span>
           </button>
         </div>
       </template>
@@ -288,15 +296,15 @@ onMounted(fetchData)
           <th
             class="px-6 py-3 sticky left-0 z-30 text-center bg-secondary border-b border-r border-secondary/10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]"
           >
-            Username
+            {{ t('common.auth.username') }}
           </th>
-          <th class="px-6 py-3 text-center bg-secondary border-b border-r border-secondary/10">Nickname</th>
-          <th class="px-6 py-3 text-center bg-secondary border-b border-r border-secondary/10">Role</th>
-          <th class="px-6 py-3 text-center bg-secondary border-b border-r border-secondary/10">Shift</th>
+          <th class="px-6 py-3 text-center bg-secondary border-b border-r border-secondary/10">{{ t('settings.user.nickname') }}</th>
+          <th class="px-6 py-3 text-center bg-secondary border-b border-r border-secondary/10">{{ t('settings.user.role') }}</th>
+          <th class="px-6 py-3 text-center bg-secondary border-b border-r border-secondary/10">{{ t('settings.user.shift') }}</th>
           <th
             class="px-6 py-3 text-center sticky right-0 z-30 bg-secondary border-b border-secondary/10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]"
           >
-            Aksi
+            {{ t('common.label.action') }}
           </th>
         </tr>
       </thead>
@@ -319,7 +327,7 @@ onMounted(fetchData)
         </template>
 
         <tr v-else-if="filteredUsers.length === 0" key="empty">
-          <td colspan="5" class="py-12 text-center text-text/50 italic">Tidak ada data pengguna yang cocok.</td>
+          <td colspan="5" class="py-12 text-center text-text/50 italic">{{ t('settings.user.no_match') }}</td>
         </tr>
 
         <tr
@@ -342,14 +350,14 @@ onMounted(fetchData)
                 : 'px-6 py-4 sticky left-0 z-20 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]'
             "
           >
-            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Username</span>
+            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.auth.username') }}</span>
             <span>{{ user.username }}</span>
           </td>
           <td
             class="text-text/80"
             :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
           >
-            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Nickname</span>
+            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('settings.user.nickname') }}</span>
             <span
               class="font-medium text-text outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[50px]"
               contenteditable="true"
@@ -359,7 +367,7 @@ onMounted(fetchData)
             >
           </td>
           <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'">
-            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Role</span>
+            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('settings.user.role') }}</span>
             <select
               class="bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded text-xs font-semibold outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 cursor-pointer"
               :value="user.role_id || ''"
@@ -376,7 +384,7 @@ onMounted(fetchData)
             class="text-text/80 text-sm"
             :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
           >
-            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Shift</span>
+            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('settings.user.shift') }}</span>
             <div class="flex items-center gap-1.5 w-full md:w-auto">
               <font-awesome-icon icon="fa-solid fa-clock" class="text-text/40 text-xs" />
               <select
@@ -390,7 +398,7 @@ onMounted(fetchData)
                   )
                 "
               >
-                <option value="" class="bg-background text-text">Default (Regular Office)</option>
+                <option value="" class="bg-background text-text">{{ t('settings.user.shift_default') }}</option>
                 <option v-for="shift in allShifts" :key="shift.id" :value="shift.id" class="bg-background text-text">
                   {{ shift.name }} ({{ shift.start_time?.slice(0, 5) }} - {{ shift.end_time?.slice(0, 5) }})
                 </option>
@@ -411,7 +419,7 @@ onMounted(fetchData)
               <button
                 @click.stop="openContextMenu($event, user)"
                 class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-primary/10 text-text/40 hover:text-primary transition-colors"
-                title="Opsi Lanjutan"
+                :title="t('common.table.advanced_options')"
               >
                 <font-awesome-icon icon="fa-solid fa-ellipsis-vertical" />
               </button>
@@ -427,11 +435,7 @@ onMounted(fetchData)
     :visible="contextMenu.visible"
     :x="contextMenu.x"
     :y="contextMenu.y"
-    :options="[
-      { label: 'Edit Lengkap', action: 'edit', icon: 'fa-solid fa-edit' },
-      { label: 'Lokasi', action: 'location', icon: 'fa-solid fa-map-marker-alt' },
-      { label: 'Hapus Pengguna', action: 'delete', icon: 'fa-solid fa-trash', danger: true }
-    ]"
+    :options="contextMenuOptions"
     @close="contextMenu.visible = false"
     @action="handleContextAction"
   />
@@ -455,10 +459,10 @@ onMounted(fetchData)
   <!-- Modal untuk Tambah Pengguna -->
 
   <Teleport to="body">
-    <BaseModal :show="isCreateModalOpen" @close="isCreateModalOpen = false" title="Tambah Pengguna Baru">
+    <BaseModal :show="isCreateModalOpen" @close="isCreateModalOpen = false" :title="t('settings.user.create_title')">
       <form @submit.prevent="handleCreateUser" class="p-6 space-y-4 text-text/80">
         <div>
-          <label for="username" class="block text-sm font-medium mb-1">Username</label>
+          <label for="username" class="block text-sm font-medium mb-1">{{ t('common.auth.username') }}</label>
           <input
             v-model="newUser.username"
             id="username"
@@ -468,7 +472,7 @@ onMounted(fetchData)
           />
         </div>
         <div>
-          <label for="nickname" class="block text-sm font-medium text-text/80 mb-1">Nickname (Opsional)</label>
+          <label for="nickname" class="block text-sm font-medium text-text/80 mb-1">{{ t('settings.user.nickname_optional') }}</label>
           <input
             v-model="newUser.nickname"
             id="nickname"
@@ -477,7 +481,7 @@ onMounted(fetchData)
           />
         </div>
         <div>
-          <label for="password" class="block text-sm font-medium text-text/80 mb-1">Password</label>
+          <label for="password" class="block text-sm font-medium text-text/80 mb-1">{{ t('common.auth.password') }}</label>
           <input
             v-model="newUser.password"
             id="password"
@@ -487,24 +491,24 @@ onMounted(fetchData)
           />
         </div>
         <div>
-          <label for="role" class="block text-sm font-medium text-text/80 mb-1">Role</label>
+          <label for="role" class="block text-sm font-medium text-text/80 mb-1">{{ t('settings.user.role') }}</label>
           <BaseSelect
             v-model="newUser.role_id"
             :options="allRoles"
             track-by="id"
             label="name"
             emit-value
-            placeholder="Pilih Role"
+            :placeholder="t('settings.user.select_role')"
           />
         </div>
         <div>
-          <label for="shift" class="block text-sm font-medium text-text/80 mb-1">Shift (Opsional)</label>
+          <label for="shift" class="block text-sm font-medium text-text/80 mb-1">{{ t('settings.user.shift_optional') }}</label>
           <BaseSelect
             v-model="newUser.shift_id"
             :options="shiftOptions"
             track-by="id"
             emit-value
-            placeholder="Pilih Shift"
+            :placeholder="t('settings.user.select_shift')"
           />
         </div>
       </form>
@@ -515,7 +519,7 @@ onMounted(fetchData)
           class="bg-danger text-secondary border border-secondary/30 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-danger/90 flex items-center gap-2"
         >
           <font-awesome-icon icon="fa-solid fa-times" />
-          <span>Batal</span>
+          <span>{{ t('common.btn.cancel') }}</span>
         </button>
         <button
           type="submit"
@@ -523,7 +527,7 @@ onMounted(fetchData)
           class="bg-primary text-secondary px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary/90 flex items-center gap-2"
         >
           <font-awesome-icon icon="fa-solid fa-save" />
-          <span>Simpan</span>
+          <span>{{ t('common.btn.save') }}</span>
         </button>
       </template>
     </BaseModal>

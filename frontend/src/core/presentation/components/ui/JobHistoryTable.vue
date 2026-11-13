@@ -2,6 +2,9 @@
 import { computed } from 'vue'
 import { formatDate, formatFileName } from '@/core/utils/formatters'
 import { useDownload } from '@/core/presentation/composables/useDownload'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 export interface JobItem {
   id?: string | number
@@ -52,13 +55,13 @@ const { openDownloadUrl } = useDownload()
 const formatStatus = (status?: string): string => {
   switch (status) {
     case 'PENDING':
-      return 'Menunggu'
+      return t('common.status.pending')
     case 'PROCESSING':
-      return 'Memproses'
+      return t('common.status.processing')
     case 'COMPLETED':
-      return 'Selesai'
+      return t('common.status.completed')
     case 'FAILED':
-      return 'Gagal'
+      return t('common.status.failed')
     default:
       return status || '-'
   }
@@ -88,7 +91,7 @@ const getJobFileName = (job: JobItem): string => {
   if (job.original_filename) return job.original_filename
   if (job.originalFilename) return job.originalFilename
   const path = job.file_path || job.filePath
-  return formatFileName(path, job.type || job.job_type)
+  return formatFileName(path, job.type || job.job_type, t)
 }
 
 const getDownloadUrl = (job: JobItem): string | undefined => {
@@ -126,7 +129,7 @@ const handleDownload = (job: JobItem) => {
       class="flex flex-col items-center justify-center p-8 text-text/40"
     >
       <font-awesome-icon icon="fa-solid fa-circle-notch" spin size="2x" />
-      <p class="mt-3 text-xs font-medium">Memuat riwayat...</p>
+      <p class="mt-3 text-xs font-medium">{{ t('common.status.loading') }}</p>
     </div>
 
     <!-- Empty State -->
@@ -137,7 +140,7 @@ const handleDownload = (job: JobItem) => {
       <div class="w-14 h-14 bg-secondary/10 rounded-full flex items-center justify-center mb-3 text-text/30 text-2xl">
         <font-awesome-icon icon="fa-solid fa-folder-open" />
       </div>
-      <p class="text-xs text-text/60 font-medium">{{ emptyText }}</p>
+      <p class="text-xs text-text/60 font-medium">{{ emptyText === 'Belum ada riwayat file.' ? t('core.import.no_history') : emptyText }}</p>
     </div>
 
     <!-- List Layout -->
@@ -174,10 +177,10 @@ const handleDownload = (job: JobItem) => {
           <p
             v-if="job.status === 'FAILED'"
             class="text-[11px] text-danger font-semibold flex items-center gap-1 mt-1 truncate"
-            :title="job.error_message || job.errorMessage || 'Gagal'"
+            :title="job.error_message || job.errorMessage || t('common.status.failed')"
           >
             <font-awesome-icon icon="fa-solid fa-circle-exclamation" />
-            {{ job.error_message || job.errorMessage || 'Gagal memproses file' }}
+            {{ job.error_message || job.errorMessage || t('common.status.failed') }}
           </p>
           <p
             v-else-if="showType && (job.type || job.job_type)"
@@ -196,7 +199,7 @@ const handleDownload = (job: JobItem) => {
             class="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-secondary rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
           >
             <font-awesome-icon icon="fa-solid fa-download" />
-            <span>Unduh</span>
+            <span>{{ t('common.btn.download') }}</span>
           </button>
           <span
             v-else-if="job.status === 'PROCESSING' || job.status === 'PENDING'"
@@ -213,10 +216,10 @@ const handleDownload = (job: JobItem) => {
       <table class="w-full text-left border-collapse">
         <thead>
           <tr class="border-b border-secondary/20 bg-secondary/5 text-[11px] font-bold uppercase text-text/60">
-            <th class="p-3">File / Tipe</th>
-            <th class="p-3">Waktu</th>
-            <th class="p-3">Status</th>
-            <th v-if="showDownload" class="p-3 text-right">Aksi</th>
+            <th class="p-3">{{ t('core.import.col_file_type') }}</th>
+            <th class="p-3">{{ t('common.label.time') }}</th>
+            <th class="p-3">{{ t('common.label.status') }}</th>
+            <th v-if="showDownload" class="p-3 text-right">{{ t('common.label.action') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-secondary/10 text-xs">
@@ -258,13 +261,13 @@ const handleDownload = (job: JobItem) => {
                 class="px-2.5 py-1 bg-primary/10 text-primary hover:bg-primary hover:text-secondary rounded-lg font-bold text-xs transition-colors inline-flex items-center gap-1.5"
               >
                 <font-awesome-icon icon="fa-solid fa-download" />
-                <span>Unduh</span>
+                <span>{{ t('common.btn.download') }}</span>
               </button>
               <span v-else-if="job.status === 'FAILED'" class="text-danger font-medium text-xs">
-                Gagal
+                {{ t('common.status.failed') }}
               </span>
               <span v-else class="text-text/40 text-xs italic">
-                Memproses...
+                {{ t('common.status.processing') }}
               </span>
             </td>
           </tr>

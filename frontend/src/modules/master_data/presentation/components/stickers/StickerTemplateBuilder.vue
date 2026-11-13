@@ -1,6 +1,7 @@
 <script setup>
 import { swalAlert } from '@/core/presentation/composables/useSweetAlert'
 import { ref, watch } from 'vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { stickerApi } from '@/modules/master_data/infrastructure/sticker.api'
 import MediaPickerModal from '@/core/presentation/components/shared/MediaPickerModal.vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
@@ -19,6 +20,7 @@ const props = defineProps({
   initialTemplate: { type: Object, default: null }
 })
 const emit = defineEmits(['close', 'saved'])
+const { t } = useI18n()
 
 // Basic State
 const templateName = ref('')
@@ -201,7 +203,7 @@ watch(() => props.show, (newVal) => {
 
 const saveTemplate = async () => {
   if (!templateName.value.trim()) {
-    await swalAlert('Nama template tidak boleh kosong!')
+    await swalAlert(t('master_data.sticker.empty_name_alert'))
     return
   }
   if (!fabricCanvas) return
@@ -251,7 +253,7 @@ const saveTemplate = async () => {
     emit('close')
   } catch (err) {
     console.error('Save error', err)
-    await swalAlert('Terjadi kesalahan jaringan.')
+    await swalAlert(t('master_data.sticker.network_error'))
   } finally {
     isSaving.value = false
   }
@@ -270,8 +272,8 @@ const saveTemplate = async () => {
                 <font-awesome-icon icon="fa-solid fa-object-group" class="text-xl" />
               </div>
               <div>
-                <h3 class="text-xl font-black text-text tracking-tight">Template Builder</h3>
-                <p class="text-sm text-text/60">Desain stiker khusus dengan fitur drag & drop</p>
+                <h3 class="text-xl font-black text-text tracking-tight">{{ t('master_data.sticker.builder_title') }}</h3>
+                <p class="text-sm text-text/60">{{ t('master_data.sticker.builder_subtitle') }}</p>
               </div>
             </div>
             <button
@@ -295,7 +297,7 @@ const saveTemplate = async () => {
                   <h4 class="text-xs font-bold text-primary uppercase tracking-widest flex items-center gap-2">
                     <font-awesome-icon icon="fa-solid fa-sliders-h" /> Properti Objek
                   </h4>
-                  <span class="text-[10px] px-2 py-0.5 bg-accent/10 text-accent rounded-full font-bold">Terpilih</span>
+                  <span class="text-[10px] px-2 py-0.5 bg-accent/10 text-accent rounded-full font-bold">{{ t('common.label.selected') }}</span>
                 </div>
 
                 <!-- Transform Properties -->
@@ -451,7 +453,7 @@ const saveTemplate = async () => {
                   <!-- Font Size -->
                   <div>
                     <label class="text-xs font-bold text-text/70 mb-1 flex justify-between">
-                      <span>Ukuran Font</span>
+                      <span>{{ t('master_data.sticker.font_size') }}</span>
                       <span class="text-primary">{{ activeObjFontSize }}px</span>
                     </label>
                     <input
@@ -603,8 +605,8 @@ const saveTemplate = async () => {
                   <div class="flex gap-4">
                     <div class="flex-1 min-w-0">
                       <label class="flex justify-between items-center text-[10px] font-bold text-text/70 mb-1">
-                        <span>Warna Utama</span>
-                        <button @click="updateProperty('fill', 'transparent')" class="text-primary hover:underline font-normal text-[9px]">Transparan</button>
+                        <span>{{ t('master_data.sticker.main_color') }}</span>
+                        <button @click="updateProperty('fill', 'transparent')" class="text-primary hover:underline font-normal text-[9px]">{{ t('master_data.sticker.transparent') }}</button>
                       </label>
                       <div class="flex items-center gap-1">
                         <input
@@ -624,8 +626,8 @@ const saveTemplate = async () => {
                     </div>
                     <div class="flex-1 min-w-0">
                       <label class="flex justify-between items-center text-[10px] font-bold text-text/70 mb-1">
-                        <span>Warna Garis</span>
-                        <button @click="updateProperty('stroke', 'transparent')" class="text-primary hover:underline font-normal text-[9px]">Transparan</button>
+                        <span>{{ t('master_data.sticker.stroke_color') }}</span>
+                        <button @click="updateProperty('stroke', 'transparent')" class="text-primary hover:underline font-normal text-[9px]">{{ t('master_data.sticker.transparent') }}</button>
                       </label>
                       <div class="flex items-center gap-1">
                         <input
@@ -648,7 +650,7 @@ const saveTemplate = async () => {
                   <!-- Stroke Width -->
                   <div>
                     <label class="text-xs font-bold text-text/70 mb-1 flex justify-between">
-                      <span>Tebal Garis</span>
+                      <span>{{ t('master_data.sticker.stroke_width') }}</span>
                       <span class="text-primary">{{ activeObjStrokeWidth }}px</span>
                     </label>
                     <input
@@ -671,7 +673,7 @@ const saveTemplate = async () => {
                 class="p-4 flex-1 bg-background/50 flex flex-col items-center justify-center text-center text-text/40"
               >
                 <font-awesome-icon icon="fa-solid fa-mouse-pointer" class="text-3xl mb-2 opacity-50" />
-                <p class="text-xs">Klik elemen di kanvas untuk<br />melihat properti.</p>
+                <p class="text-xs">{{ t('master_data.sticker.click_element_hint') }}</p>
               </div>
             </div>
 
@@ -1162,7 +1164,7 @@ const saveTemplate = async () => {
                 @click="$emit('close')"
                 class="px-6 py-2.5 rounded-xl font-bold text-text bg-secondary border border-primary/20 hover:bg-background transition-colors"
               >
-                Batal
+                {{ t('common.btn.cancel') }}
               </button>
               <button
                 @click="saveTemplate"
@@ -1171,7 +1173,7 @@ const saveTemplate = async () => {
               >
                 <font-awesome-icon v-if="isSaving" icon="fa-solid fa-spinner" class="animate-spin" />
                 <font-awesome-icon v-else icon="fa-solid fa-save" />
-                {{ isSaving ? 'Menyimpan...' : 'Simpan Template' }}
+                {{ isSaving ? t('common.status.saving') : t('common.btn.save') }}
               </button>
             </div>
           </div>

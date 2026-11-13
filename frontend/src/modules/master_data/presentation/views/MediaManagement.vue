@@ -3,6 +3,7 @@ import { swalConfirm, swalAlert } from '@/core/presentation/composables/useSweet
 import { ref, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue'
 import debounce from 'lodash/debounce'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { useImageActions } from '@/modules/master_data/presentation/composables/useImageActions'
 import { useMedia } from '../../application/useMedia'
 import MediaInfoModal from '../components/MediaInfoModal.vue'
@@ -35,6 +36,7 @@ const linkStatusOptions = [
 
 const { isMobile } = useMobile()
 const { toast } = useToast()
+const { t } = useI18n()
 const { downloadImage } = useImageActions()
 const mediaList = ref([])
 const viewMode = ref(localStorage.getItem('mediaViewMode') || 'grid')
@@ -238,7 +240,7 @@ const fetchMedia = async (page = 1, silent = false) => {
     }
   } catch (error) {
     console.error('Failed to load media:', error)
-    await swalAlert(error.response?.data?.message || 'Gagal memuat galeri media.')
+    await swalAlert(error.response?.data?.message || t('master_data.media.load_gallery_failed'))
   } finally {
     isLoading.value = false
   }
@@ -333,7 +335,7 @@ const autoCropAll = async () => {
     selectedFiles.value = newFiles
   } catch (error) {
     console.error('Auto crop failed:', error)
-    await swalAlert('Gagal melakukan auto-crop.')
+    await swalAlert(t('master_data.media.auto_crop_failed'))
   } finally {
     autoCropAllProcessing.value = false
   }
@@ -372,7 +374,7 @@ const executeBulkUpload = async () => {
   if (selectedFiles.value.length === 0) return
   const invalidIndex = fileTitles.value.findIndex(t => isGenericTitle(t))
   if (invalidIndex !== -1) {
-    toast(`Silakan ubah nama file "${fileTitles.value[invalidIndex]}" menjadi lebih spesifik.`, 'warning')
+    toast(t('master_data.media.rename_warning', { filename: fileTitles.value[invalidIndex] }), 'warning')
     return
   }
 
@@ -411,10 +413,10 @@ const executeBulkUpload = async () => {
     console.error(err)
     const errData = err.response?.data || err
     if (errData?.error_code === 'DUPLICATE_MEDIA') {
-      await swalAlert(`Duplikat terdeteksi: ${errData.message}\n\nGunakan aset yang sudah ada.`)
+      await swalAlert(t('master_data.media.duplicate_detected', { message: errData.message }))
     } else {
       console.error('Upload Error:', err)
-      await swalAlert(errData?.message || 'Gagal mengunggah beberapa gambar.')
+      await swalAlert(errData?.message || t('master_data.media.upload_partial_failed'))
     }
   } finally {
     isUploading.value = false
@@ -427,17 +429,17 @@ const executeBulkUpload = async () => {
 
 const deleteMedia = async (id, usageCount) => {
   if (usageCount > 0) {
-    await swalAlert('Media ini sedang digunakan oleh ' + usageCount + ' produk. Tidak bisa dihapus.')
+    await swalAlert(t('master_data.media.media_in_use_error', { count: usageCount }))
     return
   }
-  if (!(await swalConfirm('Yakin ingin menghapus aset media ini?'))) return
+  if (!(await swalConfirm(t('master_data.media.confirm_delete_asset')))) return
 
   try {
     await useMedia().deleteMedia(id)
     fetchMedia(pagination.value.page)
   } catch (error: any) {
     console.error('Delete Error:', error)
-    await swalAlert(error.response?.data?.message || error.message || 'Gagal menghapus gambar.')
+    await swalAlert(error.response?.data?.message || error.message || t('master_data.media.delete_image_failed'))
   }
 }
 
@@ -450,7 +452,7 @@ const bulkCopyLinks = async () => {
   const links = items.map(i => resolveUrl(i.main_path)).join('\n')
   try {
     await navigator.clipboard.writeText(links)
-    toast(`${items.length} tautan berhasil disalin!`, 'success')
+    toast(t('master_data.media.links_copied', { count: items.length }), 'success')
   } catch (e) {
     console.error(e)
   }
@@ -460,9 +462,9 @@ const bulkDownloadImages = async () => {
   const items = getSelectedItems()
   if (items.length === 0) return
   for (const item of items) {
-    await downloadImage(resolveUrl(item.main_path), item.title || 'Gambar')
+    await downloadImage(resolveUrl(item.main_path), item.title || t('core.media.image_default_title'))
   }
-  toast(`${items.length} gambar sedang diunduh.`, 'success')
+  toast(t('master_data.media.images_downloading', { count: items.length }), 'success')
 }
 
 // Global Drag and Drop State
@@ -494,7 +496,7 @@ const handleDrop = async e => {
 
   const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'))
   if (imageFiles.length === 0) {
-    await swalAlert('Hanya format/tipe file gambar yang didukung.')
+    await swalAlert(t('master_data.media.unsupported_format'))
     return
   }
 
@@ -527,8 +529,8 @@ onUnmounted(() => {
     >
       <div class="bg-background px-10 py-8 rounded-2xl shadow-2xl flex flex-col items-center">
         <font-awesome-icon icon="fa-solid fa-cloud-arrow-up" class="text-6xl text-primary mb-4 animate-bounce" />
-        <h2 class="text-2xl font-bold text-text">Lepaskan gambar di sini</h2>
-        <p class="text-text/70 mt-2">Gambar akan otomatis diunggah ke pustaka</p>
+        <h2 class="text-2xl font-bold text-text">{{ t('master_data.media.drop_title') }}</h2>
+        <p class="text-text/70 mt-2">{{ t('master_data.media.drop_subtitle') }}</p>
       </div>
     </div>
 
@@ -564,33 +566,33 @@ onUnmounted(() => {
             class="px-3 py-1.5 rounded-lg hover:bg-primary/10 hover:text-primary text-text text-sm font-semibold transition-colors flex items-center whitespace-nowrap"
             title="Salin semua tautan"
           >
-            <font-awesome-icon icon="fa-solid fa-link" class="mr-2" /> Salin Link
+            <font-awesome-icon icon="fa-solid fa-link" class="mr-2" /> {{ t('core.media.copy_link') }}
           </button>
           <button
             @click="bulkDownloadImages"
             class="px-3 py-1.5 rounded-lg hover:bg-primary/10 hover:text-primary text-text text-sm font-semibold transition-colors flex items-center whitespace-nowrap"
             title="Unduh semua gambar terpilih"
           >
-            <font-awesome-icon icon="fa-solid fa-download" class="mr-2" /> Unduh
+            <font-awesome-icon icon="fa-solid fa-download" class="mr-2" /> {{ t('common.btn.download') }}
           </button>
           <div class="w-px h-6 bg-secondary/30"></div>
           <button
             @click="isLinkProductModalOpen = true"
             class="px-3 py-1.5 rounded-lg hover:bg-primary/10 hover:text-primary text-text text-sm font-semibold transition-colors flex items-center whitespace-nowrap"
           >
-            <font-awesome-icon icon="fa-solid fa-chart-diagram" class="mr-2" /> Tautkan
+            <font-awesome-icon icon="fa-solid fa-chart-diagram" class="mr-2" /> {{ t('core.media.link_product_title') }}
           </button>
           <button
             @click="isBulkEditTagsModalOpen = true"
             class="px-3 py-1.5 rounded-lg hover:bg-accent/10 hover:text-accent text-text text-sm font-semibold transition-colors flex items-center whitespace-nowrap"
           >
-            <font-awesome-icon icon="fa-solid fa-tags" class="mr-2" /> Tag Massal
+            <font-awesome-icon icon="fa-solid fa-tags" class="mr-2" /> {{ t('core.media.tag_bulk_title') }}
           </button>
           <button
             @click="confirmBulkDelete"
             class="px-3 py-1.5 rounded-lg bg-danger/10 hover:bg-danger hover:text-background text-danger text-sm font-bold transition-colors flex items-center whitespace-nowrap"
           >
-            <font-awesome-icon icon="fa-solid fa-trash" class="mr-2" /> Hapus
+            <font-awesome-icon icon="fa-solid fa-trash" class="mr-2" /> {{ t('common.btn.delete') }}
           </button>
         </div>
       </div>
@@ -599,7 +601,7 @@ onUnmounted(() => {
           <input
             type="text"
             v-model="globalSearchStr"
-            placeholder="Cari nama file, SKU, atau tag..."
+            :placeholder="t('core.media.search_placeholder')"
             class="input input-sm input-bordered w-full p-2 pr-8 text-text rounded-lg bg-background h-[42px]"
           />
           <font-awesome-icon
@@ -649,7 +651,7 @@ onUnmounted(() => {
           "
         >
           <font-awesome-icon icon="fa-solid fa-check-double" class="mr-2" />
-          <span v-text="isSelectionMode ? 'Batal' : 'Pilih'"></span>
+          <span>{{ isSelectionMode ? t('common.btn.cancel') : t('core.media.select_media') }}</span>
         </button>
         <button
           @click="triggerExcelUpload"
@@ -658,7 +660,7 @@ onUnmounted(() => {
           title="Tautkan Massal via Excel"
         >
           <font-awesome-icon icon="fa-solid fa-file-excel" :class="isMobile ? 'mr-2' : ''" />
-          <span v-if="isMobile">Tautkan Massal (Excel)</span>
+          <span v-if="isMobile">{{ t('master_data.media.bulk_link_excel') }}</span>
         </button>
         <button
           @click="triggerUpload"
@@ -666,7 +668,9 @@ onUnmounted(() => {
           :disabled="isUploading"
         >
           <font-awesome-icon icon="fa-solid fa-upload" :class="isMobile ? 'mr-2' : ''" />
-          <span v-if="isMobile" v-text="isUploading ? 'Mengunggah...' : 'Unggah Aset'"></span>
+          <span v-if="isMobile">{{
+            isUploading ? t('common.status.uploading') : t('master_data.media.upload_new')
+          }}</span>
         </button>
       </div>
     </div>
@@ -863,7 +867,7 @@ onUnmounted(() => {
       <div class="w-16 h-16 bg-secondary/50 shadow-inner rounded-full flex items-center justify-center mx-auto mb-4">
         <font-awesome-icon icon="fa-solid fa-images" class="text-2xl text-text/50" />
       </div>
-      <h3 class="text-lg font-bold text-text">Belum ada aset</h3>
+      <h3 class="text-lg font-bold text-text">{{ t('master_data.media.empty_assets') }}</h3>
       <p class="text-text/60 text-sm mt-1 max-w-sm mx-auto">
         Upload gambar dari komputer Anda untuk mulai mengisi galeri media.
       </p>
@@ -911,7 +915,7 @@ onUnmounted(() => {
           >
             <font-awesome-icon v-if="autoCropAllProcessing" icon="fa-solid fa-spinner" spin />
             <font-awesome-icon v-else icon="fa-solid fa-crop-simple" />
-            <span class="hidden sm:inline">Auto 1:1 Semua</span>
+            <span class="hidden sm:inline">{{ t('master_data.media.auto_crop_all') }}</span>
           </button>
         </div>
       </template>
@@ -980,7 +984,9 @@ onUnmounted(() => {
 
       <!-- Tautan Produk Otomatis (Autocomplete) -->
       <div class="form-control mb-4">
-        <label class="label"><span class="label-text text-text font-semibold">Tautkan ke Produk</span></label>
+        <label class="label"
+          ><span class="label-text text-text font-semibold">{{ t('master_data.media.link_to_product') }}</span></label
+        >
 
         <!-- Selected Products Pills -->
         <div v-if="bulkSelectedProducts.length > 0" class="flex flex-wrap gap-2 mb-2">
@@ -1002,7 +1008,7 @@ onUnmounted(() => {
             type="text"
             v-model="bulkProductSearchQuery"
             class="input input-bordered border border-secondary bg-background rounded-md px-2 py-1 text-text w-full"
-            placeholder="Ketik minimal 2 huruf untuk cari SKU / nama produk..."
+            :placeholder="t('core.media.link_search_placeholder')"
           />
           <font-awesome-icon
             v-if="isBulkProductSearching"
@@ -1033,7 +1039,7 @@ onUnmounted(() => {
                   v-if="prod.is_active === 0"
                   class="text-[10px] bg-danger/10 text-danger px-2 py-0.5 rounded font-bold"
                 >
-                  Arsip
+                  {{ t('common.status.archived') }}
                 </span>
               </div>
               <span class="text-xs text-text/80">{{ prod.name }}</span>
@@ -1046,23 +1052,23 @@ onUnmounted(() => {
             "
             class="absolute top-full left-0 w-full mt-1 bg-background border border-secondary p-3 text-center text-xs text-text/60 rounded-lg shadow-xl z-[60]"
           >
-            Produk tidak ditemukan.
+            {{ t('core.media.link_no_match') }}
           </div>
         </div>
       </div>
 
       <div class="form-control mb-4">
-        <label class="label"><span class="label-text text-text">Global Tags</span></label>
+        <label class="label"
+          ><span class="label-text text-text">{{ t('master_data.media.global_tags') }}</span></label
+        >
         <input
           type="text"
           v-model="bulkTagsStr"
           class="input input-bordered border border-secondary bg-background rounded-md px-2 py-1 text-text w-full"
-          placeholder="Ex: product, black, promo"
+          :placeholder="t('core.media.tag_input_placeholder')"
         />
         <label class="label">
-          <span class="label-text-alt text-text/60"
-            >Tag dipisahkan koma. Tag ini akan diaplikasikan merata ke seluruh berkas yang akan Anda unggah.</span
-          >
+          <span class="label-text-alt text-text/60">{{ t('master_data.media.global_tags_hint') }}</span>
         </label>
       </div>
 
@@ -1070,14 +1076,14 @@ onUnmounted(() => {
         <div class="flex w-full justify-end gap-2">
           <div v-if="isUploading" class="text-sm font-medium text-primary animate-pulse flex items-center mr-auto">
             <font-awesome-icon icon="fa-solid fa-spinner" spin class="mr-2" />
-            {{ uploadProgress || 'Mempersiapkan unggahan...' }}
+            {{ uploadProgress || t('common.status.preparing') }}
           </div>
           <button
             @click="isBulkModalOpen = false"
             class="px-4 py-2 rounded-lg bg-secondary text-text font-medium hover:brightness-95 transition-all text-center"
             :disabled="isUploading"
           >
-            Batal
+            {{ t('common.btn.cancel') }}
           </button>
           <button
             @click="executeBulkUpload"
@@ -1085,7 +1091,9 @@ onUnmounted(() => {
             :disabled="isUploading"
           >
             <font-awesome-icon v-if="isUploading" icon="fa-solid fa-spinner" spin />
-            <span v-else> <font-awesome-icon icon="fa-solid fa-cloud-upload-alt" class="mr-2" /> Eksekusi </span>
+            <span v-else>
+              <font-awesome-icon icon="fa-solid fa-cloud-upload-alt" class="mr-2" /> {{ t('common.btn.apply') }}
+            </span>
           </button>
         </div>
       </template>
@@ -1151,4 +1159,3 @@ onUnmounted(() => {
   animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 </style>
-

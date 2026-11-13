@@ -4,6 +4,7 @@ import { ref, watch, computed, onMounted } from 'vue'
 import { useFirebaseSync } from '@/core/presentation/composables/useFirebaseSync'
 import { useMagicKeys, refDebounced } from '@vueuse/core'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { usePackages } from '../../application/usePackages'
 import { useProducts } from '../../application/useProducts'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
@@ -23,6 +24,7 @@ import { useCatalogManagement } from '../composables/useCatalogManagement'
 
 const { toast } = useToast()
 const { isMobile } = useMobile()
+const { t } = useI18n()
 
 // --- CATALOG COMPOSABLE ---
 const {
@@ -176,7 +178,7 @@ const handleExport = async ({ format }) => {
     const response = await exportPackages(params)
 
     if (response?.success) {
-      toast('Permintaan export paket diterima.', 'success')
+      toast(response?.message || t('common.status.success'), 'success')
       downloadStore.notifyNewJob()
     }
   } catch (err) {
@@ -191,7 +193,7 @@ const handleImport = async formData => {
   isImporting.value = true
   try {
     await uploadPackageUpdate(formData)
-    toast('File paket diunggah. Cek menu Logs/Laporan untuk status.', 'info')
+    toast(t('master_data.package.upload_info'), 'info')
     uploadStore.notifyNewJob()
     showBatchEditModal.value = false
     fetchProducts()
@@ -271,8 +273,8 @@ watch(Slash, pressed => {
                   <BaseSwitch
                     :model-value="filterStatus === 'archived'"
                     @update:model-value="val => (filterStatus = val ? 'archived' : 'active')"
-                    left-label="Aktif"
-                    right-label="Arsip"
+                    :left-label="t('common.status.active')"
+                    :right-label="t('common.status.archived')"
                     class="w-full sm:w-auto"
                   />
                 </div>
@@ -287,7 +289,7 @@ watch(Slash, pressed => {
               class="px-5 py-2 bg-danger hover:bg-danger/90 text-secondary rounded-xl font-medium flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
             >
               <font-awesome-icon icon="fa-solid fa-times" />
-              <span class="hidden sm:inline">Batal</span>
+              <span class="hidden sm:inline">{{ t('common.btn.cancel') }}</span>
             </button>
 
             <button
@@ -298,7 +300,7 @@ watch(Slash, pressed => {
             >
               <font-awesome-icon v-if="isSavingInline" icon="fa-solid fa-spinner" spin class="mr-2" />
               <font-awesome-icon v-else icon="fa-solid fa-save" class="mr-2" />
-              Simpan Semua ({{ dirtyProducts.size }})
+              {{ t('common.btn.save') }} ({{ dirtyProducts.size }})
             </button>
 
             <button
@@ -307,7 +309,7 @@ watch(Slash, pressed => {
               title="Edit paket secara massal (Export & Import)"
             >
               <font-awesome-icon icon="fa-solid fa-pen-to-square" />
-              <span class="hidden sm:inline">Batch Edit</span>
+              <span class="hidden sm:inline">{{ t('master_data.package.btn_batch_edit') }}</span>
             </button>
 
             <button
@@ -315,7 +317,7 @@ watch(Slash, pressed => {
               class="px-5 py-2 bg-primary hover:bg-primary/90 text-secondary rounded-xl font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
             >
               <font-awesome-icon icon="fa-solid fa-plus" />
-              <span>Buat Paket</span>
+              <span>{{ t('master_data.package.btn_create') }}</span>
             </button>
           </div>
         </div>
@@ -364,7 +366,7 @@ watch(Slash, pressed => {
             <span class="bg-primary/10 text-primary w-6 h-6 flex items-center justify-center rounded-full text-xs">{{
               selectionCount
             }}</span>
-            <span>Dipilih</span>
+            <span>{{ t('master_data.package.selected_count') }}</span>
           </div>
           <div class="flex items-center gap-3">
             <button
@@ -374,7 +376,7 @@ watch(Slash, pressed => {
               :disabled="isProcessingBulk"
             >
               <font-awesome-icon icon="fa-solid fa-rotate-left" :spin="isProcessingBulk" />
-              Pulihkan
+              {{ t('master_data.context_menu.restore_product') }}
             </button>
             <button
               v-else
@@ -383,13 +385,13 @@ watch(Slash, pressed => {
               :disabled="isProcessingBulk"
             >
               <font-awesome-icon icon="fa-solid fa-box-archive" :spin="isProcessingBulk" />
-              Arsipkan
+              {{ t('master_data.context_menu.archive_product') }}
             </button>
           </div>
           <button
             @click="selectedIds.clear()"
             class="ml-2 text-text/40 hover:text-text text-xl leading-none"
-            title="Batalkan Pilihan"
+            :title="t('common.btn.cancel')"
           >
             &times;
           </button>

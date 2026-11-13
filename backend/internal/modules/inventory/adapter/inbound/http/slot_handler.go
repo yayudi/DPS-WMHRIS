@@ -6,7 +6,6 @@ import (
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
-	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -29,55 +28,53 @@ func (h *SlotHandler) AddSlot(c *gin.Context) {
 	}
 	req := *reqPtr
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "UNAUTHORIZED")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	slot, err := h.slotService.AddSlot(c.Request.Context(), userID, req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "ADD_SLOT_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Koordinat ambalan berhasil ditambahkan", slot)
+	utils.SuccessResponse(c, http.StatusOK, "wms.slotting.create_success", slot)
 }
 
 // GetSlots retrieves all active slotting coordinates for a given product and location.
 func (h *SlotHandler) GetSlots(c *gin.Context) {
 	productID, err := strconv.Atoi(c.Query("product_id"))
 	if err != nil || productID <= 0 {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Parameter product_id wajib diisi", "INVALID_PRODUCT_ID")
+		utils.ErrorResponse(c, http.StatusBadRequest, "errors.validation_error", "INVALID_PRODUCT_ID")
 		return
 	}
 
 	locationID, err := strconv.Atoi(c.Query("location_id"))
 	if err != nil || locationID <= 0 {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Parameter location_id wajib diisi", "INVALID_LOCATION_ID")
+		utils.ErrorResponse(c, http.StatusBadRequest, "errors.validation_error", "INVALID_LOCATION_ID")
 		return
 	}
 
 	slots, err := h.slotService.GetSlots(c.Request.Context(), productID, locationID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "GET_SLOTS_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Berhasil mengambil data koordinat ambalan", slots)
+	utils.SuccessDataResponse(c, http.StatusOK, slots)
 }
 
 // DeleteSlot handles removing a specific slot coordinate.
 func (h *SlotHandler) DeleteSlot(c *gin.Context) {
 	slotID, err := strconv.Atoi(c.Param("id"))
 	if err != nil || slotID <= 0 {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Parameter id wajib diisi", "INVALID_SLOT_ID")
+		utils.ErrorResponse(c, http.StatusBadRequest, "errors.validation_error", "INVALID_SLOT_ID")
 		return
 	}
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "UNAUTHORIZED")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -85,58 +82,57 @@ func (h *SlotHandler) DeleteSlot(c *gin.Context) {
 	_ = c.ShouldBindJSON(&req)
 
 	if err := h.slotService.DeleteSlot(c.Request.Context(), userID, slotID, req.Notes); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "DELETE_SLOT_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Koordinat ambalan berhasil dihapus", nil)
+	utils.SuccessResponse(c, http.StatusOK, "wms.slotting.delete_success", nil)
 }
 
 // SetPrimarySlot sets a slot as the primary coordinate for picking.
 func (h *SlotHandler) SetPrimarySlot(c *gin.Context) {
 	slotID, err := strconv.Atoi(c.Param("id"))
 	if err != nil || slotID <= 0 {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Parameter id wajib diisi", "INVALID_SLOT_ID")
+		utils.ErrorResponse(c, http.StatusBadRequest, "errors.validation_error", "INVALID_SLOT_ID")
 		return
 	}
 
 	productID, err := strconv.Atoi(c.Query("product_id"))
 	if err != nil || productID <= 0 {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Parameter product_id wajib diisi", "INVALID_PRODUCT_ID")
+		utils.ErrorResponse(c, http.StatusBadRequest, "errors.validation_error", "INVALID_PRODUCT_ID")
 		return
 	}
 
 	locationID, err := strconv.Atoi(c.Query("location_id"))
 	if err != nil || locationID <= 0 {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Parameter location_id wajib diisi", "INVALID_LOCATION_ID")
+		utils.ErrorResponse(c, http.StatusBadRequest, "errors.validation_error", "INVALID_LOCATION_ID")
 		return
 	}
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna yang valid", "UNAUTHORIZED")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	if err := h.slotService.SetPrimarySlot(c.Request.Context(), userID, productID, locationID, slotID); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "SET_PRIMARY_SLOT_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Rak utama berhasil diperbarui", nil)
+	utils.SuccessResponse(c, http.StatusOK, "wms.slotting.set_primary_success", nil)
 }
 
 // GetSlotLogs retrieves paginated audit logs for slotting movements.
 func (h *SlotHandler) GetSlotLogs(c *gin.Context) {
 	productID, err := strconv.Atoi(c.Query("product_id"))
 	if err != nil || productID <= 0 {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Parameter product_id wajib diisi", "INVALID_PRODUCT_ID")
+		utils.ErrorResponse(c, http.StatusBadRequest, "errors.validation_error", "INVALID_PRODUCT_ID")
 		return
 	}
 
 	locationID, err := strconv.Atoi(c.Query("location_id"))
 	if err != nil || locationID <= 0 {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Parameter location_id wajib diisi", "INVALID_LOCATION_ID")
+		utils.ErrorResponse(c, http.StatusBadRequest, "errors.validation_error", "INVALID_LOCATION_ID")
 		return
 	}
 
@@ -145,26 +141,26 @@ func (h *SlotHandler) GetSlotLogs(c *gin.Context) {
 
 	logs, err := h.slotService.GetSlotLogs(c.Request.Context(), productID, locationID, page, limit)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "GET_SLOT_LOGS_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Berhasil mengambil riwayat perpindahan ambalan", logs)
+	utils.SuccessDataResponse(c, http.StatusOK, logs)
 }
 
 // GetPickingLocationsForKelja resolves order picking guidance locations and slots for Kelja ERP.
 func (h *SlotHandler) GetPickingLocationsForKelja(c *gin.Context) {
 	referenceID := c.Param("reference_id")
 	if referenceID == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Parameter reference_id wajib diisi", "INVALID_REFERENCE_ID")
+		utils.ErrorResponse(c, http.StatusBadRequest, "wms.slotting.err_ref_required", "INVALID_REFERENCE_ID")
 		return
 	}
 
 	res, err := h.slotService.GetPickingLocationsForKelja(c.Request.Context(), referenceID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusNotFound, err.Error(), "PICKING_LOCATIONS_NOT_FOUND")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Lokasi picking berhasil ditemukan", res)
+	utils.SuccessResponse(c, http.StatusOK, "wms.slotting.picking_location_found", res)
 }

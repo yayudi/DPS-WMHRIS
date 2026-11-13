@@ -1,4 +1,8 @@
 <script setup>
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
+
 defineProps({
   modelValue: {
     type: Boolean,
@@ -20,6 +24,6 @@ defineEmits(['update:modelValue'])
     "
   >
     <font-awesome-icon :icon="modelValue ? 'fa-solid fa-filter-circle-xmark' : 'fa-solid fa-filter'" />
-    <slot>Filter</slot>
+    <slot>{{ t('common.filter.toggle') }}</slot>
   </button>
 </template>

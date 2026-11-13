@@ -28,21 +28,21 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 
 	category, err := h.categoryService.CreateCategory(c.Request.Context(), req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusCreated, "Kategori berhasil dibuat", category)
+	utils.SuccessResponse(c, http.StatusCreated, "master_data.category.create_success", category)
 }
 
 func (h *CategoryHandler) GetAllActive(c *gin.Context) {
 	categories, err := h.categoryService.GetActiveCategories(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Berhasil mengambil data kategori", categories)
+	utils.SuccessDataResponse(c, http.StatusOK, categories)
 }
 
 func (h *CategoryHandler) Update(c *gin.Context) {
@@ -59,11 +59,11 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 
 	err := h.categoryService.UpdateCategory(c.Request.Context(), id, req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Kategori berhasil diupdate", nil)
+	utils.SuccessResponse(c, http.StatusOK, "master_data.category.update_success", nil)
 }
 
 func (h *CategoryHandler) Delete(c *gin.Context) {
@@ -74,9 +74,9 @@ func (h *CategoryHandler) Delete(c *gin.Context) {
 
 	err := h.categoryService.DeleteCategory(c.Request.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Kategori berhasil dihapus", nil)
+	utils.SuccessResponse(c, http.StatusOK, "master_data.category.delete_success", nil)
 }

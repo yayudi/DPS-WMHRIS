@@ -5,8 +5,11 @@ import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import { userApi } from '@/modules/settings/infrastructure/user.api'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/infrastructure/localization'
 
 const masterData = useMasterDataStore()
+const { toast } = useToast()
+const { t } = useI18n()
 
 const props = defineProps({
   show: Boolean,
@@ -14,7 +17,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'updated'])
-const { toast } = useToast()
 
 const allLocations = ref([])
 const selectedLocationIds = ref([])
@@ -47,8 +49,8 @@ async function handleSave() {
   if (!props.user) return
   isLoading.value = true
   try {
-    await userApi.updateUserLocations(props.user.id, selectedLocationIds.value)
-    toast('Izin lokasi berhasil diperbarui.', 'success')
+    const res = await userApi.updateUserLocations(props.user.id, selectedLocationIds.value)
+    toast(res?.message || t('common.status.success'), 'success')
     emit('updated') // Beri tahu komponen induk bahwa data telah berubah
     emit('close')
   } catch (error) {
@@ -69,14 +71,14 @@ watch(Alt_S, (pressed) => {
 </script>
 
 <template>
-  <BaseModal :show="show" @close="emit('close')" :title="`Atur Izin Lokasi untuk ${user?.username}`">
+  <BaseModal :show="show" @close="emit('close')" :title="t('settings.user.location_perm_title', { username: user?.username || '' })">
     <div v-if="isLoading" class="text-center p-8">
       <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-primary text-xl" />
-      <p class="mt-2 text-sm text-text/70">Memuat data...</p>
+      <p class="mt-2 text-sm text-text/70">{{ t('common.status.loading') }}</p>
     </div>
     <div v-else class="space-y-4 max-h-[60vh] overflow-y-auto">
       <p class="text-sm text-text/80">
-        Pilih lokasi gudang yang dapat diakses oleh pengguna ini untuk melakukan transfer stok.
+        {{ t('settings.user.location_perm_desc') }}
       </p>
 
       <!-- Daftar Lokasi dengan Checkbox -->
@@ -107,7 +109,7 @@ watch(Alt_S, (pressed) => {
         @click="emit('close')"
         class="px-4 py-2 bg-secondary/20 text-text/80 rounded-lg hover:bg-secondary/30 transition"
       >
-        Batal
+        {{ t('common.btn.cancel') }}
       </button>
       <button
         @click="handleSave"
@@ -115,7 +117,7 @@ watch(Alt_S, (pressed) => {
         class="px-4 py-2 bg-primary text-secondary rounded-lg disabled:opacity-50 flex items-center gap-2"
       >
         <font-awesome-icon v-if="isLoading" icon="fa-solid fa-spinner" class="animate-spin" />
-        <span>{{ isLoading ? 'Menyimpan...' : 'Simpan Perubahan' }}</span>
+        <span>{{ isLoading ? t('common.status.saving') : t('common.btn.save_changes') }}</span>
       </button>
     </template>
   </BaseModal>

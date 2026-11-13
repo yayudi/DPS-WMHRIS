@@ -4,6 +4,9 @@ import { useMagicKeys } from '@vueuse/core'
 import { attendanceApi } from '@/modules/hr/infrastructure/attendance.api'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   isOpen: Boolean,
@@ -64,12 +67,12 @@ function minutesToTimeStr(minutes) {
   return `${h}:${m}`
 }
 
-const statusOptions = [
-  { value: 'HADIR', label: 'Hadir' },
-  { value: 'SAKIT', label: 'Sakit' },
-  { value: 'IZIN', label: 'Izin' },
-  { value: 'ALPHA', label: 'Alpha / Tanpa Ket' }
-]
+const statusOptions = computed(() => [
+  { value: 'HADIR', label: t('hris.attendance.status_present') },
+  { value: 'SAKIT', label: t('hris.attendance.status_sick') },
+  { value: 'IZIN', label: t('hris.attendance.status_permit') },
+  { value: 'ALPHA', label: t('hris.attendance.status_alpha') }
+])
 
 const canSave = computed(() => {
   if (form.value.status === 'HADIR') {
@@ -104,7 +107,7 @@ async function handleSave() {
     }
   } catch (err) {
     console.error(err)
-    errorMsg.value = err.response?.data?.message || 'Gagal menyimpan data.'
+    errorMsg.value = err.response?.data?.message || t('hris.attendance.save_error')
   } finally {
     isLoading.value = false
   }
@@ -124,7 +127,7 @@ watch(Alt_S, pressed => {
   <BaseModal :show="isOpen" @close="$emit('close')" maxWidth="max-w-md">
     <template #title>
       <div class="-mt-1">
-        <h3 class="font-bold text-lg text-text">Edit Absensi</h3>
+        <h3 class="font-bold text-lg text-text">{{ t('hris.attendance.edit_title') }}</h3>
       </div>
     </template>
 
@@ -134,25 +137,25 @@ watch(Alt_S, pressed => {
         class="flex items-center justify-between text-sm bg-primary/5 p-3 rounded-lg border border-primary/10"
       >
         <div>
-          <span class="block text-xs uppercase font-bold text-primary/70">Karyawan</span>
+          <span class="block text-xs uppercase font-bold text-primary/70">{{ t('hris.attendance.employee') }}</span>
           <span class="font-medium text-text">{{ logData.nama }}</span>
         </div>
         <div class="text-right">
-          <span class="block text-xs uppercase font-bold text-primary/70">Tanggal</span>
+          <span class="block text-xs uppercase font-bold text-primary/70">{{ t('common.label.date') }}</span>
           <span class="font-medium text-text">{{ logData.displayDate }}</span>
         </div>
       </div>
 
       <!-- Status -->
       <div>
-        <label class="block text-xs font-bold uppercase text-text/50 mb-1">Status Kehadiran</label>
+        <label class="block text-xs font-bold uppercase text-text/50 mb-1">{{ t('hris.attendance.status_label') }}</label>
         <BaseSelect v-model="form.status" :options="statusOptions" track-by="value" emit-value :searchable="false" />
       </div>
 
       <!-- Times and Pardon -->
       <div class="grid grid-cols-3 gap-4">
         <div>
-          <label class="block text-xs font-bold uppercase text-text/50 mb-1">Masuk</label>
+          <label class="block text-xs font-bold uppercase text-text/50 mb-1">{{ t('hris.attendance.clock_in') }}</label>
           <input
             type="time"
             v-model="form.timeIn"
@@ -160,7 +163,7 @@ watch(Alt_S, pressed => {
           />
         </div>
         <div>
-          <label class="block text-xs font-bold uppercase text-text/50 mb-1">Keluar</label>
+          <label class="block text-xs font-bold uppercase text-text/50 mb-1">{{ t('hris.attendance.clock_out') }}</label>
           <input
             type="time"
             v-model="form.timeOut"
@@ -169,20 +172,20 @@ watch(Alt_S, pressed => {
         </div>
         <div class="flex flex-col">
           <label class="block text-[10px] font-bold uppercase text-text/50 mb-1 leading-tight"
-            >Pengampunan Keterlambatan</label
+            >{{ t('hris.pardon.title') }}</label
           >
           <div class="flex items-center gap-2 mt-1 mb-2">
             <input type="checkbox" id="fullPardon" v-model="form.isFullPardon" class="accent-primary w-4 h-4" />
-            <label for="fullPardon" class="text-xs font-medium cursor-pointer text-text">Diampuni Penuh</label>
+            <label for="fullPardon" class="text-xs font-medium cursor-pointer text-text">{{ t('hris.pardon.full_pardon') }}</label>
           </div>
           <div v-if="!form.isFullPardon">
-            <label class="block text-[9px] font-bold uppercase text-text/40 mb-1 leading-tight">Parsial (Menit)</label>
+            <label class="block text-[9px] font-bold uppercase text-text/40 mb-1 leading-tight">{{ t('hris.pardon.partial_minutes') }}</label>
             <input
               type="number"
               v-model.number="form.latePardonMinutes"
               min="0"
               class="w-full bg-background border border-secondary/20 rounded-lg px-3 py-2 text-text focus:outline-none focus:border-primary text-sm"
-              placeholder="Contoh: 15"
+              :placeholder="t('hris.pardon.partial_placeholder')"
             />
           </div>
         </div>
@@ -190,11 +193,11 @@ watch(Alt_S, pressed => {
 
       <!-- Notes -->
       <div>
-        <label class="block text-xs font-bold uppercase text-text/50 mb-1">Catatan / Keterangan</label>
+        <label class="block text-xs font-bold uppercase text-text/50 mb-1">{{ t('common.label.notes') }}</label>
         <textarea
           v-model="form.notes"
           rows="3"
-          placeholder="Contoh: Sakit tipes, Izin urus SIM..."
+          :placeholder="t('hris.attendance.notes_placeholder')"
           class="w-full bg-background border border-secondary/20 rounded-lg px-3 py-2 text-text focus:outline-none focus:border-primary"
         ></textarea>
       </div>
@@ -210,7 +213,7 @@ watch(Alt_S, pressed => {
           @click="$emit('close')"
           class="px-4 py-2 text-sm font-bold text-text/60 hover:text-text hover:bg-secondary/10 rounded-lg transition-colors"
         >
-          Batal
+          {{ t('common.btn.cancel') }}
         </button>
         <button
           @click="handleSave"
@@ -220,7 +223,7 @@ watch(Alt_S, pressed => {
           <span v-if="isLoading" class="animate-spin text-background">
             <font-awesome-icon icon="fa-solid fa-spinner" />
           </span>
-          <span>Simpan Perubahan</span>
+          <span>{{ t('common.btn.save_changes') }}</span>
         </button>
       </div>
     </template>

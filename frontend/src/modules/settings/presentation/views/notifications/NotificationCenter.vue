@@ -1,19 +1,19 @@
 <template>
   <div class="p-6 max-w-4xl mx-auto">
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-text">Pusat Notifikasi</h1>
+      <h1 class="text-2xl font-bold text-text">{{ t('settings.notifications.center_title') }}</h1>
       <div class="flex gap-3">
         <button
           @click="markAllAsDone"
           class="px-4 py-2 bg-secondary text-primary rounded-md hover:bg-secondary/80 font-medium text-sm transition-colors border border-secondary"
         >
-          Tandai Semua Selesai
+          {{ t('settings.notifications.mark_all_done') }}
         </button>
         <router-link
           to="/notifications/preferences"
           class="px-4 py-2 bg-background border border-secondary text-text rounded-md hover:bg-secondary transition-colors font-medium text-sm flex items-center"
         >
-          <font-awesome-icon icon="fa-solid fa-gear" class="mr-2" /> Pengaturan
+          <font-awesome-icon icon="fa-solid fa-gear" class="mr-2" /> {{ t('common.btn.settings') }}
         </router-link>
       </div>
     </div>
@@ -43,7 +43,7 @@
 
       <div v-else-if="notifications.length === 0" class="flex flex-col items-center justify-center h-64 text-muted">
         <font-awesome-icon icon="fa-solid fa-bell-slash" class="fa-3x mb-4 opacity-50" />
-        <p class="text-lg">Tidak ada notifikasi di kategori ini.</p>
+        <p class="text-lg">{{ t('settings.notifications.empty_category') }}</p>
       </div>
 
       <div v-else>
@@ -79,16 +79,16 @@
               v-if="notif.is_done && notif.completed_by_name"
               class="mb-3 text-xs text-primary bg-primary/10 inline-block px-2 py-1 rounded border border-primary/20"
             >
-              <font-awesome-icon icon="fa-solid fa-check-circle" class="mr-1" /> Diselesaikan oleh
-              <span class="font-semibold">{{ notif.completed_by_name }}</span> pada {{ formatTime(notif.completed_at) }}
+              <font-awesome-icon icon="fa-solid fa-check-circle" class="mr-1" />
+              {{ t('settings.notifications.completed_by', { name: notif.completed_by_name, time: formatTime(notif.completed_at) }) }}
             </div>
 
             <div
               v-if="!notif.is_done && notif.claimed_by && notif.claimed_by !== currentUser?.id"
               class="mb-3 text-xs text-warning bg-warning/10 inline-block px-2 py-1 rounded border border-warning/20"
             >
-              <font-awesome-icon icon="fa-solid fa-hourglass-half" class="mr-1" /> Sedang dikerjakan oleh
-              <span class="font-semibold">{{ notif.claimed_by_name }}</span>
+              <font-awesome-icon icon="fa-solid fa-hourglass-half" class="mr-1" />
+              {{ t('settings.notifications.claimed_by_user', { name: notif.claimed_by_name }) }}
             </div>
 
             <div
@@ -100,7 +100,7 @@
                 @click="claimTask(notif.id)"
                 class="px-3 py-1.5 bg-warning text-white text-xs font-medium rounded hover:opacity-90 transition-opacity"
               >
-                <font-awesome-icon icon="fa-solid fa-hand-paper" class="mr-1" /> Ambil Tugas
+                <font-awesome-icon icon="fa-solid fa-hand-paper" class="mr-1" /> {{ t('settings.notifications.claim_task') }}
               </button>
 
               <button
@@ -108,7 +108,7 @@
                 @click="handleAction(notif)"
                 class="px-3 py-1.5 bg-primary text-white text-xs font-medium rounded hover:opacity-90 transition-opacity"
               >
-                <font-awesome-icon icon="fa-solid fa-arrow-right" class="mr-1" /> Tindak Lanjut
+                <font-awesome-icon icon="fa-solid fa-arrow-right" class="mr-1" /> {{ t('settings.notifications.follow_up') }}
               </button>
             </div>
           </div>
@@ -121,7 +121,7 @@
               v-if="!notif.target_permission || notif.claimed_by === currentUser?.id"
               @click="markAsDone(notif.id)"
               class="text-muted hover:text-primary p-2"
-              title="Tandai selesai"
+              :title="t('settings.notifications.mark_done')"
             >
               <font-awesome-icon icon="fa-solid fa-check" />
             </button>
@@ -138,7 +138,9 @@ import { useRouter } from 'vue-router'
 import { notificationApi } from '../../../infrastructure/notification.api'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { useFirebaseSync } from '@/core/presentation/composables/useFirebaseSync'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
+const { t, currentLocale } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.user)
@@ -147,12 +149,12 @@ const loading = ref(true)
 const notifications = ref([])
 const activeTab = ref('ALL')
 
-const tabs = [
-  { label: 'Semua', value: 'ALL', icon: 'fa-inbox' },
+const tabs = computed(() => [
+  { label: t('common.filter.all'), value: 'ALL', icon: 'fa-inbox' },
   { label: 'WMS', value: 'WMS', icon: 'fa-box' },
   { label: 'HRIS', value: 'HRIS', icon: 'fa-users' },
-  { label: 'Sistem', value: 'SYSTEM', icon: 'fa-server' }
-]
+  { label: t('settings.notifications.tab_system'), value: 'SYSTEM', icon: 'fa-server' }
+])
 
 const fetchNotifications = async () => {
   loading.value = true
@@ -217,6 +219,8 @@ const claimTask = async id => {
     console.error('Failed to claim task:', error)
     if (error.response?.data?.message) {
       alert(error.response.data.message)
+    } else {
+      alert(t('settings.notifications.claim_failed'))
     }
     fetchNotifications()
   }
@@ -238,13 +242,13 @@ const formatTime = dateString => {
   if (!dateString) return ''
   const date = new Date(dateString)
   const now = new Date()
-  const diffInMinutes = Math.floor((now - date) / 60000)
+  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / 60000)
 
-  if (diffInMinutes < 1) return 'Baru saja'
-  if (diffInMinutes < 60) return `${diffInMinutes} mnt`
-  if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} jam`
-  if (diffInMinutes < 2880) return 'Kemarin'
+  if (diffInMinutes < 1) return t('common.time.just_now')
+  if (diffInMinutes < 60) return t('common.time.minutes_ago', { n: diffInMinutes })
+  if (diffInMinutes < 1440) return t('common.time.hours_ago', { n: Math.floor(diffInMinutes / 60) })
+  if (diffInMinutes < 2880) return t('common.time.yesterday')
 
-  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+  return date.toLocaleDateString(currentLocale.value || 'id-ID', { day: 'numeric', month: 'short' })
 }
 </script>

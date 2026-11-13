@@ -4,8 +4,10 @@ import JsBarcode from 'jsbarcode'
 import QRCode from 'qrcode'
 import { resolveUrl } from '@/modules/master_data/presentation/composables/useImageUrl'
 import { swalAlert } from '@/core/presentation/composables/useSweetAlert'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 export function useStickerElements(getFabricCanvas, syncLayers) {
+  const { t } = useI18n()
   const isDynamicMenuOpen = ref(false)
   const isBarcodeModalOpen = ref(false)
   const isMediaPickerOpen = ref(false)
@@ -45,7 +47,7 @@ export function useStickerElements(getFabricCanvas, syncLayers) {
   const addText = () => {
     const canvas = getFabricCanvas()
     if (!canvas) return
-    const text = new fabric.Textbox('Teks Baru', {
+    const text = new fabric.Textbox(t('master_data.sticker.new_text'), {
       left: 50,
       top: 50,
       width: 200,
@@ -149,7 +151,7 @@ export function useStickerElements(getFabricCanvas, syncLayers) {
       }
     } catch (err) {
       console.error('Failed to generate barcode/qrcode', err)
-      await swalAlert('Gagal membuat Barcode/QR Code. Pastikan format teks valid.')
+      await swalAlert(t('master_data.sticker.barcode_error'))
     }
   }
 

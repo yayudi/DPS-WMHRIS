@@ -5,7 +5,7 @@
       <div class="bg-primary/10 text-primary p-4 rounded-lg text-sm border border-primary/20">
         <slot name="instructions">
           <p class="font-bold mb-2 flex items-center gap-2">
-            <font-awesome-icon icon="fa-solid fa-file-csv" /> Panduan Import:
+            <font-awesome-icon icon="fa-solid fa-file-csv" /> {{ t('core.import.guide_title') }}
           </p>
           <ul class="list-disc list-inside opacity-90 space-y-1">
             <li v-for="item in instructions" :key="item">{{ item }}</li>
@@ -13,7 +13,7 @@
         </slot>
         <div v-if="templateUrl" class="mt-3 pt-3 border-t border-primary/20">
           <button @click="downloadTemplate" class="font-bold hover:underline inline-flex items-center gap-1">
-            <font-awesome-icon icon="fa-solid fa-download" /> Download Template
+            <font-awesome-icon icon="fa-solid fa-download" /> {{ t('core.import.download_template') }}
           </button>
         </div>
       </div>
@@ -40,7 +40,7 @@
           <div
             class="mt-4 px-4 py-1.5 bg-background rounded-full text-xs font-bold text-text/70 border border-secondary/20 shadow-sm group-hover:text-primary group-hover:border-primary/30 transition-colors"
           >
-            Klik untuk mengganti file
+            {{ t('core.import.click_to_replace') }}
           </div>
         </div>
 
@@ -53,8 +53,8 @@
               class="text-4xl group-hover:-translate-y-1 transition-transform"
             />
           </div>
-          <p class="font-bold text-text text-lg mb-1">Pilih File atau Drag & Drop</p>
-          <p class="text-sm text-text/50 font-medium">Mendukung format file {{ accept }}</p>
+          <p class="font-bold text-text text-lg mb-1">{{ t('core.import.drag_and_drop') }}</p>
+          <p class="text-sm text-text/50 font-medium">{{ t('core.import.supported_formats') }} {{ accept }}</p>
         </div>
       </div>
 
@@ -63,11 +63,11 @@
 
       <!-- Notes -->
       <div>
-        <label class="block text-sm font-bold text-text mb-1.5">Catatan <span class="text-text/40 font-normal">(opsional)</span></label>
+        <label class="block text-sm font-bold text-text mb-1.5">{{ t('common.label.notes') }} <span class="text-text/40 font-normal">{{ t('common.label.optional') }}</span></label>
         <textarea
           v-model="userNotes"
           rows="2"
-          placeholder="Tulis catatan untuk upload ini..."
+          :placeholder="t('core.import.notes_placeholder')"
           class="w-full px-3 py-2 border border-secondary/30 rounded-lg bg-background text-text text-sm outline-none focus:border-primary transition-colors resize-none placeholder:text-text/30"
         ></textarea>
       </div>
@@ -81,14 +81,14 @@
       <!-- Jobs History -->
       <div v-if="jobType" class="pt-4 border-t border-secondary/20">
         <h4 class="font-bold text-text mb-3 flex items-center justify-between">
-          <span>Riwayat Proses</span>
+          <span>{{ t('core.import.process_history') }}</span>
         </h4>
 
         <div v-if="isLoadingJobs && jobs.length === 0" class="flex justify-center py-4">
           <font-awesome-icon icon="fa-solid fa-spinner" spin class="text-primary text-xl" />
         </div>
         <div v-else-if="jobs.length === 0" class="text-center py-6 bg-secondary/10 rounded-lg">
-          <p class="text-sm text-text/50">Belum ada riwayat unggahan.</p>
+          <p class="text-sm text-text/50">{{ t('core.import.no_history') }}</p>
         </div>
         <div v-else class="space-y-3">
           <div
@@ -107,7 +107,7 @@
           >
             <div class="flex justify-between items-start">
               <div>
-                <div class="font-bold text-sm text-text">{{ job.originalFilename || job.original_filename || 'File Upload' }}</div>
+                <div class="font-bold text-sm text-text">{{ job.originalFilename || job.original_filename || t('core.import.file_upload') }}</div>
                 <div class="text-xs text-text/60">{{ formatDate(job.createdAt || job.created_at) }}</div>
               </div>
               <div>
@@ -116,35 +116,35 @@
                   class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md bg-secondary/20 text-text/70 border border-secondary/30 flex items-center gap-1.5"
                 >
                   <font-awesome-icon icon="fa-solid fa-hourglass-half" />
-                  Menunggu
+                  {{ t('common.status.pending') }}
                 </span>
                 <span
                   v-else-if="job.status === 'PROCESSING'"
                   class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md bg-primary/10 text-primary border border-primary/30 flex items-center gap-1.5 animate-pulse"
                 >
                   <font-awesome-icon icon="fa-solid fa-spinner" spin />
-                  Memproses
+                  {{ t('common.status.processing') }}
                 </span>
                 <span
                   v-else-if="job.status === 'COMPLETED'"
                   class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md bg-success/10 text-success border border-success/30 flex items-center gap-1.5"
                 >
                   <font-awesome-icon icon="fa-solid fa-check-circle" />
-                  Selesai
+                  {{ t('common.status.completed') }}
                 </span>
                 <span
                   v-else-if="job.status === 'COMPLETED_WITH_ERRORS'"
                   class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md bg-warning/10 text-warning border border-warning/30 flex items-center gap-1.5"
                 >
                   <font-awesome-icon icon="fa-solid fa-triangle-exclamation" />
-                  Parsial
+                  {{ t('common.status.partial') }}
                 </span>
                 <span
                   v-else-if="['ERROR', 'FAILED'].includes(job.status)"
                   class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md bg-danger/10 text-danger border border-danger/30 flex items-center gap-1.5"
                 >
                   <font-awesome-icon icon="fa-solid fa-circle-exclamation" />
-                  Gagal
+                  {{ t('common.status.failed') }}
                 </span>
               </div>
             </div>
@@ -164,7 +164,7 @@
                 download
                 class="text-xs text-danger hover:underline inline-flex items-center gap-1"
               >
-                <font-awesome-icon icon="fa-solid fa-file-excel" /> Download Log Error
+                <font-awesome-icon icon="fa-solid fa-file-excel" /> {{ t('core.import.download_error_log') }}
               </a>
             </div>
           </div>
@@ -179,7 +179,7 @@
           @click="close"
           class="px-4 py-2 rounded-lg font-medium text-text opacity-70 hover:opacity-100 hover:bg-secondary/10 transition-all"
         >
-          Batal
+          {{ t('common.btn.cancel') }}
         </button>
         <button
           @click="upload"
@@ -188,7 +188,7 @@
         >
           <font-awesome-icon v-if="isUploading" icon="fa-solid fa-spinner" spin />
           <font-awesome-icon v-else icon="fa-solid fa-file-import" />
-          <span>{{ isUploading ? 'Mengunggah...' : 'Mulai Import' }}</span>
+          <span>{{ isUploading ? t('common.status.uploading') : t('core.import.start_import') }}</span>
         </button>
       </div>
     </template>
@@ -203,6 +203,7 @@ import { useToast } from '@/core/presentation/composables/useToast'
 import { useDownload } from '@/core/presentation/composables/useDownload'
 import { useUpload } from '@/core/presentation/composables/useUpload'
 import { formatDate } from '@/core/utils/formatters'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const props = defineProps({
   isOpen: Boolean,
@@ -218,6 +219,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'success'])
+const { t } = useI18n()
 const { toast } = useToast()
 const { downloadFile } = useDownload()
 const { uploadFile } = useUpload()

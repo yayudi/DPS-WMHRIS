@@ -2,6 +2,7 @@
 import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
 import { ref, onMounted, computed } from 'vue'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { stockRequestApi } from '@/modules/wms/infrastructure/stockRequest.api'
 import StockRequestModal from '@/modules/wms/presentation/components/StockRequestModal.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
@@ -13,6 +14,7 @@ const authStore = useAuthStore()
 const currentUser = computed(() => authStore.user)
 
 const { toast } = useToast()
+const { t } = useI18n()
 
 const requests = ref([])
 const isLoading = ref(false)
@@ -50,7 +52,7 @@ async function loadRequests(silent = false) {
     }
   } catch (error) {
     console.error(error)
-    if (!silent) toast(error.message || 'Gagal memuat permintaan stok', 'error')
+    if (!silent) toast(error.message || t('wms.stock_requests.load_failed'), 'error')
   } finally {
     if (!silent) isLoading.value = false
     selectedIds.value = [] // Reset selection on reload
@@ -64,10 +66,10 @@ useFirebaseSync('STOCK_REQUESTS', 'REFRESH_REQUESTS', () => loadRequests(true))
 const filteredRequests = computed(() => requests.value)
 
 async function handleApprove(id) {
-  if (!(await swalConfirm('Apakah Anda yakin menyetujui permintaan ini?'))) return
+  if (!(await swalConfirm(t('wms.stock_requests.confirm_approve')))) return
   try {
-    await stockRequestApi.approveStockRequest(id)
-    toast('Permintaan disetujui', 'success')
+    const res = await stockRequestApi.approveStockRequest(id)
+    toast(res?.message || t('common.status.success'), 'success')
     loadRequests()
   } catch (e) {
     console.error(e) // Auto-added to prevent unused var
@@ -75,10 +77,10 @@ async function handleApprove(id) {
 }
 
 async function handleReject(id) {
-  if (!(await swalConfirm('Apakah Anda yakin menolak permintaan ini?'))) return
+  if (!(await swalConfirm(t('wms.stock_requests.confirm_reject')))) return
   try {
-    await stockRequestApi.rejectStockRequest(id)
-    toast('Permintaan ditolak', 'success')
+    const res = await stockRequestApi.rejectStockRequest(id)
+    toast(res?.message || t('common.status.success'), 'success')
     loadRequests()
   } catch (e) {
     console.error(e) // Auto-added to prevent unused var
@@ -86,10 +88,10 @@ async function handleReject(id) {
 }
 
 async function handleDispatch(id) {
-  if (!(await swalConfirm('Apakah Anda yakin barang sudah siap dan akan dikirim sekarang?'))) return
+  if (!(await swalConfirm(t('wms.stock_requests.confirm_send')))) return
   try {
-    await stockRequestApi.dispatchStockRequest(id)
-    toast('Barang berhasil dikirim', 'success')
+    const res = await stockRequestApi.dispatchStockRequest(id)
+    toast(res?.message || t('common.status.success'), 'success')
     loadRequests()
   } catch (e) {
     console.error(e)
@@ -97,14 +99,7 @@ async function handleDispatch(id) {
 }
 
 async function handleComplete(id, items, req) {
-  if (
-    !(await swalConfirm(
-      req && req.type === 'STOCK_OPNAME'
-        ? 'Konfirmasi kuantitas fisik dan simpan perubahan stok opname?'
-        : 'Tandai telah diterima? Pastikan barang fisik sudah sesuai.'
-    ))
-  )
-    return
+  if (!(await swalConfirm(t('wms.stock_requests.confirm_receive')))) return
   try {
     const safeItems = Array.isArray(items) ? items : []
     const receivedItems = safeItems.map(item => ({
@@ -112,8 +107,8 @@ async function handleComplete(id, items, req) {
       receivedQuantity: item.input_received !== undefined ? Number(item.input_received) : item.quantity
     }))
 
-    await stockRequestApi.completeStockRequest(id, receivedItems)
-    toast('Barang diterima dan stok ditransfer', 'success')
+    const res = await stockRequestApi.completeStockRequest(id, receivedItems)
+    toast(res?.message || t('common.status.success'), 'success')
     loadRequests()
   } catch (e) {
     console.error(e) // Auto-added to prevent unused var
@@ -149,21 +144,37 @@ function canSelectRequest(req) {
 async function handleBulkAction(action) {
   if (selectedIds.value.length === 0) return
 
-  const actionText = action === 'APPROVE' ? 'menyetujui' : 'menolak'
-  if (!(await swalConfirm(`Apakah Anda yakin ${actionText} ${selectedIds.value.length} permintaan sekaligus?`))) return
+  const actionText =
+    action === 'APPROVE'
+      ? t('wms.stock_requests.action_approve').toLowerCase()
+      : t('wms.stock_requests.action_reject').toLowerCase()
+  if (
+    !(await swalConfirm(
+      t('wms.stock_requests.confirm_bulk_action', { action: actionText, count: selectedIds.value.length })
+    ))
+  )
+    return
 
   try {
     const res = await stockRequestApi.bulkActionStockRequests(action, selectedIds.value)
     if (res.data?.failedCount > 0) {
-      toast(`Berhasil: ${res.data.successCount}, Gagal: ${res.data.failedCount}`, 'warning')
+      toast(
+        t('wms.stock_requests.bulk_result', { success: res.data.successCount, failed: res.data.failedCount }),
+        'warning'
+      )
     } else {
-      toast(`Berhasil ${actionText} ${res.data.successCount} permintaan`, 'success')
+      toast(t('wms.stock_requests.bulk_success', { action: actionText, count: res.data.successCount }), 'success')
     }
     loadRequests()
   } catch (e) {
     console.error(e)
-    toast('Gagal memproses permintaan massal', 'error')
+    toast(t('wms.stock_requests.bulk_failed'), 'error')
   }
+}
+
+function getFilterLabel(filter) {
+  if (filter === 'SHIPPED') return t('wms.stock_requests.filter_in_transit')
+  return t(`wms.stock_requests.filter_${filter.toLowerCase()}`)
 }
 
 function getStatusBadgeClass(status) {
@@ -340,7 +351,7 @@ function printRequest(req) {
             : 'bg-background text-text/60 hover:bg-primary/10 shadow-sm'
         "
       >
-        {{ filter }}
+        {{ getFilterLabel(filter) }}
       </button>
 
       <div class="flex-1 min-w-[1rem]"></div>
@@ -349,7 +360,7 @@ function printRequest(req) {
         @click="loadRequests()"
         :class="isLoading ? 'animate-spin' : ''"
         class="px-3 py-2 bg-background text-text/60 border border-secondary hover:bg-secondary/20 rounded-lg font-semibold text-sm flex items-center gap-2 transition-all shadow-sm"
-        title="Muat Ulang Data"
+        :title="t('wms.stock_requests.btn_reload')"
       >
         <font-awesome-icon :icon="isLoading ? 'fa-solid fa-spinner' : 'fa-solid fa-refresh'" />
       </button>
@@ -359,7 +370,7 @@ function printRequest(req) {
         class="bg-primary/20 text-primary border border-primary/30 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-primary hover:text-background flex items-center gap-2 transition-all shadow-sm"
       >
         <font-awesome-icon icon="fa-solid fa-plus" />
-        <span class="hidden sm:inline">Buat Permintaan</span>
+        <span class="hidden sm:inline">{{ t('wms.stock_requests.btn_new_request') }}</span>
       </button>
     </div>
 
@@ -377,19 +388,19 @@ function printRequest(req) {
               <button
                 @click="isAllSelected = true"
                 class="px-3 py-2 bg-secondary/50 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold transition-colors border border-primary/20 hover:border-primary/50 flex items-center gap-1.5 active:scale-95 flex-1 justify-center md:flex-none"
-                title="Pilih Semua yang Tersedia"
+                :title="t('wms.stock_requests.select_all')"
               >
                 <font-awesome-icon icon="fa-solid fa-check-double" />
-                <span class="hidden sm:inline">Pilih Semua</span>
+                <span class="hidden sm:inline">{{ t('wms.stock_requests.select_all') }}</span>
               </button>
 
               <button
                 @click="isAllSelected = false"
                 class="px-3 py-2 bg-secondary/50 hover:bg-danger/20 text-text/60 hover:text-danger rounded-lg text-xs font-bold transition-colors border border-secondary/30 hover:border-danger/50 flex items-center gap-1.5 active:scale-95 flex-1 justify-center md:flex-none"
-                title="Reset Pilihan"
+                :title="t('wms.stock_requests.reset_selection')"
               >
                 <font-awesome-icon icon="fa-solid fa-xmark" />
-                <span class="hidden sm:inline">Reset</span>
+                <span class="hidden sm:inline">{{ t('wms.stock_requests.reset_selection') }}</span>
               </button>
             </div>
 
@@ -397,7 +408,9 @@ function printRequest(req) {
             <div class="flex items-center justify-center gap-3 px-2 w-full md:w-auto">
               <div class="flex flex-col items-center leading-none min-w-[50px]">
                 <span class="font-black text-lg text-text">{{ selectedIds.length }}</span>
-                <span class="text-[9px] font-bold text-text/50 uppercase tracking-wider">Terpilih</span>
+                <span class="text-[9px] font-bold text-text/50 uppercase tracking-wider">{{
+                  t('common.label.selected')
+                }}</span>
               </div>
             </div>
 
@@ -408,14 +421,14 @@ function printRequest(req) {
                 class="flex-1 sm:flex-none flex items-center justify-center gap-2 text-danger/80 hover:bg-danger/10 hover:text-danger hover:border-danger/30 border border-danger/10 px-4 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 :disabled="isLoading"
               >
-                <font-awesome-icon icon="fa-solid fa-xmark" /> Tolak
+                <font-awesome-icon icon="fa-solid fa-xmark" /> {{ t('wms.stock_requests.action_reject') }}
               </button>
               <button
                 @click="handleBulkAction('APPROVE')"
                 class="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-primary text-secondary hover:bg-primary/90 px-5 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 :disabled="isLoading"
               >
-                <font-awesome-icon icon="fa-solid fa-check" /> Setujui
+                <font-awesome-icon icon="fa-solid fa-check" /> {{ t('wms.stock_requests.action_approve') }}
               </button>
             </div>
           </div>
@@ -435,23 +448,25 @@ function printRequest(req) {
                 class="rounded border-secondary/30 text-primary focus:ring-primary cursor-pointer w-4 h-4"
               />
             </th>
-            <th class="p-3 text-xs font-bold text-text/60 uppercase">No. Request</th>
-            <th class="p-3 text-xs font-bold text-text/60 uppercase">Tanggal</th>
-            <th class="p-3 text-xs font-bold text-text/60 uppercase">Lokasi</th>
-            <th class="p-3 text-xs font-bold text-text/60 uppercase">Peminta</th>
-            <th class="p-3 text-xs font-bold text-text/60 uppercase">Status</th>
-            <th class="p-3 text-xs font-bold text-text/60 uppercase text-center">Aksi</th>
+            <th class="p-3 text-xs font-bold text-text/60 uppercase">{{ t('wms.stock_requests.th_req_no') }}</th>
+            <th class="p-3 text-xs font-bold text-text/60 uppercase">{{ t('common.label.date') || 'Tanggal' }}</th>
+            <th class="p-3 text-xs font-bold text-text/60 uppercase">{{ t('wms.stock_requests.th_route') }}</th>
+            <th class="p-3 text-xs font-bold text-text/60 uppercase">{{ t('wms.stock_requests.th_requester') }}</th>
+            <th class="p-3 text-xs font-bold text-text/60 uppercase">{{ t('common.label.status') }}</th>
+            <th class="p-3 text-xs font-bold text-text/60 uppercase text-center">
+              {{ t('common.label.action') }}
+            </th>
           </tr>
         </thead>
         <tbody class="divide-y divide-secondary/10">
           <tr v-if="isLoading">
             <td colspan="7" class="p-8 text-center text-text/50">
               <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-2xl mb-2" />
-              <p>Memuat data...</p>
+              <p>{{ t('common.status.loading') }}</p>
             </td>
           </tr>
           <tr v-else-if="filteredRequests.length === 0">
-            <td colspan="7" class="p-8 text-center text-text/50 italic">Tidak ada permintaan stok.</td>
+            <td colspan="7" class="p-8 text-center text-text/50 italic">{{ t('wms.stock_requests.empty') }}</td>
           </tr>
           <template v-for="req in filteredRequests" :key="req.id">
             <tr class="hover:bg-secondary/5 transition-colors group">
@@ -465,7 +480,7 @@ function printRequest(req) {
                 />
                 <span
                   v-else-if="req.status === 'PENDING'"
-                  title="Anda tidak bisa memproses permintaan ini"
+                  :title="t('wms.stock_requests.cannot_process')"
                   class="text-secondary/40"
                 >
                   <font-awesome-icon icon="fa-solid fa-ban" class="text-[10px]" />
@@ -520,14 +535,14 @@ function printRequest(req) {
                   <button
                     @click="handleApprove(req.id)"
                     class="px-2 py-1 bg-primary text-secondary rounded text-xs font-bold hover:bg-primary/90"
-                    title="Setujui"
+                    :title="t('wms.stock_requests.action_approve')"
                   >
                     <font-awesome-icon icon="fa-solid fa-check" />
                   </button>
                   <button
                     @click="handleReject(req.id)"
                     class="px-2 py-1 bg-danger text-secondary rounded text-xs font-bold hover:bg-danger/90"
-                    title="Tolak"
+                    :title="t('wms.stock_requests.action_reject')"
                   >
                     <font-awesome-icon icon="fa-solid fa-xmark" />
                   </button>
@@ -536,18 +551,20 @@ function printRequest(req) {
                   <button
                     @click="handleDispatch(req.id)"
                     class="px-3 py-1 bg-accent text-secondary rounded text-xs font-bold hover:bg-accent/90"
-                    title="Kirim Barang"
+                    :title="t('wms.stock_requests.action_send')"
                   >
-                    <font-awesome-icon icon="fa-solid fa-truck" class="mr-1" /> Kirim
+                    <font-awesome-icon icon="fa-solid fa-truck" class="mr-1" />
+                    {{ t('wms.stock_requests.action_send') }}
                   </button>
                 </template>
                 <template v-if="req.status === 'SHIPPED'">
                   <button
                     @click="openReceiveForm(req)"
                     class="px-3 py-1 bg-success text-secondary rounded text-xs font-bold hover:bg-success/90"
-                    title="Terima Barang"
+                    :title="t('wms.stock_requests.action_receive')"
                   >
-                    <font-awesome-icon icon="fa-solid fa-box-open" class="mr-1" /> Terima
+                    <font-awesome-icon icon="fa-solid fa-box-open" class="mr-1" />
+                    {{ t('wms.stock_requests.action_receive') }}
                   </button>
                 </template>
               </td>
@@ -563,9 +580,9 @@ function printRequest(req) {
                     <button
                       @click="printRequest(req)"
                       class="px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-background rounded-md text-xs font-bold flex items-center gap-2 transition-colors"
-                      title="Cetak Dokumen"
+                      :title="t('wms.stock_requests.action_print')"
                     >
-                      <font-awesome-icon icon="fa-solid fa-print" /> Cetak Dokumen
+                      <font-awesome-icon icon="fa-solid fa-print" /> {{ t('wms.stock_requests.action_print') }}
                     </button>
                   </div>
                   <table class="w-full text-left text-sm border-collapse">
@@ -602,7 +619,7 @@ function printRequest(req) {
                       class="px-4 py-2 bg-success text-secondary rounded-lg text-sm font-bold hover:bg-success/90 flex items-center gap-2 transition-all shadow-sm"
                     >
                       <font-awesome-icon icon="fa-solid fa-check-double" />
-                      Konfirmasi Terima Barang
+                      {{ t('wms.stock_requests.action_receive') }}
                     </button>
                   </div>
                 </div>
@@ -627,5 +644,3 @@ function printRequest(req) {
     <StockRequestModal :is-open="isModalOpen" @close="isModalOpen = false" @request-created="loadRequests" />
   </div>
 </template>
-
-<style scoped></style>

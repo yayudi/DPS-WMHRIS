@@ -14,7 +14,9 @@ import (
 	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
 
 	"github.com/dps-wmhris/backend/internal/modules/catalog/domain"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	database "github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/kernel"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 )
@@ -301,7 +303,7 @@ func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID
 	ext := filepath.Ext(cleanPath)
 	file, err := os.Open(cleanPath)
 	if err != nil {
-		return "", fmt.Errorf("gagal membuka file batch update: %v", err)
+		return "", apperror.Validation("master_data.product.err_open_file", "gagal membuka file batch update", map[string]any{"error": err.Error()})
 	}
 	defer file.Close()
 
@@ -311,16 +313,16 @@ func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID
 		for _, e := range parseRes.Errors {
 			errMsgs = append(errMsgs, fmt.Sprintf("Baris %d: %s", e.Row, e.Message))
 		}
-		return "", fmt.Errorf("Ditemukan %d error validasi: %s", len(errMsgs), strings.Join(errMsgs, " | "))
+		return "", apperror.Validation("master_data.product.err_validation_failed", fmt.Sprintf("Ditemukan %d error validasi: %s", len(errMsgs), strings.Join(errMsgs, " | ")), map[string]any{"count": len(errMsgs)})
 	}
 
 	if len(parsedRows) == 0 {
-		return "", fmt.Errorf("Tidak ada data valid di dalam file")
+		return "", apperror.Validation("master_data.product.err_no_valid_data", "Tidak ada data valid di dalam file")
 	}
 
 	categories, err := s.categoryRepo.FindAllActive(ctx)
 	if err != nil {
-		return "", fmt.Errorf("Gagal memuat kategori: %v", err)
+		return "", apperror.Internal("master_data.category.err_fetch_failed", "Gagal memuat kategori", err)
 	}
 	categoryMap := make(map[string]int)
 	for _, c := range categories {
@@ -336,7 +338,7 @@ func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID
 
 	dbProducts, err := s.productRepo.GetBySKUs(ctx, skus)
 	if err != nil {
-		return "", fmt.Errorf("Gagal memuat data produk: %v", err)
+		return "", apperror.Internal("master_data.product.err_fetch_failed", "Gagal memuat data produk", err)
 	}
 	productMap := make(map[string]*domain.Product)
 	for i := range dbProducts {
@@ -426,8 +428,25 @@ func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID
 	}
 
 	if len(finalErrors) > 0 {
-		return fmt.Sprintf("%sBerhasil: %d %s. Gagal: %d %s.", modeStr, successCount, entityName, len(finalErrors), entityName), fmt.Errorf("Ditemukan %d error: %s", len(finalErrors), strings.Join(finalErrors, " | "))
+		summary := i18n.T(ctx, "master_data.product.summary_partial", map[string]any{
+			"mode":    modeStr,
+			"success": successCount,
+			"entity":  entityName,
+			"failed":  len(finalErrors),
+		})
+		if summary == "master_data.product.summary_partial" {
+			summary = fmt.Sprintf("%sBerhasil: %d %s. Gagal: %d %s.", modeStr, successCount, entityName, len(finalErrors), entityName)
+		}
+		return summary, fmt.Errorf("Ditemukan %d error: %s", len(finalErrors), strings.Join(finalErrors, " | "))
 	}
 
-	return fmt.Sprintf("%sSelesai. Berhasil mengupdate %d %s.", modeStr, successCount, entityName), nil
+	summary := i18n.T(ctx, "master_data.product.summary_success", map[string]any{
+		"mode":    modeStr,
+		"success": successCount,
+		"entity":  entityName,
+	})
+	if summary == "master_data.product.summary_success" {
+		summary = fmt.Sprintf("%sSelesai. Berhasil mengupdate %d %s.", modeStr, successCount, entityName)
+	}
+	return summary, nil
 }

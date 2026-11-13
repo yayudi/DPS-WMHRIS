@@ -1,6 +1,9 @@
 <script setup>
 import { ref, computed, useSlots } from 'vue'
 import { useMobile } from '@/core/presentation/composables/useMobile'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   title: { type: String, default: '' },
@@ -82,7 +85,7 @@ const hasBottomRow = computed(() => !!(slots.filters || slots['filter-actions'])
         "
       >
         <span class="text-xs font-bold uppercase tracking-wider">{{
-          isExpanded ? 'Sembunyikan Filter' : 'Tampilkan Filter'
+          isExpanded ? t('common.filter.hide_filter') : t('common.filter.show_filter')
         }}</span>
         <font-awesome-icon :icon="isExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'" />
         <span

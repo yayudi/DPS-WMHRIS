@@ -41,9 +41,9 @@ func (h *StockQueryHandler) GetBalances(c *gin.Context) {
 
 	balances, err := h.queryService.GetStockBalances(c.Request.Context(), locID, prodID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get stock balances", err.Error())
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Successfully retrieved stock balances", balances)
+	utils.SuccessDataResponse(c, http.StatusOK, balances)
 }

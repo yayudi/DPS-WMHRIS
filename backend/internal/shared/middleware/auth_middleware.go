@@ -78,7 +78,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		if tokenString == "" {
 			log.Printf("[AUTH] Missing or invalid token header/cookie")
-			utils.ErrorResponse(c, http.StatusUnauthorized, "unauthorized: missing or invalid token", "UNAUTHORIZED")
+			utils.LocalizedError(c, http.StatusUnauthorized, "errors.unauthorized", nil, "UNAUTHORIZED")
 			c.Abort()
 			return
 		}
@@ -92,7 +92,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		if err != nil || !token.Valid {
 			log.Printf("[AUTH] Token validation failed: %v", err)
-			utils.ErrorResponse(c, http.StatusUnauthorized, "unauthorized: token expired or invalid", "UNAUTHORIZED")
+			utils.LocalizedError(c, http.StatusUnauthorized, "errors.unauthorized", nil, "UNAUTHORIZED")
 			c.Abort()
 			return
 		}

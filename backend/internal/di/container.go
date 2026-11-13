@@ -15,6 +15,7 @@ import (
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
 	misc_handler "github.com/dps-wmhris/backend/internal/modules/misc/adapter/inbound/http"
 	system_handler "github.com/dps-wmhris/backend/internal/modules/system/adapter/inbound/http"
+	system_port "github.com/dps-wmhris/backend/internal/modules/system/port"
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 )
@@ -106,6 +107,7 @@ type WorkerContainer struct {
 	StockService      inventory_port.StockUseCase
 	ProductService    catalog_port.ProductUseCase
 	StockTransactionService inventory_port.StockTransactionUseCase
+	LocalizationService     system_port.LocalizationUseCase
 }
 
 func NewWorkerContainer(
@@ -123,6 +125,7 @@ func NewWorkerContainer(
 	stockService inventory_port.StockUseCase,
 	productService catalog_port.ProductUseCase,
 	stockTransactionService inventory_port.StockTransactionUseCase,
+	localizationService system_port.LocalizationUseCase,
 ) *WorkerContainer {
 	return &WorkerContainer{
 		TxManager:         txManager,
@@ -139,5 +142,6 @@ func NewWorkerContainer(
 		StockService:      stockService,
 		ProductService:    productService,
 		StockTransactionService: stockTransactionService,
+		LocalizationService:     localizationService,
 	}
 }

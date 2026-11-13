@@ -130,6 +130,50 @@ export function useI18n() {
   }
 
   /**
+   * Pemformatan waktu (jam:menit:detik) regional terpusat menggunakan zona waktu dan bahasa user.
+   */
+  const tTime = (
+    date: Date | string | number,
+    options?: Intl.DateTimeFormatOptions
+  ): string => {
+    if (!date) return ''
+    const targetDate = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
+    if (isNaN(targetDate.getTime())) return String(date)
+
+    const timeZone = store.preferences?.timezone || DEFAULT_USER_PREFERENCES.timezone
+    const locale = store.currentLocale || DEFAULT_LOCALE
+    const finalOpts: Intl.DateTimeFormatOptions = options
+      ? { timeZone, ...options }
+      : { timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' }
+
+    try {
+      return new Intl.DateTimeFormat(locale, finalOpts).format(targetDate)
+    } catch {
+      try {
+        const fallbackOpts = { ...finalOpts, timeZone: DEFAULT_USER_PREFERENCES.timezone }
+        return new Intl.DateTimeFormat(DEFAULT_LOCALE, fallbackOpts).format(targetDate)
+      } catch {
+        try {
+          return targetDate.toISOString().split('T')[1]?.slice(0, 8) || String(targetDate)
+        } catch {
+          return String(targetDate)
+        }
+      }
+    }
+  }
+
+  /**
+   * Pemformatan gabungan tanggal dan waktu sesuai preferensi regional user.
+   */
+  const dt = (date: Date | string | number, timeOptions?: Intl.DateTimeFormatOptions): string => {
+    if (!date) return ''
+    const formattedDate = d(date)
+    const formattedTime = tTime(date, timeOptions ?? { hour: '2-digit', minute: '2-digit' })
+    if (!formattedTime) return formattedDate
+    return `${formattedDate} ${formattedTime}`
+  }
+
+  /**
    * Pemformatan angka dan mata uang regional terpusat dengan fallback defensif.
    */
   const n = (number: number, options?: Intl.NumberFormatOptions): string => {
@@ -149,8 +193,11 @@ export function useI18n() {
   return {
     t,
     d,
+    tTime,
+    dt,
     n,
     currentLocale: computed(() => store.currentLocale),
+    activeLocale: computed(() => store.currentLocale),
     availableLocales: computed(() => store.availableLocales),
     preferences: computed(() => store.preferences),
     isLoading: computed(() => store.isLoading),

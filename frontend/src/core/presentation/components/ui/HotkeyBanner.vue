@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { usePwaInstall } from '@/core/presentation/composables/usePwaInstall'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const { isInstallable, isBannerDismissed } = usePwaInstall()
+const { t } = useI18n()
 const isHotkeyBannerDismissed = ref(true)
 
 onMounted(() => {
@@ -32,25 +34,27 @@ const dismissHotkeyBanner = () => {
         <font-awesome-icon icon="fa-solid fa-keyboard" class="text-primary text-xl" />
       </div>
       <div class="flex-1 min-w-0 text-text font-mono text-[10px]">
-        <p class="text-text text-sm font-semibold">Gunakan Keyboard Shortcut!</p>
+        <p class="text-text text-sm font-semibold">{{ t('common.hotkey.banner_title') }}</p>
         <p class="flex items-center gap-2 mt-0.5">
           <kbd class="px-1.5 py-0.5 bg-background border border-secondary/50 rounded-md shadow-sm">Alt</kbd>
           + <kbd class="px-1.5 py-0.5 bg-background border border-secondary/50 rounded-md shadow-sm">/</kbd>
-          untuk melihat daftar Hotkey
+          {{ t('common.hotkey.view_list') }}
         </p>
         <p class="flex items-center gap-2 mt-0.5">
           <kbd class="px-1.5 py-0.5 bg-background border border-secondary/50 rounded-md shadow-sm">Alt</kbd>
-          + <kbd class="px-1.5 py-0.5 bg-background border border-secondary/50 rounded-md shadow-sm">H</kbd>untuk panduan sistem.
+          + <kbd class="px-1.5 py-0.5 bg-background border border-secondary/50 rounded-md shadow-sm">H</kbd>
+          {{ t('common.hotkey.guide') }}
         </p>
         <p class="flex items-center gap-2 mt-0.5">
           <kbd class="px-1.5 py-0.5 bg-background border border-secondary/50 rounded-md shadow-sm">Alt</kbd>
-          + <kbd class="px-1.5 py-0.5 bg-background border border-secondary/50 rounded-md shadow-sm">S</kbd>untuk submit/simpan form.
+          + <kbd class="px-1.5 py-0.5 bg-background border border-secondary/50 rounded-md shadow-sm">S</kbd>
+          {{ t('common.hotkey.submit_form') }}
         </p>
       </div>
       <div class="flex-shrink-0">
         <button @click="dismissHotkeyBanner"
           class="p-1.5 text-text/40 hover:text-text hover:bg-background/50 rounded-lg transition-colors"
-          aria-label="Tutup">
+          :aria-label="t('common.btn.close')">
           <font-awesome-icon icon="fa-solid fa-xmark" />
         </button>
       </div>

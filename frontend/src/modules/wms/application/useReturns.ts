@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { returnApi } from '../infrastructure/return.api'
 import type { ReturnData } from '../domain/return.entity'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 export function useReturns() {
   const returns = ref<ReturnData[]>([])
@@ -9,6 +10,7 @@ export function useReturns() {
   const error = ref<string | null>(null)
   const totalItems = ref(0)
   const { toast } = useToast()
+  const { t } = useI18n()
 
   async function fetchReturns(params: Record<string, any>) {
     isLoading.value = true
@@ -18,7 +20,7 @@ export function useReturns() {
       totalItems.value = response.meta?.total || 0
       return response
     } catch (err: any) {
-      error.value = err?.message || 'Gagal mengambil data retur'
+      error.value = err?.message || t('wms.return.fetch_error')
       toast(error.value || 'Error', 'error')
       throw err
     } finally {
@@ -30,10 +32,10 @@ export function useReturns() {
     isLoading.value = true
     try {
       const response = await returnApi.createReturn(payload)
-      toast('Retur manual berhasil dicatat', 'success')
+      toast(response?.message || t('common.status.success'), 'success')
       return response
     } catch (err: any) {
-      toast(err?.response?.data?.message || 'Gagal mencatat retur', 'error')
+      toast(err?.response?.data?.message || t('wms.return.manual_error'), 'error')
       throw err
     } finally {
       isLoading.value = false

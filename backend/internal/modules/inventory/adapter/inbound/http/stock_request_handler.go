@@ -27,29 +27,28 @@ func (h *StockRequestHandler) Create(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "UNAUTHORIZED")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	request, err := h.stockRequestService.CreateStockRequest(c.Request.Context(), userID, req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusCreated, "Dokumen permintaan stok berhasil dibuat", request)
+	utils.SuccessResponse(c, http.StatusCreated, "wms.stock_request.create_success", request)
 }
 
 func (h *StockRequestHandler) GetAll(c *gin.Context) {
 	requests, err := h.stockRequestService.GetAllStockRequests(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Berhasil mengambil data permintaan stok", requests)
+	utils.SuccessDataResponse(c, http.StatusOK, requests)
 }
 
 func (h *StockRequestHandler) Approve(c *gin.Context) {
@@ -58,20 +57,19 @@ func (h *StockRequestHandler) Approve(c *gin.Context) {
 		return
 	}
 
-	userID := middleware.GetUserID(c)
-	roleID := middleware.GetRoleID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
+	roleID := middleware.GetRoleID(c)
 
 	err := h.stockRequestService.ApproveStockRequest(c.Request.Context(), id, userID, roleID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Permintaan stok berhasil disetujui.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "wms.stock_request.approve_success", nil)
 }
 
 func (h *StockRequestHandler) Reject(c *gin.Context) {
@@ -80,20 +78,19 @@ func (h *StockRequestHandler) Reject(c *gin.Context) {
 		return
 	}
 
-	userID := middleware.GetUserID(c)
-	roleID := middleware.GetRoleID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
+	roleID := middleware.GetRoleID(c)
 
 	err := h.stockRequestService.RejectStockRequest(c.Request.Context(), id, userID, roleID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Permintaan stok telah ditolak.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "wms.stock_request.reject_success", nil)
 }
 
 func (h *StockRequestHandler) Dispatch(c *gin.Context) {
@@ -102,20 +99,19 @@ func (h *StockRequestHandler) Dispatch(c *gin.Context) {
 		return
 	}
 
-	userID := middleware.GetUserID(c)
-	roleID := middleware.GetRoleID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
+	roleID := middleware.GetRoleID(c)
 
 	err := h.stockRequestService.DispatchStockRequest(c.Request.Context(), id, userID, roleID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Barang berhasil dikirim dan stok asal telah dipotong.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "wms.stock_request.dispatch_success", nil)
 }
 
 func (h *StockRequestHandler) Complete(c *gin.Context) {
@@ -130,20 +126,19 @@ func (h *StockRequestHandler) Complete(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := middleware.GetUserID(c)
-	roleID := middleware.GetRoleID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
+	roleID := middleware.GetRoleID(c)
 
 	err := h.stockRequestService.CompleteStockRequest(c.Request.Context(), id, req, userID, roleID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Permintaan stok selesai dan stok telah ditransfer.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "wms.stock_request.fulfill_success", nil)
 }
 
 func (h *StockRequestHandler) BulkAction(c *gin.Context) {
@@ -153,16 +148,15 @@ func (h *StockRequestHandler) BulkAction(c *gin.Context) {
 	}
 	req := *req_ptr
 
-	userID := middleware.GetUserID(c)
-	roleID := middleware.GetRoleID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
+	roleID := middleware.GetRoleID(c)
 
 	res, err := h.stockRequestService.BulkActionStockRequest(c.Request.Context(), req, userID, roleID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 

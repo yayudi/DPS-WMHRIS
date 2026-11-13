@@ -2,8 +2,10 @@ import { ref } from 'vue'
 import { locationApi } from '../infrastructure/location.api'
 import type { Location, CreateLocationPayload, UpdateLocationPayload } from '../domain/location.entity'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 export function useLocations() {
+  const { t } = useI18n()
   const locations = ref<Location[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -16,7 +18,7 @@ export function useLocations() {
       const response = await locationApi.fetchAllLocations()
       locations.value = response.data || response || []
     } catch (err: any) {
-      error.value = err?.message || 'Gagal mengambil data lokasi.'
+      error.value = err?.message || t('auth.profile.locations_fetch_failed')
       toast(error.value || 'Error', 'error')
     } finally {
       isLoading.value = false
@@ -26,12 +28,12 @@ export function useLocations() {
   async function createLocation(payload: CreateLocationPayload) {
     isLoading.value = true
     try {
-      await locationApi.createLocation(payload)
-      toast('Lokasi berhasil dibuat.', 'success')
+      const res = await locationApi.createLocation(payload)
+      toast(res?.message || t('common.status.success'), 'success')
       await fetchLocations()
       return true
     } catch (err: any) {
-      toast(err?.response?.data?.message || 'Gagal membuat lokasi.', 'error')
+      toast(err?.response?.data?.message || t('master_data.location.create_error'), 'error')
       return false
     } finally {
       isLoading.value = false
@@ -41,12 +43,12 @@ export function useLocations() {
   async function updateLocation(id: number | string, payload: UpdateLocationPayload) {
     isLoading.value = true
     try {
-      await locationApi.updateLocation(id, payload)
-      toast('Lokasi berhasil diperbarui.', 'success')
+      const res = await locationApi.updateLocation(id, payload)
+      toast(res?.message || t('common.status.success'), 'success')
       await fetchLocations()
       return true
     } catch (err: any) {
-      toast(err?.response?.data?.message || 'Gagal memperbarui lokasi.', 'error')
+      toast(err?.response?.data?.message || t('master_data.location.update_error'), 'error')
       return false
     } finally {
       isLoading.value = false
@@ -56,12 +58,12 @@ export function useLocations() {
   async function deleteLocation(id: number | string) {
     isLoading.value = true
     try {
-      await locationApi.deleteLocation(id)
-      toast('Lokasi berhasil dihapus.', 'success')
+      const res = await locationApi.deleteLocation(id)
+      toast(res?.message || t('common.status.success'), 'success')
       await fetchLocations()
       return true
     } catch (err: any) {
-      toast(err?.response?.data?.message || 'Gagal menghapus lokasi.', 'error')
+      toast(err?.response?.data?.message || t('master_data.location.delete_error'), 'error')
       return false
     } finally {
       isLoading.value = false
@@ -70,15 +72,15 @@ export function useLocations() {
 
   async function toggleFulfillmentSource(id: number | string, isFulfillmentSource: boolean) {
     try {
-      await locationApi.toggleFulfillmentSource(id, isFulfillmentSource)
-      toast('Status sumber fulfillment berhasil diubah.', 'success')
+      const res = await locationApi.toggleFulfillmentSource(id, isFulfillmentSource)
+      toast(res?.message || t('common.status.success'), 'success')
       const target = locations.value.find(l => l.id === id)
       if (target) {
         target.is_fulfillment_source = isFulfillmentSource
       }
       return true
     } catch (err: any) {
-      toast(err?.response?.data?.message || err?.message || 'Gagal mengubah status sumber fulfillment.', 'error')
+      toast(err?.response?.data?.message || err?.message || t('master_data.location.fulfillment_toggle_error'), 'error')
       return false
     }
   }

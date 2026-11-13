@@ -142,7 +142,7 @@ async function handleAddKey(): Promise<void> {
   const key = newKey.value.trim()
 
   if (!mod || !key) {
-    toast('Modul dan Translation Key wajib diisi', 'warning')
+    toast(t('localization.toast_required'), 'warning')
     return
   }
 
@@ -167,7 +167,7 @@ async function handleAddKey(): Promise<void> {
     }
 
     await Promise.all(promises)
-    toast('Key baru berhasil ditambahkan', 'success')
+    toast(t('localization.toast_add_success'), 'success')
     showAddModal.value = false
     newKey.value = ''
     newValues.value = { 'id-ID': '', 'en-US': '' }
@@ -175,7 +175,7 @@ async function handleAddKey(): Promise<void> {
     await fetchMatrix()
     await localeStore.fetchDictionary(localeStore.currentLocale)
   } catch (err: any) {
-    toast(err.message || 'Gagal menambahkan key', 'error')
+    toast(err.message || t('localization.toast_add_failed'), 'error')
   } finally {
     isSaving.value = false
   }
@@ -209,7 +209,7 @@ onMounted(() => {
           class="px-4 py-2 text-sm font-semibold rounded-xl border border-secondary/20 hover:bg-secondary/10 text-text transition-colors flex items-center gap-2"
         >
           <font-awesome-icon icon="fa-solid fa-rotate" :class="{ 'animate-spin': isLoading }" />
-          <span>Segarkan</span>
+          <span>{{ t('common.btn.refresh') }}</span>
         </button>
 
         <button
@@ -217,7 +217,7 @@ onMounted(() => {
           class="px-4 py-2 text-sm font-semibold rounded-xl bg-secondary/15 hover:bg-secondary/25 text-text transition-colors flex items-center gap-2"
         >
           <font-awesome-icon icon="fa-solid fa-plus" />
-          <span>{{ t('localization.add_key') || 'Tambah Key' }}</span>
+          <span>{{ t('localization.add_key') }}</span>
         </button>
 
         <button
@@ -228,7 +228,7 @@ onMounted(() => {
           <font-awesome-icon v-if="isSaving" icon="fa-solid fa-spinner" class="animate-spin" />
           <font-awesome-icon v-else icon="fa-solid fa-floppy-disk" />
           <span>
-            {{ t('localization.save_changes') || 'Simpan Perubahan' }}
+            {{ t('common.btn.save_changes') }}
             <span v-if="totalDirtyCount > 0" class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-background/20">
               ({{ totalDirtyCount }})
             </span>
@@ -240,10 +240,10 @@ onMounted(() => {
     <!-- Statistics Cards -->
     <div v-if="matrixData?.stats" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       <div class="p-4 rounded-2xl bg-secondary/5 border border-secondary/20 flex flex-col justify-between">
-        <span class="text-xs font-bold uppercase tracking-wider text-text/60">Total Entri Kamus</span>
+        <span class="text-xs font-bold uppercase tracking-wider text-text/60">{{ t('localization.total_entries') }}</span>
         <div class="mt-2 flex items-baseline justify-between">
           <span class="text-3xl font-black text-text">{{ matrixData.totalKeys }}</span>
-          <span class="text-xs text-text/50 font-medium">keys terdaftar</span>
+          <span class="text-xs text-text/50 font-medium">{{ t('localization.keys_registered') }}</span>
         </div>
       </div>
 
@@ -269,10 +269,10 @@ onMounted(() => {
             <span class="text-xs font-normal text-text/60">/ {{ matrixData.totalKeys }}</span>
           </span>
           <span v-if="stat.missing_count > 0" class="text-xs font-semibold text-warning">
-            {{ stat.missing_count }} missing
+            {{ stat.missing_count }} {{ t('localization.missing') }}
           </span>
           <span v-else class="text-xs font-semibold text-success">
-            Lengkap ✓
+            {{ t('localization.complete') }}
           </span>
         </div>
       </div>
@@ -287,7 +287,7 @@ onMounted(() => {
           @change="fetchMatrix"
           class="px-3 py-2 text-sm rounded-xl bg-background border border-secondary/20 text-text focus:outline-none focus:border-primary"
         >
-          <option value="">Semua Modul</option>
+          <option value="">{{ t('localization.all_modules') }}</option>
           <option v-for="mod in matrixData?.modules || []" :key="mod" :value="mod">
             {{ mod }}
           </option>
@@ -299,7 +299,7 @@ onMounted(() => {
             v-model="searchQuery"
             @keyup.enter="fetchMatrix"
             type="text"
-            placeholder="Cari key atau teks terjemahan..."
+            :placeholder="t('localization.search_placeholder')"
             class="w-full pl-9 pr-4 py-2 text-sm rounded-xl bg-background border border-secondary/20 text-text focus:outline-none focus:border-primary"
           />
           <font-awesome-icon
@@ -317,7 +317,7 @@ onMounted(() => {
           type="checkbox"
           class="w-4 h-4 rounded text-primary focus:ring-primary border-secondary/40"
         />
-        <span>{{ t('localization.untranslated_only') || 'Belum Diterjemahkan Saja' }}</span>
+        <span>{{ t('localization.untranslated_only') }}</span>
       </label>
     </div>
 
@@ -327,24 +327,24 @@ onMounted(() => {
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b border-secondary/20 bg-secondary/5 text-xs font-bold text-text/60 uppercase">
-              <th class="py-3 px-4 w-32">Modul</th>
-              <th class="py-3 px-4 w-60">Translation Key</th>
+              <th class="py-3 px-4 w-32">{{ t('localization.module') }}</th>
+              <th class="py-3 px-4 w-60">{{ t('localization.translation_key') }}</th>
               <th class="py-3 px-4">Bahasa Indonesia (id-ID)</th>
               <th class="py-3 px-4">English (en-US)</th>
-              <th class="py-3 px-4 w-28 text-center">Status</th>
+              <th class="py-3 px-4 w-28 text-center">{{ t('common.label.status') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-secondary/10 text-sm">
             <tr v-if="isLoading" class="text-center py-8">
               <td colspan="5" class="py-12 text-text/50">
                 <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-2xl mb-2 text-primary" />
-                <p>Memuat kamus terjemahan...</p>
+                <p>{{ t('localization.loading_dictionary') }}</p>
               </td>
             </tr>
             <tr v-else-if="!matrixData?.rows?.length" class="text-center py-8">
               <td colspan="5" class="py-12 text-text/50">
                 <font-awesome-icon icon="fa-solid fa-inbox" class="text-3xl mb-2 opacity-40" />
-                <p>Tidak ada entri terjemahan yang cocok dengan filter.</p>
+                <p>{{ t('localization.empty_matrix') }}</p>
               </td>
             </tr>
             <tr
@@ -398,13 +398,13 @@ onMounted(() => {
                   v-if="row.isComplete"
                   class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-success/15 text-success whitespace-nowrap"
                 >
-                  Lengkap
+                  {{ t('localization.complete') }}
                 </span>
                 <span
                   v-else
                   class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-warning/15 text-warning whitespace-nowrap"
                 >
-                  Belum Lengkap
+                  {{ t('localization.incomplete') }}
                 </span>
               </td>
             </tr>
@@ -422,7 +422,7 @@ onMounted(() => {
         <div class="flex items-center justify-between pb-3 border-b border-secondary/20">
           <h2 class="text-lg font-bold text-text flex items-center gap-2">
             <font-awesome-icon icon="fa-solid fa-plus" class="text-primary" />
-            <span>Tambah Key Terjemahan Baru</span>
+            <span>{{ t('localization.modal_add_title') }}</span>
           </h2>
           <button
             @click="showAddModal = false"
@@ -434,41 +434,41 @@ onMounted(() => {
 
         <div class="space-y-3">
           <div>
-            <label class="block text-xs font-bold text-text/70 uppercase mb-1">Modul</label>
+            <label class="block text-xs font-bold text-text/70 uppercase mb-1">{{ t('localization.module') }}</label>
             <input
               v-model="newModule"
               type="text"
-              placeholder="Contoh: common, wms, hris, errors"
+              :placeholder="t('localization.module_placeholder')"
               class="w-full px-3 py-2 text-sm rounded-xl bg-background border border-secondary/20 text-text focus:outline-none focus:border-primary"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-text/70 uppercase mb-1">Translation Key</label>
+            <label class="block text-xs font-bold text-text/70 uppercase mb-1">{{ t('localization.translation_key') }}</label>
             <input
               v-model="newKey"
               type="text"
-              placeholder="Contoh: btn.archive, alert.stock_low"
+              :placeholder="t('localization.key_placeholder')"
               class="w-full px-3 py-2 text-sm font-mono rounded-xl bg-background border border-secondary/20 text-text focus:outline-none focus:border-primary"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-text/70 uppercase mb-1">Nilai Bahasa Indonesia (id-ID)</label>
+            <label class="block text-xs font-bold text-text/70 uppercase mb-1">{{ t('localization.val_id_label') }}</label>
             <input
               v-model="newValues['id-ID']"
               type="text"
-              placeholder="Teks Bahasa Indonesia..."
+              :placeholder="t('localization.val_id_placeholder')"
               class="w-full px-3 py-2 text-sm rounded-xl bg-background border border-secondary/20 text-text focus:outline-none focus:border-primary"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-text/70 uppercase mb-1">Nilai English (en-US)</label>
+            <label class="block text-xs font-bold text-text/70 uppercase mb-1">{{ t('localization.val_en_label') }}</label>
             <input
               v-model="newValues['en-US']"
               type="text"
-              placeholder="English translation..."
+              :placeholder="t('localization.val_en_placeholder')"
               class="w-full px-3 py-2 text-sm rounded-xl bg-background border border-secondary/20 text-text focus:outline-none focus:border-primary"
             />
           </div>
@@ -479,7 +479,7 @@ onMounted(() => {
             @click="showAddModal = false"
             class="px-4 py-2 text-sm font-semibold rounded-xl border border-secondary/20 text-text/70 hover:bg-secondary/10 transition-colors"
           >
-            Batal
+            {{ t('common.btn.cancel') }}
           </button>
           <button
             @click="handleAddKey"
@@ -487,7 +487,7 @@ onMounted(() => {
             class="px-5 py-2 text-sm font-bold rounded-xl bg-primary text-background hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
             <font-awesome-icon v-if="isSaving" icon="fa-solid fa-spinner" class="animate-spin" />
-            <span>Simpan Key</span>
+            <span>{{ t('localization.btn_save_key') }}</span>
           </button>
         </div>
       </div>

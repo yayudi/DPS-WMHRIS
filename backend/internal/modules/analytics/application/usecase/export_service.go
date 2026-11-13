@@ -16,9 +16,29 @@ import (
 
 	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/xuri/excelize/v2"
 )
+
+func translateStockMovementStatus(ctx context.Context, status string) string {
+	switch status {
+	case "SAFE":
+		return i18n.T(ctx, "analytics.movement.status_safe")
+	case "NEGATIVE":
+		return i18n.T(ctx, "analytics.movement.status_negative")
+	case "EMPTY":
+		return i18n.T(ctx, "analytics.movement.status_empty")
+	case "CRITICAL":
+		return i18n.T(ctx, "analytics.movement.status_critical")
+	case "WARNING":
+		return i18n.T(ctx, "analytics.movement.status_warning")
+	case "OVERSTOCK":
+		return i18n.T(ctx, "analytics.movement.status_overstock")
+	default:
+		return status
+	}
+}
 
 type ExportService interface {
 	ProcessExportStockMovement(ctx context.Context, jobID int, filtersJSON string) error
@@ -69,11 +89,20 @@ func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobI
 	}()
 	styles := utils.InitExcelStyles(f)
 
-	sheetName := "Stock Movements"
+	sheetName := i18n.T(ctx, "analytics.export.sheet_stock_movements")
 	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
 	// Set Headers
-	utils.SetHeaders(f, sheetName, []string{"SKU", "Nama Produk", "Stok Saat Ini", "Total Terjual", "Total Masuk", "Rata-rata Terjual Harian", "Estimasi Hari Habis", "Status"}, styles.Header)
+	utils.SetLocalizedHeaders(ctx, f, sheetName, []string{
+		"common.label.sku",
+		"common.label.product_name",
+		"common.label.current_stock",
+		"analytics.export.col_total_sold",
+		"analytics.export.col_total_inbound",
+		"analytics.export.col_daily_avg_sold",
+		"analytics.export.col_est_days_out",
+		"common.label.status",
+	}, styles.Header)
 
 	// Set Data
 	for r, row := range data.Summary {
@@ -87,7 +116,7 @@ func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobI
 		}
 
 		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{ // #nosec G104
-			row.SKU, row.Name, row.CurrentStock, row.TotalSold, row.TotalInbound, row.AvgDailySales, estimasi, row.Status,
+			row.SKU, row.Name, row.CurrentStock, row.TotalSold, row.TotalInbound, row.AvgDailySales, estimasi, translateStockMovementStatus(ctx, row.Status),
 		})
 	}
 
@@ -118,10 +147,15 @@ func (s *exportServiceImpl) ProcessExportStockTimeline(ctx context.Context, jobI
 	defer f.Close()
 	styles := utils.InitExcelStyles(f)
 
-	sheetName := "Stock Timeline"
+	sheetName := i18n.T(ctx, "analytics.timeline.title")
 	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
-	utils.SetHeaders(f, sheetName, []string{"Tanggal", "Total Masuk", "Total Keluar", "Net Perubahan"}, styles.Header)
+	utils.SetLocalizedHeaders(ctx, f, sheetName, []string{
+		"common.label.date",
+		"analytics.export.col_total_inbound",
+		"analytics.export.col_total_outbound",
+		"analytics.export.col_net_change",
+	}, styles.Header)
 
 	for r, row := range data {
 		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{row.Date, row.TotalIn, row.TotalOut, row.NetChange}) // #nosec G104
@@ -162,10 +196,21 @@ func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int
 
 	f := excelize.NewFile()
 	styles := utils.InitExcelStyles(f)
-	sheetName := "Batch Log"
+	sheetName := i18n.T(ctx, "analytics.export.sheet_batch_log")
 	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
-	utils.SetHeaders(f, sheetName, []string{"No", "Tanggal", "SKU", "Nama Produk", "Tipe Mutasi", "Jumlah", "Dari Lokasi", "Ke Lokasi", "Keterangan", "User"}, styles.Header)
+	utils.SetLocalizedHeaders(ctx, f, sheetName, []string{
+		"analytics.export.col_no",
+		"common.label.date",
+		"common.label.sku",
+		"common.label.product_name",
+		"analytics.export.col_mutation_type",
+		"common.label.quantity",
+		"common.label.from_location",
+		"common.label.to_location",
+		"analytics.export.col_notes",
+		"common.label.user",
+	}, styles.Header)
 
 	for i, logItem := range logs {
 		row := i + 2
@@ -205,10 +250,15 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 	}()
 	styles := utils.InitExcelStyles(f)
 
-	rawSheet := "Data Mentah"
+	rawSheet := i18n.T(ctx, "analytics.export.sheet_raw_data")
 	_ = f.SetSheetName("Sheet1", rawSheet) // #nosec G104
 
-	utils.SetHeaders(f, rawSheet, []string{"SKU", "Nama Produk", "Lokasi", "Kuantitas"}, styles.Header)
+	utils.SetLocalizedHeaders(ctx, f, rawSheet, []string{
+		"common.label.sku",
+		"common.label.product_name",
+		"common.label.location",
+		"common.label.quantity",
+	}, styles.Header)
 	utils.SetColWidths(f, rawSheet, map[string]float64{"A": 20, "B": 50, "C": 15, "D": 12})
 
 	redStyle, _ := f.NewStyle(&excelize.Style{
@@ -266,11 +316,11 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 	}
 
 	// Create Pivot Sheet
-	pivotSheet := "Ringkasan Stok"
+	pivotSheet := i18n.T(ctx, "analytics.export.sheet_stock_summary")
 	_, _ = f.NewSheet(pivotSheet) // #nosec G104
 
-	_ = f.MergeCell(pivotSheet, "A1", "B1")                                     // #nosec G104
-	_ = f.SetCellValue(pivotSheet, "A1", "Laporan Ringkasan Stok (Per Lokasi)") // #nosec G104
+	_ = f.MergeCell(pivotSheet, "A1", "B1")                                                     // #nosec G104
+	_ = f.SetCellValue(pivotSheet, "A1", i18n.T(ctx, "analytics.export.title_stock_summary")) // #nosec G104
 	titleStyle, _ := f.NewStyle(&excelize.Style{
 		Font:      &excelize.Font{Size: 14, Bold: true},
 		Alignment: &excelize.Alignment{Horizontal: "center"},
@@ -278,7 +328,10 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 	_ = f.SetCellStyle(pivotSheet, "A1", "A1", titleStyle) // #nosec G104
 
 	// Headers
-	headers := []interface{}{"SKU", "Nama Produk"}
+	headers := []interface{}{
+		i18n.T(ctx, "common.label.sku"),
+		i18n.T(ctx, "common.label.product_name"),
+	}
 	colIdx := 3
 	for _, loc := range locationCodes {
 		headers = append(headers, loc)
@@ -286,7 +339,7 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 		_ = f.SetColWidth(pivotSheet, colName, colName, 10) // #nosec G104
 		colIdx++
 	}
-	headers = append(headers, "Grand Total")
+	headers = append(headers, i18n.T(ctx, "analytics.export.col_grand_total"))
 	colName, _ := excelize.ColumnNumberToName(colIdx)
 	_ = f.SetColWidth(pivotSheet, colName, colName, 15) // #nosec G104
 
@@ -390,14 +443,23 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 	defer f.Close()
 	styles := utils.InitExcelStyles(f)
 
-	sheetName := "Location Capacity"
+	sheetName := i18n.T(ctx, "analytics.export.sheet_location_capacity")
 	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
 	isDetailed := req.ExportFormat == "detailed"
 
 	if !isDetailed {
-		headers := []string{"Kode Lokasi", "Gedung", "Lantai", "Purpose", "Jumlah SKU", "Kuantitas", "Berat (kg)", "Kubikasi (m3)"}
-		utils.SetHeaders(f, sheetName, headers, styles.Header)
+		headers := []string{
+			"analytics.capacity.col_location_code",
+			"common.label.building",
+			"common.label.floor",
+			"common.label.purpose",
+			"analytics.capacity.col_sku_count",
+			"common.label.quantity",
+			"analytics.capacity.col_weight",
+			"analytics.export.col_volume_cbm",
+		}
+		utils.SetLocalizedHeaders(ctx, f, sheetName, headers, styles.Header)
 
 		var totalSKU, totalQty float64
 		var totalWeight, totalCBM float64
@@ -427,7 +489,7 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 		}
 
 		lastRow := len(data.LocationLoads) + 2
-		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", lastRow), &[]interface{}{"GRAND TOTAL", "", "", "", totalSKU, totalQty, totalWeight, totalCBM}) // #nosec G104
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", lastRow), &[]interface{}{i18n.T(ctx, "analytics.export.col_grand_total"), "", "", "", totalSKU, totalQty, totalWeight, totalCBM}) // #nosec G104
 		_ = f.MergeCell(sheetName, fmt.Sprintf("A%d", lastRow), fmt.Sprintf("D%d", lastRow))                                                            // #nosec G104
 
 		utils.SetColStyles(f, sheetName, map[string]int{
@@ -451,8 +513,18 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 		_ = f.SetColWidth(sheetName, "G", "G", 20) // #nosec G104
 		_ = f.SetColWidth(sheetName, "H", "H", 20) // #nosec G104
 	} else {
-		headers := []string{"Kode Lokasi", "Gedung", "Lantai", "SKU", "Nama Produk", "Kategori", "Kuantitas", "Berat (kg)", "Kubikasi (m3)"}
-		utils.SetHeaders(f, sheetName, headers, styles.Header)
+		headers := []string{
+			"analytics.capacity.col_location_code",
+			"common.label.building",
+			"common.label.floor",
+			"common.label.sku",
+			"common.label.product_name",
+			"common.label.category",
+			"common.label.quantity",
+			"analytics.capacity.col_weight",
+			"analytics.export.col_volume_cbm",
+		}
+		utils.SetLocalizedHeaders(ctx, f, sheetName, headers, styles.Header)
 
 		currentRow := 2
 		var totalQty int
@@ -489,7 +561,7 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 			}
 		}
 
-		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", currentRow), &[]interface{}{"GRAND TOTAL", "", "", "", "", "", totalQty, totalWeight, totalCBM}) // #nosec G104
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", currentRow), &[]interface{}{i18n.T(ctx, "analytics.export.col_grand_total"), "", "", "", "", "", totalQty, totalWeight, totalCBM}) // #nosec G104
 		_ = f.MergeCell(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("F%d", currentRow))                                                       // #nosec G104
 
 		utils.SetColStyles(f, sheetName, map[string]int{

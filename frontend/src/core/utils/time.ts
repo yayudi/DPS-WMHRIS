@@ -1,8 +1,18 @@
 // frontend/src/api/helpers/time.js
 import dayjs from 'dayjs'
 import 'dayjs/locale/id'
+import 'dayjs/locale/en'
 
-dayjs.locale('id')
+const initialLocale = typeof localStorage !== 'undefined' ? localStorage.getItem('user_locale') || 'id-ID' : 'id-ID'
+dayjs.locale(initialLocale.startsWith('en') ? 'en' : 'id')
+
+/**
+ * Synchronizes DayJS locale with active app locale
+ */
+export function setDayjsLocale(locale: string): void {
+  const dayjsCode = locale.startsWith('en') ? 'en' : 'id'
+  dayjs.locale(dayjsCode)
+}
 
 export { dayjs }
 

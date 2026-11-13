@@ -6,7 +6,6 @@ import (
 	analytics_dto "github.com/dps-wmhris/backend/internal/modules/analytics/application/dto"
 	analytics_usecase "github.com/dps-wmhris/backend/internal/modules/analytics/application/usecase"
 
-	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -28,7 +27,7 @@ func (h *StatisticHandler) GetStockMovements(c *gin.Context) {
 
 	data, err := h.statisticService.GetStockMovementStatistics(c.Request.Context(), filters)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -36,9 +35,8 @@ func (h *StatisticHandler) GetStockMovements(c *gin.Context) {
 }
 
 func (h *StatisticHandler) RequestStockMovementsExport(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -50,11 +48,11 @@ func (h *StatisticHandler) RequestStockMovementsExport(c *gin.Context) {
 
 	jobID, err := h.statisticService.RequestStockMovementsExport(c.Request.Context(), userID, req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.JobCreatedResponse(c, http.StatusAccepted, "Permintaan ekspor statistik stok diterima. File sedang diproses.", jobID)
+	utils.JobCreatedResponse(c, http.StatusAccepted, "analytics.statistic.export_stock_movements_accepted", jobID)
 }
 
 func (h *StatisticHandler) GetStockTimeline(c *gin.Context) {
@@ -66,7 +64,7 @@ func (h *StatisticHandler) GetStockTimeline(c *gin.Context) {
 
 	data, err := h.statisticService.GetStockTimelineStatistics(c.Request.Context(), filters)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -74,9 +72,8 @@ func (h *StatisticHandler) GetStockTimeline(c *gin.Context) {
 }
 
 func (h *StatisticHandler) RequestStockTimelineExport(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -88,11 +85,11 @@ func (h *StatisticHandler) RequestStockTimelineExport(c *gin.Context) {
 
 	jobID, err := h.statisticService.RequestStockTimelineExport(c.Request.Context(), userID, req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.JobCreatedResponse(c, http.StatusAccepted, "Permintaan ekspor statistik timeline stok diterima. File sedang diproses.", jobID)
+	utils.JobCreatedResponse(c, http.StatusAccepted, "analytics.statistic.export_stock_timeline_accepted", jobID)
 }
 
 func (h *StatisticHandler) GetInventoryValue(c *gin.Context) {
@@ -104,7 +101,7 @@ func (h *StatisticHandler) GetInventoryValue(c *gin.Context) {
 
 	data, err := h.statisticService.GetInventoryValueStatistics(c.Request.Context(), filters)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -120,7 +117,7 @@ func (h *StatisticHandler) GetShopPerformance(c *gin.Context) {
 
 	data, err := h.statisticService.GetShopPerformanceStats(c.Request.Context(), filters)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -135,13 +132,13 @@ func (h *StatisticHandler) GetPackageAnalysis(c *gin.Context) {
 	filters := *filters_ptr
 
 	if filters.StartDate == "" || filters.EndDate == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "startDate dan endDate wajib diisi", "")
+		utils.LocalizedError(c, http.StatusBadRequest, "analytics.statistic.err_start_end_date_required", nil, "VALIDATION_ERROR")
 		return
 	}
 
 	data, err := h.statisticService.GetPackageComponentAnalysis(c.Request.Context(), filters)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -157,7 +154,7 @@ func (h *StatisticHandler) GetLocationAnalysis(c *gin.Context) {
 
 	data, err := h.statisticService.GetLocationAnalysis(c.Request.Context(), filters)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -178,7 +175,7 @@ func (h *StatisticHandler) GetLocationCapacityDetails(c *gin.Context) {
 
 	data, err := h.statisticService.GetLocationCapacityDetails(c.Request.Context(), locationId, filters)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -186,25 +183,24 @@ func (h *StatisticHandler) GetLocationCapacityDetails(c *gin.Context) {
 }
 
 func (h *StatisticHandler) ExportLocationCapacity(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
-	var req analytics_dto.ExportLocationCapacityRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Format request tidak valid", "")
+	req_ptr, ok := utils.BindAndValidate[analytics_dto.ExportLocationCapacityRequest](c)
+	if !ok {
 		return
 	}
+	req := *req_ptr
 
 	jobID, err := h.statisticService.RequestLocationCapacityExport(c.Request.Context(), userID, req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal membuat job export", err.Error())
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.JobCreatedResponse(c, http.StatusAccepted, "Export job berhasil dibuat", jobID)
+	utils.JobCreatedResponse(c, http.StatusAccepted, "analytics.statistic.export_job_created", jobID)
 }
 
 // GetStockBuildingBreakdown handles GET /statistics/stock-movements/:productId/breakdown
@@ -217,13 +213,13 @@ func (h *StatisticHandler) GetStockBuildingBreakdown(c *gin.Context) {
 	startDate := c.Query("startDate")
 	endDate := c.Query("endDate")
 	if startDate == "" || endDate == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "startDate dan endDate wajib diisi", "VALIDATION_ERROR")
+		utils.LocalizedError(c, http.StatusBadRequest, "analytics.statistic.err_start_end_date_required", nil, "VALIDATION_ERROR")
 		return
 	}
 
 	data, err := h.statisticService.GetStockBuildingBreakdown(c.Request.Context(), productId, startDate, endDate)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 

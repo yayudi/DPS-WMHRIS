@@ -1,6 +1,9 @@
 <script setup>
 import { usePwaInstall } from '@/core/presentation/composables/usePwaInstall'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
 const { isInstallable, isBannerDismissed, isIos, installPwa, dismissPrompt } = usePwaInstall()
+const { t } = useI18n()
 </script>
 
 <template>
@@ -14,25 +17,25 @@ const { isInstallable, isBannerDismissed, isIos, installPwa, dismissPrompt } = u
             <font-awesome-icon icon="fa-solid fa-mobile-screen-button" class="text-primary text-2xl" />
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-text text-sm font-semibold">Install Aplikasi WMS</p>
+            <p class="text-text text-sm font-semibold">{{ t('common.pwa.install_title') }}</p>
             <p class="text-text/60 text-xs mt-1 leading-relaxed">
-              Untuk menginstall di iPhone/iPad:
+              {{ t('common.pwa.ios_instructions') }}
             </p>
           </div>
           <button @click="dismissPrompt" class="flex-shrink-0 p-1 text-text/40 hover:text-text transition-colors"
-            aria-label="Tutup">
+            :aria-label="t('common.btn.close')">
             <font-awesome-icon icon="fa-solid fa-xmark" />
           </button>
         </div>
 
         <div class="flex items-center gap-3 bg-background/30 rounded-lg px-3 py-2.5 text-xs text-text/80">
           <span class="font-medium">1.</span>
-          <span>Ketuk tombol <strong class="text-primary">Share</strong></span>
+          <span>{{ t('common.pwa.ios_step_1') }}</span>
           <font-awesome-icon icon="fa-solid fa-arrow-up-from-bracket" class="text-primary text-sm" />
         </div>
         <div class="flex items-center gap-3 bg-background/30 rounded-lg px-3 py-2.5 text-xs text-text/80">
           <span class="font-medium">2.</span>
-          <span>Pilih <strong class="text-primary">"Add to Home Screen"</strong></span>
+          <span>{{ t('common.pwa.ios_step_2') }}</span>
           <font-awesome-icon icon="fa-solid fa-plus-square" class="text-primary text-sm" />
         </div>
       </div>
@@ -43,17 +46,17 @@ const { isInstallable, isBannerDismissed, isIos, installPwa, dismissPrompt } = u
           <font-awesome-icon icon="fa-solid fa-mobile-screen-button" class="text-primary text-2xl" />
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-text text-sm font-semibold">Install Aplikasi WMS</p>
-          <p class="text-text/60 text-xs mt-0.5">Akses lebih cepat & optimal langsung dari layar Home HP Anda.</p>
+          <p class="text-text text-sm font-semibold">{{ t('common.pwa.install_title') }}</p>
+          <p class="text-text/60 text-xs mt-0.5">{{ t('common.pwa.desc') }}</p>
         </div>
         <div class="flex flex-col items-center gap-2 flex-shrink-0">
           <button @click="installPwa"
             class="w-full px-4 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary/80 rounded-lg transition-colors">
-            Install
+            {{ t('common.pwa.btn_install') }}
           </button>
           <button @click="dismissPrompt"
             class="w-full px-4 py-1 text-xs font-medium text-text/50 hover:text-text rounded-lg transition-colors">
-            Nanti
+            {{ t('common.pwa.btn_later') }}
           </button>
         </div>
       </div>

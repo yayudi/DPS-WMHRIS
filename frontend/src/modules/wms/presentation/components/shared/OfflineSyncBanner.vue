@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useOfflineSync } from '../../../application/useOfflineSync'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
+const { t } = useI18n()
 const {
   isOnline,
   isSyncing,
@@ -37,26 +39,26 @@ const handleManualSync = async () => {
 
       <div>
         <div class="font-semibold flex items-center gap-2">
-          <span>{{ !isOnline ? 'Mode Lorong Gudang (Offline Buffer)' : 'Sinkronisasi Buffer WMS' }}</span>
+          <span>{{ !isOnline ? t('wms.offline.hallway_mode') : t('wms.offline.buffer_sync') }}</span>
           <span
             v-if="pendingCount > 0"
             class="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-500/20 text-amber-500"
           >
-            {{ pendingCount }} antrean
+            {{ t('wms.offline.pending_count_badge', { count: pendingCount }) }}
           </span>
         </div>
         <p class="text-xs opacity-80 mt-0.5">
           <span v-if="!isOnline">
-            Koneksi terputus. Scan barcode picking tersimpan aman di IndexedDB perangkat ini.
+            {{ t('wms.offline.disconnected_hint') }}
           </span>
           <span v-else-if="isSyncing">
-            Sedang mengunggah data picking buffer ke server...
+            {{ t('wms.offline.syncing_hint') }}
           </span>
           <span v-else-if="pendingCount > 0">
-            Koneksi kembali online. Data offline siap disinkronkan ke server.
+            {{ t('wms.offline.online_hint') }}
           </span>
           <span v-else>
-            Semua data fisik picking telah sinkron dengan server.
+            {{ t('wms.offline.synced_hint') }}
           </span>
         </p>
         <p v-if="syncError" class="text-xs text-red-500 mt-1 font-medium">
@@ -72,7 +74,7 @@ const handleManualSync = async () => {
         class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary-600 hover:bg-primary-500 text-white transition-all disabled:opacity-50 flex items-center gap-2 shadow-sm"
       >
         <font-awesome-icon icon="fa-solid fa-rotate" :class="{ 'animate-spin': isSyncing }" />
-        <span>{{ isSyncing ? 'Menyinkronkan...' : 'Sinkronkan Sekarang' }}</span>
+        <span>{{ isSyncing ? t('wms.offline.syncing_btn') : t('wms.offline.sync_now_btn') }}</span>
       </button>
     </div>
   </div>

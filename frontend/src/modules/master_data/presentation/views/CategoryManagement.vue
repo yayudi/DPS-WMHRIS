@@ -12,12 +12,14 @@ import { usePagination } from '@/core/presentation/composables/usePagination'
 import BaseContextMenu from '@/core/presentation/components/ui/BaseContextMenu.vue'
 import { useContextMenu } from '@/core/presentation/composables/useContextMenu'
 import { useInstantInlineEdit } from '@/core/presentation/composables/useInstantInlineEdit'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 import { useCategories } from '../../application/useCategories'
 import type { Category } from '../../domain/category.entity'
 
 const { isMobile } = useMobile()
 const { toast } = useToast()
+const { t } = useI18n()
 
 const {
   categories,
@@ -67,7 +69,7 @@ function openEditModal(category: Category) {
 
 async function handleSave() {
   if (!form.value.name.trim()) {
-    toast('Nama kategori tidak boleh kosong', 'error')
+    toast(t('master_data.category.empty_name_error'), 'error')
     return
   }
 
@@ -87,7 +89,7 @@ async function handleSave() {
 }
 
 async function handleDelete(categoryId: number) {
-  if (!(await swalConfirm('Apakah Anda yakin ingin menonaktifkan kategori ini?'))) return
+  if (!(await swalConfirm(t('master_data.category.confirm_deactivate')))) return
 
   try {
     await deleteCategory(categoryId)
@@ -106,7 +108,7 @@ const { handleCellBlur } = useInstantInlineEdit(
 
 const validateCategoryName = (val: string) => {
   if (!val) {
-    toast('Nama kategori tidak boleh kosong', 'error')
+    toast(t('master_data.category.empty_name_error'), 'error')
     return false
   }
   return true
@@ -139,7 +141,7 @@ watch(Alt_S, pressed => {
       class="bg-primary text-secondary text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-md shadow-primary/20"
     >
       <font-awesome-icon icon="fa-solid fa-plus" />
-      <span>Tambah Kategori</span>
+      <span>{{ t('master_data.category.add_btn') }}</span>
     </button>
   </div>
   <div>
@@ -153,7 +155,7 @@ watch(Alt_S, pressed => {
         >
           <tr class="text-xs text-text/80 uppercase">
             <th class="px-6 py-3 border-b border-secondary/10 w-16 text-center">#</th>
-            <th class="px-6 py-3 border-b border-secondary/10">Nama Kategori</th>
+            <th class="px-6 py-3 border-b border-secondary/10">{{ t('master_data.category.col_name') }}</th>
           </tr>
         </thead>
         <TransitionGroup
@@ -173,7 +175,7 @@ watch(Alt_S, pressed => {
           <tr v-else-if="categories.length === 0" key="empty">
             <td colspan="2" class="py-12 text-center text-text/50 italic">
               <font-awesome-icon icon="fa-solid fa-tags" class="text-3xl text-text/20 mb-3 block" />
-              Belum ada kategori. Tambahkan kategori pertama Anda.
+              {{ t('master_data.category.empty_desc') }}
             </td>
           </tr>
 
@@ -197,7 +199,7 @@ watch(Alt_S, pressed => {
               <span>{{ (currentPage - 1) * currentLimit + index + 1 }}</span>
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'">
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Nama</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.name') }}</span>
               <span
                 class="font-medium text-text outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[50px]"
                 contenteditable="true"
@@ -229,8 +231,8 @@ watch(Alt_S, pressed => {
     :x="contextMenu.x"
     :y="contextMenu.y"
     :options="[
-      { label: 'Edit Lengkap', action: 'edit', icon: 'fa-solid fa-pen-to-square' },
-      { label: 'Hapus Kategori', action: 'delete', icon: 'fa-solid fa-trash', danger: true }
+      { label: t('master_data.location.context_edit'), action: 'edit', icon: 'fa-solid fa-pen-to-square' },
+      { label: t('master_data.category.context_delete'), action: 'delete', icon: 'fa-solid fa-trash', danger: true }
     ]"
     @close="contextMenu.visible = false"
     @action="handleContextAction"
@@ -241,26 +243,26 @@ watch(Alt_S, pressed => {
     <BaseModal
       :show="isModalOpen"
       @close="isModalOpen = false"
-      :title="isEditing ? 'Edit Kategori' : 'Tambah Kategori Baru'"
+      :title="isEditing ? t('master_data.category.modal_title_edit') : t('master_data.category.modal_title_add')"
     >
       <form @submit.prevent="handleSave" class="p-6 space-y-4">
         <div>
-          <label class="block text-sm font-medium text-text/80 mb-1">Nama Kategori</label>
+          <label class="block text-sm font-medium text-text/80 mb-1">{{ t('master_data.category.col_name') }}</label>
           <input
             v-model="form.name"
             type="text"
             required
             class="w-full input-field"
-            placeholder="Contoh: Pneumatic"
+            :placeholder="t('master_data.category.name_placeholder')"
             autofocus
           />
         </div>
       </form>
       <template #footer>
-        <button type="button" @click="isModalOpen = false" class="btn-secondary">Batal</button>
+        <button type="button" @click="isModalOpen = false" class="btn-secondary">{{ t('common.btn.cancel') }}</button>
         <button type="submit" @click="handleSave" :disabled="saving" class="btn-primary">
           <font-awesome-icon v-if="saving" icon="fa-solid fa-circle-notch" class="animate-spin mr-1" />
-          Simpan
+          {{ t('common.btn.save') }}
         </button>
       </template>
     </BaseModal>

@@ -46,10 +46,10 @@ func (h *LocalizationHandler) GetLocales(c *gin.Context) {
 	locales, err := h.useCase.GetAvailableLocales(c.Request.Context())
 	if err != nil {
 		log.Printf("[LOCALIZATION] GetLocales failed: %v", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil daftar bahasa.", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.localization.fetch_locales_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
-	utils.SuccessResponse(c, http.StatusOK, "Daftar bahasa berhasil diambil.", locales)
+	utils.SuccessDataResponse(c, http.StatusOK, locales)
 }
 
 // GetDictionary returns the compiled translation dictionary for the requested locale with ETag support.
@@ -59,7 +59,7 @@ func (h *LocalizationHandler) GetDictionary(c *gin.Context) {
 	dict, err := h.useCase.GetMergedDictionary(c.Request.Context(), locale)
 	if err != nil {
 		log.Printf("[LOCALIZATION] GetDictionary failed for locale '%s': %v", locale, err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal memuat kamus lokalisasi.", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.localization.fetch_dictionary_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
@@ -74,7 +74,7 @@ func (h *LocalizationHandler) GetDictionary(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Kamus lokalisasi berhasil diambil.", dict)
+	utils.SuccessDataResponse(c, http.StatusOK, dict)
 }
 
 // GetTranslationMatrix returns unmasked raw translations for all active locales formatted as an editable matrix.
@@ -85,11 +85,11 @@ func (h *LocalizationHandler) GetTranslationMatrix(c *gin.Context) {
 	matrix, err := h.useCase.GetTranslationMatrix(c.Request.Context(), filter)
 	if err != nil {
 		log.Printf("[LOCALIZATION] GetTranslationMatrix failed: %v", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal memuat matriks lokalisasi.", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.localization.fetch_matrix_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Matriks lokalisasi berhasil diambil.", matrix)
+	utils.SuccessDataResponse(c, http.StatusOK, matrix)
 }
 
 // SaveTranslations allows admins to batch upsert translations and increment cache version.
@@ -109,16 +109,16 @@ func (h *LocalizationHandler) SaveTranslations(c *gin.Context) {
 	newVersion, err := h.useCase.SaveTranslations(c.Request.Context(), *reqPtr, audit)
 	if err != nil {
 		if errors.Is(err, domain.ErrLocaleNotFoundOrInactive) || errors.Is(err, domain.ErrInvalidTranslationKey) {
-			utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "VALIDATION_ERROR")
+			utils.HandleDomainError(c, err)
 			return
 		}
 		// Mask internal database/infrastructure errors to avoid CWE-209 information disclosure
 		log.Printf("[LOCALIZATION] SaveTranslations failed for locale '%s': %v", reqPtr.LocaleCode, err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menyimpan perubahan.", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.localization.save_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Terjemahan berhasil disimpan dan cache diperbarui.", gin.H{
+	utils.SuccessResponse(c, http.StatusOK, "settings.localization.save_success", gin.H{
 		"locale":  reqPtr.LocaleCode,
 		"version": newVersion,
 	})

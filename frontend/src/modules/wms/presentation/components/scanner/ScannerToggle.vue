@@ -8,14 +8,18 @@
         ? 'bg-primary/10 border-primary text-primary shadow-sm'
         : 'bg-secondary/10 border-secondary/20 text-text/50 hover:bg-secondary/30'
     ]"
-    :title="modelValue ? 'Mode Scanner Aktif' : 'Mode Manual'"
+    :title="modelValue ? t('wms.scanner.mode_active') : t('wms.scanner.mode_manual')"
   >
     <font-awesome-icon icon="fa-solid fa-barcode" />
-    <span>{{ modelValue ? 'Scanner' : 'Manual' }}</span>
+    <span>{{ modelValue ? t('wms.scanner.scanner') : t('wms.scanner.manual') }}</span>
   </button>
 </template>
 
 <script setup>
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
+
 defineProps({
   modelValue: {
     type: Boolean,

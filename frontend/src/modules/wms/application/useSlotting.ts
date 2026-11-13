@@ -2,9 +2,11 @@ import { ref, reactive, computed } from 'vue'
 import { slotApi } from '../infrastructure/slot.api'
 import type { ProductLocationSlot, ProductLocationSlotLog } from '../domain/slot.entity'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/infrastructure/localization'
 
 export function useSlotting() {
   const { toast } = useToast()
+  const { t } = useI18n()
 
   const slots = ref<ProductLocationSlot[]>([])
   const logs = ref<ProductLocationSlotLog[]>([])
@@ -99,7 +101,7 @@ export function useSlotting() {
 
   async function addSlot(productId: number, locationId: number): Promise<boolean> {
     if (!isFormValid.value) {
-      toast('Ruang dan Rak wajib diisi', 'warning')
+      toast(t('wms.slotting.room_rack_required'), 'warning')
       return false
     }
 
@@ -116,7 +118,7 @@ export function useSlotting() {
       })
 
       if (res.success) {
-        toast('Koordinat rak berhasil ditambahkan', 'success')
+        toast(res.message || t('common.status.success'), 'success')
         form.room = ''
         form.rack = ''
         form.tier = ''
@@ -126,10 +128,10 @@ export function useSlotting() {
         return true
       }
 
-      toast(res.message || 'Gagal menambahkan rak', 'error')
+      toast(res.message || t('wms.slotting.add_error'), 'error')
       return false
     } catch (err: any) {
-      toast(err?.response?.data?.message || err?.message || 'Terjadi kesalahan sistem', 'error')
+      toast(err?.response?.data?.message || err?.message || t('wms.slotting.system_error'), 'error')
       return false
     } finally {
       submitting.value = false
@@ -140,14 +142,14 @@ export function useSlotting() {
     try {
       const res = await slotApi.deleteSlot(slotId, notes)
       if (res.success) {
-        toast('Koordinat rak berhasil dihapus', 'success')
+        toast(res.message || t('common.status.success'), 'success')
         await Promise.all([fetchSlots(productId, locationId), fetchLogs(productId, locationId, 1)])
         return true
       }
-      toast(res.message || 'Gagal menghapus rak', 'error')
+      toast(res.message || t('wms.slotting.delete_error'), 'error')
       return false
     } catch (err: any) {
-      toast(err?.response?.data?.message || err?.message || 'Gagal menghapus koordinat', 'error')
+      toast(err?.response?.data?.message || err?.message || t('wms.slotting.delete_coord_error'), 'error')
       return false
     }
   }
@@ -156,14 +158,14 @@ export function useSlotting() {
     try {
       const res = await slotApi.setPrimarySlot(productId, locationId, slotId)
       if (res.success) {
-        toast('Rak utama berhasil ditetapkan', 'success')
+        toast(res.message || t('common.status.success'), 'success')
         await Promise.all([fetchSlots(productId, locationId), fetchLogs(productId, locationId, 1)])
         return true
       }
-      toast(res.message || 'Gagal mengubah rak utama', 'error')
+      toast(res.message || t('wms.slotting.set_primary_error'), 'error')
       return false
     } catch (err: any) {
-      toast(err?.response?.data?.message || err?.message || 'Gagal mengubah rak utama', 'error')
+      toast(err?.response?.data?.message || err?.message || t('wms.slotting.set_primary_error'), 'error')
       return false
     }
   }

@@ -1,6 +1,9 @@
 <script setup>
 import { usePwaUpdate } from '@/core/presentation/composables/usePwaUpdate'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
 const { needRefresh, updateServiceWorker, dismissUpdate } = usePwaUpdate()
+const { t } = useI18n()
 </script>
 
 <template>
@@ -14,21 +17,21 @@ const { needRefresh, updateServiceWorker, dismissUpdate } = usePwaUpdate()
         <font-awesome-icon icon="fa-solid fa-arrow-up-from-bracket" class="text-primary text-xl" />
       </div>
       <div class="flex-1 min-w-0">
-        <p class="text-text text-sm font-semibold">Versi baru tersedia!</p>
-        <p class="text-text/60 text-xs mt-0.5">Klik update untuk memuat versi terbaru.</p>
+        <p class="text-text text-sm font-semibold">{{ t('common.pwa.new_version') }}</p>
+        <p class="text-text/60 text-xs mt-0.5">{{ t('common.pwa.update_desc') }}</p>
       </div>
       <div class="flex items-center gap-2 flex-shrink-0">
         <button
           @click="dismissUpdate"
           class="px-3 py-1.5 text-xs font-medium text-text/60 hover:text-text rounded-lg transition-colors"
         >
-          Nanti
+          {{ t('common.pwa.btn_later') }}
         </button>
         <button
           @click="updateServiceWorker()"
           class="px-3 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary/80 rounded-lg transition-colors"
         >
-          Update
+          {{ t('common.pwa.btn_update') }}
         </button>
       </div>
     </div>

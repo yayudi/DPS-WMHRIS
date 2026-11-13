@@ -8,10 +8,12 @@ import BasePagination from '@/core/presentation/components/ui/BasePagination.vue
 import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
 import { useMobile } from '@/core/presentation/composables/useMobile'
 import { usePagination } from '@/core/presentation/composables/usePagination'
+import { useI18n } from '@/core/infrastructure/localization'
 import { useLogs } from '../../application/useLogs'
 import type { LogFilter } from '../../domain/log.entity'
 
 const { isMobile } = useMobile()
+const { t } = useI18n()
 const { logs, total, isLoading, fetchLogs } = useLogs()
 
 const search = ref('')
@@ -119,7 +121,7 @@ onMounted(() => {
         class="bg-primary/10 text-primary px-4 py-2 rounded-lg hover:bg-primary/20 transition-colors"
       >
         <font-awesome-icon icon="fa-solid fa-rotate-right" :spin="isLoading" />
-        Refresh
+        {{ t('common.btn.refresh') }}
       </button>
     </div>
 
@@ -131,7 +133,7 @@ onMounted(() => {
       <div class="flex-1 min-w-[200px]">
         <input
           v-model="search"
-          placeholder="Cari ID Target..."
+          :placeholder="t('settings.log.search_placeholder')"
           class="w-full px-4 py-2 bg-background border border-secondary/30 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-text"
         />
       </div>
@@ -143,7 +145,7 @@ onMounted(() => {
         :options="actionOptions"
         label="label"
         track="id"
-        placeholder="Semua Aksi"
+        :placeholder="t('settings.log.all_actions')"
         class="min-w-[150px]"
       />
       <TriStateSelect
@@ -151,7 +153,7 @@ onMounted(() => {
         :options="targetOptions"
         label="label"
         track="id"
-        placeholder="Semua Tipe"
+        :placeholder="t('settings.log.all_types')"
         class="min-w-[150px]"
       />
     </div>
@@ -169,12 +171,12 @@ onMounted(() => {
               <th
                 class="px-6 py-3 sticky left-0 z-30 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)] w-[180px]"
               >
-                Waktu
+                {{ t('settings.log.col_time') }}
               </th>
-              <th class="px-6 py-3 border-b border-secondary/10 w-[200px]">User</th>
-              <th class="px-6 py-3 border-b border-secondary/10 w-[120px]">Aksi</th>
-              <th class="px-6 py-3 border-b border-secondary/10 w-[180px]">Target</th>
-              <th class="px-6 py-3 border-b border-secondary/10">Perubahan</th>
+              <th class="px-6 py-3 border-b border-secondary/10 w-[200px]">{{ t('common.label.user') }}</th>
+              <th class="px-6 py-3 border-b border-secondary/10 w-[120px]">{{ t('common.label.action') }}</th>
+              <th class="px-6 py-3 border-b border-secondary/10 w-[180px]">{{ t('settings.log.col_target') }}</th>
+              <th class="px-6 py-3 border-b border-secondary/10">{{ t('settings.log.col_changes') }}</th>
             </tr>
           </thead>
           <tbody class="relative" :class="isMobile ? 'block' : 'divide-y divide-secondary/5'">
@@ -190,7 +192,7 @@ onMounted(() => {
             </template>
 
             <tr v-else-if="logs.length === 0" key="empty">
-              <td colspan="5" class="py-12 text-center text-text/50 italic">Tidak ada log aktivitas ditemukan.</td>
+              <td colspan="5" class="py-12 text-center text-text/50 italic">{{ t('settings.log.no_logs') }}</td>
             </tr>
 
             <tr
@@ -212,7 +214,7 @@ onMounted(() => {
                     : 'px-6 py-4 sticky left-0 z-20 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]'
                 "
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Waktu</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('settings.log.col_time') }}</span>
                 <div class="flex flex-col" :class="isMobile ? 'items-end' : ''">
                   <span class="font-bold text-sm text-text">{{ formatDate(log.created_at) }}</span>
                   <span class="text-[10px] text-text/40">{{ log.ip_address || '-' }}</span>
@@ -221,7 +223,7 @@ onMounted(() => {
               <td
                 :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">User</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.user') }}</span>
                 <div class="flex flex-col" :class="isMobile ? 'items-end' : ''">
                   <span class="font-bold text-sm">{{ log.nickname || log.username || 'System' }}</span>
                   <span class="text-xs text-text/50">{{ log.role || 'N/A' }}</span>
@@ -230,7 +232,7 @@ onMounted(() => {
               <td
                 :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Aksi</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.action') }}</span>
                 <span
                   class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border"
                   :class="{
@@ -247,7 +249,7 @@ onMounted(() => {
               <td
                 :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Target</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('settings.log.col_target') }}</span>
                 <div class="flex flex-col" :class="isMobile ? 'items-end' : ''">
                   <span class="font-bold text-xs text-primary bg-primary/5 px-2 py-0.5 rounded w-fit mb-1">{{
                     log.target_type
@@ -264,7 +266,7 @@ onMounted(() => {
                 <span
                   v-if="isMobile"
                   class="text-text/60 text-xs uppercase font-semibold block mb-2 border-b border-secondary/10 pb-2"
-                  >Perubahan</span
+                  >{{ t('settings.log.col_changes') }}</span
                 >
                 <div v-if="log.changes" class="space-y-1">
                   <div
@@ -295,7 +297,7 @@ onMounted(() => {
                     </div>
                   </div>
                 </div>
-                <span v-else class="text-text/30 italic text-xs">- No details -</span>
+                <span v-else class="text-text/30 italic text-xs">{{ t('settings.log.no_details') }}</span>
               </td>
             </tr>
           </tbody>

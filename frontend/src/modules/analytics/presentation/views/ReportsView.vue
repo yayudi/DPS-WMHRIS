@@ -1,12 +1,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from '@/core/infrastructure/localization'
 import { useDownload } from '@/core/presentation/composables/useDownload'
 import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
 import BaseSkeleton from '@/core/presentation/components/ui/BaseSkeleton.vue'
-import dayjs from 'dayjs'
 import { useMobile } from '@/core/presentation/composables/useMobile'
-import { formatFileName } from '@/core/utils/formatters'
+import { formatFileName, formatJobType } from '@/core/utils/formatters'
 
+const { t, dt } = useI18n()
 const { isMobile } = useMobile()
 const { openDownloadUrl } = useDownload()
 const downloadStore = useDownloadStore()
@@ -27,27 +28,41 @@ const getStatusClass = status => {
   }
 }
 
-const formatDate = dateStr => {
-  return dayjs(dateStr).format('DD MMM YYYY HH:mm')
-}
+const formatDate = dateStr => dt(dateStr)
 
 // Helpers untuk Label Tipe Job
-const JOB_TYPE_MAP = {
-  STOCK_REPORT: { label: 'Laporan Stok', cls: 'bg-primary/5 text-primary border-primary/20' },
-  PRODUCT_MASTER: { label: 'Data Master Produk', cls: 'bg-accent/5 text-accent border-accent/20' },
-  EXPORT_PACKAGES: { label: 'Data Master Paket', cls: 'bg-warning/5 text-warning border-warning/20' },
-  BATCH_LOG_EXPORT: { label: 'Log Perubahan Produk', cls: 'bg-info/5 text-info border-info/20' },
-  STATISTICS_STOCK_MOVEMENT: { label: 'Pergerakan Stok', cls: 'bg-success/5 text-success border-success/20' },
-  STATISTICS_STOCK_TIMELINE: { label: 'Timeline Pergerakan Stok', cls: 'bg-accent/5 text-accent border-accent/20' },
-  STATISTICS_LOCATION_CAPACITY: { label: 'Analisis Kapasitas Lokasi', cls: 'bg-primary/5 text-primary border-primary/20' },
+const JOB_TYPE_CLASS_MAP = {
+  STOCK_REPORT: 'bg-primary/5 text-primary border-primary/20',
+  PRODUCT_MASTER: 'bg-accent/5 text-accent border-accent/20',
+  PACKAGES: 'bg-warning/5 text-warning border-warning/20',
+  EXPORT_PACKAGES: 'bg-warning/5 text-warning border-warning/20',
+  BATCH_LOG: 'bg-info/5 text-info border-info/20',
+  BATCH_LOG_EXPORT: 'bg-info/5 text-info border-info/20',
+  STOCK_MOVEMENT: 'bg-success/5 text-success border-success/20',
+  STATISTICS_STOCK_MOVEMENT: 'bg-success/5 text-success border-success/20',
+  STOCK_TIMELINE: 'bg-accent/5 text-accent border-accent/20',
+  STATISTICS_STOCK_TIMELINE: 'bg-accent/5 text-accent border-accent/20',
+  LOCATION_CAPACITY: 'bg-primary/5 text-primary border-primary/20',
+  STATISTICS_LOCATION_CAPACITY: 'bg-primary/5 text-primary border-primary/20'
 }
-const DEFAULT_JOB = { label: '', cls: 'bg-secondary/5 text-text/60 border-secondary/20' }
 
-const getJobTypeLabel = type => (JOB_TYPE_MAP[type]?.label || (type ? type.replace(/_/g, ' ') : '-'))
-const getJobTypeClass = type => (JOB_TYPE_MAP[type]?.cls || DEFAULT_JOB.cls)
+const getJobTypeLabel = type => formatJobType(type, t)
+const getJobTypeClass = type => JOB_TYPE_CLASS_MAP[type] || 'bg-secondary/5 text-text/60 border-secondary/20'
 
-const STATUS_LABEL = { COMPLETED: 'Selesai', FAILED: 'Gagal', PROCESSING: 'Proses...', PENDING: 'Antrian' }
-const getStatusLabel = status => STATUS_LABEL[status] || status
+const getStatusLabel = status => {
+  switch (status) {
+    case 'COMPLETED':
+      return t('common.status.completed')
+    case 'FAILED':
+      return t('common.status.failed')
+    case 'PROCESSING':
+      return t('analytics.reports.status_processing')
+    case 'PENDING':
+      return t('analytics.reports.status_pending')
+    default:
+      return status
+  }
+}
 
 onMounted(async () => {
   const showSkeleton = downloadStore.jobs.length === 0
@@ -78,14 +93,14 @@ onMounted(async () => {
             >
               #
             </th>
-            <th class="p-4 border-b border-secondary/10">Tipe</th>
-            <th class="p-4 border-b border-secondary/10">File</th>
-            <th class="p-4 border-b border-secondary/10">Waktu Request</th>
-            <th class="p-4 border-b border-secondary/10">Status</th>
+            <th class="p-4 border-b border-secondary/10">{{ t('analytics.reports.col_type') }}</th>
+            <th class="p-4 border-b border-secondary/10">{{ t('analytics.reports.col_file') }}</th>
+            <th class="p-4 border-b border-secondary/10">{{ t('analytics.reports.col_request_time') }}</th>
+            <th class="p-4 border-b border-secondary/10">{{ t('common.label.status') }}</th>
             <th
               class="p-4 text-right sticky right-0 z-30 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]"
             >
-              Aksi
+              {{ t('common.label.action') }}
             </th>
           </tr>
         </thead>
@@ -110,8 +125,8 @@ onMounted(async () => {
           <tr v-else-if="jobs.length === 0" key="empty">
             <td colspan="6" class="p-12 text-center text-text/50">
               <font-awesome-icon icon="fa-solid fa-folder-open" class="text-5xl mb-4 opacity-30" />
-              <p class="font-bold text-lg">Belum Ada Laporan</p>
-              <p class="text-sm">Silakan lakukan export di menu Produk atau Stok.</p>
+              <p class="font-bold text-lg">{{ t('analytics.reports.empty_title') }}</p>
+              <p class="text-sm">{{ t('analytics.reports.empty_desc') }}</p>
             </td>
           </tr>
 
@@ -138,7 +153,7 @@ onMounted(async () => {
               <span>{{ index + 1 }}</span>
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'p-4'">
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Tipe</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('analytics.reports.col_type') }}</span>
               <span
                 class="font-bold text-xs uppercase tracking-wider px-2 py-1 rounded border"
                 :class="getJobTypeClass(job.job_type || job.type)"
@@ -147,21 +162,20 @@ onMounted(async () => {
               </span>
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'p-4'">
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">File</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('analytics.reports.col_file') }}</span>
               <div class="flex flex-col" :class="isMobile ? 'items-end' : ''">
-                <div class="font-bold text-sm truncate max-w-xs" :title="job.file_path">{{ formatFileName(job.file_path, job.job_type || job.type) || 'Menunggu Proses...' }}</div>
+                <div class="font-bold text-sm truncate max-w-xs" :title="job.file_path">{{ formatFileName(job.file_path, job.job_type || job.type, t) || t('analytics.reports.waiting_process') }}</div>
                 <div v-if="job.error_message" class="text-xs text-danger mt-1">Error: {{ job.error_message }}</div>
               </div>
             </td>
             <td
               class="text-sm whitespace-nowrap opacity-80"
-              :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'p-4'"
-            >
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Waktu</span>
+              :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'p-4'">
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('analytics.reports.col_request_time') }}</span>
               <span>{{ formatDate(job.created_at) }}</span>
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'p-4'">
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Status</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.status') }}</span>
               <span
                 class="px-2.5 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1.5"
                 :class="getStatusClass(job.status)"
@@ -187,14 +201,14 @@ onMounted(async () => {
                 class="px-3 py-1.5 bg-primary text-secondary rounded-lg text-sm font-bold shadow-md hover:scale-105 active:scale-95 transition-all inline-flex items-center gap-2"
               >
                 <font-awesome-icon icon="fa-solid fa-download" />
-                Download
+                {{ t('analytics.reports.btn_download') }}
               </button>
               <button
                 v-else-if="job.status === 'FAILED'"
                 class="px-3 py-1.5 text-text/40 cursor-not-allowed text-sm font-medium"
                 disabled
               >
-                Gagal
+                {{ t('common.status.failed') }}
               </button>
               <button
                 v-else
@@ -202,7 +216,7 @@ onMounted(async () => {
                 disabled
               >
                 <font-awesome-icon icon="fa-solid fa-spinner" spin />
-                Proses...
+                {{ t('analytics.reports.status_processing') }}
               </button>
             </td>
           </tr>

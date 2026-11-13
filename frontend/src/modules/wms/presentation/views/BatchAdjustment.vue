@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useMagicKeys, useLocalStorage } from '@vueuse/core'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { userApi } from '@/modules/settings/infrastructure/user.api'
 import { stockApi } from '@/modules/wms/infrastructure/stock.api'
 import { swalAlert, swalConfirm } from '@/core/presentation/composables/useSweetAlert'
@@ -14,6 +15,7 @@ import ProductSearchAddForm from '@/modules/wms/presentation/components/transfer
 import BatchItemList from '@/modules/wms/presentation/components/transfer/BatchItemList.vue'
 
 const { toast } = useToast()
+const { t } = useI18n()
 const { isMobile } = useMobile()
 const { downloadFile } = useDownload()
 
@@ -63,7 +65,7 @@ async function loadImportHistory(silent = false) {
       importJobHistory.value = response.data.filter(job => ['ADJUST_STOCK', 'ADJUST_STOCK_DRY_RUN'].includes(job.job_type || job.jobType))
     }
   } catch {
-    toast('Gagal memuat riwayat impor', 'error')
+    toast(t('wms.batch_adj_view.load_history_failed'), 'error')
   } finally {
     if (!silent) isImportHistoryLoading.value = false
   }
@@ -100,12 +102,12 @@ async function handleUploadAdjustment() {
   isUploading.value = true
   try {
     const response = await stockApi.requestAdjustmentUpload(selectedFile.value, notes.value, isDryRun.value)
-    toast(response.message || 'File diterima!', 'success')
+    toast(response.message || t('wms.batch_adj_view.file_accepted'), 'success')
     loadImportHistory()
     notes.value = ''
     isDryRun.value = false
   } catch (error) {
-    swalAlert('Gagal Upload', error.message || 'Terjadi kesalahan saat mengunggah file.', 'error')
+    swalAlert(t('wms.batch_adj_view.upload_failed_title'), error.message || t('wms.batch_adj_view.upload_failed_fallback'), 'error')
   } finally {
     isUploading.value = false
     selectedFile.value = null
@@ -118,7 +120,7 @@ async function downloadTemplate() {
   try {
     await downloadFile('/stock/download-adjustment-template', 'Template_Adjustment_Stok.xlsx')
   } catch {
-    toast('Gagal mengunduh template', 'error')
+    toast(t('wms.batch_adj_view.download_template_failed'), 'error')
   } finally {
     isDownloading.value = false
   }
@@ -133,10 +135,10 @@ watch(adjustmentLocation, async (newVal, oldVal) => {
   }
   if (batchList.value.length > 0 && newVal && oldVal && newVal.id !== oldVal.id) {
     const isConfirmed = await swalConfirm(
-      'Reset Daftar Produk?',
-      'Anda memiliki produk di dalam daftar. Mengubah lokasi akan mereset seluruh inputan tersebut. Yakin ingin mengubah lokasi?',
-      'Ya, Reset',
-      'Batal'
+      t('wms.batch_adj_view.reset_location_title'),
+      t('wms.batch_adj_view.reset_location_msg'),
+      t('wms.batch_adj_view.reset_confirm'),
+      t('common.btn.cancel')
     )
     if (isConfirmed) {
       batchList.value = []
@@ -157,16 +159,16 @@ const batchSearchLocationId = computed(() => {
 
 async function handleAddProduct({ product, quantity }) {
   if (!product) {
-    toast('Pilih produk dan masukkan kuantitas yang valid.', 'warning')
+    toast(t('wms.batch_adj_view.invalid_product_qty'), 'warning')
     return
   }
 
   if (product.current_stock === 0 && adjustmentLocation.value) {
     const isConfirmed = await swalConfirm(
-      'Produk Tidak Tercatat di Lokasi Ini',
-      `"${product.name}" (${product.sku}) memiliki stok 0 di lokasi ${adjustmentLocation.value.code}. Ini bisa berarti barang nyasar atau selisih positif. Lanjutkan menambahkan?`,
-      'Ya, Tambahkan',
-      'Batal'
+      t('wms.batch_adj_view.zero_stock_title'),
+      t('wms.batch_adj_view.zero_stock_msg', { name: product.name, sku: product.sku, location: adjustmentLocation.value.code }),
+      t('wms.batch_adj_view.zero_stock_confirm'),
+      t('common.btn.cancel')
     )
     if (!isConfirmed) return
   }
@@ -198,7 +200,7 @@ function duplicateFromBatch(index) {
 
 async function submitBatch() {
   if (!notes.value) {
-    toast('Catatan mohon diisi.', 'warning')
+    toast(t('wms.batch_adj_view.notes_required'), 'warning')
     return
   }
   if (!isBatchLocationSelected.value || batchList.value.length === 0) {
@@ -268,7 +270,7 @@ watch(Alt_S, pressed => {
         "
       >
         <font-awesome-icon icon="fa-solid fa-pencil" class="mr-2" />
-        Input Manual
+        {{ t('wms.batch_adj_view.tab_manual') }}
       </button>
       <button
         @click="inputMode = 'upload'"
@@ -280,7 +282,7 @@ watch(Alt_S, pressed => {
         "
       >
         <font-awesome-icon icon="fa-solid fa-file-excel" class="mr-2" />
-        Upload Excel
+        {{ t('wms.batch_adj_view.tab_upload') }}
       </button>
     </div>
 
@@ -314,7 +316,7 @@ watch(Alt_S, pressed => {
         >
           <font-awesome-icon v-if="isLoading" icon="fa-solid fa-spinner" class="animate-spin" />
           <font-awesome-icon v-else icon="fa-solid fa-paper-plane" />
-          <span>{{ isLoading ? 'Memproses...' : 'Submit Batch Adjustment' }}</span>
+          <span>{{ isLoading ? t('common.processing') : t('wms.batch_adj_view.btn_submit_adjustment') }}</span>
           <kbd
             v-if="!isLoading"
             class="hidden md:inline-block ml-1 px-1.5 py-0.5 text-[10px] bg-secondary/20 text-secondary border border-secondary/30 rounded font-mono shadow-sm group-hover:bg-secondary/30 transition-colors"
@@ -333,7 +335,7 @@ watch(Alt_S, pressed => {
             <font-awesome-icon icon="fa-solid fa-circle-info" />
           </div>
           <span class="text-sm font-medium text-text/80">
-            Gunakan template Excel resmi untuk menghindari kesalahan format data.
+            {{ t('wms.batch_adj_view.excel_template_hint') }}
           </span>
         </div>
 
@@ -344,27 +346,27 @@ watch(Alt_S, pressed => {
         >
           <font-awesome-icon v-if="isDownloading" icon="fa-solid fa-spinner" class="animate-spin" />
           <font-awesome-icon v-else icon="fa-solid fa-download" />
-          <span>{{ isDownloading ? 'Mengunduh...' : 'Unduh Template' }}</span>
+          <span>{{ isDownloading ? t('wms.batch_adj_view.btn_downloading') : t('wms.batch_adj_view.btn_download_template') }}</span>
         </button>
       </div>
 
       <div class="space-y-5 p-6 bg-secondary/5 border border-secondary/20 rounded-xl">
         <div>
           <label for="upload-notes" class="block text-xs font-bold text-text/60 uppercase mb-1.5">
-            Catatan/Alasan Penyesuaian
+            {{ t('wms.batch_adj_view.notes_label') }}
           </label>
           <textarea
             id="upload-notes"
             v-model="notes"
             rows="2"
             class="w-full p-3 border border-secondary/30 rounded-lg bg-background text-sm focus:ring-1 focus:ring-primary/50 focus:border-primary outline-none transition-colors placeholder:text-text/30"
-            placeholder="Contoh: Stock Opname Bulanan Gudang A..."
+            :placeholder="t('wms.batch_adj_view.notes_placeholder')"
           ></textarea>
         </div>
 
         <div>
           <label for="file-upload" class="block text-xs font-bold text-text/60 uppercase mb-1.5">
-            Pilih File Penyesuaian (.xlsx)
+            {{ t('wms.batch_adj_view.choose_file_label') }}
           </label>
           <div class="relative group">
             <input
@@ -377,15 +379,15 @@ watch(Alt_S, pressed => {
             />
           </div>
           <p class="text-[10px] text-text/40 mt-1.5 italic">
-            *Hanya format .xlsx yang didukung. Maksimal ukuran file 5MB.
+            {{ t('wms.batch_adj_view.file_limit_hint') }}
           </p>
         </div>
 
         <!-- Mode Dry Run -->
         <div class="flex items-center justify-between p-3.5 bg-secondary/5 rounded-xl border border-secondary/20">
           <div>
-            <div class="font-bold text-text text-xs">Mode Simulasi (Dry Run)</div>
-            <div class="text-[11px] text-text/50">Cek validasi format dan stok tanpa mengubah database</div>
+            <div class="font-bold text-text text-xs">{{ t('wms.batch_adj_view.dry_run_title') }}</div>
+            <div class="text-[11px] text-text/50">{{ t('wms.batch_adj_view.dry_run_desc') }}</div>
           </div>
           <label class="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" v-model="isDryRun" class="sr-only peer" />
@@ -402,7 +404,7 @@ watch(Alt_S, pressed => {
         >
           <font-awesome-icon v-if="isUploading" icon="fa-solid fa-spinner" class="animate-spin" />
           <font-awesome-icon v-else icon="fa-solid fa-cloud-arrow-up" />
-          <span>{{ isUploading ? 'Mengunggah...' : 'Unggah dan Proses File' }}</span>
+          <span>{{ isUploading ? t('wms.batch_adj_view.btn_uploading') : t('wms.batch_adj_view.btn_upload') }}</span>
           <kbd
             v-if="!isUploading"
             class="hidden md:inline-block ml-1 px-1.5 py-0.5 text-[10px] bg-secondary/20 text-secondary border border-secondary/30 rounded font-mono shadow-sm group-hover:bg-secondary/30 transition-colors"
@@ -413,18 +415,18 @@ watch(Alt_S, pressed => {
 
       <div class="mt-8">
         <div class="flex justify-between items-center mb-4">
-          <h3 class="text-sm font-bold text-text/70 uppercase tracking-wide">Riwayat Impor</h3>
+          <h3 class="text-sm font-bold text-text/70 uppercase tracking-wide">{{ t('wms.batch_adj_view.import_history_title') }}</h3>
         </div>
         <div class="overflow-hidden border border-secondary/20 rounded-xl shadow-sm">
           <table class="divide-y divide-secondary/10" :class="isMobile ? 'w-full block' : 'min-w-full'">
             <thead :class="isMobile ? 'hidden' : 'bg-secondary/10'">
               <tr>
-                <th class="px-4 py-3 text-left text-xs font-bold text-text/60 uppercase">Tanggal</th>
-                <th class="px-4 py-3 text-left text-xs font-bold text-text/60 uppercase">File</th>
-                <th class="px-4 py-3 text-left text-xs font-bold text-text/60 uppercase">Catatan</th>
-                <th class="px-4 py-3 text-left text-xs font-bold text-text/60 uppercase">Pengunggah</th>
-                <th class="px-4 py-3 text-left text-xs font-bold text-text/60 uppercase">Status</th>
-                <th class="px-4 py-3 text-left text-xs font-bold text-text/60 uppercase">Log</th>
+                <th class="px-4 py-3 text-left text-xs font-bold text-text/60 uppercase">{{ t('common.label.date') }}</th>
+                <th class="px-4 py-3 text-left text-xs font-bold text-text/60 uppercase">{{ t('wms.batch_adj_view.th_file') }}</th>
+                <th class="px-4 py-3 text-left text-xs font-bold text-text/60 uppercase">{{ t('common.label.notes') }}</th>
+                <th class="px-4 py-3 text-left text-xs font-bold text-text/60 uppercase">{{ t('wms.batch_adj_view.th_uploader') }}</th>
+                <th class="px-4 py-3 text-left text-xs font-bold text-text/60 uppercase">{{ t('common.label.status') }}</th>
+                <th class="px-4 py-3 text-left text-xs font-bold text-text/60 uppercase">{{ t('wms.batch_adj_view.th_log') }}</th>
               </tr>
             </thead>
             <tbody class="bg-background" :class="isMobile ? 'block' : 'divide-y divide-secondary/10'">
@@ -434,13 +436,13 @@ watch(Alt_S, pressed => {
                     icon="fa-solid fa-clock-rotate-left"
                     class="mb-2 text-xl opacity-20 block mx-auto"
                   />
-                  Belum ada riwayat impor.
+                  {{ t('wms.batch_adj_view.no_import_history') }}
                 </td>
               </tr>
               <tr v-if="isImportHistoryLoading">
                 <td colspan="6" class="px-4 py-8 text-center text-text/40">
                   <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin mr-2" />
-                  Memuat data...
+                  {{ t('wms.batch_adj_view.loading_data') }}
                 </td>
               </tr>
               <tr
@@ -460,7 +462,7 @@ watch(Alt_S, pressed => {
                       : 'px-4 py-3 text-xs text-text'
                   "
                 >
-                  <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Tanggal</span>
+                  <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.date') }}</span>
                   <div class="flex flex-col" :class="isMobile ? 'items-end' : ''">
                     <div class="font-medium">
                       {{ new Date(job.created_at || job.createdAt).toLocaleDateString('id-ID') }}
@@ -477,7 +479,7 @@ watch(Alt_S, pressed => {
                       : 'px-4 py-3 text-xs text-text/80 font-mono'
                   "
                 >
-                  <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">File</span>
+                  <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.batch_adj_view.th_file') }}</span>
                   <span class="font-mono text-xs">{{ job.original_filename }}</span>
                 </td>
                 <td
@@ -487,7 +489,7 @@ watch(Alt_S, pressed => {
                       : 'px-4 py-3 text-xs text-text'
                   "
                 >
-                  <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Catatan</span>
+                  <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.notes') }}</span>
                   <span class="text-xs">{{ job.notes || '-' }}</span>
                 </td>
                 <td
@@ -497,7 +499,7 @@ watch(Alt_S, pressed => {
                       : 'px-4 py-3 text-xs text-text font-medium'
                   "
                 >
-                  <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Pengunggah</span>
+                  <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.batch_adj_view.th_uploader') }}</span>
                   <span class="text-xs capitalize">{{ job.uploader_name || '-' }}</span>
                 </td>
                 <td
@@ -507,30 +509,30 @@ watch(Alt_S, pressed => {
                       : 'px-4 py-3 text-xs'
                   "
                 >
-                  <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Status</span>
+                  <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.status') }}</span>
                   <span
                     v-if="job.status === 'COMPLETED'"
                     class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-success/10 text-success border border-success/20"
                   >
-                    <font-awesome-icon icon="fa-solid fa-check" /> Selesai
+                    <font-awesome-icon icon="fa-solid fa-check" /> {{ t('common.status.completed') }}
                   </span>
                   <span
                     v-else-if="job.status === 'FAILED'"
                     class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-danger/10 text-danger border border-danger/20"
                   >
-                    <font-awesome-icon icon="fa-solid fa-xmark" /> Gagal
+                    <font-awesome-icon icon="fa-solid fa-xmark" /> {{ t('common.status.failed') }}
                   </span>
                   <span
                     v-else-if="job.status === 'COMPLETED_WITH_ERRORS'"
                     class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-warning/10 text-warning border border-warning/20"
                   >
-                    <font-awesome-icon icon="fa-solid fa-triangle-exclamation" /> Selesai (Ada Error)
+                    <font-awesome-icon icon="fa-solid fa-triangle-exclamation" /> {{ t('wms.batch_adj_view.status_completed_errors') }}
                   </span>
                   <span
                     v-else-if="['CANCELLED', 'VOID'].includes(job.status)"
                     class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-secondary/20 text-text/60 border border-secondary/30"
                   >
-                    <font-awesome-icon icon="fa-solid fa-ban" /> Dibatalkan
+                    <font-awesome-icon icon="fa-solid fa-ban" /> {{ t('common.status.cancelled') }}
                   </span>
                   <span
                     v-else
@@ -547,7 +549,7 @@ watch(Alt_S, pressed => {
                   "
                   :title="job.log_summary"
                 >
-                  <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Log</span>
+                  <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.batch_adj_view.th_log') }}</span>
                   <span class="text-text/60 text-xs">{{ job.log_summary || '-' }}</span>
                 </td>
               </tr>

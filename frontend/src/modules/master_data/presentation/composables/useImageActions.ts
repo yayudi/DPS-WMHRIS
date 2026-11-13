@@ -1,12 +1,14 @@
 // frontend/src/composables/useImageActions.js
 import { useToast } from '@/core/presentation/composables/useToast'
 import { useDownload } from '@/core/presentation/composables/useDownload'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 /**
  * Composable for image clipboard and download operations.
  * Replaces identical logic in ProductImageModal and MediaManagement.
  */
 export function useImageActions() {
+  const { t } = useI18n()
   const { toast } = useToast()
   const { downloadBlob } = useDownload()
 
@@ -17,7 +19,7 @@ export function useImageActions() {
   const copyLinkToClipboard = async (url) => {
     try {
       await navigator.clipboard.writeText(url)
-      toast('Tautan gambar berhasil disalin!', 'success')
+      toast(t('core.media.copy_link_success'), 'success')
     } catch (err) {
       console.error(err)
     }
@@ -33,7 +35,7 @@ export function useImageActions() {
       const blob = await res.blob()
       const pngBlob = await convertBlobToPng(blob)
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })])
-      toast('Gambar berhasil disalin ke clipboard!', 'success')
+      toast(t('core.media.copy_image_success'), 'success')
     } catch (err) {
       console.error(err)
     }

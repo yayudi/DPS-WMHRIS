@@ -5,6 +5,9 @@ import DateRangeFilter from '@/core/presentation/components/ui/DateRangeFilter.v
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
 import SegmentedControl from '@/core/presentation/components/ui/SegmentedControl.vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   title: {
@@ -150,7 +153,7 @@ function emitClear() {
         @click="emitClear"
       >
         <font-awesome-icon icon="fa-solid fa-rotate-right" />
-        <span class="hidden lg:inline">Reset</span>
+        <span class="hidden lg:inline">{{ t('common.btn.reset') }}</span>
       </button>
 
       <slot name="filter-actions"></slot>

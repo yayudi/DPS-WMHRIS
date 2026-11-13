@@ -1,4 +1,3 @@
-import imageCompression from 'browser-image-compression'
 import axios from 'axios'
 import { mediaApi } from '@/modules/master_data/infrastructure/media.api'
 
@@ -38,6 +37,7 @@ export const processMediaClientSide = async file => {
     maxIteration: 1
   }
 
+  const { default: imageCompression } = await import('browser-image-compression')
   const mainBlob = await imageCompression(file, mainOptions)
 
   // BUAT THUMBNAIL (Crop 1:1 di Tengah menggunakan Canvas)

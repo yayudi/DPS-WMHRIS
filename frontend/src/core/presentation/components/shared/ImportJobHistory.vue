@@ -2,13 +2,13 @@
   <div class="h-full flex flex-col">
     <!-- Header -->
     <div class="flex justify-between items-center mb-4">
-      <h4 class="font-semibold text-text text-sm">Riwayat Upload Terakhir</h4>
+      <h4 class="font-semibold text-text text-sm">{{ t('core.import.process_history') }}</h4>
     </div>
 
     <!-- Loading State -->
     <div v-if="loading && jobs.length === 0" class="text-center py-8 text-text/40">
       <font-awesome-icon icon="fa-solid fa-circle-notch" spin size="2x" />
-      <p class="mt-2 text-xs">Memuat riwayat...</p>
+      <p class="mt-2 text-xs">{{ t('common.status.loading') }}</p>
     </div>
 
     <!-- Empty State -->
@@ -17,7 +17,7 @@
       class="text-center py-8 border border-dashed border-secondary/30 rounded-xl bg-secondary/5"
     >
       <font-awesome-icon icon="fa-solid fa-history" class="text-text/20 text-3xl mb-2" />
-      <p class="text-sm text-text/60">Belum ada riwayat upload.</p>
+      <p class="text-sm text-text/60">{{ t('core.import.no_history') }}</p>
     </div>
 
     <!-- List -->
@@ -55,10 +55,10 @@
             :href="getErrorUrl(job)"
             target="_blank"
             class="text-[10px] bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20 px-2 py-1 rounded transition-colors flex items-center gap-1"
-            title="Download Laporan Error"
+            :title="t('core.import.download_error_log')"
           >
             <font-awesome-icon icon="fa-solid fa-download" />
-            Detail Error
+            {{ t('core.import.error_detail') }}
           </a>
         </div>
 
@@ -75,8 +75,8 @@
         <div
           class="text-[11px] text-text/70 bg-secondary/10 p-2 rounded leading-relaxed border border-secondary/10 flex flex-col gap-1"
         >
-          <p v-if="job.notes"><span class="font-semibold">Catatan:</span> {{ job.notes }}</p>
-          <p>{{ job.log_summary || job.summary || 'Tidak ada detail.' }}</p>
+          <p v-if="job.notes"><span class="font-semibold">{{ t('common.label.notes') }}:</span> {{ job.notes }}</p>
+          <p>{{ job.log_summary || job.summary || t('common.label.no_details') }}</p>
         </div>
       </div>
     </div>
@@ -85,9 +85,9 @@
 
 <script setup>
 import { computed, onMounted } from 'vue'
-import dayjs from 'dayjs'
 import { useUploadStore } from '@/core/presentation/stores/uploadStore'
 import { useFirebaseSync } from '@/core/presentation/composables/useFirebaseSync'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const props = defineProps({
   // Array or string of Job Types to filter. If empty, shows all.
@@ -101,6 +101,7 @@ const props = defineProps({
   }
 })
 
+const { t, d } = useI18n()
 const uploadStore = useUploadStore()
 const loading = computed(() => uploadStore.jobs.length === 0 && !uploadStore.isExpanded)
 
@@ -121,17 +122,18 @@ const filteredJobs = computed(() => {
 })
 
 const formatDate = (date) => {
-  return dayjs(date).format('DD MMM YYYY, HH:mm')
+  if (!date) return ''
+  return d(date, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 const formatStatus = (status) => {
   const map = {
-    PENDING: 'Menunggu',
-    PROCESSING: 'Memproses',
-    COMPLETED: 'Selesai',
-    COMPLETED_WITH_ERRORS: 'Selesai (Partial)',
-    FAILED: 'Gagal',
-    CANCELLED: 'Dibatalkan',
+    PENDING: t('common.status.pending'),
+    PROCESSING: t('common.status.processing'),
+    COMPLETED: t('common.status.completed'),
+    COMPLETED_WITH_ERRORS: t('common.status.partial'),
+    FAILED: t('common.status.failed'),
+    CANCELLED: t('common.status.cancelled'),
   }
   return map[status] || status
 }

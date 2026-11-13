@@ -2,10 +2,10 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"regexp"
 
 	hris_dto "github.com/dps-wmhris/backend/internal/modules/hris/application/dto"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 
 	hris_port "github.com/dps-wmhris/backend/internal/modules/hris/port"
@@ -109,7 +109,7 @@ func (s *shiftUseCaseImpl) validateWorkDays(workDays string) error {
 	// e.g. "1,2,3,4,5"
 	matched, _ := regexp.MatchString(`^[1-7](,[1-7])*$`, workDays)
 	if !matched {
-		return errors.New("format work_days tidak valid, gunakan angka 1-7 dipisah koma (contoh: 1,2,3,4,5)")
+		return apperror.Validation("hris.shift.err_invalid_work_days", "format work_days tidak valid, gunakan angka 1-7 dipisah koma (contoh: 1,2,3,4,5)")
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import { localizationApi } from '@/core/infrastructure/localization.api'
 import { authApi } from '@/modules/auth/infrastructure/auth.api'
 import { getBaselineDictionary } from '@/core/domain/defaultDictionaries'
 import { DEFAULT_LOCALE, type LocaleItem, type UserPreference } from '@/core/domain/localization.types'
+import { setDayjsLocale } from '@/core/utils/time'
 
 function getInitialLocale(): string {
   if (typeof localStorage === 'undefined') return DEFAULT_LOCALE
@@ -110,6 +111,8 @@ export const useLocaleStore = defineStore('locale', () => {
     if (isInitialized.value) return
     isInitialized.value = true
 
+    setDayjsLocale(currentLocale.value)
+
     await Promise.all([
       fetchLocales(),
       fetchDictionary(currentLocale.value)
@@ -123,6 +126,7 @@ export const useLocaleStore = defineStore('locale', () => {
     if (!newLocale || newLocale === currentLocale.value) return
 
     currentLocale.value = newLocale
+    setDayjsLocale(newLocale)
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('user_locale', newLocale)
     }

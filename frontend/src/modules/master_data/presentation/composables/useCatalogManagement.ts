@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 export interface CatalogItem {
   id: number | string
@@ -22,6 +23,7 @@ export interface UseCatalogManagementOptions<T extends CatalogItem = CatalogItem
 export function useCatalogManagement<T extends CatalogItem = CatalogItem>(
   options: UseCatalogManagementOptions<T> = {}
 ) {
+  const { t } = useI18n()
   const {
     entityLabel = 'produk',
     initialSortBy = 'sku',
@@ -99,7 +101,8 @@ export function useCatalogManagement<T extends CatalogItem = CatalogItem>(
     item: T,
     customDeleteFn?: (id: number | string) => Promise<unknown>
   ): Promise<void> => {
-    const confirmed = await swalConfirm(`Arsipkan ${entityLabel} "${item.name || item.sku || item.id}"?`)
+    const itemName = item.name || item.sku || String(item.id)
+    const confirmed = await swalConfirm(t('master_data.catalog.confirm_archive', { entity: entityLabel, name: itemName }))
     if (!confirmed) return
 
     const deleteFn = customDeleteFn || onArchiveItem
@@ -110,7 +113,7 @@ export function useCatalogManagement<T extends CatalogItem = CatalogItem>(
 
     try {
       await deleteFn(item.id)
-      toast(`${entityLabel.charAt(0).toUpperCase() + entityLabel.slice(1)} berhasil diarsipkan.`, 'success')
+      toast(t('master_data.catalog.archive_success', { entity: entityLabel.charAt(0).toUpperCase() + entityLabel.slice(1) }), 'success')
       if (selectedIds.value.has(item.id)) {
         selectedIds.value.delete(item.id)
       }
@@ -124,7 +127,8 @@ export function useCatalogManagement<T extends CatalogItem = CatalogItem>(
     item: T,
     customRestoreFn?: (id: number | string, item?: T) => Promise<unknown>
   ): Promise<void> => {
-    const confirmed = await swalConfirm(`Pulihkan ${entityLabel} "${item.name || item.sku || item.id}"?`)
+    const itemName = item.name || item.sku || String(item.id)
+    const confirmed = await swalConfirm(t('master_data.catalog.confirm_restore', { entity: entityLabel, name: itemName }))
     if (!confirmed) return
 
     const restoreFn = customRestoreFn || onRestoreItem
@@ -135,7 +139,7 @@ export function useCatalogManagement<T extends CatalogItem = CatalogItem>(
 
     try {
       await restoreFn(item.id, item)
-      toast(`${entityLabel.charAt(0).toUpperCase() + entityLabel.slice(1)} dipulihkan.`, 'success')
+      toast(t('master_data.catalog.restore_success', { entity: entityLabel.charAt(0).toUpperCase() + entityLabel.slice(1) }), 'success')
       if (selectedIds.value.has(item.id)) {
         selectedIds.value.delete(item.id)
       }
@@ -157,7 +161,7 @@ export function useCatalogManagement<T extends CatalogItem = CatalogItem>(
     if (!selectedIds.value.size) return
 
     const actionText = actionType === 'archive' ? 'Arsipkan' : 'Pulihkan'
-    const confirmed = await swalConfirm(`${actionText} ${selectionCount.value} ${entityLabel} terpilih?`)
+    const confirmed = await swalConfirm(t('master_data.catalog.confirm_bulk_action', { action: actionText, count: selectionCount.value, entity: entityLabel }))
     if (!confirmed) return
 
     isProcessingBulk.value = true
@@ -187,7 +191,7 @@ export function useCatalogManagement<T extends CatalogItem = CatalogItem>(
       })
 
       await Promise.all(promises)
-      toast(`Berhasil memproses ${ids.length} ${entityLabel}.`, 'success')
+      toast(t('master_data.catalog.bulk_action_success', { count: ids.length, entity: entityLabel }), 'success')
       selectedIds.value.clear()
       if (onRefetch) await onRefetch()
     } catch (err) {

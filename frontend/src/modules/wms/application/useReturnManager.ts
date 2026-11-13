@@ -2,11 +2,13 @@ import { ref, reactive, watch } from 'vue'
 import { watchDebounced } from '@vueuse/core'
 import { returnApi } from '@/modules/wms/infrastructure/return.api'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { usePagination } from '@/core/presentation/composables/usePagination'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 
 export function useReturnManager() {
   const { toast } = useToast()
+  const { t } = useI18n()
 
   const activeTab = ref<'pending' | 'history'>('pending')
   const items = ref<any[]>([])
@@ -198,7 +200,7 @@ export function useReturnManager() {
 
     // Validasi Total
     if (totalQtyInput === 0) {
-      toast('Mohon isi jumlah barang yang diterima (Bagus atau Rusak)', 'warning')
+      toast(t('wms.return.warn_qty_required'), 'warning')
       return
     }
     if (totalQtyInput > itemData.quantity) {
@@ -207,11 +209,11 @@ export function useReturnManager() {
 
     // Validasi Lokasi
     if (good.qty > 0 && !good.locationId) {
-      toast('Pilih lokasi lantai untuk barang kondisi Bagus', 'warning')
+      toast(t('wms.return.warn_good_loc_required'), 'warning')
       return
     }
     if (bad.qty > 0 && !bad.locationId) {
-      toast('Pilih lokasi lantai untuk barang kondisi Rusak', 'warning')
+      toast(t('wms.return.warn_bad_loc_required'), 'warning')
       return
     }
 
@@ -237,7 +239,7 @@ export function useReturnManager() {
         })
       }
 
-      toast('Retur berhasil divalidasi', 'success')
+      toast(t('wms.return.toast_validated'), 'success')
       showProcessModal.value = false
       fetchData() // Refresh list
     } catch (error) {

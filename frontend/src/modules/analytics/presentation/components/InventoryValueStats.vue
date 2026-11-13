@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
+import { useI18n } from '@/core/infrastructure/localization'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import BaseTabs from '@/core/presentation/components/ui/BaseTabs.vue'
 import { useTheme } from '@/core/presentation/composables/useTheme'
@@ -17,6 +18,7 @@ import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
 import { usePagination } from '@/core/presentation/composables/usePagination'
 
+const { t } = useI18n()
 const masterData = useMasterDataStore()
 const isDataLoading = ref(false)
 const statisticsList = ref<any[]>([])
@@ -113,17 +115,17 @@ const purposeOptions = computed(() => {
   return (reportFilters.value.purposes || []).map(p => ({ id: p, label: p }))
 })
 
-const stockStatusOptions = [
+const stockStatusOptions = computed(() => [
   { id: 'positive', label: 'Positif (Berstok)' },
   { id: 'negative', label: 'Minus / Error' },
   { id: 'zero', label: 'Kosong (Nol)' }
-]
+])
 
-const isPackageOptions = [
-  { value: '', label: 'Semua', icon: 'fa-solid fa-list' },
-  { value: '0', label: 'Tunggal', icon: 'fa-solid fa-box' },
-  { value: '1', label: 'Paket', icon: 'fa-solid fa-boxes-stacked' }
-]
+const isPackageOptions = computed(() => [
+  { value: '', label: t('common.filter.all'), icon: 'fa-solid fa-list' },
+  { value: '0', label: t('analytics.inventory.opt_single'), icon: 'fa-solid fa-box' },
+  { value: '1', label: t('analytics.inventory.opt_package'), icon: 'fa-solid fa-boxes-stacked' }
+])
 
 const chartMaxCapOptions = [
   { id: 10, label: 'Top 10 Kontributor' },
@@ -135,52 +137,52 @@ const mainFilters = computed(() => [
   {
     type: 'text',
     key: 'searchQuery',
-    label: 'Cari Barang',
-    placeholder: 'Cari SKU atau Nama Produk...',
+    label: t('analytics.inventory.search_product'),
+    placeholder: t('common.placeholder.search_sku'),
     class: 'md:col-span-3'
   },
   {
     type: 'triselect',
     key: 'categoryId',
-    label: 'Kategori Produk',
+    label: t('analytics.inventory.category_label'),
     options: reportFilters.value.allCategories,
     optionLabel: 'label',
     trackBy: 'id',
-    placeholder: 'Semua Kategori',
+    placeholder: t('analytics.inventory.category_placeholder'),
     searchable: true,
     class: 'md:col-span-1'
   },
   {
     type: 'triselect',
     key: 'building',
-    label: 'Lokasi / Gedung',
+    label: t('common.label.building'),
     options: reportFilters.value.allBuildings,
-    placeholder: 'Semua Gedung',
+    placeholder: t('common.filter.all_buildings'),
     searchable: true
   },
   {
     type: 'triselect',
     key: 'purpose',
-    label: 'Tujuan Lantai',
+    label: t('analytics.inventory.purpose_label'),
     options: purposeOptions.value,
     optionLabel: 'label',
     trackBy: 'id',
-    placeholder: 'Semua Tujuan'
+    placeholder: t('analytics.inventory.purpose_placeholder')
   },
   {
     type: 'triselect',
     key: 'stockStatus',
-    label: 'Status Stok',
-    options: stockStatusOptions,
+    label: t('analytics.inventory.status_label'),
+    options: stockStatusOptions.value,
     optionLabel: 'label',
     trackBy: 'id',
-    placeholder: 'Semua Status'
+    placeholder: t('analytics.inventory.status_placeholder')
   },
   {
     type: 'segmented',
     key: 'isPackage',
-    label: 'Tipe Barang',
-    options: isPackageOptions
+    label: t('analytics.inventory.type_label'),
+    options: isPackageOptions.value
   }
 ])
 
@@ -209,7 +211,7 @@ const labelColor = computed(() => themeColors.value.text)
 
 const chartTopAssetsSeries = computed(() => {
   const sorted = [...statisticsList.value].sort((a, b) => b.total_value - a.total_value).slice(0, chartMaxCap.value)
-  return [{ name: 'Total Nilai (Rp)', data: sorted.map(i => i.total_value) }]
+  return [{ name: t('analytics.inventory.series_total_value'), data: sorted.map(i => i.total_value) }]
 })
 const chartTopAssetsOptions = computed(() => {
   const sorted = [...statisticsList.value].sort((a, b) => b.total_value - a.total_value).slice(0, chartMaxCap.value)
@@ -291,8 +293,8 @@ const chartTopAssetProportionOptions = computed(() => {
       class="mb-6 border-b border-secondary/20 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
     >
       <div>
-        <h3 class="text-lg font-bold text-text">Laporan Nilai Inventaris</h3>
-        <p class="text-sm text-text/50 mt-1">Data sebaran aset gudang, valuasi barang, dan top kontributor aset.</p>
+        <h3 class="text-lg font-bold text-text">{{ t('analytics.inventory.page_title') }}</h3>
+        <p class="text-sm text-text/50 mt-1">{{ t('analytics.inventory.page_subtitle') }}</p>
       </div>
 
       <div class="flex items-center gap-3 w-full md:w-auto">
@@ -300,8 +302,8 @@ const chartTopAssetProportionOptions = computed(() => {
         <BaseTabs
           v-model="viewMode"
           :tabs="[
-            { label: 'Tabel Data', value: 'table' },
-            { label: 'Grafik & Insight', value: 'chart' }
+            { label: t('analytics.inventory.tab_table'), value: 'table' },
+            { label: t('analytics.inventory.tab_chart'), value: 'chart' }
           ]"
         />
       </div>
@@ -341,18 +343,18 @@ const chartTopAssetProportionOptions = computed(() => {
           class="grid grid-cols-2 md:grid-cols-4 border-b border-secondary/20 divide-x divide-y md:divide-y-0 divide-secondary/20"
         >
           <div class="p-4 bg-secondary/5">
-            <span class="text-xs font-bold text-text/50 uppercase block mb-1">Total SKU Tampil</span>
+            <span class="text-xs font-bold text-text/50 uppercase block mb-1">{{ t('analytics.inventory.total_displayed_sku') }}</span>
             <span class="text-2xl font-black">{{ formatNumber(statisticsList.length) }}</span>
           </div>
           <div class="p-4 bg-secondary/5">
-            <span class="text-xs font-bold text-text/50 uppercase block mb-1">Total Unit (Pcs)</span>
+            <span class="text-xs font-bold text-text/50 uppercase block mb-1">{{ t('analytics.inventory.total_units') }}</span>
             <span class="text-2xl font-black text-warning">{{
               formatNumber(statisticsList.reduce((acc, curr) => acc + curr.total_quantity, 0))
             }}</span>
           </div>
           <div class="p-4 bg-primary/5 col-span-2 md:col-span-2 items-center flex justify-between">
             <div>
-              <span class="text-xs font-bold text-primary/70 uppercase block mb-1">Total Nilai Keseluruhan</span>
+              <span class="text-xs font-bold text-primary/70 uppercase block mb-1">{{ t('analytics.inventory.total_overall_value') }}</span>
               <span class="text-2xl font-black text-text">{{
                 formatCurrency(statisticsList.reduce((acc, curr) => acc + curr.total_value, 0))
               }}</span>
@@ -372,7 +374,7 @@ const chartTopAssetProportionOptions = computed(() => {
                 <th
                   @click="sortBy('sku')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40 relative"
-                  title="Kode unik produk (Stock Keeping Unit)"
+                  :title="t('analytics.inventory.col_sku_tooltip')"
                 >
                   <div class="flex items-center gap-2">
                     SKU <font-awesome-icon :icon="getSortIcon('sku')" class="text-xs opacity-50" />
@@ -381,50 +383,50 @@ const chartTopAssetProportionOptions = computed(() => {
                 <th
                   @click="sortBy('name')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40 w-full min-w-[250px]"
-                  title="Nama lengkap produk"
+                  :title="t('analytics.inventory.col_name_tooltip')"
                 >
                   <div class="flex items-center gap-2">
-                    Nama Produk
+                    {{ t('common.label.product_name') }}
                     <font-awesome-icon :icon="getSortIcon('name')" class="text-xs opacity-50" />
                   </div>
                 </th>
                 <th
                   @click="sortBy('price')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40 text-right"
-                  title="Harga Pokok Penjualan (HPP) atau modal rata-rata per satuan produk"
+                  :title="t('analytics.inventory.col_hpp_tooltip')"
                 >
                   <div class="flex items-center justify-end gap-2">
-                    HPP (Modal)
+                    {{ t('analytics.inventory.col_price_hpp') }}
                     <font-awesome-icon :icon="getSortIcon('price')" class="text-xs opacity-50" />
                   </div>
                 </th>
                 <th
                   @click="sortBy('total_quantity')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40 text-center"
-                  title="Jumlah total stok produk ini di semua lokasi"
+                  :title="t('analytics.inventory.col_stock_tooltip')"
                 >
                   <div class="flex items-center justify-center gap-2">
-                    Total Stok
+                    {{ t('analytics.inventory.col_total_stock') }}
                     <font-awesome-icon :icon="getSortIcon('total_quantity')" class="text-xs opacity-50" />
                   </div>
                 </th>
                 <th
                   @click="sortBy('total_value')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40 text-right"
-                  title="Total nilai aset (HPP dikalikan dengan Total Stok)"
+                  :title="t('analytics.inventory.col_value_tooltip')"
                 >
                   <div class="flex items-center justify-end gap-2">
-                    Gross Value
+                    {{ t('analytics.inventory.col_gross_value') }}
                     <font-awesome-icon :icon="getSortIcon('total_value')" class="text-xs opacity-50" />
                   </div>
                 </th>
                 <th
                   @click="sortBy('percentage')"
                   class="px-4 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40 text-center"
-                  title="Persentase kontribusi nilai produk ini terhadap total keseluruhan nilai inventaris"
+                  :title="t('analytics.inventory.col_share_tooltip')"
                 >
                   <div class="flex justify-center items-center gap-2">
-                    Share %
+                    {{ t('analytics.inventory.col_share') }}
                     <font-awesome-icon :icon="getSortIcon('percentage')" class="text-xs opacity-50" />
                   </div>
                 </th>
@@ -435,7 +437,7 @@ const chartTopAssetProportionOptions = computed(() => {
                 <tr>
                   <td colspan="6" class="text-center py-16 text-text/60">
                     <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-3xl mb-4 text-primary" />
-                    <p class="font-medium">Memuat data valuasi...</p>
+                    <p class="font-medium">{{ t('analytics.inventory.loading_valuation') }}</p>
                   </td>
                 </tr>
               </template>
@@ -443,7 +445,7 @@ const chartTopAssetProportionOptions = computed(() => {
                 <tr>
                   <td colspan="6" class="text-center py-16 text-text/60">
                     <font-awesome-icon icon="fa-solid fa-folder-open" class="text-3xl mb-4 opacity-50" />
-                    <p class="font-medium">Tidak ada data untuk saringan ini.</p>
+                    <p class="font-medium">{{ t('analytics.inventory.empty_filter') }}</p>
                   </td>
                 </tr>
               </template>
@@ -514,14 +516,14 @@ const chartTopAssetProportionOptions = computed(() => {
                               class="text-xs font-semibold text-text/60 uppercase tracking-wider flex items-center gap-2"
                             >
                               <font-awesome-icon icon="fa-solid fa-building" class="text-primary/60" />
-                              Distribusi Valuasi Per Gedung
+                              {{ t('analytics.inventory.building_dist_title') }}
                             </h5>
                             <button
                               @click.stop="openTimelineInvestigation(item.product_id)"
                               class="inline-flex items-center justify-end gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
                             >
                               <font-awesome-icon icon="fa-solid fa-clock-rotate-left" />
-                              Investigasi Timeline
+                              {{ t('analytics.inventory.investigate_timeline') }}
                             </button>
                           </div>
                           <div
@@ -529,7 +531,7 @@ const chartTopAssetProportionOptions = computed(() => {
                             class="flex items-center gap-2 text-text/50 text-sm py-4"
                           >
                             <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-primary" />
-                            Memuat data gedung...
+                            {{ t('analytics.inventory.loading_building') }}
                           </div>
                           <div
                             v-else-if="breakdownData[item.product_id]?.length > 0"
@@ -539,16 +541,16 @@ const chartTopAssetProportionOptions = computed(() => {
                               <thead>
                                 <tr class="bg-secondary/10 text-text/60">
                                   <th class="px-3 py-2 text-left font-semibold text-xs uppercase tracking-wider">
-                                    Gedung
+                                    {{ t('common.label.building') }}
                                   </th>
                                   <th class="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wider">
-                                    Stok Fisik
+                                    {{ t('analytics.inventory.col_physical_stock') }}
                                   </th>
                                   <th class="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wider">
-                                    Gross Value
+                                    {{ t('analytics.inventory.col_gross_value') }}
                                   </th>
                                   <th class="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wider">
-                                    % Distribusi
+                                    {{ t('analytics.inventory.col_dist_pct') }}
                                   </th>
                                 </tr>
                               </thead>
@@ -589,7 +591,7 @@ const chartTopAssetProportionOptions = computed(() => {
                             </table>
                           </div>
                           <div v-else class="text-text/40 text-xs py-3">
-                            Tidak ada data distribusi gedung untuk produk ini.
+                            {{ t('analytics.inventory.no_building_dist') }}
                           </div>
                         </div>
                       </div>
@@ -609,7 +611,7 @@ const chartTopAssetProportionOptions = computed(() => {
         <!-- Chart Controls -->
         <div class="flex justify-end mb-4 animate-fade-in" v-if="statisticsList.length > 0">
           <div class="flex items-center gap-3 w-64">
-            <span class="text-sm font-semibold text-text/70 whitespace-nowrap">Tampilkan Peringkat:</span>
+            <span class="text-sm font-semibold text-text/70 whitespace-nowrap">{{ t('analytics.inventory.display_rank') }}</span>
             <BaseSelect v-model="chartMaxCap" :options="chartMaxCapOptions" emitValue :searchable="false" />
           </div>
         </div>
@@ -617,7 +619,7 @@ const chartTopAssetProportionOptions = computed(() => {
         <!-- Chart Dashboard -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in md:pb-12" v-if="statisticsList.length > 0">
           <!-- Card: Top Assets Proportion -->
-          <StatsChartCard title="Porsi Kekayaan Top 5 Produk vs Lainnya">
+          <StatsChartCard :title="t('analytics.inventory.chart_top5_proportion')">
             <div class="flex-1 flex items-center justify-center -ml-4">
               <VueApexCharts
                 v-if="!isThemeChanging"
@@ -632,7 +634,7 @@ const chartTopAssetProportionOptions = computed(() => {
 
           <!-- Card: Top Assets -->
           <StatsChartCard
-            :title="`Top ${chartMaxCap} Penahan Nilai Modal (Aset Mengendap Tertinggi)`"
+            :title="t('analytics.inventory.chart_top_assets', { count: chartMaxCap })"
             class="md:col-span-2"
           >
             <VueApexCharts
@@ -651,8 +653,8 @@ const chartTopAssetProportionOptions = computed(() => {
           class="bg-background border border-secondary rounded-xl p-16 flex flex-col items-center justify-center text-center shadow-sm"
         >
           <font-awesome-icon icon="fa-solid fa-chart-pie" class="text-4xl mb-4 text-text/30" />
-          <h4 class="font-bold text-text text-lg">Tidak ada data visualisasi</h4>
-          <p class="text-text/60 mt-2 text-sm max-w-sm">Jalankan filter untuk memuat ulang tabel komputasi valuasi.</p>
+          <h4 class="font-bold text-text text-lg">{{ t('analytics.inventory.no_visualization') }}</h4>
+          <p class="text-text/60 mt-2 text-sm max-w-sm">{{ t('analytics.inventory.no_visualization_desc') }}</p>
         </div>
       </main>
     </div>

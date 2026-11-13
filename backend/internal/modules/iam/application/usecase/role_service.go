@@ -2,12 +2,12 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"log"
 	"strconv"
 
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/iam/port"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/eventbus"
 )
@@ -55,7 +55,7 @@ func (s *roleServiceImpl) UpdateRolePermissions(ctx context.Context, roleID int,
 
 	if err != nil {
 		if database.IsForeignKeyViolation(err) {
-			return errors.New("Role atau Permission ID tidak valid.")
+			return apperror.Validation("settings.roles.invalid_role_or_permission", "Role atau Permission ID tidak valid.")
 		}
 		return err
 	}
@@ -83,7 +83,7 @@ func (s *roleServiceImpl) CreateRole(ctx context.Context, req iam_dto.CreateRole
 	roleID, err := s.roleRepo.CreateRole(ctx, req.Name, req.Description)
 	if err != nil {
 		if database.IsDuplicateKey(err) {
-			return 0, errors.New("Nama peran sudah digunakan.")
+			return 0, apperror.Conflict("settings.roles.name_in_use", "Nama peran sudah digunakan.")
 		}
 		return 0, err
 	}
@@ -110,12 +110,12 @@ func (s *roleServiceImpl) UpdateRole(ctx context.Context, roleID int, req iam_dt
 	isUpdated, err := s.roleRepo.UpdateRole(ctx, roleID, req.Name, req.Description)
 	if err != nil {
 		if database.IsDuplicateKey(err) {
-			return errors.New("Nama peran sudah digunakan.")
+			return apperror.Conflict("settings.roles.name_in_use", "Nama peran sudah digunakan.")
 		}
 		return err
 	}
 	if !isUpdated {
-		return errors.New("peran tidak ditemukan")
+		return apperror.NotFound("settings.roles.role_not_found", "peran tidak ditemukan")
 	}
 
 	if errLog := eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
@@ -142,7 +142,7 @@ func (s *roleServiceImpl) DeleteRole(ctx context.Context, roleID int, userID int
 		return err // ER_ROW_IS_REFERENCED_2 handling needed later
 	}
 	if !isDeleted {
-		return errors.New("peran tidak ditemukan")
+		return apperror.NotFound("settings.roles.role_not_found", "peran tidak ditemukan")
 	}
 
 	if errLog := eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{

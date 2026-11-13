@@ -2,6 +2,9 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useFloating, autoUpdate, offset, flip, shift, size } from '@floating-ui/vue'
 import { useListNavigation } from '@/core/presentation/composables/useListNavigation'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   modelValue: {
@@ -22,7 +25,7 @@ const props = defineProps({
   },
   placeholder: {
     type: String,
-    default: 'Pilih opsi...'
+    default: ''
   },
   searchable: {
     type: Boolean,
@@ -142,7 +145,7 @@ const excludeCount = computed(() => safeModelValue.value.exclude.length)
 const isPlaceholderState = computed(() => includeCount.value === 0 && excludeCount.value === 0)
 
 const displayValue = computed(() => {
-  if (isPlaceholderState.value) return props.placeholder
+  if (isPlaceholderState.value) return props.placeholder || t('common.select.placeholder')
 
   const getLabel = val => {
     const opt = props.options.find(o => getOptionValue(o) === val)
@@ -154,15 +157,15 @@ const displayValue = computed(() => {
     if (includeCount.value <= 2) {
       parts.push(safeModelValue.value.include.map(getLabel).join(', '))
     } else {
-      parts.push(`${includeCount.value} Dipilih`)
+      parts.push(t('common.select.selected_count').replace('{count}', String(includeCount.value)))
     }
   }
 
   if (excludeCount.value > 0) {
     if (excludeCount.value <= 2) {
-      parts.push('Kec. ' + safeModelValue.value.exclude.map(getLabel).join(', '))
+      parts.push(t('common.select.except_prefix') + safeModelValue.value.exclude.map(getLabel).join(', '))
     } else {
-      parts.push(`${excludeCount.value} Dikecualikan`)
+      parts.push(t('common.select.excluded_count').replace('{count}', String(excludeCount.value)))
     }
   }
 
@@ -324,7 +327,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
           icon="fa-solid fa-xmark"
           class="text-[13px] text-text/40 hover:text-danger cursor-pointer transition-colors p-1"
           @click.stop="clearAll"
-          title="Bersihkan"
+          :title="t('common.btn.clear')"
         />
         <font-awesome-icon
           v-else
@@ -367,7 +370,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
                 @keydown.stop="handleSearchKeydown"
                 type="text"
                 class="w-full pl-8 pr-3 py-1.5 bg-background border border-secondary/30 rounded-md text-xs focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none transition-all"
-                placeholder="Cari opsi..."
+                :placeholder="t('common.select.search_placeholder')"
               />
             </div>
             <!-- Quick Actions for Search Results -->
@@ -375,23 +378,23 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
               v-if="searchable && searchQuery && filteredOptions.length > 0"
               class="w-full flex items-center justify-between px-1 py-1.5 text-[11px] font-semibold text-text/50 mt-1"
             >
-              <span>Hasil: {{ filteredOptions.length }}</span>
+              <span>{{ t('common.select.results_count').replace('{count}', String(filteredOptions.length)) }}</span>
               <div class="flex items-center gap-2">
                 <button
                   @click="includeFiltered"
                   class="text-primary ring-1 ring-primary rounded-lg px-2 bg-background hover:bg-primary hover:text-background transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   :disabled="excludeCount > 0"
-                  :title="excludeCount > 0 ? 'Tidak bisa include saat ada exclude aktif' : 'Include Semua'"
+                  :title="excludeCount > 0 ? t('common.select.cannot_include_active_exclude') : t('common.select.include_all')"
                 >
-                  + Include Semua
+                  {{ t('common.select.include_all') }}
                 </button>
                 <button
                   @click="excludeFiltered"
                   class="text-danger ring-1 ring-danger rounded-lg px-2 bg-background hover:bg-danger hover:text-background transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   :disabled="includeCount > 0"
-                  :title="includeCount > 0 ? 'Tidak bisa exclude saat ada include aktif' : 'Exclude Semua'"
+                  :title="includeCount > 0 ? t('common.select.cannot_exclude_active_include') : t('common.select.exclude_all')"
                 >
-                  - Exclude Semua
+                  {{ t('common.select.exclude_all') }}
                 </button>
               </div>
             </div>
@@ -400,7 +403,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
                 @click="clearAll"
                 class="flex-1 py-1.5 bg-danger/5 hover:bg-danger/10 text-danger rounded-lg transition-colors font-semibold text-[11px] flex items-center justify-center"
               >
-                Reset
+                {{ t('common.btn.reset') }}
               </button>
             </div>
           </div>
@@ -408,7 +411,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
           <!-- OPTIONS LIST -->
           <div class="max-h-60 overflow-y-auto custom-scrollbar p-2 grid gap-y-1" ref="dropdownListRef">
             <div v-if="filteredOptions.length === 0" class="px-3 py-4 text-center text-text/40 italic text-xs">
-              Tidak ada opsi ditemukan.
+              {{ t('common.select.no_options') }}
             </div>
 
             <div

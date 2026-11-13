@@ -2,8 +2,10 @@
 import { computed } from 'vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import { useMobile } from '@/core/presentation/composables/useMobile'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const { isMobile } = useMobile()
+const { t } = useI18n()
 
 const props = defineProps({
   pagination: {
@@ -69,7 +71,7 @@ const handleJumpPage = e => {
     <!-- Info & Limit Picker -->
     <div class="flex items-center gap-4 text-xs text-text/70" v-if="pagination.total !== undefined">
       <div v-if="showLimitPicker" class="flex items-center gap-2">
-        <span>Limit:</span>
+        <span>{{ t('common.pagination.limit') }}</span>
         <BaseSelect
           :model-value="pagination.limit || limitOptions[0]"
           @update:modelValue="v => emit('update:limit', parseInt(v))"
@@ -80,15 +82,15 @@ const handleJumpPage = e => {
       </div>
       <div v-if="showLimitPicker" class="h-4 w-px bg-secondary/20 hidden sm:block"></div>
       <span>
-        Menampilkan <b>{{ (pagination.page - 1) * pagination.limit + 1 }}</b> -
-        <b>{{ Math.min(pagination.page * pagination.limit, pagination.total) }}</b> dari
-        <b>{{ pagination.total }}</b> data
+        {{ t('common.pagination.showing') }} <b>{{ (pagination.page - 1) * pagination.limit + 1 }}</b> -
+        <b>{{ Math.min(pagination.page * pagination.limit, pagination.total) }}</b> {{ t('common.pagination.of') }}
+        <b>{{ pagination.total }}</b> {{ t('common.pagination.entries') }}
       </span>
     </div>
 
     <div v-else class="flex items-center gap-4 text-xs text-text/70">
       <span class="text-sm font-medium opacity-70">
-        Halaman {{ pagination.page }} dari {{ pagination.totalPages }}
+        {{ pagination.page }} / {{ pagination.totalPages }}
       </span>
     </div>
 
@@ -98,7 +100,7 @@ const handleJumpPage = e => {
         @click="changePage(1)"
         :disabled="pagination.page === 1"
         class="w-8 h-8 flex items-center justify-center rounded-lg border border-secondary/20 hover:bg-secondary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-        title="Halaman Pertama"
+        :title="t('common.pagination.first_page')"
       >
         <font-awesome-icon icon="fa-solid fa-angles-left" />
       </button>
@@ -106,7 +108,7 @@ const handleJumpPage = e => {
         @click="changePage(pagination.page - 1)"
         :disabled="pagination.page === 1"
         class="w-8 h-8 flex items-center justify-center rounded-lg border border-secondary/20 hover:bg-secondary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-        title="Halaman Sebelumnya"
+        :title="t('common.pagination.prev_page')"
       >
         <font-awesome-icon icon="fa-solid fa-angle-left" />
       </button>
@@ -153,7 +155,7 @@ const handleJumpPage = e => {
         @click="changePage(pagination.page + 1)"
         :disabled="pagination.page === pagination.totalPages"
         class="w-8 h-8 flex items-center justify-center rounded-lg border border-secondary/20 hover:bg-secondary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-        title="Halaman Selanjutnya"
+        :title="t('common.pagination.next_page')"
       >
         <font-awesome-icon icon="fa-solid fa-angle-right" />
       </button>
@@ -161,7 +163,7 @@ const handleJumpPage = e => {
         @click="changePage(pagination.totalPages)"
         :disabled="pagination.page === pagination.totalPages"
         class="w-8 h-8 flex items-center justify-center rounded-lg border border-secondary/20 hover:bg-secondary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-        title="Halaman Terakhir"
+        :title="t('common.pagination.last_page')"
       >
         <font-awesome-icon icon="fa-solid fa-angles-right" />
       </button>

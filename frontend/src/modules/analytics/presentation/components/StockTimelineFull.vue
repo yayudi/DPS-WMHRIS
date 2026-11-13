@@ -2,9 +2,12 @@
 import { ref, onMounted, computed } from 'vue'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import { useProductSearch } from '@/modules/wms/application/useProductSearch'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import BaseFilterPanel from '@/core/presentation/components/ui/BaseFilterPanel.vue'
 import StockTimelineSlider from './StockTimelineSlider.vue'
+
+const { t } = useI18n()
 
 const { query, results, isSearching, selectedProduct, selectProduct, clear } = useProductSearch({
   debounceMs: 400,
@@ -47,17 +50,17 @@ const handleClear = () => {
 <template>
   <div class="flex flex-col gap-6">
     <!-- Filter Section -->
-    <BaseFilterPanel title="Filter Investigasi">
+    <BaseFilterPanel :title="t('analytics.timeline.investigation_filter')">
       <template #filters>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5 w-full">
           <!-- Product Search -->
           <div class="relative">
-            <label class="block text-xs font-bold text-text/60 uppercase mb-1.5">Cari Produk (Wajib)</label>
+            <label class="block text-xs font-bold text-text/60 uppercase mb-1.5">{{ t('analytics.timeline.search_product_required') }}</label>
             <div class="relative">
               <input
                 type="text"
                 v-model="query"
-                placeholder="Ketik SKU atau Nama Produk..."
+                :placeholder="t('analytics.timeline.search_product_placeholder')"
                 class="w-full pl-9 pr-8 py-2.5 bg-background border border-secondary/30 rounded-lg text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm font-medium placeholder-text/40"
               />
               <div class="absolute left-3 top-3 text-text/40 text-xs">
@@ -93,13 +96,13 @@ const handleClear = () => {
 
           <!-- Building Filter -->
           <div>
-            <label class="block text-xs font-bold text-text/60 uppercase mb-1.5">Pilih Gudang (Opsional)</label>
+            <label class="block text-xs font-bold text-text/60 uppercase mb-1.5">{{ t('analytics.timeline.select_building_optional') }}</label>
             <BaseSelect
               v-model="selectedBuildings"
               :options="availableBuildings"
               :multiple="true"
               :searchable="false"
-              placeholder="Semua Gudang (Global)"
+              :placeholder="t('analytics.timeline.all_buildings_global')"
             />
           </div>
         </div>
@@ -120,10 +123,9 @@ const handleClear = () => {
       >
         <font-awesome-icon icon="fa-solid fa-magnifying-glass" class="text-4xl text-text/30" />
       </div>
-      <h4 class="font-bold text-text text-xl mb-2">Pilih Produk Untuk Diinvestigasi</h4>
+      <h4 class="font-bold text-text text-xl mb-2">{{ t('analytics.timeline.empty_select_prompt') }}</h4>
       <p class="text-text/50 text-sm max-w-md">
-        Silakan cari dan pilih salah satu produk menggunakan kotak pencarian di atas untuk memuat riwayat mutasi stok
-        (mesin waktu).
+        {{ t('analytics.timeline.empty_select_desc') }}
       </p>
     </div>
   </div>

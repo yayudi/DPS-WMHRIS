@@ -6,7 +6,6 @@ import (
 
 	"net/http"
 
-	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -36,7 +35,7 @@ func (h *InvestigationHandler) GetDuplicateTransactions(c *gin.Context) {
 
 	result, err := h.investigationService.GetDuplicateTransactions(c.Request.Context(), req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -54,17 +53,16 @@ func (h *InvestigationHandler) RevertTransaction(c *gin.Context) {
 		return
 	}
 
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	err := h.investigationService.RevertTransaction(c.Request.Context(), id, userID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Transaksi berhasil di-revert dan stok dikembalikan.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "wms.investigation.revert_success", nil)
 }

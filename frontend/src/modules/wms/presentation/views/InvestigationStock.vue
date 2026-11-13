@@ -5,7 +5,7 @@
 
       <!-- Filter Card -->
       <div class="bg-secondary/35 rounded-xl shadow-sm border border-secondary/20 p-5 mb-6">
-        <h2 class="text-lg font-semibold text-text mb-4 border-b border-secondary/20 pb-2">Filter Pencarian</h2>
+        <h2 class="text-lg font-semibold text-text mb-4 border-b border-secondary/20 pb-2">{{ t('wms.investigation.filter_title') }}</h2>
 
         <form
           @submit.prevent="fetchData"
@@ -13,7 +13,7 @@
         >
           <!-- Start Date -->
           <div>
-            <label class="block text-sm font-medium text-text/80 mb-1">Tanggal Mulai</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.start_date') }}</label>
             <input
               type="date"
               v-model="filters.startDate"
@@ -23,7 +23,7 @@
 
           <!-- End Date -->
           <div>
-            <label class="block text-sm font-medium text-text/80 mb-1">Tanggal Akhir</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.end_date') }}</label>
             <input
               type="date"
               v-model="filters.endDate"
@@ -33,11 +33,11 @@
 
           <!-- Movement Type -->
           <div class="z-50">
-            <label class="block text-sm font-medium text-text/80 mb-1">Tipe Pergerakan</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.type_label') }}</label>
             <TriStateSelect
               v-model="filters.movementType"
               :options="movementTypeOptions"
-              placeholder="Pilih Tipe..."
+              :placeholder="t('wms.investigation.type_placeholder')"
               label="label"
               track-by="id"
               class="w-full"
@@ -51,11 +51,11 @@
 
           <!-- Include Notes -->
           <div>
-            <label class="block text-sm font-medium text-text/80 mb-1">Pencarian Kata (Include)</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.search_query') }}</label>
             <input
               type="text"
               v-model="filters.includeNotes"
-              placeholder="Contoh: Sale Ref"
+              :placeholder="t('wms.investigation.ref_placeholder')"
               class="w-full px-3 py-2 bg-background border border-secondary/30 text-text rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
             />
             <div class="mt-2 flex flex-wrap gap-2">
@@ -84,11 +84,11 @@
 
           <!-- Exclude Notes -->
           <div>
-            <label class="block text-sm font-medium text-text/80 mb-1">Pengecualian Kata (Exclude)</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.search_query') }} (Exclude)</label>
             <input
               type="text"
               v-model="filters.excludeNotes"
-              placeholder="Contoh: Cancelled"
+              :placeholder="t('wms.investigation.search_placeholder')"
               class="w-full px-3 py-2 bg-background border border-secondary/30 text-text rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
             />
             <div class="mt-2 flex flex-wrap gap-2">
@@ -112,12 +112,12 @@
 
           <!-- Kode Lokasi -->
           <div>
-            <label class="block text-sm font-medium text-text/80 mb-1">Kode Lokasi</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.source_loc') }}</label>
             <select
               v-model="filters.location"
               class="w-full px-3 py-2 bg-background border border-secondary/30 text-text rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
             >
-              <option value="">Semua Lokasi</option>
+              <option value="">{{ t('common.label.all_locations') || 'Semua Lokasi' }}</option>
               <option v-for="loc in locationOptions" :key="loc.id" :value="loc.code">
                 {{ loc.code }} {{ loc.name ? '- ' + loc.name : '' }}
               </option>
@@ -126,29 +126,29 @@
 
           <!-- Barang -->
           <div>
-            <label class="block text-sm font-medium text-text/80 mb-1">Nama / SKU Barang</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.sku_label') }}</label>
             <input
               type="text"
               v-model="filters.productName"
-              placeholder="Cari barang..."
+              :placeholder="t('wms.investigation.sku_placeholder')"
               class="w-full px-3 py-2 bg-background border border-secondary/30 text-text rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
             />
           </div>
 
           <!-- User -->
           <div>
-            <label class="block text-sm font-medium text-text/80 mb-1">Nama User</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.user_label') }}</label>
             <input
               type="text"
               v-model="filters.username"
-              placeholder="Nama pemroses..."
+              :placeholder="t('wms.investigation.user_placeholder')"
               class="w-full px-3 py-2 bg-background border border-secondary/30 text-text rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
             />
           </div>
 
           <!-- PL Source -->
           <div class="z-40">
-            <label class="block text-sm font-medium text-text/80 mb-1">Source (Order)</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.order_source') }}</label>
             <TriStateSelect
               v-model="filters.plSource"
               :options="[
@@ -156,7 +156,7 @@
                 { id: 'Shopee', label: 'Shopee' },
                 { id: 'Offline', label: 'Offline' }
               ]"
-              placeholder="Pilih Source..."
+              :placeholder="t('wms.investigation.order_source_placeholder')"
               label="label"
               track-by="id"
               class="w-full"
@@ -170,7 +170,7 @@
 
           <!-- PL Status -->
           <div class="z-30">
-            <label class="block text-sm font-medium text-text/80 mb-1">Status Internal Order</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.order_status') }}</label>
             <TriStateSelect
               v-model="filters.plStatus"
               :options="[
@@ -179,7 +179,7 @@
                 { id: 'COMPLETED', label: 'COMPLETED' },
                 { id: 'CANCELLED', label: 'CANCELLED' }
               ]"
-              placeholder="Pilih Status..."
+              :placeholder="t('wms.investigation.order_status_placeholder')"
               label="label"
               track-by="id"
               class="w-full"
@@ -193,33 +193,33 @@
 
           <!-- PL Marketplace Status -->
           <div>
-            <label class="block text-sm font-medium text-text/80 mb-1">Marketplace Status</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.marketplace_status') }}</label>
             <input
               type="text"
               v-model="filters.plMarketplaceStatus"
-              placeholder="Misal: READY_TO_SHIP"
+              :placeholder="t('wms.investigation.marketplace_placeholder')"
               class="w-full px-3 py-2 bg-background border border-secondary/30 text-text rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
             />
           </div>
 
           <!-- PL Customer -->
           <div>
-            <label class="block text-sm font-medium text-text/80 mb-1">Nama Customer</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.buyer_name') }}</label>
             <input
               type="text"
               v-model="filters.plCustomer"
-              placeholder="Cari pembeli..."
+              :placeholder="t('wms.investigation.buyer_placeholder')"
               class="w-full px-3 py-2 bg-background border border-secondary/30 text-text rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
             />
           </div>
 
           <!-- Revert Status -->
           <div class="z-20">
-            <label class="block text-sm font-medium text-text/80 mb-1">Status Revert</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.revert_status') }}</label>
             <TriStateSelect
               v-model="filters.revertStatus"
               :options="[{ id: 'REVERTED', label: 'Di-revert' }]"
-              placeholder="Status Revert"
+              :placeholder="t('wms.investigation.revert_placeholder')"
               label="label"
               track-by="id"
               class="w-full"
@@ -233,7 +233,7 @@
 
           <!-- Total Transaksi (Occurrences) -->
           <div>
-            <label class="block text-sm font-medium text-text/80 mb-1">Total Transaksi</label>
+            <label class="block text-sm font-medium text-text/80 mb-1">{{ t('wms.investigation.trx_count_range') }}</label>
             <div class="flex space-x-2">
               <input
                 type="number"
@@ -337,14 +337,14 @@
               class="px-4 py-2 border border-secondary/50 text-text rounded-lg hover:bg-secondary/20 transition-colors flex items-center disabled:opacity-50"
             >
               <font-awesome-icon icon="fa-solid fa-file-csv" class="mr-2" />
-              Export CSV
+              {{ t('wms.investigation.btn_export') }}
             </button>
             <button
               type="button"
               @click="resetFilters"
               class="px-4 py-2 border border-secondary/50 text-text rounded-lg hover:bg-secondary/20 transition-colors"
             >
-              Reset
+              {{ t('common.action.reset_filter') }}
             </button>
             <button
               type="submit"
@@ -352,7 +352,7 @@
               :disabled="loading"
             >
               <font-awesome-icon v-if="loading" icon="fa-solid fa-spinner" class="animate-spin -ml-1 mr-2 h-4 w-4" />
-              Cari Duplikat
+              {{ t('wms.investigation.btn_search') }}
             </button>
           </div>
         </form>
@@ -361,20 +361,20 @@
       <!-- Results Data -->
       <div class="bg-secondary/50 rounded-xl shadow-sm border border-secondary/20 overflow-hidden">
         <div class="p-5 border-b border-secondary/20 flex justify-between items-center bg-primary/10">
-          <h2 class="text-lg font-semibold text-text">Hasil Investigasi</h2>
+          <h2 class="text-lg font-semibold text-text">{{ t('wms.investigation.results_title') }}</h2>
           <span class="text-sm text-text/70">
-            Ditemukan: <strong class="text-accent">{{ totalGroups || 0 }}</strong> grup duplikat
+            {{ t('wms.investigation.found_groups', { count: totalGroups || 0 }) }}
           </span>
         </div>
 
         <div v-if="loading" class="p-10 text-center text-text/50">
           <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-primary text-2xl mb-2" />
-          <p>Sedang memuat data...</p>
+          <p>{{ t('common.status.loading') }}</p>
         </div>
 
         <div v-else-if="results.length === 0" class="p-10 text-center text-text/50">
           <font-awesome-icon icon="fa-solid fa-search" class="mx-auto h-10 w-10 text-text/30 mb-3" />
-          <p>Tidak ada transaksi ganda yang ditemukan.</p>
+          <p>{{ t('wms.investigation.no_results') }}</p>
         </div>
 
         <div v-else class="overflow-x-auto">
@@ -450,7 +450,7 @@
                           <div
                             v-if="skuGroup.issueFlag === 'WORKER_DOUBLE'"
                             class="px-2 py-0.5 text-[10px] font-bold rounded bg-danger/10 text-danger border border-danger/20 flex items-center"
-                            title="Akar Masalah: Worker tereksekusi dua kali pada Item ID yang sama"
+                            :title="t('wms.investigation.root_cause_worker')"
                           >
                             <font-awesome-icon icon="fa-solid fa-triangle-exclamation" class="mr-1.5" />
                             WORKER DOUBLE EXECUTION
@@ -458,7 +458,7 @@
                           <div
                             v-else-if="skuGroup.issueFlag === 'CART_BUG'"
                             class="px-2 py-0.5 text-[10px] font-bold rounded bg-warning/10 text-warning border border-warning/20 flex items-center"
-                            title="Akar Masalah: Terdapat lebih dari 1 Item ID untuk produk yang sama (Sistem Keranjang/Webhook error)"
+                            :title="t('wms.investigation.root_cause_basket')"
                           >
                             <font-awesome-icon icon="fa-solid fa-cart-arrow-down" class="mr-1.5" />
                             CART / WEBHOOK BUG
@@ -567,6 +567,7 @@
 <script setup>
 import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
 import { ref, onMounted } from 'vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { investigationApi } from '../../infrastructure/investigation.api'
 import { useToast } from '@/core/presentation/composables/useToast'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
@@ -578,6 +579,7 @@ import { useInvestigationLogic } from '@/modules/wms/presentation/composables/us
 import { stockApi } from '../../infrastructure/stock.api'
 
 const { toast } = useToast()
+const { t } = useI18n()
 const locationOptions = ref([])
 const movementTypeOptions = ref([])
 
@@ -605,14 +607,14 @@ const confirmRevert = async trx => {
   if (trx.notes && (trx.notes.includes('Reversal') || trx.notes.includes('[REVERTED]'))) return
 
   const isConfirmed = await swalConfirm(
-    `Apakah Anda yakin ingin membalikkan transaksi stok ganda ini?\n\nID Trx: #${trx.id}\nSKU: ${trx.sku}\nQty: ${trx.quantity}\n\nSistem akan membuat transaksi baru untuk menyeimbangkan stok.`
+    `${t('wms.investigation.confirm_revert')}\n\nID Trx: #${trx.id}\nSKU: ${trx.sku}\nQty: ${trx.quantity}`
   )
 
   if (isConfirmed) {
     try {
       loading.value = true
-      await investigationApi.revertDuplicateTransaction(trx.id)
-      toast('Transaksi berhasil di-revert', 'success')
+      const res = await investigationApi.revertDuplicateTransaction(trx.id)
+      toast(res?.message || t('common.status.success'), 'success')
       fetchData() // Refresh data
     } catch (error) {
       toast(error?.response?.data?.message || 'Terjadi kesalahan sistem', 'error')
@@ -624,7 +626,7 @@ const confirmRevert = async trx => {
 
 const exportToCSV = () => {
   if (results.value.length === 0) {
-    toast('Tidak ada data untuk diekspor', 'warning')
+    toast(t('wms.investigation.no_export_data'), 'warning')
     return
   }
 
@@ -683,7 +685,7 @@ onMounted(async () => {
   }
 
   try {
-    const types = await stockApi.getMovementTypes()
+    const types = await stockApi.fetchMovementTypes()
     movementTypeOptions.value = types.map(t => ({ id: t, label: t }))
   } catch (e) {
     console.error('Gagal load tipe pergerakan', e)

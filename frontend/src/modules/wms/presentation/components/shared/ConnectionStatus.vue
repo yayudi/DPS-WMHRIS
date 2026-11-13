@@ -2,7 +2,9 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { useOfflineSync } from '../../../application/useOfflineSync'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
+const { t } = useI18n()
 const isOnline = ref(true)
 const isBackendReachable = ref(true)
 const lastCheck = ref(new Date())
@@ -72,13 +74,13 @@ onUnmounted(() => {
         class="font-bold text-sm"
         :class="!isOnline || !isBackendReachable ? 'text-[hsl(var(--color-danger))]' : 'text-amber-500'"
       >
-        <span v-if="!isOnline || !isBackendReachable">Koneksi Terputus</span>
-        <span v-else>Buffer Offline Aktif</span>
+        <span v-if="!isOnline || !isBackendReachable">{{ t('wms.offline.disconnected') }}</span>
+        <span v-else>{{ t('wms.offline.buffer_active') }}</span>
       </h4>
       <p class="text-xs opacity-70">
-        <span v-if="!isOnline">Mode lorong offline. {{ pendingCount }} scan disimpan lokal.</span>
-        <span v-else-if="!isBackendReachable">Server tidak merespon. {{ pendingCount }} scan disimpan lokal.</span>
-        <span v-else>{{ pendingCount }} antrean scan siap disinkronkan.</span>
+        <span v-if="!isOnline">{{ t('wms.offline.hallway_scans_saved', { count: pendingCount }) }}</span>
+        <span v-else-if="!isBackendReachable">{{ t('wms.offline.server_unreachable_saved', { count: pendingCount }) }}</span>
+        <span v-else>{{ t('wms.offline.ready_to_sync', { count: pendingCount }) }}</span>
       </p>
     </div>
 
@@ -88,7 +90,7 @@ onUnmounted(() => {
         :disabled="isSyncing"
         class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white transition-all disabled:opacity-50"
       >
-        {{ isSyncing ? 'Syncing...' : 'Sync' }}
+        {{ isSyncing ? t('wms.offline.syncing_btn') : t('wms.offline.btn_sync') }}
       </button>
     </div>
   </div>

@@ -8,7 +8,6 @@ import (
 
 	analytics_usecase "github.com/dps-wmhris/backend/internal/modules/analytics/application/usecase"
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
-	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -28,9 +27,8 @@ func NewReportHandler(reportService analytics_usecase.ReportService, jobService 
 }
 
 func (h *ReportHandler) RequestStockReport(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -52,23 +50,22 @@ func (h *ReportHandler) RequestStockReport(c *gin.Context) {
 
 	jobID, err := h.jobService.CreateExportJob(c.Request.Context(), req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.JobCreatedResponse(c, http.StatusAccepted, "Permintaan ekspor diterima. Laporan sedang dibuat.", jobID)
+	utils.JobCreatedResponse(c, http.StatusAccepted, "analytics.report.export_requested", jobID)
 }
 
 func (h *ReportHandler) GetUserExportJobs(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
 	jobs, err := h.reportService.GetUserExportJobs(c.Request.Context(), userID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -78,9 +75,8 @@ func (h *ReportHandler) GetUserExportJobs(c *gin.Context) {
 // DownloadExportJob menghasilkan presigned URL untuk mendownload file export,
 // lalu redirect browser ke URL tersebut. URL expire setelah 5 menit.
 func (h *ReportHandler) DownloadExportJob(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -91,24 +87,24 @@ func (h *ReportHandler) DownloadExportJob(c *gin.Context) {
 
 	job, err := h.jobService.GetExportJobByID(c.Request.Context(), jobID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusNotFound, "Job tidak ditemukan", "")
+		utils.LocalizedError(c, http.StatusNotFound, "system.jobs.not_found", nil, "NOT_FOUND")
 		return
 	}
 
 	// Pastikan user hanya bisa download job miliknya
 	if job.UserID != userID {
-		utils.ErrorResponse(c, http.StatusForbidden, "Anda tidak memiliki akses ke job ini", "")
+		utils.LocalizedError(c, http.StatusForbidden, "errors.forbidden", nil, "FORBIDDEN")
 		return
 	}
 
 	if job.Status != "COMPLETED" || job.FilePath == nil || *job.FilePath == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "File belum tersedia untuk diunduh", "")
+		utils.LocalizedError(c, http.StatusBadRequest, "analytics.report.err_file_not_ready", nil, "NOT_READY")
 		return
 	}
 
 	presignedURL, err := h.storageService.GeneratePresignedDownloadUrl(c.Request.Context(), *job.FilePath)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal membuat link download", "")
+		utils.LocalizedError(c, http.StatusInternalServerError, "analytics.report.err_download_link_failed", nil, "INTERNAL_ERROR")
 		return
 	}
 
@@ -118,7 +114,7 @@ func (h *ReportHandler) DownloadExportJob(c *gin.Context) {
 func (h *ReportHandler) FetchReportFilters(c *gin.Context) {
 	filters, err := h.reportService.GetReportFilters(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { dayjs } from '@/core/utils/time'
+import { useI18n } from '@/core/infrastructure/localization'
 import FilterBar from '@/core/presentation/components/ui/FilterBar.vue'
 import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
@@ -10,6 +11,7 @@ import { serializeFilterParams } from '@/core/utils/filterParams'
 import { formatNumber } from '@/core/utils/formatters'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 
+const { t, d } = useI18n()
 const masterStore = useMasterDataStore()
 const isDataLoading = ref(false)
 const analysisData = ref<any[]>([])
@@ -29,26 +31,20 @@ const filterValues = ref({
 })
 
 
-const reportTypeOptions = [
-  { value: 'monthly', label: 'Bulan', icon: 'fa-solid fa-calendar' },
-  { value: 'annual', label: 'Tahun', icon: 'fa-solid fa-calendar-days' },
-  { value: 'custom', label: 'Kustom', icon: 'fa-solid fa-calendar-plus' }
-]
+const reportTypeOptions = computed(() => [
+  { value: 'monthly', label: t('analytics.shop.opt_monthly'), icon: 'fa-solid fa-calendar' },
+  { value: 'annual', label: t('analytics.shop.opt_annual'), icon: 'fa-solid fa-calendar-days' },
+  { value: 'custom', label: t('analytics.shop.opt_custom'), icon: 'fa-solid fa-calendar-plus' }
+])
 
-const availableMonths = [
-  { value: '01', label: 'Januari' },
-  { value: '02', label: 'Februari' },
-  { value: '03', label: 'Maret' },
-  { value: '04', label: 'April' },
-  { value: '05', label: 'Mei' },
-  { value: '06', label: 'Juni' },
-  { value: '07', label: 'Juli' },
-  { value: '08', label: 'Agustus' },
-  { value: '09', label: 'September' },
-  { value: '10', label: 'Oktober' },
-  { value: '11', label: 'November' },
-  { value: '12', label: 'Desember' }
-]
+const availableMonths = computed(() => {
+  return Array.from({ length: 12 }, (_, i) => {
+    const monthNum = String(i + 1).padStart(2, '0')
+    const date = new Date(2025, i, 1)
+    const label = d(date, { month: 'long' })
+    return { value: monthNum, label: label.charAt(0).toUpperCase() + label.slice(1) }
+  })
+})
 
 const availableYears = computed(() => {
   const current = new Date().getFullYear()
@@ -80,13 +76,13 @@ const getApiPayload = () => {
 }
 
 const mainFilters = computed(() => {
-  const filters = [{ type: 'segmented', key: 'reportType', label: 'Tipe Laporan', options: reportTypeOptions }]
+  const filters = [{ type: 'segmented', key: 'reportType', label: t('analytics.shop.report_type'), options: reportTypeOptions.value }]
 
   if (filterValues.value.reportType === 'annual') {
     filters.push({
       type: 'select',
       key: 'year',
-      label: 'Tahun',
+      label: t('analytics.reports.year'),
       options: availableYears.value.map(y => ({ value: y, label: y.toString() })),
       clearable: false,
       searchable: false
@@ -95,35 +91,35 @@ const mainFilters = computed(() => {
     filters.push({
       type: 'select',
       key: 'selectedMonth',
-      label: 'Bulan',
-      options: availableMonths,
+      label: t('analytics.reports.month'),
+      options: availableMonths.value,
       clearable: false,
       searchable: false,
-      placeholder: 'Pilih Bulan'
+      placeholder: t('analytics.reports.select_month')
     })
     filters.push({
       type: 'select',
       key: 'year',
-      label: 'Tahun',
+      label: t('analytics.reports.year'),
       options: availableYears.value.map(y => ({ value: y, label: y.toString() })),
       clearable: false,
       searchable: false
     })
   } else {
-    filters.push({ type: 'daterange', keyStart: 'startDate', keyEnd: 'endDate', label: 'Rentang Waktu' })
+    filters.push({ type: 'daterange', keyStart: 'startDate', keyEnd: 'endDate', label: t('analytics.reports.date_range') })
   }
 
   // Stock Status Filter (Local Frontend TriState)
   filters.push({
     type: 'triselect',
     key: 'stockStatus',
-    label: 'Status Stok',
+    label: t('common.label.status'),
     options: [
-      { id: 'SAFE', label: 'Aman' },
-      { id: 'WARNING', label: 'Peringatan' },
-      { id: 'DEFICIT', label: 'Perlu Beli' }
+      { id: 'SAFE', label: t('analytics.movement.status_safe') },
+      { id: 'WARNING', label: t('analytics.package.status_warning') },
+      { id: 'DEFICIT', label: t('analytics.package.status_deficit') }
     ],
-    placeholder: 'Semua Status'
+    placeholder: t('analytics.package.all_status')
   })
 
   // Category Filters (TriState)
@@ -132,18 +128,18 @@ const mainFilters = computed(() => {
     filters.push({
       type: 'triselect',
       key: 'componentCategoryId',
-      label: 'Kategori Komponen',
+      label: t('analytics.package.category_component'),
       options: catOptions,
-      placeholder: 'Semua Komponen',
+      placeholder: t('analytics.package.all_components'),
       searchable: true
     })
     // Note: If you want to filter package category locally or server side later, it's ready as triselect too
     filters.push({
       type: 'triselect',
       key: 'packageCategoryId',
-      label: 'Kategori Paket (Lokal)',
+      label: t('analytics.package.category_package'),
       options: catOptions,
-      placeholder: 'Semua Paket',
+      placeholder: t('analytics.package.all_packages'),
       searchable: true
     })
   }
@@ -243,10 +239,10 @@ const getStatusBadge = status => {
   return 'bg-secondary/10 text-text/50 border-secondary/20'
 }
 
-const getStatusText = status => {
-  if (status === 'SAFE') return 'Aman'
-  if (status === 'WARNING') return 'Peringatan'
-  if (status === 'DEFICIT') return 'Perlu Beli'
+const getStatusText = (status: string) => {
+  if (status === 'SAFE') return t('analytics.movement.status_safe')
+  if (status === 'WARNING') return t('analytics.package.status_warning')
+  if (status === 'DEFICIT') return t('analytics.package.status_deficit')
   return status
 }
 </script>
@@ -255,8 +251,8 @@ const getStatusText = status => {
   <div class="space-y-6">
     <div class="mb-6 border-b border-secondary/20 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
-        <h3 class="text-lg font-bold text-text">Analisa Kebutuhan Komponen Paket</h3>
-        <p class="text-sm text-text/50 mt-1">Estimasi kebutuhan komponen berdasarkan histori penjualan paket.</p>
+        <h3 class="text-lg font-bold text-text">{{ t('analytics.package.page_title') }}</h3>
+        <p class="text-sm text-text/50 mt-1">{{ t('analytics.package.page_subtitle') }}</p>
       </div>
       <div class="flex items-center w-full md:w-auto">
         <FilterToggle v-model="showFilters" />
@@ -294,7 +290,7 @@ const getStatusText = status => {
       class="bg-background border border-secondary rounded-xl p-16 flex flex-col items-center justify-center text-center shadow-sm"
     >
       <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-4xl mb-4 text-primary" />
-      <p class="font-medium text-text/60">Memuat data analisa komponen...</p>
+      <p class="font-medium text-text/60">{{ t('analytics.package.loading') }}</p>
     </main>
 
     <!-- Empty State -->
@@ -303,9 +299,9 @@ const getStatusText = status => {
       class="bg-background border border-secondary rounded-xl p-16 flex flex-col items-center justify-center text-center shadow-sm"
     >
       <font-awesome-icon icon="fa-solid fa-box-open" class="text-4xl mb-4 text-text/30" />
-      <h4 class="font-bold text-text text-lg">Tidak ada data paket terjual</h4>
+      <h4 class="font-bold text-text text-lg">{{ t('analytics.package.empty_title') }}</h4>
       <p class="text-text/60 mt-2 text-sm max-w-sm">
-        Pada rentang pencarian ini, belum ada data penjualan paket yang ter-record.
+        {{ t('analytics.package.empty_desc') }}
       </p>
     </main>
 
@@ -317,12 +313,12 @@ const getStatusText = status => {
             <thead class="bg-secondary/5 border-b border-secondary sticky top-0 z-10">
               <tr>
                 <th class="px-4 py-3 w-10"></th>
-                <th class="px-4 py-3 font-semibold text-text/80" title="Kode unik komponen penyusun paket">SKU Komponen</th>
-                <th class="px-4 py-3 font-semibold text-text/80" title="Nama produk komponen">Nama Komponen</th>
-                <th class="px-4 py-3 font-semibold text-text/80 text-right" title="Jumlah stok komponen yang tersedia di seluruh lokasi saat ini">Stok Saat Ini</th>
-                <th class="px-4 py-3 font-semibold text-text/80 text-right" title="Total jumlah komponen yang dibutuhkan berdasarkan riwayat pergerakan paket">Total Kebutuhan</th>
-                <th class="px-4 py-3 font-semibold text-text/80 text-right" title="Kekurangan stok komponen (jika Total Kebutuhan melebihi Stok Saat Ini)">Defisit</th>
-                <th class="px-4 py-3 font-semibold text-text/80 text-center" title="Status ketersediaan stok komponen (Aman/Defisit)">Status</th>
+                <th class="px-4 py-3 font-semibold text-text/80" :title="t('analytics.package.col_component_sku_tooltip')">{{ t('analytics.package.col_component_sku') }}</th>
+                <th class="px-4 py-3 font-semibold text-text/80" :title="t('analytics.package.col_component_name_tooltip')">{{ t('analytics.package.col_component_name') }}</th>
+                <th class="px-4 py-3 font-semibold text-text/80 text-right" :title="t('analytics.package.col_current_stock_tooltip')">{{ t('common.label.current_stock') }}</th>
+                <th class="px-4 py-3 font-semibold text-text/80 text-right" :title="t('analytics.package.col_total_needed_tooltip')">{{ t('analytics.package.col_total_needed') }}</th>
+                <th class="px-4 py-3 font-semibold text-text/80 text-right" :title="t('analytics.package.col_deficit_tooltip')">{{ t('analytics.package.col_deficit') }}</th>
+                <th class="px-4 py-3 font-semibold text-text/80 text-center" :title="t('analytics.package.col_status_tooltip')">{{ t('common.label.status') }}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-secondary/20">
@@ -366,18 +362,18 @@ const getStatusText = status => {
                   <td colspan="7" class="p-0">
                     <div class="px-10 py-4 border-l-4 border-primary/40">
                       <p class="text-xs font-bold text-text/50 uppercase tracking-wider mb-3">
-                        Detail Penjualan Paket yang Menggunakan Komponen Ini:
+                        {{ t('analytics.package.expanded_section_title') }}
                       </p>
                       <table
                         class="w-full text-left text-xs bg-background rounded-lg overflow-hidden border border-secondary/20"
                       >
                         <thead class="bg-secondary/10 text-text/60 border-b border-secondary/20">
                           <tr>
-                            <th class="px-3 py-2 font-semibold" title="Kode unik produk paket induk yang membutuhkan komponen ini">SKU Paket</th>
-                            <th class="px-3 py-2 font-semibold" title="Nama produk paket induk">Nama Paket</th>
-                            <th class="px-3 py-2 font-semibold text-right" title="Jumlah paket induk yang terjual/bergerak keluar">Terjual</th>
-                            <th class="px-3 py-2 font-semibold text-right" title="Jumlah komponen yang dibutuhkan untuk merakit 1 paket induk">Qty per Paket</th>
-                            <th class="px-3 py-2 font-semibold text-right" title="Total komponen yang dibutuhkan untuk paket ini (Terjual × Qty per Paket)">Subtotal Kebutuhan</th>
+                            <th class="px-3 py-2 font-semibold" :title="t('analytics.package.col_package_sku_tooltip')">{{ t('analytics.package.col_package_sku') }}</th>
+                            <th class="px-3 py-2 font-semibold" :title="t('analytics.package.col_package_name_tooltip')">{{ t('common.label.package_name') }}</th>
+                            <th class="px-3 py-2 font-semibold text-right" :title="t('analytics.package.col_sold_tooltip')">{{ t('analytics.package.col_sold') }}</th>
+                            <th class="px-3 py-2 font-semibold text-right" :title="t('analytics.package.col_qty_per_package_tooltip')">{{ t('analytics.package.col_qty_per_package') }}</th>
+                            <th class="px-3 py-2 font-semibold text-right" :title="t('analytics.package.col_subtotal_needed_tooltip')">{{ t('analytics.package.col_subtotal_needed') }}</th>
                           </tr>
                         </thead>
                         <tbody class="divide-y divide-secondary/10">

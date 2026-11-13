@@ -1,9 +1,9 @@
 package domain
 
 import (
-	"errors"
 	"time"
 
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/i18n"
 )
 
@@ -20,11 +20,11 @@ const (
 
 var (
 	// ErrInvalidPreferenceLocale is returned when an unsupported locale code is provided.
-	ErrInvalidPreferenceLocale = errors.New("kode bahasa tidak didukung")
+	ErrInvalidPreferenceLocale = apperror.Validation("errors.iam.invalid_locale", "kode bahasa tidak didukung")
 	// ErrInvalidPreferenceTimezone is returned when an invalid IANA timezone identifier is provided.
-	ErrInvalidPreferenceTimezone = errors.New("zona waktu tidak valid")
+	ErrInvalidPreferenceTimezone = apperror.Validation("errors.iam.invalid_timezone", "zona waktu tidak valid")
 	// ErrInvalidPreferenceDateFormat is returned when an unsupported date format is provided.
-	ErrInvalidPreferenceDateFormat = errors.New("format tanggal tidak didukung")
+	ErrInvalidPreferenceDateFormat = apperror.Validation("errors.iam.invalid_date_format", "format tanggal tidak didukung")
 )
 
 var validDateFormats = map[string]bool{

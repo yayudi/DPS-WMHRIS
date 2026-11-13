@@ -2,61 +2,23 @@ package usecase
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 
-	catalog_dto "github.com/dps-wmhris/backend/internal/modules/catalog/application/dto"
-
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 
 	"github.com/xuri/excelize/v2"
 )
 
 func (s *exportServiceImpl) ProcessExportPackage(ctx context.Context, jobID int, filtersJSON string) error {
-	var filters map[string]interface{}
-	if filtersJSON != "" {
-		if err := json.Unmarshal([]byte(filtersJSON), &filters); err != nil {
-			return fmt.Errorf("invalid filters: %v", err)
-		}
+	parsedFilter, err := parseCatalogExportFilter(filtersJSON, true)
+	if err != nil {
+		return fmt.Errorf("invalid filters: %w", err)
 	}
-
-	search := ""
-	if v, ok := filters["search"].(string); ok {
-		search = v
-	}
-	searchBy := "name"
-	if v, ok := filters["searchBy"].(string); ok {
-		searchBy = v
-	}
-	sortBy := "sku"
-	if v, ok := filters["sortBy"].(string); ok {
-		sortBy = v
-	}
-	sortOrder := "ASC"
-	if v, ok := filters["sortOrder"].(string); ok {
-		sortOrder = v
-	}
-	status := "active"
-	if v, ok := filters["status"].(string); ok {
-		status = v
-	}
-	exportName := ""
-	if v, ok := filters["exportName"].(string); ok {
-		exportName = v
-	}
-
-	pkgOnly := true
-	req := catalog_dto.ProductFilterRequest{
-		Page:        1,
-		Limit:       100000,
-		Search:      search,
-		SearchBy:    searchBy,
-		SortBy:      sortBy,
-		SortOrder:   sortOrder,
-		Status:      status,
-		PackageOnly: &pkgOnly,
-	}
+	req := parsedFilter.FilterReq
+	status := parsedFilter.Status
+	exportName := parsedFilter.ExportName
 
 	res, _, err := s.productRepo.GetProductsWithFilters(ctx, req)
 	if err != nil {
@@ -80,17 +42,22 @@ func (s *exportServiceImpl) ProcessExportPackage(ctx context.Context, jobID int,
 		}
 	}()
 
-	sheetName := "Data Paket"
+	sheetName := i18n.T(ctx, "analytics.export.sheet_package_data")
 	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 	styles := utils.InitExcelStyles(f)
 
-	headers := []string{"SKU", "Nama Paket", "Kategori", "Harga Jual"}
+	headers := []string{
+		"common.label.sku",
+		"common.label.package_name",
+		"common.label.category",
+		"analytics.export.col_selling_price",
+	}
 	for i := 1; i <= maxComponentCount; i++ {
 		headers = append(headers, fmt.Sprintf("Component_%d", i))
 		headers = append(headers, fmt.Sprintf("Qty_%d", i))
 	}
 
-	utils.SetHeaders(f, sheetName, headers, styles.Header)
+	utils.SetLocalizedHeaders(ctx, f, sheetName, headers, styles.Header)
 	_ = f.SetRowHeight(sheetName, 1, 20) // #nosec G104
 
 	for r, row := range res {
@@ -111,13 +78,16 @@ func (s *exportServiceImpl) ProcessExportPackage(ctx context.Context, jobID int,
 	}
 
 	// Categories Reference Sheet
-	catSheetName := "Referensi Kategori"
+	catSheetName := i18n.T(ctx, "analytics.export.sheet_category_reference")
 	_, _ = f.NewSheet(catSheetName) // #nosec G104
 	categories, err := s.categoryRepo.FindAllActive(ctx)
 	if err == nil {
-		catHeaders := []string{"ID", "Nama Kategori (Gunakan Ini)"}
+		catHeaders := []string{
+			"analytics.export.col_id",
+			"analytics.export.col_category_name_ref",
+		}
 
-		utils.SetHeaders(f, catSheetName, catHeaders, styles.Header)
+		utils.SetLocalizedHeaders(ctx, f, catSheetName, catHeaders, styles.Header)
 		_ = f.SetRowHeight(catSheetName, 1, 20) // #nosec G104
 
 		for r, c := range categories {

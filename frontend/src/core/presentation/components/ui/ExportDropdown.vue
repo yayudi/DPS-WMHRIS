@@ -1,5 +1,8 @@
 <script setup>
 import { ref } from 'vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   options: {
@@ -65,7 +68,7 @@ const handleClick = () => {
       <font-awesome-icon v-else-if="options.length === 1 && options[0].icon" :icon="`fa-solid ${options[0].icon}`" :class="['-ml-0.5 mr-1.5', options[0].iconClass]" />
       <font-awesome-icon v-else icon="fa-solid fa-file-export" class="-ml-0.5 mr-1.5 text-primary" />
       
-      {{ loading ? 'Mempersiapkan...' : text }}
+      {{ loading ? t('common.status.preparing') : (text === 'Export' ? t('common.btn.export') : text) }}
       
       <font-awesome-icon v-if="options.length > 1" icon="fa-solid fa-chevron-down" class="ml-2 -mr-1 h-4 w-4 text-text/50" />
     </button>

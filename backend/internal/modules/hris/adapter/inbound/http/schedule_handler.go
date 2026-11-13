@@ -38,7 +38,7 @@ func (h *ScheduleHandler) GetSchedules(c *gin.Context) {
 
 	schedules, err := h.scheduleUseCase.GetSchedules(c.Request.Context(), req.UserID, req.StartDate, req.EndDate)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -59,11 +59,11 @@ func (h *ScheduleHandler) CreateSchedule(c *gin.Context) {
 
 	err := h.scheduleUseCase.CreateSchedule(c.Request.Context(), req, createdBy)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Schedule saved", nil)
+	utils.SuccessResponse(c, http.StatusOK, "hris.schedule.save_success", nil)
 }
 
 func (h *ScheduleHandler) DeleteSchedule(c *gin.Context) {
@@ -75,17 +75,17 @@ func (h *ScheduleHandler) DeleteSchedule(c *gin.Context) {
 
 	err := h.scheduleUseCase.DeleteSchedule(c.Request.Context(), req.UserID, req.Date)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Schedule deleted", nil)
+	utils.SuccessResponse(c, http.StatusOK, "hris.schedule.delete_success", nil)
 }
 
 func (h *ScheduleHandler) DownloadTemplate(c *gin.Context) {
 	f, err := h.scheduleUseCase.GenerateTemplate(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal generate template", "INTERNAL_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "hris.schedule.generate_template_failed", "INTERNAL_ERROR")
 		return
 	}
 
@@ -112,9 +112,9 @@ func (h *ScheduleHandler) UploadImportSchedule(c *gin.Context) {
 	jobID, err := h.jobService.CreateImportJob(c.Request.Context(), req)
 	if err != nil {
 		_ = os.Remove(savedPath)
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.JobCreatedResponse(c, http.StatusOK, "Import Jadwal sedang diproses di background.", jobID)
+	utils.JobCreatedResponse(c, http.StatusOK, "hris.schedule.job_queued", jobID)
 }

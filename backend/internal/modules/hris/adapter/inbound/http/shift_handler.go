@@ -22,7 +22,7 @@ func NewShiftHandler(shiftUseCase hris_port.ShiftUseCase) *ShiftHandler {
 func (h *ShiftHandler) GetAll(c *gin.Context) {
 	shifts, err := h.shiftUseCase.GetAll(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 	utils.SuccessDataResponse(c, http.StatusOK, shifts)
@@ -36,7 +36,7 @@ func (h *ShiftHandler) GetByID(c *gin.Context) {
 
 	shift, err := h.shiftUseCase.GetByID(c.Request.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusNotFound, "Shift not found", "NOT_FOUND")
+		utils.ErrorResponse(c, http.StatusNotFound, "hris.shift.not_found", "NOT_FOUND")
 		return
 	}
 	utils.SuccessDataResponse(c, http.StatusOK, shift)
@@ -51,11 +51,11 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 
 	id, err := h.shiftUseCase.Create(c.Request.Context(), req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "SERVICE_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.RawResponse(c, http.StatusCreated, gin.H{"success": true, "message": "Shift created", "data": gin.H{"id": id}})
+	utils.SuccessResponse(c, http.StatusCreated, "hris.shift.create_success", gin.H{"id": id})
 }
 
 func (h *ShiftHandler) Update(c *gin.Context) {
@@ -72,11 +72,11 @@ func (h *ShiftHandler) Update(c *gin.Context) {
 
 	err := h.shiftUseCase.Update(c.Request.Context(), id, req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "SERVICE_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Shift updated", nil)
+	utils.SuccessResponse(c, http.StatusOK, "hris.shift.update_success", nil)
 }
 
 func (h *ShiftHandler) Delete(c *gin.Context) {
@@ -87,9 +87,9 @@ func (h *ShiftHandler) Delete(c *gin.Context) {
 
 	err := h.shiftUseCase.Delete(c.Request.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "SERVICE_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Shift deleted", nil)
+	utils.SuccessResponse(c, http.StatusOK, "hris.shift.delete_success", nil)
 }

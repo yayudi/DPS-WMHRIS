@@ -1,24 +1,27 @@
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 export function useClipboard() {
   const { toast } = useToast()
+  const { t } = useI18n()
 
-  const copyToClipboard = (text, fieldName = 'Teks') => {
+  const copyToClipboard = (text: string, fieldName?: string) => {
     if (!text) return
+    const targetField = fieldName || t('common.label.text')
 
     // Fallback using modern clipboard API if available
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(text).then(() => {
-        toast(`${fieldName} berhasil disalin ke clipboard!`, 'success')
+        toast(t('common.toast.copy_success', { field: targetField }), 'success')
       }).catch(() => {
-        fallbackCopyTextToClipboard(text, fieldName)
+        fallbackCopyTextToClipboard(text, targetField)
       })
     } else {
-      fallbackCopyTextToClipboard(text, fieldName)
+      fallbackCopyTextToClipboard(text, targetField)
     }
   }
 
-  const fallbackCopyTextToClipboard = (text, fieldName) => {
+  const fallbackCopyTextToClipboard = (text: string, targetField: string) => {
     const textArea = document.createElement('textarea')
     textArea.value = text
     
@@ -33,10 +36,10 @@ export function useClipboard() {
 
     try {
       document.execCommand('copy')
-      toast(`${fieldName} berhasil disalin ke clipboard!`, 'success')
+      toast(t('common.toast.copy_success', { field: targetField }), 'success')
     } catch (e) {
       console.error(e) // Prevent unused var
-      toast('Gagal menyalin teks.', 'error')
+      toast(t('common.toast.copy_error'), 'error')
     }
 
     document.body.removeChild(textArea)

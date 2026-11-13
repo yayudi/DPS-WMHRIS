@@ -29,8 +29,7 @@ export const notificationApi = {
     return response.data
   },
 
-  async updatePreferences(preferences: Record<string, boolean>): Promise<any> {
-    const response = await http.put('/notifications/preferences', { preferences })
-    return response.data
+  updatePreferences(preferences: Record<string, boolean>): Promise<any> {
+    return http.put('/notifications/preferences', { preferences })
   }
 }

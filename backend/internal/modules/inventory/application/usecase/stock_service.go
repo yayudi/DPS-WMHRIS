@@ -18,8 +18,10 @@ import (
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
 	"github.com/dps-wmhris/backend/internal/parser"
 
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/eventbus"
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/xuri/excelize/v2"
 )
@@ -46,7 +48,7 @@ func NewStockUseCase(txManager database.TransactionManager, stockRepo inventory_
 
 func (s *stockServiceImpl) MoveStock(ctx context.Context, userID int, req inventory_dto.MoveStockRequest) error {
 	if req.FromLocationID == nil && req.ToLocationID == nil {
-		return errors.New("mutasi gagal: lokasi asal dan tujuan tidak boleh keduanya kosong")
+		return apperror.Validation("wms.stock.err_origin_dest_empty", "mutasi gagal: lokasi asal dan tujuan tidak boleh keduanya kosong")
 	}
 
 	// Bungkus seluruh alur dalam satu Transaksi SQL
@@ -56,13 +58,13 @@ func (s *stockServiceImpl) MoveStock(ctx context.Context, userID int, req invent
 			stockFrom, err := s.stockRepo.GetStockByLocation(ctx, req.ProductID, *req.FromLocationID)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
-					return fmt.Errorf("stok barang di lokasi asal tidak ditemukan")
+					return apperror.NotFound("wms.stock.err_not_found_at_origin", "stok barang di lokasi asal tidak ditemukan")
 				}
 				return err
 			}
 
 			if stockFrom.Quantity < req.Quantity {
-				return fmt.Errorf("stok tidak mencukupi di lokasi asal (tersedia: %d, diminta: %d)", stockFrom.Quantity, req.Quantity)
+				return apperror.Validation("wms.stock.err_insufficient_origin", fmt.Sprintf("stok tidak mencukupi di lokasi asal (tersedia: %d, diminta: %d)", stockFrom.Quantity, req.Quantity), map[string]any{"available": stockFrom.Quantity, "requested": req.Quantity})
 			}
 
 			stockFrom.Quantity -= req.Quantity
@@ -148,7 +150,7 @@ func (s *stockServiceImpl) resolveInventoryItems(ctx context.Context, movements 
 	for _, mov := range movements {
 		product, exists := productMap[strings.ToUpper(mov.SKU)]
 		if !exists {
-			return nil, fmt.Errorf("SKU '%s' tidak ditemukan di database", mov.SKU)
+			return nil, apperror.NotFound("wms.stock.err_sku_not_found", fmt.Sprintf("SKU '%s' tidak ditemukan di database", mov.SKU), map[string]any{"sku": mov.SKU})
 		}
 
 		fromLoc := mov.FromLocationID
@@ -169,7 +171,7 @@ func (s *stockServiceImpl) resolveInventoryItems(ctx context.Context, movements 
 
 		if product.IsPackage {
 			if len(product.Components) == 0 {
-				return nil, fmt.Errorf("Produk Paket '%s' tidak memiliki komponen terdaftar", product.SKU)
+				return nil, apperror.Validation("wms.stock.err_package_empty_components", fmt.Sprintf("Produk Paket '%s' tidak memiliki komponen terdaftar", product.SKU), map[string]any{"sku": product.SKU})
 			}
 			for _, comp := range product.Components {
 				compNote := baseNote
@@ -228,7 +230,7 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 						return err
 					}
 					if !hasPerm {
-						return fmt.Errorf("Akses ditolak. Anda tidak memiliki izin untuk lokasi ini")
+						return apperror.Forbidden("wms.stock.err_access_denied_loc", "Akses ditolak. Anda tidak memiliki izin untuk lokasi ini")
 					}
 				}
 			}
@@ -238,21 +240,21 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 			// Item-level permission check for TRANSFER_MULTI
 			if req.Type == "TRANSFER_MULTI" && userRoleID != 1 {
 				if item.FromLocationID == nil {
-					return fmt.Errorf("Lokasi asal tidak valid untuk %s", item.SKU)
+					return apperror.Validation("wms.stock.err_origin_invalid", fmt.Sprintf("Lokasi asal tidak valid untuk %s", item.SKU), map[string]any{"sku": item.SKU})
 				}
 				hasPerm, err := s.userRepo.CheckUserLocationPermission(ctx, userID, *item.FromLocationID)
 				if err != nil {
 					return err
 				}
 				if !hasPerm {
-					return fmt.Errorf("Akses ditolak untuk lokasi asal SKU '%s'", item.SKU)
+					return apperror.Forbidden("wms.stock.err_origin_access_denied", fmt.Sprintf("Akses ditolak untuk lokasi asal SKU '%s'", item.SKU), map[string]any{"sku": item.SKU})
 				}
 			}
 
 			switch req.Type {
 			case "TRANSFER", "TRANSFER_MULTI":
 				if item.FromLocationID == nil || item.ToLocationID == nil {
-					return fmt.Errorf("Lokasi asal/tujuan tidak valid untuk %s", item.SKU)
+					return apperror.Validation("wms.stock.err_origin_dest_empty", fmt.Sprintf("Lokasi asal/tujuan tidak valid untuk %s", item.SKU), map[string]any{"sku": item.SKU})
 				}
 
 				// Check sufficient stock at source
@@ -265,7 +267,7 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 					if stockFrom != nil {
 						currStock = stockFrom.Quantity
 					}
-					return fmt.Errorf("Stok SKU '%s' kurang. Ada: %d, Butuh: %d.", item.SKU, currStock, item.Quantity)
+					return apperror.Validation("wms.stock.err_insufficient_stock", fmt.Sprintf("Stok SKU '%s' kurang. Ada: %d, Butuh: %d.", item.SKU, currStock, item.Quantity), map[string]any{"sku": item.SKU, "available": currStock, "requested": item.Quantity})
 				}
 
 				// Deduct from Source
@@ -308,7 +310,7 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 
 			case "INBOUND", "RETURN":
 				if item.ToLocationID == nil {
-					return fmt.Errorf("Lokasi tujuan wajib diisi untuk %s", item.SKU)
+					return apperror.Validation("wms.stock.err_dest_required", fmt.Sprintf("Lokasi tujuan wajib diisi untuk %s", item.SKU), map[string]any{"sku": item.SKU})
 				}
 
 				// Add to Destination
@@ -345,7 +347,7 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 
 			case "TRANSFER_OUT":
 				if item.FromLocationID == nil {
-					return fmt.Errorf("Lokasi asal wajib diisi untuk %s", item.SKU)
+					return apperror.Validation("wms.stock.err_origin_required", fmt.Sprintf("Lokasi asal wajib diisi untuk %s", item.SKU), map[string]any{"sku": item.SKU})
 				}
 
 				// Deduct from Source
@@ -358,7 +360,7 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 					if stockFrom != nil {
 						currStock = stockFrom.Quantity
 					}
-					return fmt.Errorf("Stok SKU '%s' kurang. Ada: %d, Butuh: %d.", item.SKU, currStock, item.Quantity)
+					return apperror.Validation("wms.stock.err_insufficient_stock", fmt.Sprintf("Stok SKU '%s' kurang. Ada: %d, Butuh: %d.", item.SKU, currStock, item.Quantity), map[string]any{"sku": item.SKU, "available": currStock, "requested": item.Quantity})
 				}
 
 				stockFrom.Quantity -= item.Quantity
@@ -387,7 +389,7 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 					loc = item.FromLocationID
 				}
 				if loc == nil {
-					return fmt.Errorf("Lokasi wajib diisi untuk penyesuaian %s", item.SKU)
+					return apperror.Validation("wms.stock.err_adjustment_loc_required", fmt.Sprintf("Lokasi wajib diisi untuk penyesuaian %s", item.SKU), map[string]any{"sku": item.SKU})
 				}
 
 				stock, err := s.stockRepo.GetStockByLocation(ctx, item.ProductID, *loc)
@@ -404,7 +406,7 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 						if stock != nil {
 							currStock = stock.Quantity
 						}
-						return fmt.Errorf("Stok SKU '%s' kurang untuk dikurangi. Ada: %d, Butuh dikurangi: %d.", item.SKU, currStock, absQty)
+						return apperror.Validation("wms.stock.err_insufficient_decrease", fmt.Sprintf("Stok SKU '%s' kurang untuk dikurangi. Ada: %d, Butuh dikurangi: %d.", item.SKU, currStock, absQty), map[string]any{"sku": item.SKU, "available": currStock, "requested": absQty})
 					}
 				}
 
@@ -451,7 +453,7 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 				}
 
 			default:
-				return fmt.Errorf("Tipe pergerakan tidak dikenali: %s", req.Type)
+				return apperror.Validation("wms.stock.err_movement_type_unknown", fmt.Sprintf("Tipe pergerakan tidak dikenali: %s", req.Type), map[string]any{"type": req.Type})
 			} // end switch
 		} // end for
 
@@ -516,7 +518,7 @@ func (s *stockServiceImpl) GenerateInboundTemplate(ctx context.Context) (*exceli
 }
 
 func (s *stockServiceImpl) ValidateReturn(ctx context.Context, req inventory_dto.ValidateReturnRequest, userID int) error {
-	return errors.New("Fitur ValidateReturn sudah dinonaktifkan (Fulfilment Teardown)")
+	return apperror.Validation("wms.return.err_feature_disabled", "Fitur ValidateReturn sudah dinonaktifkan (Fulfilment Teardown)")
 }
 
 func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error) {
@@ -528,7 +530,7 @@ func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, fi
 	}
 
 	if len(records) == 0 {
-		return "", errors.New("file excel kosong atau tidak ada data (hanya header)")
+		return "", apperror.Validation("wms.stock.err_excel_empty", "file excel kosong atau tidak ada data (hanya header)")
 	}
 
 	locMap := make(map[string]int)
@@ -589,11 +591,11 @@ func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, fi
 	}
 
 	if len(validationErrors) > 0 {
-		return "", fmt.Errorf("terdapat %d error validasi:\n%s", len(validationErrors), strings.Join(validationErrors, "\n"))
+		return "", apperror.Validation("wms.stock.err_validation_failed", fmt.Sprintf("terdapat %d error validasi:\n%s", len(validationErrors), strings.Join(validationErrors, "\n")), map[string]any{"count": len(validationErrors), "errors": strings.Join(validationErrors, "\n")})
 	}
 
 	if len(movements) == 0 {
-		return "", errors.New("tidak ada data stok untuk diproses")
+		return "", apperror.Validation("wms.stock.err_no_stock_data", "tidak ada data stok untuk diproses")
 	}
 
 	productMap, err := s.productRepo.GetProductMapWithComponents(ctx, uniqueSKUs)
@@ -604,13 +606,16 @@ func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, fi
 	for i, m := range movements {
 		product, ok := productMap[strings.ToUpper(m.SKU)]
 		if !ok {
-			return "", fmt.Errorf("SKU '%s' tidak ditemukan di database", m.SKU)
+			return "", apperror.NotFound("wms.stock.err_sku_not_found", fmt.Sprintf("SKU '%s' tidak ditemukan di database", m.SKU), map[string]any{"sku": m.SKU})
 		}
 		movements[i].ProductID = product.ID
 	}
 
 	if isDryRun {
-		summary := fmt.Sprintf("[SIMULASI] Validasi selesai: %d baris stok valid.", len(movements))
+		summary := i18n.T(ctx, "wms.stock.summary_movement_success", map[string]any{
+			"mode":    "[SIMULASI] ",
+			"success": len(movements),
+		})
 		log.Printf("[ProcessStockImport] %s", summary)
 		return summary, nil
 	}
@@ -629,7 +634,10 @@ func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, fi
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("Selesai. Memproses penyesuaian untuk %d pergerakan stok.", processedTotal), nil
+	return i18n.T(ctx, "wms.stock.summary_movement_success", map[string]any{
+		"mode":    "",
+		"success": processedTotal,
+	}), nil
 }
 
 func (s *stockServiceImpl) ProcessBatchOpname(ctx context.Context, movements []inventory_dto.StockOpnameItem, userID int) (int, error) {
@@ -697,7 +705,7 @@ func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID 
 	}
 
 	if len(records) == 0 {
-		return "", errors.New("file excel kosong atau tidak ada data (hanya header)")
+		return "", apperror.Validation("wms.stock.err_excel_empty", "file excel kosong atau tidak ada data (hanya header)")
 	}
 
 	locMap := make(map[string]int)
@@ -730,7 +738,7 @@ func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID 
 		}
 
 		if sku == "" {
-			return "", fmt.Errorf("Baris %d: SKU wajib diisi", lineNum)
+			return "", apperror.Validation("wms.stock.err_row_sku_required", fmt.Sprintf("Baris %d: SKU wajib diisi", lineNum), map[string]any{"line": lineNum})
 		}
 
 		if !skuSet[sku] {
@@ -740,12 +748,12 @@ func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID 
 
 		locID, ok := locMap[strings.ToUpper(locCode)]
 		if !ok {
-			return "", fmt.Errorf("Baris %d: Lokasi '%s' tidak ditemukan", lineNum, locCode)
+			return "", apperror.NotFound("wms.stock.err_row_loc_not_found", fmt.Sprintf("Baris %d: Lokasi '%s' tidak ditemukan", lineNum, locCode), map[string]any{"line": lineNum, "loc": locCode})
 		}
 
 		qty, err := strconv.Atoi(qtyRaw)
 		if err != nil || qty <= 0 {
-			return "", fmt.Errorf("Baris %d: Quantity harus angka positif", lineNum)
+			return "", apperror.Validation("wms.stock.err_row_qty_positive", fmt.Sprintf("Baris %d: Quantity harus angka positif", lineNum), map[string]any{"line": lineNum})
 		}
 
 		movNotes := notes
@@ -762,12 +770,12 @@ func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID 
 	}
 
 	if len(batchReq.Movements) == 0 {
-		return "", errors.New("Tidak ada data valid untuk diproses")
+		return "", apperror.Validation("wms.stock.err_no_valid_data", "Tidak ada data valid untuk diproses")
 	}
 
 	dbProducts, err := s.productRepo.GetBySKUs(ctx, uniqueSKUs)
 	if err != nil {
-		return "", fmt.Errorf("gagal memvalidasi SKU: %v", err)
+		return "", apperror.Internal("wms.stock.err_validate_sku_failed", "gagal memvalidasi SKU", err)
 	}
 
 	productMap := make(map[string]bool)
@@ -777,20 +785,26 @@ func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID 
 
 	for _, m := range batchReq.Movements {
 		if !productMap[strings.ToUpper(m.SKU)] {
-			return "", fmt.Errorf("SKU '%s' tidak ditemukan di database", m.SKU)
+			return "", apperror.NotFound("wms.stock.err_sku_not_found", fmt.Sprintf("SKU '%s' tidak ditemukan di database", m.SKU), map[string]any{"sku": m.SKU})
 		}
 	}
 
 	if isDryRun {
-		return "Dry run berhasil diverifikasi (Tidak ada data yang diubah).", nil
+		return i18n.T(ctx, "wms.stock.summary_inbound_success", map[string]any{
+			"mode":    "[SIMULASI] ",
+			"success": len(batchReq.Movements),
+		}), nil
 	}
 
 	err = s.ProcessBatchMovements(ctx, batchReq, userID, 1)
 	if err != nil {
-		return "", fmt.Errorf("gagal memproses inbound batch: %v", err)
+		return "", apperror.Internal("wms.stock.err_batch_inbound_failed", "gagal memproses inbound batch", err)
 	}
 
-	summary := fmt.Sprintf("Berhasil memproses %d baris inbound.", len(batchReq.Movements))
+	summary := i18n.T(ctx, "wms.stock.summary_inbound_success", map[string]any{
+		"mode":    "",
+		"success": len(batchReq.Movements),
+	})
 	log.Printf("[ProcessImportBatchInbound] Selesai. %s", summary)
 	return summary, nil
 }

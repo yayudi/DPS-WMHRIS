@@ -1,21 +1,20 @@
 package usecase
 
 import (
-	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
-	"github.com/dps-wmhris/backend/internal/shared/database"
-
 	"context"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"log"
 	"math/big"
 	"time"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
-
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
+	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 )
 
 type stockRequestServiceImpl struct {
@@ -43,25 +42,25 @@ func (s *stockRequestServiceImpl) CreateStockRequest(ctx context.Context, userID
 	switch req.Type {
 	case "TRANSFER":
 		if req.FromLocationID == nil || req.ToLocationID == nil {
-			return nil, errors.New("Lokasi asal dan tujuan harus diisi untuk transfer.")
+			return nil, apperror.Validation("wms.stock_request.err_from_to_location_required", "Lokasi asal dan tujuan harus diisi untuk transfer.", nil)
 		}
 		if *req.FromLocationID == *req.ToLocationID {
-			return nil, errors.New("Lokasi asal dan tujuan tidak boleh sama.")
+			return nil, apperror.Validation("wms.stock_request.err_same_locations", "Lokasi asal dan tujuan tidak boleh sama.", nil)
 		}
 	case "STOCK_OPNAME":
 		if req.ToLocationID == nil {
-			return nil, errors.New("Lokasi opname harus diisi.")
+			return nil, apperror.Validation("wms.stock_request.err_opname_location_required", "Lokasi opname harus diisi.", nil)
 		}
 	}
 
 	if len(req.Items) == 0 {
-		return nil, errors.New("Minimal harus ada satu produk yang diminta.")
+		return nil, apperror.Validation("wms.stock_request.err_min_items", "Minimal harus ada satu produk yang diminta.", nil)
 	}
 
 	dateStr := time.Now().Format("060102")
 	n, err := rand.Int(rand.Reader, big.NewInt(9000))
 	if err != nil {
-		return nil, errors.New("gagal memproses nomor request (rand error)")
+		return nil, apperror.Internal("wms.stock_request.err_rand_failed", "Gagal memproses nomor request (rand error)", nil)
 	}
 	randStr := fmt.Sprintf("%04d", 1000+n.Int64())
 	requestNumber := fmt.Sprintf("SR-%s-%s", dateStr, randStr)
@@ -101,10 +100,21 @@ func (s *stockRequestServiceImpl) CreateStockRequest(ctx context.Context, userID
 		return nil, err
 	}
 
-	// Notifikasi
+	// Notifikasi read-time i18n
+	notifPayload := map[string]interface{}{
+		"requestId": request.ID,
+		"type":      request.Type,
+		"_i18n": system_dto.NotificationI18nMeta{
+			TitleKey:   "wms.notification.stock_request_new_title",
+			MessageKey: "wms.notification.stock_request_new_msg",
+			Params: map[string]any{
+				"type": request.Type,
+			},
+		},
+	}
 	if err := s.notificationService.NotifyUsersByPermission(ctx, "approve-stock-requests", "WMS", "Permintaan Stok Baru",
 		fmt.Sprintf("Permintaan stok baru (%s) telah dibuat dan menunggu persetujuan.", request.Type),
-		map[string]interface{}{"requestId": request.ID, "type": request.Type}, &userID, true); err != nil {
+		notifPayload, &userID, true); err != nil {
 		log.Printf("Failed to send notification: %v", err)
 	}
 
@@ -132,15 +142,15 @@ func (s *stockRequestServiceImpl) GetAllStockRequests(ctx context.Context) ([]do
 func (s *stockRequestServiceImpl) ApproveStockRequest(ctx context.Context, id int, userID int, roleID int) error {
 	request, err := s.stockRequestRepo.FindByID(ctx, id)
 	if err != nil {
-		return errors.New("Permintaan stok tidak ditemukan.")
+		return apperror.NotFound("wms.stock_request.err_not_found", "Permintaan stok tidak ditemukan.", nil)
 	}
 
 	if request.Status != "PENDING" {
-		return errors.New("Hanya permintaan berstatus PENDING yang dapat disetujui.")
+		return apperror.Conflict("wms.stock_request.err_status_must_pending", "Hanya permintaan berstatus PENDING yang dapat disetujui.", nil)
 	}
 
 	if request.RequesterID == userID {
-		return errors.New("Anda tidak dapat menyetujui permintaan Anda sendiri.")
+		return apperror.Forbidden("wms.stock_request.err_self_approval", "Anda tidak dapat menyetujui permintaan Anda sendiri.", nil)
 	}
 
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
@@ -188,11 +198,11 @@ func (s *stockRequestServiceImpl) ApproveStockRequest(ctx context.Context, id in
 func (s *stockRequestServiceImpl) RejectStockRequest(ctx context.Context, id int, userID int, roleID int) error {
 	request, err := s.stockRequestRepo.FindByID(ctx, id)
 	if err != nil {
-		return errors.New("Permintaan stok tidak ditemukan.")
+		return apperror.NotFound("wms.stock_request.err_not_found", "Permintaan stok tidak ditemukan.", nil)
 	}
 
 	if request.Status != "PENDING" {
-		return errors.New("Hanya permintaan berstatus PENDING yang dapat ditolak.")
+		return apperror.Conflict("wms.stock_request.err_status_must_pending", "Hanya permintaan berstatus PENDING yang dapat ditolak.", nil)
 	}
 
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
@@ -203,14 +213,14 @@ func (s *stockRequestServiceImpl) RejectStockRequest(ctx context.Context, id int
 func (s *stockRequestServiceImpl) DispatchStockRequest(ctx context.Context, id int, userID int, roleID int) error {
 	request, err := s.stockRequestRepo.FindByID(ctx, id)
 	if err != nil {
-		return errors.New("Permintaan stok tidak ditemukan.")
+		return apperror.NotFound("wms.stock_request.err_not_found", "Permintaan stok tidak ditemukan.", nil)
 	}
 
 	if request.Status != "APPROVED" {
-		return errors.New("Hanya permintaan berstatus APPROVED yang dapat dikirim.")
+		return apperror.Conflict("wms.stock_request.err_status_must_approved", "Hanya permintaan berstatus APPROVED yang dapat dikirim.", nil)
 	}
 	if request.Type == "STOCK_OPNAME" {
-		return errors.New("Permintaan Stock Opname tidak memerlukan pengiriman.")
+		return apperror.Validation("wms.stock_request.err_opname_no_dispatch", "Permintaan Stock Opname tidak memerlukan pengiriman.", nil)
 	}
 
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
@@ -243,11 +253,11 @@ func (s *stockRequestServiceImpl) DispatchStockRequest(ctx context.Context, id i
 func (s *stockRequestServiceImpl) CompleteStockRequest(ctx context.Context, id int, req inventory_dto.CompleteStockRequest, userID int, roleID int) error {
 	request, err := s.stockRequestRepo.FindByID(ctx, id)
 	if err != nil {
-		return errors.New("Permintaan stok tidak ditemukan.")
+		return apperror.NotFound("wms.stock_request.err_not_found", "Permintaan stok tidak ditemukan.", nil)
 	}
 
 	if request.Status != "SHIPPED" {
-		return errors.New("Hanya permintaan berstatus SHIPPED yang dapat diselesaikan.")
+		return apperror.Conflict("wms.stock_request.err_status_must_shipped", "Hanya permintaan berstatus SHIPPED yang dapat diselesaikan.", nil)
 	}
 
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {

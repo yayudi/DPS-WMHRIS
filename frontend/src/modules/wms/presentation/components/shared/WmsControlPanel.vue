@@ -12,7 +12,7 @@ import { useI18n } from '@/core/presentation/composables/useI18n'
 const { t } = useI18n()
 
 defineProps({
-  searchPlaceholder: { type: String, default: 'Cari...' },
+  searchPlaceholder: { type: String, default: '' },
   searchTabs: { type: Array, default: () => [] },
   warehouseViews: { type: Array, default: () => [] },
   buildingFilterOptions: { type: Array, default: () => [] },
@@ -72,7 +72,7 @@ const typeOptions = computed(() => [
 ])
 
 const stockOptions = computed(() => [
-  { value: 'all', label: t('wms.stock.all'), icon: 'fa-solid fa-list' },
+  { value: 'all', label: t('common.filter.all'), icon: 'fa-solid fa-list' },
   { value: 'nonzero', label: t('wms.stock.nonzero'), icon: 'fa-solid fa-boxes-stacked' },
   { value: 'positive', label: t('wms.stock.positive'), icon: 'fa-solid fa-arrow-trend-up' },
   { value: 'zero', label: t('wms.stock.zero'), icon: 'fa-solid fa-box-open' },
@@ -80,7 +80,7 @@ const stockOptions = computed(() => [
 ])
 
 const slottingOptions = computed(() => [
-  { value: 'all', label: t('wms.stock.all'), icon: 'fa-solid fa-list' },
+  { value: 'all', label: t('common.filter.all'), icon: 'fa-solid fa-list' },
   { value: 'unslotted', label: t('wms.stock.unslotted'), icon: 'fa-solid fa-exclamation-triangle' },
   { value: 'slotted', label: t('wms.stock.slotted'), icon: 'fa-solid fa-check' }
 ])
@@ -152,7 +152,7 @@ onClickOutside(
           :value="searchValue"
           @input="onSearchInput"
           type="text"
-          :placeholder="searchPlaceholder"
+          :placeholder="searchPlaceholder || t('common.filter.search')"
           class="w-full px-10 py-2 bg-background border border-secondary rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 text-text transition-all placeholder-text/30 h-[42px]"
         />
 
@@ -197,12 +197,12 @@ onClickOutside(
         <!-- Filter Warehouse (Hanya tampil jika view gudang atau pajangan) -->
         <div v-if="['gudang', 'pajangan'].includes(activeView)" class="flex gap-2 w-full lg:w-auto shrink-0">
           <div v-if="activeView === 'gudang'" class="flex flex-col gap-1 w-1/2 lg:w-[110px]">
-            <label class="block text-xs font-semibold text-text/60 text-center mb-1">{{ t('wms.control.building') }}</label>
+            <label class="block text-xs font-semibold text-text/60 text-center mb-1">{{ t('common.label.building') }}</label>
             <TriStateSelect
               :model-value="selectedBuilding"
               @update:modelValue="emit('update:selectedBuilding', $event)"
               :options="buildingFilterOptions"
-              :placeholder="t('wms.control.building')"
+              :placeholder="t('common.label.building')"
               label="label"
               track-by="value"
               class="w-full"
@@ -210,12 +210,12 @@ onClickOutside(
           </div>
 
           <div class="flex flex-col gap-1 lg:w-[110px]" :class="activeView === 'gudang' ? 'w-1/2' : 'w-full'">
-            <label class="block text-xs font-semibold text-text/60 text-center mb-1">{{ t('wms.control.floor') }}</label>
+            <label class="block text-xs font-semibold text-text/60 text-center mb-1">{{ t('common.label.floor') }}</label>
             <TriStateSelect
               :model-value="selectedFloor"
               @update:modelValue="emit('update:selectedFloor', $event)"
               :options="floorFilterOptions"
-              :placeholder="t('wms.control.floor')"
+              :placeholder="t('common.label.floor')"
               label="label"
               track-by="value"
               class="w-full"
@@ -258,12 +258,12 @@ onClickOutside(
 
         <!-- Category Filter -->
         <div class="flex flex-col gap-1 w-full lg:w-[110px] shrink-0">
-          <label class="block text-xs font-semibold text-text/60 text-center mb-1">{{ t('wms.control.category') }}</label>
+          <label class="block text-xs font-semibold text-text/60 text-center mb-1">{{ t('common.label.category') }}</label>
           <TriStateSelect
             :model-value="selectedCategory"
             @update:modelValue="emit('update:selectedCategory', $event)"
             :options="categoryFilterOptions"
-            :placeholder="t('wms.control.category')"
+            :placeholder="t('common.label.category')"
             label="label"
             track-by="id"
             :searchable="true"

@@ -4,6 +4,9 @@ import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import { userApi } from '@/modules/settings/infrastructure/user.api'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 const masterData = useMasterDataStore()
 
 const props = defineProps({
@@ -69,7 +72,7 @@ async function toggleExclusion(user) {
 
     // Update local state to reflect UI change instantly
     user.exclude_from_attendance = newValue
-    toast(`Berhasil mengubah pengecualian untuk ${user.username}`, 'success')
+    toast(t('hris.attendance.exclusion_toggle_success', { user: user.username }), 'success')
     emit('updated')
   } catch (error) {
     console.error(error) // Auto-added to prevent unused var
@@ -81,12 +84,11 @@ async function toggleExclusion(user) {
 </script>
 
 <template>
-  <BaseModal :show="isOpen" @close="$emit('close')" title="Pengecualian Absen">
+  <BaseModal :show="isOpen" @close="$emit('close')" :title="t('hris.attendance.exclusion_title')">
     <div class="space-y-4">
       <div class="text-sm text-text/80 mb-4 bg-primary/10 p-3 rounded-lg border border-primary/20">
         <font-awesome-icon icon="fa-solid fa-circle-info" class="text-primary mr-2" />
-        Pengguna yang dicentang tidak akan muncul dalam daftar absensi dan statistik. Gunakan ini untuk Direksi atau
-        Karyawan Remote.
+        {{ t('hris.attendance.exclusion_info') }}
       </div>
 
       <div class="relative">
@@ -97,7 +99,7 @@ async function toggleExclusion(user) {
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Cari nama atau username..."
+          :placeholder="t('hris.attendance.exclusion_search_placeholder')"
           class="w-full pl-9 pr-4 py-2 bg-background border border-secondary/30 rounded-lg text-sm focus:outline-none focus:border-primary transition-colors text-text"
         />
       </div>
@@ -105,19 +107,19 @@ async function toggleExclusion(user) {
       <div class="border border-secondary/20 rounded-xl overflow-hidden bg-background">
         <div v-if="loading" class="p-8 text-center text-text/50">
           <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-2xl mb-2" />
-          <p>Memuat daftar pengguna...</p>
+          <p>{{ t('common.status.loading') }}</p>
         </div>
 
         <div v-else-if="filteredUsers.length === 0" class="p-8 text-center text-text/50">
-          Tidak ada pengguna yang cocok dengan pencarian.
+          {{ t('hris.attendance.exclusion_empty') }}
         </div>
 
         <div v-else class="max-h-[50vh] overflow-y-auto custom-scrollbar">
           <table class="w-full text-sm text-left">
             <thead class="sticky top-0 bg-secondary/10 border-b border-secondary/20 z-10 backdrop-blur-md">
               <tr class="text-xs text-text/60 font-semibold uppercase">
-                <th class="px-4 py-3">Pengguna</th>
-                <th class="px-4 py-3 text-center w-24">Pengecualian</th>
+                <th class="px-4 py-3">{{ t('common.label.user') }}</th>
+                <th class="px-4 py-3 text-center w-24">{{ t('hris.attendance.exclusion_col') }}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-secondary/10">
@@ -156,7 +158,7 @@ async function toggleExclusion(user) {
         @click="$emit('close')"
         class="bg-background border border-secondary/30 text-text/80 hover:bg-secondary/20 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
       >
-        Tutup
+        {{ t('common.btn.close') }}
       </button>
     </template>
   </BaseModal>

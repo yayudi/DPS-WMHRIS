@@ -1,6 +1,9 @@
 <script setup>
 import { ref, computed, nextTick } from 'vue'
 import { dayjs } from '@/core/utils/time'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   startDate: { type: String, default: null },
@@ -27,13 +30,13 @@ const { floatingStyles, update } = useFloating(containerRef, dropdownRef, {
 const tempStart = ref('')
 const tempEnd = ref('')
 
-const presets = [
-  { label: 'Hari Ini', getValue: () => [new Date(), new Date()] },
-  { label: 'Kemarin', getValue: () => [dayjs().subtract(1, 'day').toDate(), dayjs().subtract(1, 'day').toDate()] },
-  { label: '7 Hari Terakhir', getValue: () => [dayjs().subtract(6, 'day').toDate(), new Date()] },
-  { label: '30 Hari Terakhir', getValue: () => [dayjs().subtract(29, 'day').toDate(), new Date()] },
-  { label: 'Bulan Ini', getValue: () => [dayjs().startOf('month').toDate(), new Date()] },
-]
+const presets = computed(() => [
+  { label: t('common.time.today'), getValue: () => [new Date(), new Date()] },
+  { label: t('common.time.yesterday'), getValue: () => [dayjs().subtract(1, 'day').toDate(), dayjs().subtract(1, 'day').toDate()] },
+  { label: t('common.time.last_7_days'), getValue: () => [dayjs().subtract(6, 'day').toDate(), new Date()] },
+  { label: t('common.time.last_30_days'), getValue: () => [dayjs().subtract(29, 'day').toDate(), new Date()] },
+  { label: t('common.time.this_month'), getValue: () => [dayjs().startOf('month').toDate(), new Date()] },
+])
 
 // Formatting helper
 const formatDateYMD = (date) => dayjs(date).format('YYYY-MM-DD')
@@ -44,7 +47,7 @@ const formatDateDisplay = (dateStr) => {
 
 // Button label display
 const displayLabel = computed(() => {
-  if (!props.startDate && !props.endDate) return 'Filter Tanggal'
+  if (!props.startDate && !props.endDate) return t('common.filter.date_filter')
   if (props.startDate && !props.endDate) return `${formatDateDisplay(props.startDate)} - ...`
   if (!props.startDate && props.endDate) return `... - ${formatDateDisplay(props.endDate)}`
 
@@ -149,7 +152,7 @@ onClickOutside(
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-[10px] uppercase text-text/60 font-semibold tracking-wider"
-                  >Dari</label
+                  >{{ t('common.time.from') }}</label
                 >
               </div>
               <input
@@ -161,7 +164,7 @@ onClickOutside(
             <div class="flex flex-col gap-1">
               <div class="flex items-center justify-between">
                 <label class="text-[10px] uppercase text-text/60 font-semibold tracking-wider"
-                  >Sampai</label
+                  >{{ t('common.time.to') }}</label
                 >
               </div>
               <input
@@ -179,20 +182,20 @@ onClickOutside(
               @click="clearFilter"
               class="text-xs text-danger/80 hover:text-danger font-medium px-2 py-1 rounded hover:bg-danger/5 transition-colors"
             >
-              Reset
+              {{ t('common.btn.reset') }}
             </button>
             <div class="flex gap-2">
               <button
                 @click="closeDropdown"
                 class="px-3 py-1.5 text-xs font-medium text-text/70 hover:bg-secondary/10 rounded-lg transition-colors border border-transparent"
               >
-                Batal
+                {{ t('common.btn.cancel') }}
               </button>
               <button
                 @click="applyFilter"
                 class="px-3 py-1.5 text-xs font-bold text-background bg-primary hover:bg-primary-dark rounded-lg shadow-sm shadow-primary/30 transition-all hover:scale-[1.02]"
               >
-                Terapkan
+                {{ t('common.btn.apply') }}
               </button>
             </div>
           </div>

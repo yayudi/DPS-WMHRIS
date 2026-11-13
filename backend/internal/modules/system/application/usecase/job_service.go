@@ -2,12 +2,16 @@ package usecase
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
+	"fmt"
+	"strings"
 
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
 	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
 
 	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 )
 
@@ -35,14 +39,35 @@ func NewJobService(jobRepo system_mysql.JobRepository) JobService {
 	return &jobServiceImpl{jobRepo: jobRepo}
 }
 
+func injectLocaleIntoJSON(rawJSON *string, locale string) *string {
+	if locale == "" {
+		locale = i18n.DefaultLocale
+	}
+	m := make(map[string]any)
+	if rawJSON != nil && strings.TrimSpace(*rawJSON) != "" {
+		_ = json.Unmarshal([]byte(*rawJSON), &m)
+	}
+	m["_locale"] = locale
+	bytes, err := json.Marshal(m)
+	if err != nil {
+		str := fmt.Sprintf(`{"_locale":"%s"}`, locale)
+		return &str
+	}
+	res := string(bytes)
+	return &res
+}
+
 func (s *jobServiceImpl) CreateImportJob(ctx context.Context, req system_dto.CreateImportJobRequest) (int, error) {
+	locale := i18n.GetLocaleFromContext(ctx)
+	options := injectLocaleIntoJSON(req.Options, locale)
+
 	job := &system_domain.ImportJob{
 		UserID:           req.UserID,
 		JobType:          req.JobType,
 		OriginalFilename: &req.OriginalFilename,
 		FilePath:         req.FilePath,
 		Notes:            req.Notes,
-		Options:          req.Options,
+		Options:          options,
 	}
 	return s.jobRepo.CreateImportJob(ctx, job)
 }
@@ -57,10 +82,10 @@ func (s *jobServiceImpl) CancelImportJob(ctx context.Context, id int, userID *in
 		return err
 	}
 	if userID != nil && *userID > 0 && job.UserID != *userID {
-		return errors.New("tidak diizinkan membatalkan job milik pengguna lain")
+		return apperror.Forbidden("system.jobs.err_cancel_forbidden", "Tidak diizinkan membatalkan job milik pengguna lain", nil)
 	}
 	if job.Status != "PENDING" {
-		return errors.New("only PENDING jobs can be cancelled")
+		return apperror.Conflict("system.jobs.err_cancel_not_pending", "Hanya job berstatus PENDING yang dapat dibatalkan", nil)
 	}
 	return s.jobRepo.UpdateImportJobStatus(ctx, id, "CANCELLED", nil, nil)
 }
@@ -82,10 +107,13 @@ func (s *jobServiceImpl) UpdateImportJobProgress(ctx context.Context, id int, pr
 }
 
 func (s *jobServiceImpl) CreateExportJob(ctx context.Context, req system_dto.CreateExportJobRequest) (int, error) {
+	locale := i18n.GetLocaleFromContext(ctx)
+	filters := injectLocaleIntoJSON(req.Filters, locale)
+
 	job := &system_domain.ExportJob{
 		UserID:  req.UserID,
 		JobType: req.JobType,
-		Filters: req.Filters,
+		Filters: filters,
 	}
 	return s.jobRepo.CreateExportJob(ctx, job)
 }
@@ -104,10 +132,10 @@ func (s *jobServiceImpl) CancelExportJob(ctx context.Context, id int, userID *in
 		return err
 	}
 	if userID != nil && *userID > 0 && job.UserID != *userID {
-		return errors.New("tidak diizinkan membatalkan job milik pengguna lain")
+		return apperror.Forbidden("system.jobs.err_cancel_forbidden", "Tidak diizinkan membatalkan job milik pengguna lain", nil)
 	}
 	if job.Status != "PENDING" {
-		return errors.New("only PENDING jobs can be cancelled")
+		return apperror.Conflict("system.jobs.err_cancel_not_pending", "Hanya job berstatus PENDING yang dapat dibatalkan", nil)
 	}
 	return s.jobRepo.UpdateExportJobStatus(ctx, id, "FAILED", nil, nil) // or CANCELLED if schema enum allowed it, but export_jobs only has PENDING, PROCESSING, COMPLETED, FAILED. We'll use FAILED for cancellation.
 }

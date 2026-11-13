@@ -28,7 +28,7 @@ export const analyticsApi = {
       searchQuery: filters.searchQuery || null,
       status: filters.status || 'all',
       movement: filters.movement || 'all',
-      building: filters.building || [],
+      building: filters.building || '',
       categoryId: filters.categoryId || 'all',
       exportName: filters.exportName || '',
     })
@@ -41,7 +41,7 @@ export const analyticsApi = {
       searchQuery: filters.searchQuery || null,
       status: filters.status || 'all',
       movement: filters.movement || 'all',
-      building: filters.building || [],
+      building: filters.building || '',
       exportName: filters.exportName || '',
     })
   },

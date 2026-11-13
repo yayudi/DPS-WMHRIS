@@ -13,8 +13,8 @@
         <div class="px-6 py-4 border-b border-secondary/20 flex flex-col gap-4 bg-secondary/5">
           <div class="flex justify-between items-center">
             <div>
-              <h3 class="font-bold text-lg text-text">Batch Stock Inbound</h3>
-              <p class="text-xs text-text/60 mt-0.5">Input stok masuk massal via Excel atau PDF</p>
+              <h3 class="font-bold text-lg text-text">{{ t('wms.inbound_modal.modal_title') }}</h3>
+              <p class="text-xs text-text/60 mt-0.5">{{ t('wms.inbound_modal.modal_subtitle') }}</p>
             </div>
             <button
               @click="close"
@@ -35,7 +35,7 @@
                   : 'text-text/60 hover:text-text hover:bg-secondary/10'
               "
             >
-              Input Baru
+              {{ t('wms.inbound_modal.tab_input') }}
             </button>
             <button
               @click="activeTab = 'history'"
@@ -46,7 +46,7 @@
                   : 'text-text/60 hover:text-text hover:bg-secondary/10'
               "
             >
-              Riwayat Upload
+              {{ t('wms.inbound_modal.tab_history') }}
             </button>
           </div>
         </div>
@@ -65,9 +65,9 @@
                     <span class="font-bold text-sm">1</span>
                   </div>
                   <div class="flex-1">
-                    <h4 class="font-semibold text-text text-sm">Download Template Excel</h4>
+                    <h4 class="font-semibold text-text text-sm">{{ t('wms.inbound_modal.step1_title') }}</h4>
                     <p class="text-xs text-text/60 mt-1 mb-3 leading-relaxed">
-                      Unduh template Excel terbaru. Pastikan SKU dan Lokasi sesuai dengan data di sistem.
+                      {{ t('wms.inbound_modal.step1_desc') }}
                     </p>
                     <button
                       @click="downloadTemplate"
@@ -76,7 +76,7 @@
                     >
                       <font-awesome-icon v-if="isDownloading" icon="fa-solid fa-circle-notch" spin />
                       <font-awesome-icon v-else icon="fa-solid fa-download" />
-                      <span>Unduh Template Inbound</span>
+                      <span>{{ t('wms.inbound_modal.step1_btn') }}</span>
                     </button>
                   </div>
                 </div>
@@ -91,9 +91,9 @@
                     <span class="font-bold text-sm">2</span>
                   </div>
                   <div class="w-full">
-                    <h4 class="font-semibold text-text text-sm">Upload File Excel / PDF</h4>
+                    <h4 class="font-semibold text-text text-sm">{{ t('wms.inbound_modal.step2_title') }}</h4>
                     <p class="text-xs text-text/60 mt-1 mb-3">
-                      Unggah file Excel hasil pengisian template atau PDF Purchase Order supplier. Maksimal 10MB.
+                      {{ t('wms.inbound_modal.step2_desc') }}
                     </p>
 
                     <!-- Dropzone -->
@@ -133,7 +133,7 @@
                         <p class="text-sm font-medium text-text break-all">{{ file.name }}</p>
                         <p class="text-xs text-text/40 mt-1">{{ formatFileSize(file.size) }}</p>
                         <button @click.stop="file = null" class="text-xs text-danger hover:underline mt-2">
-                          Hapus File
+                          {{ t('wms.inbound_modal.delete_file') }}
                         </button>
                       </div>
 
@@ -144,9 +144,9 @@
                           <font-awesome-icon icon="fa-solid fa-cloud-upload-alt" size="lg" />
                         </div>
                         <p class="text-sm text-text/60 font-medium">
-                          <span class="text-primary">Klik upload</span> atau drag & drop
+                          <span class="text-primary">{{ t('wms.inbound_modal.click_to_upload') }}</span> {{ t('wms.inbound_modal.drag_drop_suffix') }}
                         </p>
-                        <p class="text-[10px] text-text/40 uppercase">XLSX ATAU PDF ONLY</p>
+                        <p class="text-[10px] text-text/40 uppercase">{{ t('wms.inbound_modal.format_hint') }}</p>
                       </div>
                     </div>
                   </div>
@@ -156,12 +156,12 @@
               <!-- Notes -->
               <div>
                 <label class="block text-sm font-bold text-text mb-1.5"
-                  >Catatan <span class="text-text/40 font-normal">(opsional)</span></label
+                  >{{ t('common.label.notes') }} <span class="text-text/40 font-normal">({{ t('common.optional').toLowerCase() }})</span></label
                 >
                 <textarea
                   v-model="userNotes"
                   rows="2"
-                  placeholder="Tulis catatan untuk upload ini..."
+                  :placeholder="t('wms.inbound_modal.notes_placeholder')"
                   class="w-full px-3 py-2 border border-secondary/30 rounded-lg bg-background text-text text-sm outline-none focus:border-primary transition-colors resize-none placeholder:text-text/30"
                 ></textarea>
               </div>
@@ -169,8 +169,8 @@
               <!-- Mode Dry Run (Excel) -->
               <div v-if="file && !file.name.endsWith('.pdf')" class="flex items-center justify-between p-3.5 bg-secondary/5 rounded-xl border border-secondary/20">
                 <div>
-                  <div class="font-bold text-text text-sm">Mode Simulasi (Dry Run)</div>
-                  <div class="text-xs text-text/50">Cek validasi tanpa menyimpan stok ke database</div>
+                  <div class="font-bold text-text text-sm">{{ t('wms.inbound_modal.dry_run_title') }}</div>
+                  <div class="text-xs text-text/50">{{ t('wms.inbound_modal.dry_run_desc') }}</div>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" v-model="isDryRun" class="sr-only peer" />
@@ -190,24 +190,24 @@
                 <div>
                   <h4 class="font-bold text-text text-sm flex items-center gap-2">
                     <font-awesome-icon icon="fa-solid fa-file-pdf" class="text-danger" />
-                    Review Hasil Parsing PDF
+                    {{ t('wms.inbound_modal.review_title') }}
                   </h4>
                   <p class="text-xs text-text/60 mt-1 leading-relaxed">
-                    Silakan periksa item produk yang dibaca dari PDF. Pastikan memetakan produk dan lokasi dengan benar.
+                    {{ t('wms.inbound_modal.review_desc') }}
                   </p>
                 </div>
 
                 <!-- Global Location Selector -->
                 <div class="w-full md:w-72 shrink-0">
                   <label class="block text-xs font-bold text-text mb-1 uppercase tracking-wider"
-                    >Lokasi Tujuan Default</label
+                    >{{ t('wms.inbound_modal.default_location_label') }}</label
                   >
                   <BaseSelect
                     v-model="globalLocationId"
                     :options="locationOptions"
                     label="label"
                     track-by="id"
-                    placeholder="Set lokasi untuk semua..."
+                    :placeholder="t('wms.inbound_modal.set_location_for_all')"
                     :searchable="true"
                     emit-value
                     @update:modelValue="applyGlobalLocation"
@@ -245,13 +245,13 @@
                     </div>
                     <!-- Product Selector -->
                     <div>
-                      <label class="text-[10px] text-text/50 font-bold uppercase mb-1 block">Produk Sistem</label>
+                      <label class="text-[10px] text-text/50 font-bold uppercase mb-1 block">{{ t('wms.inbound_modal.system_product') }}</label>
                       <BaseSelect
                         :modelValue="row.productId"
                         :options="productSelectOptions"
                         label="label"
                         track-by="id"
-                        placeholder="Cari & pilih produk..."
+                        :placeholder="t('wms.inbound_modal.search_select_product')"
                         :searchable="true"
                         emit-value
                         @update:modelValue="val => handleProductChange(row, val)"
@@ -260,7 +260,7 @@
                     <!-- Qty + Location Row -->
                     <div class="grid grid-cols-2 gap-3">
                       <div>
-                        <label class="text-[10px] text-text/50 font-bold uppercase mb-1 block">Qty</label>
+                        <label class="text-[10px] text-text/50 font-bold uppercase mb-1 block">{{ t('common.label.qty') }}</label>
                         <input
                           v-model.number="row.quantity"
                           type="number"
@@ -269,13 +269,13 @@
                         />
                       </div>
                       <div>
-                        <label class="text-[10px] text-text/50 font-bold uppercase mb-1 block">Lokasi</label>
+                        <label class="text-[10px] text-text/50 font-bold uppercase mb-1 block">{{ t('common.label.location') }}</label>
                         <BaseSelect
                           v-model="row.locationId"
                           :options="locationOptions"
                           label="label"
                           track-by="id"
-                          placeholder="Pilih..."
+                          :placeholder="t('wms.inbound_modal.select_location_placeholder')"
                           :searchable="true"
                           emit-value
                         />
@@ -291,11 +291,11 @@
                       class="bg-secondary/40 border-b border-secondary text-xs font-bold text-text uppercase tracking-wider"
                     >
                       <th class="p-2 w-16"></th>
-                      <th class="p-2 w-80">Nama di PDF</th>
-                      <th class="p-2 w-50">Produk Sistem (Autocomplete)</th>
-                      <th class="p-2 w-24 text-center">Qty</th>
-                      <th class="p-2 w-36">Lokasi Tujuan</th>
-                      <th class="p-2 w-16 text-center">Aksi</th>
+                      <th class="p-2 w-80">{{ t('wms.inbound_modal.th_pdf_name') }}</th>
+                      <th class="p-2 w-50">{{ t('wms.inbound_modal.th_system_product') }}</th>
+                      <th class="p-2 w-24 text-center">{{ t('common.label.qty') }}</th>
+                      <th class="p-2 w-36">{{ t('wms.inbound_modal.th_target_location') }}</th>
+                      <th class="p-2 w-16 text-center">{{ t('common.label.action') }}</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-secondary/20">
@@ -305,13 +305,13 @@
                           v-if="row.productId && row.locationId && row.quantity > 0"
                           icon="fa-solid fa-circle-check"
                           class="text-success text-lg"
-                          title="Siap diinbound"
+                          :title="t('wms.inbound_modal.ready_to_inbound')"
                         />
                         <font-awesome-icon
                           v-else
                           icon="fa-solid fa-circle-exclamation"
                           class="text-warning text-lg"
-                          title="Ada data yang kurang"
+                          :title="t('wms.inbound_modal.missing_data')"
                         />
                       </td>
                       <td class="p-2 font-medium text-text">{{ row.parsedName }}</td>
@@ -321,7 +321,7 @@
                           :options="productSelectOptions"
                           label="label"
                           track-by="id"
-                          placeholder="Cari & pilih produk..."
+                          :placeholder="t('wms.inbound_modal.search_select_product')"
                           :searchable="true"
                           emit-value
                           @update:modelValue="val => handleProductChange(row, val)"
@@ -341,7 +341,7 @@
                           :options="locationOptions"
                           label="label"
                           track-by="id"
-                          placeholder="Pilih lokasi..."
+                          :placeholder="t('wms.inbound_modal.select_location_placeholder')"
                           :searchable="true"
                           emit-value
                         />
@@ -350,7 +350,7 @@
                         <button
                           @click="removeReviewRow(idx)"
                           class="w-8 h-8 text-text/40 hover:text-danger hover:bg-danger/10 rounded-lg flex items-center justify-center mx-auto transition-colors"
-                          title="Hapus baris ini"
+                          :title="t('wms.inbound_modal.delete_row')"
                         >
                           <font-awesome-icon icon="fa-solid fa-trash-alt" />
                         </button>
@@ -365,21 +365,21 @@
                     class="text-xs font-bold text-primary hover:text-primary/80 transition-colors flex items-center gap-2 p-3 rounded-lg hover:bg-primary/5"
                   >
                     <font-awesome-icon icon="fa-solid fa-plus" />
-                    <span>Tambah Baris Manual</span>
+                    <span>{{ t('wms.inbound_modal.add_manual_row') }}</span>
                   </button>
                   <button
                     @click="openCreateProductModal"
                     class="text-xs font-bold text-success hover:text-success/80 transition-colors flex items-center gap-2 p-3 rounded-lg hover:bg-success/5"
                   >
                     <font-awesome-icon icon="fa-solid fa-plus-circle" />
-                    <span>Buat Produk Baru</span>
+                    <span>{{ t('wms.inbound_modal.create_new_product') }}</span>
                   </button>
                 </div>
 
                 <!-- Empty State in Review -->
                 <div v-if="reviewRows.length === 0" class="py-12 text-center text-text/40">
                   <font-awesome-icon icon="fa-solid fa-box-open" size="2xl" class="mb-2 text-text/20" />
-                  <p>Tidak ada produk yang tersisa untuk diproses.</p>
+                  <p>{{ t('wms.inbound_modal.empty_review') }}</p>
                 </div>
               </div>
             </div>
@@ -401,7 +401,7 @@
             @click="close"
             class="px-4 py-2 text-sm font-semibold text-text/60 hover:bg-secondary/20 rounded-lg transition-colors"
           >
-            Batal
+            {{ t('common.btn.cancel') }}
           </button>
           <button
             @click="processUpload"
@@ -409,7 +409,7 @@
             class="px-5 py-2 text-sm font-bold text-secondary bg-primary hover:bg-primary/90 rounded-lg shadow-lg shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <font-awesome-icon v-if="isUploading" icon="fa-solid fa-circle-notch" spin />
-            <span>{{ isUploading ? 'Memproses...' : 'Proses Inbound' }}</span>
+            <span>{{ isUploading ? t('common.processing') : t('wms.inbound_modal.btn_process_inbound') }}</span>
           </button>
         </div>
 
@@ -419,7 +419,7 @@
           v-if="activeTab === 'review'"
         >
           <div class="text-xs text-text/60">
-            Total: <span class="font-bold text-text">{{ reviewRows.length }}</span> item terdeteksi
+            {{ t('wms.inbound_modal.total_detected', { count: reviewRows.length }) }}
           </div>
           <div class="flex gap-3">
             <button
@@ -427,7 +427,7 @@
               :disabled="isSubmitting"
               class="px-4 py-2 text-sm font-semibold text-text border border-secondary rounded-lg hover:bg-secondary/10 transition-colors"
             >
-              Kembali
+              {{ t('common.btn.back') }}
             </button>
             <button
               @click="submitBatchJSON"
@@ -436,7 +436,7 @@
             >
               <font-awesome-icon v-if="isSubmitting" icon="fa-solid fa-circle-notch" spin />
               <font-awesome-icon v-else icon="fa-solid fa-check" />
-              <span>{{ isSubmitting ? 'Menyimpan...' : 'Simpan Inbound' }}</span>
+              <span>{{ isSubmitting ? t('common.status.saving') : t('wms.inbound_modal.btn_save_inbound') }}</span>
             </button>
           </div>
         </div>
@@ -450,7 +450,7 @@
             @click="close"
             class="px-4 py-2 text-sm font-semibold text-text hover:bg-secondary/20 rounded-lg transition-colors"
           >
-            Tutup
+            {{ t('common.btn.close') }}
           </button>
         </div>
       </div>
@@ -469,6 +469,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { useDownload } from '@/core/presentation/composables/useDownload'
 import { useUpload } from '@/core/presentation/composables/useUpload'
 import { useMobile } from '@/core/presentation/composables/useMobile'
@@ -490,6 +491,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'success'])
 
 const { toast } = useToast()
+const { t } = useI18n()
 const { downloadFile } = useDownload()
 const { uploadFile } = useUpload()
 const { isMobile } = useMobile()
@@ -519,7 +521,7 @@ const openCreateProductModal = () => {
 
 const handleProductCreated = async () => {
   await loadInboundContext()
-  toast('Katalog produk sistem diperbarui.', 'success')
+  toast(t('wms.inbound_modal.catalog_updated'), 'success')
 }
 
 let pdfjsLib = null
@@ -590,7 +592,7 @@ const downloadTemplate = async () => {
   try {
     isDownloading.value = true
     await downloadFile('/stock/template/inbound', 'Template_Inbound_Stok.xlsx')
-    toast('Template berhasil diunduh', 'success')
+    toast(t('wms.inbound_modal.template_downloaded'), 'success')
   } catch (err) {
     console.error('Failed to download template:', err)
   } finally {
@@ -741,7 +743,7 @@ const parsePDFAndShowReview = async pdfFile => {
       reviewRows.value = allParsedRows
       activeTab.value = 'review'
       globalLocationId.value = null // reset default global
-      toast(`Berhasil mem-parse ${allParsedRows.length} item dari PDF.`, 'success')
+      toast(t('wms.inbound_modal.pdf_parse_success', { count: allParsedRows.length }), 'success')
     }
   } catch (error) {
     console.error('Failed to parse PDF:', error)
@@ -757,7 +759,7 @@ const applyGlobalLocation = locId => {
   reviewRows.value.forEach(row => {
     row.locationId = locId
   })
-  toast('Lokasi tujuan diterapkan ke semua baris', 'success')
+  toast(t('wms.inbound_modal.global_location_applied'), 'success')
 }
 
 // Modify mapping on specific row select
@@ -781,7 +783,7 @@ const removeReviewRow = idx => {
 const addManualRow = () => {
   reviewRows.value.push({
     id: Math.random().toString(36).substr(2, 9),
-    parsedName: '(Input Manual)',
+    parsedName: t('wms.inbound_modal.manual_input_row'),
     productId: null,
     sku: '',
     quantity: 1,
@@ -814,7 +816,7 @@ const submitBatchJSON = async () => {
 
     const res = await stockApi.processBatchMovement(payload)
     if (res.success) {
-      toast(res.message || 'Inbound stok berhasil diproses', 'success')
+      toast(res.message || t('wms.inbound_modal.inbound_success'), 'success')
       emit('success')
       close()
     }

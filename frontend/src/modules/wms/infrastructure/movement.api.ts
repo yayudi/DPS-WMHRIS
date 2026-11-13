@@ -13,12 +13,10 @@ export const movementApi = {
   },
 
   async createMovement(payload: Movement): Promise<any> {
-    const response = await http.post('/wms/movements', payload)
-    return response.data
+    return http.post('/wms/movements', payload)
   },
   
   async batchMove(payload: { items: any[], notes?: string }): Promise<any> {
-    const response = await http.post('/wms/movements/batch', payload)
-    return response.data
+    return http.post('/wms/movements/batch', payload)
   }
 }

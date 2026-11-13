@@ -3,6 +3,7 @@ import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { ref, watch, computed, onMounted } from 'vue'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { useWms } from '@/modules/wms/application/useWMS'
 
 import { useMagicKeys } from '@vueuse/core'
@@ -65,6 +66,7 @@ const {
 } = useWms()
 
 const { toast } = useToast()
+const { t } = useI18n()
 const { copyToClipboard } = useClipboard()
 const isHistoryModalOpen = ref(false)
 const isTransferModalOpen = ref(false)
@@ -92,7 +94,7 @@ async function loadCategories() {
     const categories = await masterData.getCategories()
     categoryOptions.value = categories.map(c => ({ id: c.id, label: c.name }))
   } catch {
-    toast('Gagal memuat kategori dari server', 'error')
+    toast(t('wms.dashboard.categories_failed'), 'error')
   }
 }
 
@@ -104,17 +106,17 @@ onMounted(() => {
   loadCategories()
 })
 
-const warehouseViews = [
-  { label: 'Semua', value: 'all' },
-  { label: 'Gudang', value: 'gudang' },
-  { label: 'Pajangan', value: 'pajangan' },
+const warehouseViews = computed(() => [
+  { label: t('common.filter.all'), value: 'all' },
+  { label: t('wms.view.gudang'), value: 'gudang' },
+  { label: t('wms.view.pajangan'), value: 'pajangan' },
   { label: 'LTC', value: 'ltc' }
-]
+])
 
-const searchTabs = [
-  { label: 'Nama', value: 'name' },
-  { label: 'SKU', value: 'sku' }
-]
+const searchTabs = computed(() => [
+  { label: t('common.label.product_name'), value: 'name' },
+  { label: t('common.label.sku'), value: 'sku' }
+])
 
 const buildingFilterOptions = computed(() => {
   const buildings = allLocations.value.map(l => l.building).filter(Boolean)
@@ -157,11 +159,11 @@ function openEditProductModal(product) {
 }
 
 async function handleDeleteProduct(product) {
-  if (!(await swalConfirm(`Yakin ingin menghapus "${product.name}"?`))) return
+  if (!(await swalConfirm(t('wms.dashboard.confirm_delete_product', { name: product.name })))) return
   try {
     const response = await productApi.deleteProduct(product.id)
     if (response.success) {
-      toast('Produk berhasil dihapus', 'success')
+      toast(response?.message || t('common.status.success'), 'success')
       resetAndRefetch() // Refresh list
     }
   } catch (err) {
@@ -200,11 +202,8 @@ function closeModal() {
 
 async function handleTransferConfirm(payload) {
   try {
-    toast('Memproses transfer...', 'info')
-    const response = await createMovement(payload)
-    if (response.success) {
-      toast('Transfer stok berhasil!', 'success')
-    }
+    toast(t('wms.dashboard.transfer_processing'), 'info')
+    await createMovement(payload)
   } catch (err) {
     console.error(err) // Auto-added to prevent unused var
   } finally {
@@ -214,11 +213,8 @@ async function handleTransferConfirm(payload) {
 
 async function handleAdjustConfirm(payload) {
   try {
-    toast('Memproses penyesuaian...', 'info')
-    const response = await createAdjustment(payload)
-    if (response.success) {
-      toast('Penyesuaian stok berhasil!', 'success')
-    }
+    toast(t('wms.dashboard.adjust_processing'), 'info')
+    await createAdjustment(payload)
   } catch (err) {
     console.error(err) // Auto-added to prevent unused var
   } finally {
@@ -305,12 +301,12 @@ watch(Escape, pressed => {
 
       <div v-if="loading" class="text-center py-16">
         <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-primary text-3xl" />
-        <p class="text-text/70 text-sm">Memuat data produk...</p>
+        <p class="text-text/70 text-sm">{{ t('wms.dashboard.loading_products') }}</p>
       </div>
 
       <div v-else-if="error" class="text-center py-16">
         <font-awesome-icon icon="fa-solid fa-exclamation-triangle" class="text-accent text-3xl" />
-        <p class="font-semibold text-text">Gagal Memuat Data</p>
+        <p class="font-semibold text-text">{{ t('wms.dashboard.load_failed') }}</p>
         <p class="text-sm text-text/70">{{ error }}</p>
       </div>
 
@@ -343,7 +339,7 @@ watch(Escape, pressed => {
                 class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 active:scale-95 transition-all flex items-center gap-1.5"
               >
                 <font-awesome-icon icon="fa-solid fa-rotate-right" />
-                <span>Tampilkan semua status stok</span>
+                <span>{{ t('wms.dashboard.show_all_stock_status') }}</span>
               </button>
 
               <button
@@ -353,7 +349,7 @@ watch(Escape, pressed => {
                 class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 active:scale-95 transition-all flex items-center gap-1.5"
               >
                 <font-awesome-icon icon="fa-solid fa-rotate-right" />
-                <span>Tampilkan semua status rak</span>
+                <span>{{ t('wms.dashboard.show_all_slotting_status') }}</span>
               </button>
             </div>
           </template>

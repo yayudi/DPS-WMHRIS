@@ -1,6 +1,7 @@
 import { ref, computed, type Ref } from 'vue'
 import { http } from '@/core/infrastructure/http.client'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 export interface UseInlineSaveOptions<T extends { id: string | number }> {
   saveItem?: (id: string | number, payload: any) => Promise<any>
@@ -27,6 +28,7 @@ export function useInlineSave<T extends { id: string | number } = any>(
   const isSavingInline = ref(false)
   const saveProgress = ref(0)
   const { toast } = useToast()
+  const { t } = useI18n()
 
   const hasDirtyProducts = computed(() => dirtyProducts.value.size > 0)
 
@@ -100,7 +102,7 @@ export function useInlineSave<T extends { id: string | number } = any>(
         successCount += chunk.length
         saveProgress.value = Math.round((successCount / entries.length) * 100)
       }
-      toast(`Berhasil menyimpan ${successCount} baris.`, 'success')
+      toast(t('common.toast.bulk_save_success', { count: successCount }), 'success')
       dirtyProducts.value.clear()
 
       if (afterSaveAction) afterSaveAction()
@@ -108,7 +110,7 @@ export function useInlineSave<T extends { id: string | number } = any>(
       if (fetchProducts) fetchProducts()
     } catch (err) {
       console.error('[useInlineSave] Bulk Save Error:', err)
-      toast('Gagal menyimpan beberapa perubahan', 'error')
+      toast(t('common.toast.bulk_save_error'), 'error')
     } finally {
       isSavingInline.value = false
     }

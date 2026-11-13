@@ -27,6 +27,80 @@ const faviconPlugin = ({ command }) => ({
   }
 })
 
+/**
+ * Package -> chunk mapping. Hanya package yang terdaftar yang dipaksa ke chunk bernama;
+ * sisanya diserahkan ke algoritma code-splitting Rollup (mengikuti batas dynamic import).
+ */
+const CHUNK_MAP = new Map<string, string>(
+  Object.entries({
+    // ── Core startup (dimuat di setiap halaman) ──────────────────────
+    'vue-vendor': [
+      'vue',
+      'vue-router',
+      'pinia',
+      'vue-demi',
+      '@vueuse/core',
+      '@vueuse/shared'
+    ],
+    tanstack: [
+      '@tanstack/vue-query',
+      '@tanstack/query-core',
+      '@tanstack/vue-table',
+      '@tanstack/table-core',
+      '@tanstack/vue-virtual',
+      '@tanstack/virtual-core'
+    ],
+    fontawesome: [
+      '@fortawesome/fontawesome-svg-core',
+      '@fortawesome/free-solid-svg-icons',
+      '@fortawesome/free-brands-svg-icons',
+      '@fortawesome/vue-fontawesome'
+    ],
+    firebase: [
+      'firebase',
+      '@firebase/app',
+      '@firebase/database',
+      '@firebase/util',
+      '@firebase/component',
+      '@firebase/logger'
+    ],
+    'app-vendor': [
+      'axios',
+      'dayjs',
+      'nprogress',
+      'sweetalert2',
+      'zod',
+      '@floating-ui/vue',
+      '@floating-ui/dom',
+      '@floating-ui/core',
+      '@floating-ui/utils'
+    ],
+
+    // ── Lazy / heavy (hanya dimuat oleh halaman tertentu) ────────────
+    charts: ['apexcharts', 'vue3-apexcharts'],
+    spreadsheet: ['jspreadsheet-ce', 'jsuites', '@jspreadsheet/formula'],
+    xlsx: ['xlsx'],
+    'pdf-vendor': ['pdfjs-dist'],
+    fabric: ['fabric'],
+    jszip: ['jszip'],
+    'qr-scanner': ['jsqr'],
+    'image-tools': ['browser-image-compression'],
+    barcode: ['jsbarcode', 'qrcode', 'dijkstrajs']
+  }).flatMap(([chunk, pkgs]) => pkgs.map(pkg => [pkg, chunk]))
+)
+
+/**
+ * Ekstrak nama package dari module id (aman untuk npm, pnpm (.pnpm), dan scoped package).
+ */
+const getPackageName = (id: string): string | undefined => {
+  const normId = id.replace(/\\/g, '/')
+  const idx = normId.lastIndexOf('/node_modules/')
+  if (idx === -1) return undefined
+  const sub = normId.slice(idx + '/node_modules/'.length)
+  const parts = sub.split('/')
+  return parts[0].startsWith('@') ? `${parts[0]}/${parts[1]}` : parts[0]
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -126,32 +200,21 @@ export default defineConfig(({ command, mode }) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('vue') || id.includes('pinia') || id.includes('vue-router')) {
-                return 'vue-vendor'
-              }
-              if (id.includes('xlsx')) return 'xlsx'
-              if (id.includes('pdfjs-dist')) return 'pdf-vendor'
-              if (id.includes('apexcharts') || id.includes('vue3-apexcharts')) return 'charts'
-              if (id.includes('lodash')) return 'lodash'
-              if (id.includes('@fortawesome') || id.includes('fontawesome')) {
-                return 'fontawesome'
-              }
-              if (id.includes('axios')) return 'axios'
-              if (id.includes('dayjs')) return 'dayjs'
-              if (id.includes('sweetalert2')) return 'sweetalert2'
-              if (id.includes('fabric')) return 'fabric'
-              if (id.includes('jszip')) return 'jszip'
-              if (id.includes('@cropper')) return 'cropper'
-              if (id.includes('qrcode')) return 'qrcode'
-              if (id.includes('firebase')) return 'firebase'
-              if (id.includes('@tanstack')) return 'tanstack'
-              if (id.includes('jsbarcode')) return 'jsbarcode'
-              if (id.includes('nprogress')) return 'nprogress'
-              if (id.includes('@floating-ui')) return '@floating-ui'
-              if (id.includes('jspreadsheet-ce')) return 'jspreadsheet'
-              return 'vendor'
+            if (id.includes('vite/preload-helper')) {
+              return 'vue-vendor'
             }
+
+            const pkg = getPackageName(id)
+            if (!pkg) return undefined
+
+            if (pkg.startsWith('@vue/')) {
+              return 'vue-vendor'
+            }
+            if (pkg.startsWith('@firebase/')) {
+              return 'firebase'
+            }
+
+            return CHUNK_MAP.get(pkg)
           }
         }
       }

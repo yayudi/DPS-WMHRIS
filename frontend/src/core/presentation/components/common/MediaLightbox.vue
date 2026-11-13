@@ -2,6 +2,7 @@
 import { ref, watch, onUnmounted } from 'vue';
 import { formatBytes } from '@/core/utils/formatBytes';
 import { resolveUrl } from '@/modules/master_data/presentation/composables/useImageUrl';
+import { useI18n } from '@/core/presentation/composables/useI18n';
 
 const props = defineProps({
   show: Boolean,
@@ -11,6 +12,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
+const { t } = useI18n();
 const currentIndex = ref(0);
 const imgBroken = ref(false);
 
@@ -72,21 +74,21 @@ onUnmounted(() => {
     <!-- Top Bar Close Button -->
     <button @click="close"
       class="absolute top-4 right-4 w-12 h-12 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-white hover:text-black transition-colors"
-      title="Close (Esc)">
+      :title="t('core.media.close_esc')">
       <font-awesome-icon icon="fa-solid fa-times" class="text-xl" />
     </button>
 
     <!-- Left Navigation -->
     <button v-if="images.length > 1" @click.stop="prev"
       class="absolute left-4 top-1/2 -translate-y-1/2 w-14 h-14 flex items-center justify-center text-white bg-black/50 hover:bg-white/20 rounded-full transition-colors opacity-70 hover:opacity-100 z-10"
-      title="Previous (Arrow Left)">
+      :title="t('core.media.prev_arrow')">
       <font-awesome-icon icon="fa-solid fa-chevron-left" class="text-2xl" />
     </button>
 
     <!-- Right Navigation -->
     <button v-if="images.length > 1" @click.stop="next"
       class="absolute right-4 top-1/2 -translate-y-1/2 w-14 h-14 flex items-center justify-center text-white bg-black/50 hover:bg-white/20 rounded-full transition-colors opacity-70 hover:opacity-100 z-10"
-      title="Next (Arrow Right)">
+      :title="t('core.media.next_arrow')">
       <font-awesome-icon icon="fa-solid fa-chevron-right" class="text-2xl" />
     </button>
 
@@ -100,13 +102,13 @@ onUnmounted(() => {
           :alt="images[currentIndex].title" @error="imgBroken = true" />
         <div v-else class="w-64 h-64 flex flex-col items-center justify-center text-white/30 pointer-events-auto">
           <font-awesome-icon icon="fa-solid fa-image" class="text-7xl mb-3" />
-          <span class="text-sm font-medium">Gambar tidak tersedia</span>
+          <span class="text-sm font-medium">{{ t('core.media.image_not_available') }}</span>
         </div>
 
         <!-- Bottom Metadata Overlay -->
         <div
           class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-6 py-2 rounded-full flex flex-col items-center pointer-events-auto backdrop-blur-sm shadow-lg border border-white/10 min-w-[200px]">
-          <span class="font-bold text-sm truncate max-w-[250px] md:max-w-md">{{ images[currentIndex].title || 'Gambar' }}</span>
+          <span class="font-bold text-sm truncate max-w-[250px] md:max-w-md">{{ images[currentIndex].title || t('core.media.image_default_title') }}</span>
           <div class="flex items-center gap-3 text-[10px] text-white/70 mt-0.5 uppercase tracking-wider font-semibold">
             <span>{{ currentIndex + 1 }} OF {{ images.length }}</span>
             <template v-if="images[currentIndex].width && images[currentIndex].height">

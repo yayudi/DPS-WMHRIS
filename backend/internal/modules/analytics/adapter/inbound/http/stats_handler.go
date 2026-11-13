@@ -21,7 +21,7 @@ func NewStatsHandler(statsService analytics_usecase.StatsService) *StatsHandler 
 func (h *StatsHandler) FetchKpiSummary(c *gin.Context) {
 	kpiData, err := h.statsService.GetKpiSummary(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), "")
+		utils.HandleDomainError(c, err)
 		return
 	}
 

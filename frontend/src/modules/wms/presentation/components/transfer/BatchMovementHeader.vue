@@ -1,10 +1,12 @@
 <script setup>
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import BaseTabs from '@/core/presentation/components/ui/BaseTabs.vue'
 
 const { toast } = useToast()
+const { t } = useI18n()
 
 // Props untuk data dropdown
 defineProps({
@@ -19,15 +21,15 @@ const fromLocation = defineModel('fromLocation')
 const toLocation = defineModel('toLocation')
 const notes = defineModel('notes')
 
-const tabs = [
-  { label: 'Single Location', value: 'TRANSFER' },
-  { label: 'Multi Location', value: 'DETAILED_TRANSFER' },
-  { label: 'Inbound', value: 'INBOUND' }
-]
+const tabs = computed(() => [
+  { label: t('wms.batch_move.tab_single_location'), value: 'TRANSFER' },
+  { label: t('wms.batch_move.tab_multi_location'), value: 'DETAILED_TRANSFER' },
+  { label: t('wms.batch_move.tab_inbound'), value: 'INBOUND' }
+])
 
 watch([fromLocation, toLocation], ([newFrom, newTo]) => {
   if (newFrom && newTo && newFrom.id === newTo.id) {
-    toast('Lokasi Asal dan Tujuan tidak boleh sama.', 'warning')
+    toast(t('wms.batch_move.same_location_error'), 'warning')
     toLocation.value = null
   }
 })
@@ -45,33 +47,33 @@ watch([fromLocation, toLocation], ([newFrom, newTo]) => {
         <!-- TRANSFER (BATCH) -->
         <template v-if="activeTab === 'TRANSFER'">
           <div class="md:col-span-3">
-            <label class="block text-sm font-medium text-text/90 mb-2">Pindahkan Dari</label>
+            <label class="block text-sm font-medium text-text/90 mb-2">{{ t('wms.batch_move.from_location_label') }}</label>
             <BaseSelect
               v-model="fromLocation"
               :options="myLocations"
-              placeholder="Pilih lokasi asal"
+              :placeholder="t('wms.batch_move.select_from_location')"
               label="code"
               track-by="id"
               :disabled="isLoading"
             />
           </div>
           <div class="md:col-span-3">
-            <label class="block text-sm font-medium text-text/90 mb-2">Ke Lokasi</label>
+            <label class="block text-sm font-medium text-text/90 mb-2">{{ t('common.label.to_location') }}</label>
             <BaseSelect
               v-model="toLocation"
               :options="allLocations"
-              placeholder="Pilih lokasi tujuan"
+              :placeholder="t('wms.batch_move.select_to_location')"
               label="code"
               track-by="id"
               :disabled="isLoading"
             />
           </div>
           <div class="md:col-span-6">
-            <label class="block text-sm font-medium text-text/90 mb-2">Catatan / Alasan</label>
+            <label class="block text-sm font-medium text-text/90 mb-2">{{ t('wms.batch_move.notes_label') }}</label>
             <input
               v-model="notes"
               type="text"
-              placeholder="e.g., Pindah stok antar gudang"
+              :placeholder="t('wms.batch_move.transfer_notes_placeholder')"
               class="w-full h-[42px] px-3 py-2 border border-secondary/50 rounded-lg bg-background focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all shadow-sm text-sm"
             />
           </div>
@@ -80,22 +82,22 @@ watch([fromLocation, toLocation], ([newFrom, newTo]) => {
         <!-- INBOUND ONLY -->
         <template v-if="activeTab === 'INBOUND'">
           <div class="md:col-span-6">
-            <label class="block text-sm font-medium text-text/90 mb-2">Masukkan Ke Lokasi</label>
+            <label class="block text-sm font-medium text-text/90 mb-2">{{ t('wms.batch_move.inbound_to_label') }}</label>
             <BaseSelect
               v-model="toLocation"
               :options="allLocations"
-              placeholder="Pilih lokasi tujuan"
+              :placeholder="t('wms.batch_move.select_to_location')"
               label="code"
               track-by="id"
               :disabled="isLoading"
             />
           </div>
           <div class="md:col-span-6">
-            <label class="block text-sm font-medium text-text/90 mb-2">Catatan / Alasan</label>
+            <label class="block text-sm font-medium text-text/90 mb-2">{{ t('wms.batch_move.notes_label') }}</label>
             <input
               v-model="notes"
               type="text"
-              placeholder="e.g., Stok opname, Barang rusak, PO-123"
+              :placeholder="t('wms.batch_move.inbound_notes_placeholder')"
               class="w-full h-[42px] px-3 py-2 border border-secondary/50 rounded-lg bg-background focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all shadow-sm text-sm"
             />
           </div>

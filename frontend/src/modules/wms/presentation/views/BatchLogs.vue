@@ -4,6 +4,7 @@ import { stockApi } from '@/modules/wms/infrastructure/stock.api'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import BaseFilterPanel from '@/core/presentation/components/ui/BaseFilterPanel.vue'
 import DateRangeFilter from '@/core/presentation/components/ui/DateRangeFilter.vue'
 import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
@@ -18,6 +19,7 @@ const masterData = useMasterDataStore()
 const downloadStore = useDownloadStore()
 const { isMobile } = useMobile()
 const { toast } = useToast()
+const { t } = useI18n()
 
 // State Filter
 const startDate = ref('')
@@ -83,7 +85,7 @@ onMounted(async () => {
 
 async function handleSearch() {
   if (!startDate.value || !endDate.value) {
-    toast('Silakan pilih tanggal mulai dan selesai.', 'warning')
+    toast(t('wms.batch_logs.date_required'), 'warning')
     return
   }
 
@@ -111,7 +113,7 @@ async function handleSearch() {
     }
   } catch (error) {
     console.error(error) // Auto-added to prevent unused var
-    toast(`Gagal memuat data log: ${error.message || 'Terjadi kesalahan'}`, 'error')
+    toast(t('wms.batch_logs.load_failed', { error: error.message || 'Terjadi kesalahan' }), 'error')
   } finally {
     loading.value = false
   }
@@ -140,7 +142,7 @@ function handleReset() {
 
 async function handleExport() {
   if (!startDate.value || !endDate.value) {
-    toast('Silakan pilih tanggal mulai dan selesai.', 'warning')
+    toast(t('wms.batch_logs.date_required'), 'warning')
     return
   }
 
@@ -166,12 +168,12 @@ async function handleExport() {
       exportName: exportName
     }
 
-    await stockApi.requestBatchLogExport(payload)
+    const res = await stockApi.requestBatchLogExport(payload)
     downloadStore.notifyNewJob()
-    toast('Permintaan ekspor berhasil! Proses berjalan di latar belakang.', 'success')
+    toast(res?.message || t('common.status.success'), 'success')
   } catch (error) {
     console.error(error)
-    toast(`Gagal meminta ekspor: ${error.message || 'Terjadi kesalahan'}`, 'error')
+    toast(t('wms.batch_logs.export_failed', { error: error.message || 'Terjadi kesalahan' }), 'error')
   } finally {
     exportLoading.value = false
   }
@@ -186,7 +188,7 @@ async function handleExport() {
         <div class="grid grid-cols-1 md:grid-cols-2 lg:flex xl:flex-row lg:justify-between items-end gap-1">
           <!-- Product Name -->
           <div class="space-y-1.5 w-full lg:w-[30%]">
-            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">Produk / SKU</label>
+            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">{{ t('wms.batch_logs.product_label') }}</label>
             <div class="relative group">
               <font-awesome-icon
                 icon="fa-solid fa-search"
@@ -195,7 +197,7 @@ async function handleExport() {
               <input
                 v-model="searchProduct"
                 type="text"
-                placeholder="Cari nama/kode..."
+                :placeholder="t('wms.batch_logs.product_placeholder')"
                 class="w-full h-[42px] pl-9 pr-3 bg-background border border-secondary rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all placeholder:text-text/30"
                 @keyup.enter="
                   () => {
@@ -209,43 +211,43 @@ async function handleExport() {
 
           <!-- Movement Type -->
           <div class="space-y-1.5 w-full lg:w-[125px]">
-            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">Tipe</label>
+            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">{{ t('wms.batch_logs.type_label') }}</label>
             <TriStateSelect
               v-model="searchType"
               :options="movementTypeOptions"
               label="label"
               track="id"
-              placeholder="Semua Tipe"
+              :placeholder="t('wms.batch_logs.type_placeholder')"
             />
           </div>
 
           <!-- Source Location -->
           <div class="space-y-1.5 w-full lg:w-[150px]">
-            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">Lokasi Sumber</label>
+            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">{{ t('wms.batch_logs.source_loc_label') }}</label>
             <TriStateSelect
               v-model="searchSourceLocation"
               :options="locationOptions"
               label="label"
               track="id"
-              placeholder="Semua Sumber"
+              :placeholder="t('common.filter.all_sources')"
             />
           </div>
 
           <!-- Destination Location -->
           <div class="space-y-1.5 w-full lg:w-[150px]">
-            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">Destinasi</label>
+            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">{{ t('wms.batch_logs.dest_loc_label') }}</label>
             <TriStateSelect
               v-model="searchDestinationLocation"
               :options="locationOptions"
               label="label"
               track="id"
-              placeholder="Semua Destinasi"
+              :placeholder="t('wms.batch_logs.dest_loc_placeholder')"
             />
           </div>
 
           <!-- User -->
           <div class="space-y-1.5">
-            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">User</label>
+            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">{{ t('common.label.user') }}</label>
             <div class="relative group">
               <font-awesome-icon
                 icon="fa-solid fa-user"
@@ -254,7 +256,7 @@ async function handleExport() {
               <input
                 v-model="searchUser"
                 type="text"
-                placeholder="Cari user..."
+                :placeholder="t('wms.batch_logs.user_placeholder')"
                 class="w-full h-[42px] pl-9 pr-3 bg-background border border-secondary rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all placeholder:text-text/30"
                 @keyup.enter="
                   () => {
@@ -268,7 +270,7 @@ async function handleExport() {
 
           <!-- Notes -->
           <div class="space-y-1.5 w-full lg:w-[25%]">
-            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">Notes</label>
+            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">{{ t('wms.batch_logs.notes_label') }}</label>
             <div class="relative group">
               <font-awesome-icon
                 icon="fa-solid fa-note-sticky"
@@ -277,7 +279,7 @@ async function handleExport() {
               <input
                 v-model="searchNotes"
                 type="text"
-                placeholder="Cari catatan..."
+                :placeholder="t('wms.batch_logs.notes_placeholder')"
                 class="w-full h-[42px] pl-9 pr-3 bg-background border border-secondary rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all placeholder:text-text/30"
                 @keyup.enter="
                   () => {
@@ -291,7 +293,7 @@ async function handleExport() {
 
           <!-- Date Filter -->
           <div class="space-y-1.5">
-            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">Rentang Waktu</label>
+            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">{{ t('wms.batch_logs.date_range_label') }}</label>
             <DateRangeFilter v-model:startDate="startDate" v-model:endDate="endDate" class="w-full" />
           </div>
 
@@ -309,7 +311,7 @@ async function handleExport() {
               class="h-[42px] px-4 flex items-center justify-center gap-2 border border-danger/30 rounded-lg text-sm font-semibold text-danger hover:bg-danger/10 transition-all bg-danger/5 active:scale-[0.98] flex-1 xl:flex-none"
             >
               <font-awesome-icon icon="fa-solid fa-rotate-right" />
-              <span class="hidden xl:inline">Reset</span>
+              <span class="hidden xl:inline">{{ t('common.btn.reset') }}</span>
             </button>
             <button
               @click="
@@ -322,7 +324,7 @@ async function handleExport() {
               class="h-[42px] px-6 bg-primary text-secondary rounded-lg text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 transition-all flex items-center justify-center gap-2 flex-[2] xl:flex-1"
             >
               <font-awesome-icon v-if="loading" icon="fa-solid fa-spinner" spin />
-              <span>{{ loading ? '...' : 'Cari' }}</span>
+              <span>{{ loading ? '...' : t('common.btn.search') }}</span>
             </button>
           </div>
         </div>
@@ -334,15 +336,15 @@ async function handleExport() {
       <div class="max-h-[70vh] overflow-y-auto">
         <div v-if="loading" class="text-center p-12">
           <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-primary text-3xl mb-3" />
-          <p class="text-text/50">Mengambil data...</p>
+          <p class="text-text/50">{{ t('wms.batch_logs.loading') }}</p>
         </div>
 
         <div v-else-if="logs.length === 0 && hasSearched" class="text-center p-12">
           <div class="bg-secondary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
             <font-awesome-icon icon="fa-solid fa-box-open" class="text-2xl text-text/40" />
           </div>
-          <p class="text-text font-medium">Tidak ada data ditemukan.</p>
-          <p class="text-text/50 text-sm">Coba sesuaikan filter pencarian.</p>
+          <p class="text-text font-medium">{{ t('wms.batch_logs.empty_title') }}</p>
+          <p class="text-text/50 text-sm">{{ t('wms.batch_logs.empty_desc') }}</p>
         </div>
 
         <table v-else class="custom-scrollbar text-xs" :class="isMobile ? 'w-full block' : 'min-w-full'">
@@ -351,13 +353,13 @@ async function handleExport() {
             :class="isMobile ? 'hidden' : 'sticky top-0'"
           >
             <tr>
-              <th class="p-3 text-left font-bold border-b border-secondary/20">Waktu</th>
-              <th class="p-3 text-left font-bold border-b border-secondary/20">Produk</th>
-              <th class="p-3 text-center font-bold border-b border-secondary/20">Qty</th>
-              <th class="p-3 text-left font-bold border-b border-secondary/20">Tipe</th>
-              <th class="p-3 text-left font-bold border-b border-secondary/20">Route</th>
-              <th class="p-3 text-left font-bold border-b border-secondary/20">User</th>
-              <th class="p-3 text-left font-bold border-b border-secondary/20">Notes</th>
+              <th class="p-3 text-left font-bold border-b border-secondary/20">{{ t('wms.batch_logs.th_time') }}</th>
+              <th class="p-3 text-left font-bold border-b border-secondary/20">{{ t('wms.batch_logs.th_product') }}</th>
+              <th class="p-3 text-center font-bold border-b border-secondary/20">{{ t('common.label.qty') }}</th>
+              <th class="p-3 text-left font-bold border-b border-secondary/20">{{ t('wms.batch_logs.th_type') }}</th>
+              <th class="p-3 text-left font-bold border-b border-secondary/20">{{ t('wms.batch_logs.th_route') }}</th>
+              <th class="p-3 text-left font-bold border-b border-secondary/20">{{ t('common.label.user') }}</th>
+              <th class="p-3 text-left font-bold border-b border-secondary/20">{{ t('wms.batch_logs.th_notes') }}</th>
             </tr>
           </thead>
           <tbody :class="isMobile ? 'block' : 'divide-y divide-secondary/10'">
@@ -378,7 +380,7 @@ async function handleExport() {
                     : 'p-3 whitespace-nowrap align-top text-text/80'
                 "
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Waktu</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.batch_logs.th_time') }}</span>
                 <div class="flex flex-col" :class="isMobile ? 'items-end' : ''">
                   <div class="font-medium">
                     {{ new Date(log.created_at || log.createdAt).toLocaleDateString('id-ID') }}
@@ -393,7 +395,7 @@ async function handleExport() {
                   isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'p-3 align-top'
                 "
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Produk</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.batch_logs.th_product') }}</span>
                 <div :class="isMobile ? 'text-right' : ''">
                   <div class="font-bold text-primary">{{ log.product_name }}</div>
                   <div class="font-mono text-[10px] text-text/50 bg-secondary/10 inline-block px-1 rounded">
@@ -408,7 +410,7 @@ async function handleExport() {
                     : 'p-3 text-center align-top'
                 "
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Qty</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.qty') }}</span>
                 <span class="font-bold text-sm" :class="log.quantity > 0 ? 'text-text' : 'text-accent'">
                   {{ log.quantity }}
                 </span>
@@ -418,7 +420,7 @@ async function handleExport() {
                   isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'p-3 align-top'
                 "
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Tipe</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.batch_logs.th_type') }}</span>
                 <span
                   class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
                   :class="{
@@ -437,7 +439,7 @@ async function handleExport() {
                     : 'p-3 align-top text-text/80 min-w-[150px]'
                 "
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Route</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.batch_logs.th_route') }}</span>
                 <div :class="isMobile ? 'flex flex-col items-end gap-1.5' : 'flex flex-col gap-1.5'">
                   <!-- Jika ada keduanya dan berbeda (Transfer) -->
                   <div
@@ -498,7 +500,7 @@ async function handleExport() {
                     : 'p-3 align-top text-text/80'
                 "
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">User</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.user') }}</span>
                 <span class="text-text/80">{{ log.user }}</span>
               </td>
               <td
@@ -509,7 +511,7 @@ async function handleExport() {
                 "
                 :title="log.notes"
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Notes</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.batch_logs.th_notes') }}</span>
                 <span class="text-text/60 italic">{{ log.notes || '-' }}</span>
               </td>
             </tr>

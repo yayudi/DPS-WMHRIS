@@ -1,8 +1,10 @@
 import { ref } from 'vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { mediaApi } from '../infrastructure/media.api'
 import type { Media } from '../domain/media.entity'
 
 export function useMedia() {
+  const { t } = useI18n()
   const mediaList = ref<Media[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -21,7 +23,7 @@ export function useMedia() {
       }
       return response
     } catch (err: any) {
-      error.value = err.message || 'Gagal memuat media'
+      error.value = err.message || t('master_data.media.fetch_error')
       mediaList.value = []
       throw err
     } finally {
@@ -36,7 +38,7 @@ export function useMedia() {
       await mediaApi.deleteMedia(id)
       mediaList.value = mediaList.value.filter(m => m.id !== id)
     } catch (err: any) {
-      error.value = err.message || 'Gagal menghapus media'
+      error.value = err.message || t('master_data.media.delete_error')
       throw err
     } finally {
       isLoading.value = false

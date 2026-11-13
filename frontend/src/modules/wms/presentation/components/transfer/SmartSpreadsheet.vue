@@ -3,6 +3,7 @@ import { ref, onMounted, onBeforeUnmount, watch, computed, shallowRef } from 'vu
 import { useLocalStorage } from '@vueuse/core'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { wmsBulkSchema } from '@/modules/wms/domain/wms.validator'
 import jspreadsheet from 'jspreadsheet-ce'
 import 'jspreadsheet-ce/dist/jspreadsheet.css'
@@ -16,6 +17,7 @@ const props = defineProps({
 
 const emit = defineEmits(['submit'])
 const { toast } = useToast()
+const { t } = useI18n()
 
 const spreadsheetEl = ref(null)
 const jexcelInstance = shallowRef(null)
@@ -41,25 +43,25 @@ function resolveLocationId(code) {
 // Columns structure dynamically based on mode
 const getColumns = () => {
   const columns = [
-    { type: 'text', title: 'SKU', width: 120 },
-    { type: 'text', title: 'Nama Produk', width: 500 }
+    { type: 'text', title: t('common.label.sku'), width: 120 },
+    { type: 'text', title: t('common.label.product_name'), width: 500 }
   ]
   if (showFrom.value) {
     columns.push({
       type: 'dropdown',
-      title: 'Dari Lokasi',
+      title: t('common.label.from_location'),
       width: 150,
       source: locationCodes.value,
       autocomplete: true
     })
   }
   if (showTo.value) {
-    columns.push({ type: 'dropdown', title: 'Ke Lokasi', width: 150, source: locationCodes.value, autocomplete: true })
+    columns.push({ type: 'dropdown', title: t('common.label.to_location'), width: 150, source: locationCodes.value, autocomplete: true })
   }
-  if (showStock.value) columns.push({ type: 'text', title: 'Stok', width: 80, readOnly: true })
+  if (showStock.value) columns.push({ type: 'text', title: t('wms.spreadsheet.th_stock'), width: 80, readOnly: true })
 
-  columns.push({ type: 'numeric', title: 'Jumlah', width: 80, mask: '#.##0' })
-  columns.push({ type: 'text', title: 'Catatan', width: 300 })
+  columns.push({ type: 'numeric', title: t('common.label.quantity'), width: 80, mask: '#.##0' })
+  columns.push({ type: 'text', title: t('common.label.notes'), width: 300 })
 
   return columns
 }
@@ -354,7 +356,7 @@ async function handleCellChange(instance, cell, x, y) {
             }
             setRowWarning(ws, y, false)
           } else {
-            if (isSku) ws.setValueFromCoords(nameX, y, 'Tidak ditemukan', true)
+            if (isSku) ws.setValueFromCoords(nameX, y, t('wms.spreadsheet.not_found'), true)
             if (isName) ws.setValueFromCoords(skuX, y, '', true)
             if (showStock.value && stockX !== -1) {
               ws.setValueFromCoords(stockX, y, 0, true)
@@ -397,7 +399,7 @@ function handleSubmit() {
   const validRows = rows.value.filter(r => r.sku && r.quantity > 0)
 
   if (validRows.length === 0) {
-    toast('Tidak ada baris yang valid untuk diproses (SKU dan Jumlah wajib diisi)', 'error')
+    toast(t('wms.spreadsheet.no_valid_rows'), 'error')
     return
   }
 
@@ -410,9 +412,9 @@ function handleSubmit() {
     if (firstError.path.length > 0) {
       const rowIndex = firstError.path[0]
       const field = firstError.path[1] || 'Baris'
-      toast(`Error Baris ke-${Number(rowIndex) + 1} (${field}): ${firstError.message}`, 'error')
+      toast(t('wms.spreadsheet.row_error', { row: Number(rowIndex) + 1, field, message: firstError.message }), 'error')
     } else {
-      toast(`Validasi gagal: ${firstError.message}`, 'error')
+      toast(t('wms.spreadsheet.validation_failed', { message: firstError.message }), 'error')
     }
     return
   }
@@ -420,11 +422,11 @@ function handleSubmit() {
   for (let i = 0; i < validRows.length; i++) {
     const r = validRows[i]
     if (showFrom.value && !r.fromLocationId) {
-      toast(`Baris ke-${i + 1} SKU ${r.sku}: Lokasi asal wajib diisi`, 'error')
+      toast(t('wms.spreadsheet.from_loc_required', { row: i + 1, sku: r.sku }), 'error')
       return
     }
     if (showTo.value && !r.toLocationId) {
-      toast(`Baris ke-${i + 1} SKU ${r.sku}: Lokasi tujuan wajib diisi`, 'error')
+      toast(t('wms.spreadsheet.to_loc_required', { row: i + 1, sku: r.sku }), 'error')
       return
     }
   }
@@ -442,10 +444,10 @@ defineExpose({ resetRows, handleSubmit })
       <div id="wms-spreadsheet" ref="spreadsheetEl"></div>
     </div>
 
-    <div class="p-3 bg-secondary/5 text-center text-xs text-text/50 font-medium rounded-lg">
-      Beroperasi layaknya Excel: Anda dapat mem-blok sel, melakukan <b>Ctrl+C</b> / <b>Ctrl+V</b> (Paste), dan menarik
-      (drag) ujung sel.
-    </div>
+    <div
+      class="p-3 bg-secondary/5 text-center text-xs text-text/50 font-medium rounded-lg"
+      v-html="t('wms.spreadsheet.hint')"
+    ></div>
   </div>
 </template>
 

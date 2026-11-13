@@ -37,7 +37,7 @@ func RequireAnyPermission(db *sqlx.DB, permissions ...string) gin.HandlerFunc {
 
 		roleID := GetRoleID(c)
 		if roleID == 0 {
-			utils.ErrorResponse(c, http.StatusForbidden, "Forbidden: No role assigned", "FORBIDDEN")
+			utils.LocalizedError(c, http.StatusForbidden, "errors.forbidden", nil, "FORBIDDEN")
 			c.Abort()
 			return
 		}
@@ -78,7 +78,7 @@ func RequireAnyPermission(db *sqlx.DB, permissions ...string) gin.HandlerFunc {
 
 		if len(uncachedPerms) == 0 {
 			// Semua permission telah dicek di cache dan tidak ada yang diizinkan
-			utils.ErrorResponse(c, http.StatusForbidden, "Forbidden: Insufficient permissions", "FORBIDDEN")
+			utils.LocalizedError(c, http.StatusForbidden, "errors.forbidden", nil, "FORBIDDEN")
 			c.Abort()
 			return
 		}
@@ -115,7 +115,7 @@ func RequireAnyPermission(db *sqlx.DB, permissions ...string) gin.HandlerFunc {
 		cacheMu.Unlock()
 
 		if !isAllowed {
-			utils.ErrorResponse(c, http.StatusForbidden, "Forbidden: Insufficient permissions", "FORBIDDEN")
+			utils.LocalizedError(c, http.StatusForbidden, "errors.forbidden", nil, "FORBIDDEN")
 			c.Abort()
 			return
 		}

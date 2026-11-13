@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { analyticsApi } from '@/modules/analytics/infrastructure/analytics.api';
+import { useI18n } from '@/core/infrastructure/localization';
+
+const { t, dt } = useI18n();
 
 const props = withDefaults(
   defineProps<{
@@ -101,7 +104,7 @@ const nextPage = () => {
 // UI helpers
 const formatDate = (dateString?: string) => {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' });
+  return dt(dateString, { dateStyle: 'long', timeStyle: 'short' });
 };
 
 // Keyboard Navigation & Sparkline
@@ -165,7 +168,7 @@ const anomalies = computed(() => {
 
 const parsedNotes = computed(() => {
   if (!currentPoint.value || !currentPoint.value.notes) {
-    return { text: 'Tidak ada catatan spesifik untuk transaksi ini.', ref: null };
+    return { text: t('analytics.timeline.default_note'), ref: null };
   }
 
   const notes = currentPoint.value.notes;
@@ -176,10 +179,10 @@ const parsedNotes = computed(() => {
     const fullMatch = refMatch[0];
     const refCode = refMatch[1] || fullMatch.replace(/(?:Ref:|Invoice:|PO:)\s*/i, '');
     let cleanText = notes.replace(fullMatch, '').replace(/[()]/g, '').trim();
-    if (cleanText.toLowerCase() === 'sale') cleanText = 'Penjualan';
+    if (cleanText.toLowerCase() === 'sale') cleanText = t('analytics.timeline.sale_text');
 
     return {
-      text: cleanText || 'Transaksi Sistem',
+      text: cleanText || t('analytics.timeline.system_trx'),
       ref: refCode.trim()
     };
   }
@@ -238,7 +241,7 @@ const compareSparklineX = computed(() => {
       <!-- MAIN CONTENT -->
       <div v-if="isPending" class="py-20 flex flex-col items-center justify-center gap-4">
         <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-4xl text-primary" />
-        <p class="text-text/50 text-sm animate-pulse">Memuat mesin waktu...</p>
+        <p class="text-text/50 text-sm animate-pulse">{{ t('analytics.timeline.loading') }}</p>
       </div>
 
       <div v-else-if="error"
@@ -257,7 +260,7 @@ const compareSparklineX = computed(() => {
 
           <span
             class="relative z-10 text-sm uppercase font-bold tracking-widest text-text/40 mb-3 bg-secondary/5 px-4 py-1 rounded-full border border-secondary/10">
-            Titik Waktu: {{ formatDate(currentPoint.created_at) }}
+            {{ t('analytics.timeline.point_in_time', { time: formatDate(currentPoint.created_at) }) }}
           </span>
 
           <div class="relative z-10 flex items-center gap-2 text-7xl font-black text-text mb-6 mt-2 tracking-tighter">
@@ -277,20 +280,20 @@ const compareSparklineX = computed(() => {
           <div v-if="compareStats"
             class="relative z-10 mt-5 bg-warning/10 border border-warning/20 rounded-xl p-4 w-full max-w-md text-left">
             <div class="text-xs font-bold text-warning/80 uppercase mb-2 flex items-center justify-between">
-              <span>Hasil Perbandingan Data</span>
+              <span>{{ t('analytics.timeline.compare_results') }}</span>
               <font-awesome-icon icon="fa-solid fa-code-compare" />
             </div>
             <div class="grid grid-cols-3 gap-2 text-sm">
               <div class="flex flex-col">
-                <span class="text-text/40 text-[10px] uppercase">Masuk</span>
+                <span class="text-text/40 text-[10px] uppercase">{{ t('analytics.timeline.compare_in') }}</span>
                 <span class="font-bold text-success">+{{ compareStats.in }}</span>
               </div>
               <div class="flex flex-col border-l border-r border-warning/20 px-2">
-                <span class="text-text/40 text-[10px] uppercase">Keluar</span>
+                <span class="text-text/40 text-[10px] uppercase">{{ t('analytics.timeline.compare_out') }}</span>
                 <span class="font-bold text-danger">-{{ compareStats.out }}</span>
               </div>
               <div class="flex flex-col text-right">
-                <span class="text-text/40 text-[10px] uppercase">Selisih Bersih</span>
+                <span class="text-text/40 text-[10px] uppercase">{{ t('analytics.timeline.compare_net') }}</span>
                 <span class="font-bold"
                   :class="compareStats.net > 0 ? 'text-success' : (compareStats.net < 0 ? 'text-danger' : 'text-text/60')">
                   {{ compareStats.net > 0 ? '+' : '' }}{{ compareStats.net }}
@@ -304,16 +307,16 @@ const compareSparklineX = computed(() => {
             :class="compareIndex !== null ? 'bg-danger/10 text-danger border-danger/20 hover:bg-danger/20' : 'bg-background text-text/60 border-secondary/20 hover:bg-secondary/10'">
             <font-awesome-icon :icon="compareIndex !== null ? 'fa-solid fa-times' : 'fa-solid fa-crosshairs'"
               class="mr-1" />
-            {{ compareIndex !== null ? 'Batalkan Perbandingan' : 'Bandingkan dari Titik Ini' }}
+            {{ compareIndex !== null ? t('analytics.timeline.compare_cancel') : t('analytics.timeline.compare_start') }}
           </button>
 
           <div class="relative z-10 mt-6 pt-5 border-t border-secondary/10 w-full max-w-md">
-            <p class="text-sm text-text/80 font-medium mb-2">Catatan Transaksi:</p>
+            <p class="text-sm text-text/80 font-medium mb-2">{{ t('analytics.timeline.trx_notes') }}</p>
 
             <div v-if="parsedNotes.ref" class="mb-3 flex justify-center">
               <span
                 class="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg text-xs font-bold cursor-pointer hover:bg-primary/20 transition-colors"
-                title="Klik untuk melihat dokumen (Fitur Mendatang)">
+                :title="t('analytics.timeline.view_doc_tooltip')">
                 <font-awesome-icon icon="fa-solid fa-file-invoice" />
                 {{ parsedNotes.ref }}
                 <font-awesome-icon icon="fa-solid fa-arrow-up-right-from-square" class="ml-1 opacity-50" />
@@ -325,7 +328,7 @@ const compareSparklineX = computed(() => {
             </p>
             <div class="flex items-center justify-center gap-2 mt-3 text-xs text-text/40">
               <font-awesome-icon icon="fa-solid fa-user" />
-              Diinput oleh <span class="font-bold text-text/60">{{ currentPoint.user_name || 'System' }}</span>
+              {{ t('analytics.timeline.inputted_by') }} <span class="font-bold text-text/60">{{ currentPoint.user_name || 'System' }}</span>
             </div>
           </div>
         </div>
@@ -336,7 +339,7 @@ const compareSparklineX = computed(() => {
           <!-- Movement Type Filter -->
           <div v-if="availableMovementTypes.length > 1"
             class="flex flex-wrap items-center gap-2 mb-8 pb-6 border-b border-secondary/10">
-            <span class="text-xs font-bold text-text/40 uppercase tracking-wider mr-2">Filter Jenis Transaksi:</span>
+            <span class="text-xs font-bold text-text/40 uppercase tracking-wider mr-2">{{ t('analytics.timeline.filter_trx_type') }}</span>
             <button v-for="type in availableMovementTypes" :key="type" @click="toggleMovementTypeFilter(type)"
               class="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border shadow-sm"
               :class="!hiddenMovementTypes.has(type) ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20' : 'bg-transparent text-text/40 border-secondary/20 hover:bg-secondary/10'">
@@ -350,12 +353,12 @@ const compareSparklineX = computed(() => {
           <div v-if="reversedData.length > 0">
             <div class="flex items-center justify-between mb-6">
               <div class="flex flex-col">
-                <span class="text-xs font-bold text-text/40 uppercase tracking-wider mb-1">Riwayat Lama</span>
+                <span class="text-xs font-bold text-text/40 uppercase tracking-wider mb-1">{{ t('analytics.timeline.history_old') }}</span>
                 <span class="text-[10px] text-text/30 font-mono">{{ formatDate(reversedData[0]?.created_at) }}</span>
               </div>
 
               <div class="flex flex-col items-end">
-                <span class="text-xs font-bold text-text/40 uppercase tracking-wider mb-1">Riwayat Baru</span>
+                <span class="text-xs font-bold text-text/40 uppercase tracking-wider mb-1">{{ t('analytics.timeline.history_new') }}</span>
                 <span class="text-[10px] text-text/30 font-mono">{{ formatDate(reversedData[reversedData.length -
                   1]?.created_at) }}</span>
               </div>
@@ -386,7 +389,7 @@ const compareSparklineX = computed(() => {
               <div
                 class="absolute -bottom-2 left-1/2 -translate-x-1/2 text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full pointer-events-none flex items-center gap-2">
                 <font-awesome-icon icon="fa-solid fa-arrows-left-right" class="text-[10px] opacity-60" />
-                Geser Slider (←/→)
+                {{ t('analytics.timeline.slider_hint') }}
               </div>
 
               <!-- Quick Jump Controls -->
@@ -394,11 +397,11 @@ const compareSparklineX = computed(() => {
                 <button @click="sliderIndex = 0"
                   class="text-[10px] uppercase font-bold text-text/40 hover:text-primary transition-colors flex items-center gap-1 group">
                   <font-awesome-icon icon="fa-solid fa-backward-step"
-                    class="group-hover:-translate-x-1 transition-transform" /> Awal Halaman
+                    class="group-hover:-translate-x-1 transition-transform" /> {{ t('analytics.timeline.first_page') }}
                 </button>
                 <button @click="sliderIndex = reversedData.length - 1"
                   class="text-[10px] uppercase font-bold text-text/40 hover:text-primary transition-colors flex items-center gap-1 group">
-                  Akhir Halaman <font-awesome-icon icon="fa-solid fa-forward-step"
+                  {{ t('analytics.timeline.last_page') }} <font-awesome-icon icon="fa-solid fa-forward-step"
                     class="group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
@@ -407,7 +410,7 @@ const compareSparklineX = computed(() => {
 
           <div v-else
             class="py-10 text-center text-sm font-bold text-text/40 bg-secondary/5 rounded-xl border border-secondary/10 border-dashed">
-            Semua data pada halaman ini disembunyikan oleh filter.
+            {{ t('analytics.timeline.all_hidden_filter') }}
           </div>
 
           <!-- Pagination Controls -->
@@ -416,18 +419,18 @@ const compareSparklineX = computed(() => {
               class="px-5 py-2.5 text-sm font-bold rounded-xl border-2 border-secondary/10 hover:bg-secondary/5 hover:border-secondary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 text-text/80 group">
               <font-awesome-icon icon="fa-solid fa-arrow-left"
                 class="group-hover:-translate-x-1 transition-transform" />
-              Ke Masa Lalu
+              {{ t('analytics.timeline.prev_time') }}
             </button>
 
             <div class="flex flex-col items-center">
-              <span class="text-xs font-bold text-text/40 uppercase tracking-wider mb-1">Halaman Timeline</span>
+              <span class="text-xs font-bold text-text/40 uppercase tracking-wider mb-1">{{ t('analytics.timeline.timeline_page') }}</span>
               <span class="text-sm text-text/80 font-mono bg-secondary/5 px-3 py-1 rounded-lg">{{ page }} / {{
                 actualTotalPages }}</span>
             </div>
 
             <button @click="nextPage" :disabled="page === 1"
               class="px-5 py-2.5 text-sm font-bold rounded-xl border-2 border-secondary/10 hover:bg-secondary/5 hover:border-secondary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 text-text/80 group">
-              Ke Masa Depan
+              {{ t('analytics.timeline.next_time') }}
               <font-awesome-icon icon="fa-solid fa-arrow-right"
                 class="group-hover:translate-x-1 transition-transform" />
             </button>
@@ -440,8 +443,8 @@ const compareSparklineX = computed(() => {
         <div class="w-16 h-16 rounded-full bg-secondary/10 flex items-center justify-center text-2xl mb-2">
           <font-awesome-icon icon="fa-solid fa-box-open" />
         </div>
-        <p class="font-medium text-lg text-text/60">Belum Ada Riwayat Mutasi</p>
-        <p class="text-sm">Produk ini belum memiliki pergerakan stok apapun.</p>
+        <p class="font-medium text-lg text-text/60">{{ t('analytics.timeline.empty_history_title') }}</p>
+        <p class="text-sm">{{ t('analytics.timeline.empty_history_desc') }}</p>
       </div>
     </div>
   </div>

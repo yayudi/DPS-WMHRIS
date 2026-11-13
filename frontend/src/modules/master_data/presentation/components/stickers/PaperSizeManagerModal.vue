@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { stickerApi } from '@/modules/master_data/infrastructure/sticker.api'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { swalConfirm, swalAlert } from '@/core/presentation/composables/useSweetAlert'
 
 const props = defineProps({
@@ -10,6 +11,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['close', 'updated'])
 const { toast } = useToast()
+const { t } = useI18n()
 
 const paperSizes = ref([])
 const isLoading = ref(false)
@@ -37,7 +39,7 @@ const fetchPaperSizes = async () => {
     paperSizes.value = Array.isArray(data) ? data : data?.data || []
   } catch (error) {
     console.error(error)
-    toast('Gagal memuat ukuran kertas', 'error')
+    toast(t('master_data.paper.load_error'), 'error')
   } finally {
     isLoading.value = false
   }
@@ -72,17 +74,17 @@ const editPaperSize = item => {
 }
 
 const deletePaperSize = async id => {
-  const confirmed = await swalConfirm('Yakin ingin menghapus ukuran kertas ini?')
+  const confirmed = await swalConfirm(t('master_data.paper.confirm_delete'))
   if (!confirmed) return
 
   try {
-    await stickerApi.deletePaperSize(id)
-    toast('Ukuran kertas dihapus', 'success')
+    const res = await stickerApi.deletePaperSize(id)
+    toast(res?.message || t('common.status.success'), 'success')
     fetchPaperSizes()
     emit('updated')
   } catch (error) {
     console.error(error)
-    swalAlert(error?.response?.data?.message || 'Gagal menghapus ukuran kertas')
+    swalAlert(error?.response?.data?.message || t('master_data.paper.delete_error'))
   }
 }
 
@@ -94,24 +96,25 @@ const submitForm = async () => {
     !formData.value.pageWidth ||
     !formData.value.pageHeight
   ) {
-    toast('Nama, Label Size, dan Page Size wajib diisi', 'warning')
+    toast(t('master_data.paper.validation_required'), 'warning')
     return
   }
 
   try {
+    let res
     if (formData.value.id) {
-      await stickerApi.updatePaperSize(formData.value.id, formData.value)
+      res = await stickerApi.updatePaperSize(formData.value.id, formData.value)
     } else {
-      await stickerApi.createPaperSize(formData.value)
+      res = await stickerApi.createPaperSize(formData.value)
     }
 
-    toast('Ukuran kertas berhasil disimpan', 'success')
+    toast(res?.message || t('common.status.success'), 'success')
     showForm.value = false
     fetchPaperSizes()
     emit('updated')
   } catch (error) {
     console.error(error)
-    swalAlert(error?.response?.data?.message || 'Gagal menyimpan ukuran kertas')
+    swalAlert(error?.response?.data?.message || t('master_data.paper.save_error'))
   }
 }
 
@@ -139,8 +142,8 @@ const previewScale = computed(() => {
               <font-awesome-icon icon="fa-solid fa-ruler-combined" />
             </div>
             <div>
-              <h3 class="text-xl font-bold text-text">Kelola Label & Ukuran Kertas</h3>
-              <p class="text-sm text-text/60">Pengaturan presisi layout label untuk pencetakan (dalam milimeter)</p>
+              <h3 class="text-xl font-bold text-text">{{ t('master_data.paper.modal_title') }}</h3>
+              <p class="text-sm text-text/60">{{ t('master_data.paper.modal_subtitle') }}</p>
             </div>
           </div>
           <button
@@ -158,7 +161,7 @@ const previewScale = computed(() => {
             <!-- Left: Inputs -->
             <div class="flex-1 space-y-4">
               <div class="space-y-1">
-                <label class="text-sm font-bold text-text/70">Label Name</label>
+                <label class="text-sm font-bold text-text/70">{{ t('master_data.paper.label_name') }}</label>
                 <input
                   v-model="formData.name"
                   type="text"
@@ -169,7 +172,7 @@ const previewScale = computed(() => {
 
               <div class="grid grid-cols-2 gap-4">
                 <div class="space-y-1">
-                  <label class="text-sm font-bold text-text/70">Side Margin (mm)</label>
+                  <label class="text-sm font-bold text-text/70">{{ t('master_data.paper.side_margin') }}</label>
                   <input
                     v-model.number="formData.sideMargin"
                     type="number"
@@ -178,7 +181,7 @@ const previewScale = computed(() => {
                   />
                 </div>
                 <div class="space-y-1">
-                  <label class="text-sm font-bold text-text/70">Top Margin (mm)</label>
+                  <label class="text-sm font-bold text-text/70">{{ t('master_data.paper.top_margin') }}</label>
                   <input
                     v-model.number="formData.topMargin"
                     type="number"
@@ -188,7 +191,7 @@ const previewScale = computed(() => {
                 </div>
 
                 <div class="space-y-1">
-                  <label class="text-sm font-bold text-text/70">Horizontal Pitch (mm)</label>
+                  <label class="text-sm font-bold text-text/70">{{ t('master_data.paper.horizontal_pitch') }}</label>
                   <input
                     v-model.number="formData.horizontalPitch"
                     type="number"
@@ -198,7 +201,7 @@ const previewScale = computed(() => {
                   />
                 </div>
                 <div class="space-y-1">
-                  <label class="text-sm font-bold text-text/70">Vertical Pitch (mm)</label>
+                  <label class="text-sm font-bold text-text/70">{{ t('master_data.paper.vertical_pitch') }}</label>
                   <input
                     v-model.number="formData.verticalPitch"
                     type="number"
@@ -209,7 +212,7 @@ const previewScale = computed(() => {
                 </div>
 
                 <div class="space-y-1">
-                  <label class="text-sm font-bold text-text/70">Label Width (mm)</label>
+                  <label class="text-sm font-bold text-text/70">{{ t('master_data.paper.label_width') }}</label>
                   <input
                     v-model.number="formData.labelWidth"
                     type="number"
@@ -218,7 +221,7 @@ const previewScale = computed(() => {
                   />
                 </div>
                 <div class="space-y-1">
-                  <label class="text-sm font-bold text-text/70">Label Height (mm)</label>
+                  <label class="text-sm font-bold text-text/70">{{ t('master_data.paper.label_height') }}</label>
                   <input
                     v-model.number="formData.labelHeight"
                     type="number"
@@ -228,7 +231,7 @@ const previewScale = computed(() => {
                 </div>
 
                 <div class="space-y-1">
-                  <label class="text-sm font-bold text-text/70">Number Across</label>
+                  <label class="text-sm font-bold text-text/70">{{ t('master_data.paper.number_across') }}</label>
                   <input
                     v-model.number="formData.numberAcross"
                     type="number"
@@ -238,7 +241,7 @@ const previewScale = computed(() => {
                   />
                 </div>
                 <div class="space-y-1">
-                  <label class="text-sm font-bold text-text/70">Number Down</label>
+                  <label class="text-sm font-bold text-text/70">{{ t('master_data.paper.number_down') }}</label>
                   <input
                     v-model.number="formData.numberDown"
                     type="number"
@@ -249,7 +252,7 @@ const previewScale = computed(() => {
                 </div>
 
                 <div class="space-y-1">
-                  <label class="text-sm font-bold text-text/70">Page Width (mm)</label>
+                  <label class="text-sm font-bold text-text/70">{{ t('master_data.paper.page_width') }}</label>
                   <input
                     v-model.number="formData.pageWidth"
                     type="number"
@@ -258,7 +261,7 @@ const previewScale = computed(() => {
                   />
                 </div>
                 <div class="space-y-1">
-                  <label class="text-sm font-bold text-text/70">Page Height (mm)</label>
+                  <label class="text-sm font-bold text-text/70">{{ t('master_data.paper.page_height') }}</label>
                   <input
                     v-model.number="formData.pageHeight"
                     type="number"
@@ -272,7 +275,7 @@ const previewScale = computed(() => {
             <!-- Right: Live Preview -->
             <div class="w-full lg:w-[350px] shrink-0 flex flex-col gap-4">
               <div class="bg-background rounded-xl border border-primary/20 p-4 flex flex-col h-full">
-                <h4 class="font-bold text-text/80 text-sm mb-4 text-center">Live Preview</h4>
+                <h4 class="font-bold text-text/80 text-sm mb-4 text-center">{{ t('master_data.paper.live_preview') }}</h4>
                 <div
                   class="flex-1 w-full bg-gray-200/50 dark:bg-gray-800/50 rounded-lg flex items-center justify-center overflow-hidden border border-gray-300 dark:border-gray-700 min-h-[300px]"
                 >
@@ -318,13 +321,13 @@ const previewScale = computed(() => {
                   @click="showForm = false"
                   class="px-5 py-2 rounded-xl font-bold text-text bg-secondary border border-primary/20 hover:bg-background transition-colors"
                 >
-                  Batal
+                  {{ t('common.btn.cancel') }}
                 </button>
                 <button
                   @click="submitForm"
                   class="px-5 py-2 rounded-xl font-bold text-white bg-primary hover:bg-primary/90 transition-colors shadow-lg shadow-primary/30"
                 >
-                  Simpan
+                  {{ t('common.btn.save') }}
                 </button>
               </div>
             </div>
@@ -344,7 +347,7 @@ const previewScale = computed(() => {
 
             <div v-if="isLoading" class="text-center py-12 text-text/50">
               <font-awesome-icon icon="fa-solid fa-circle-notch" class="fa-spin text-2xl text-primary mb-3" />
-              <div>Memuat data...</div>
+              <div>{{ t('common.status.loading') }}</div>
             </div>
 
             <div

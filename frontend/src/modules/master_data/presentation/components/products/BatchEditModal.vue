@@ -7,8 +7,10 @@ import ImportJobHistory from '@/core/presentation/components/shared/ImportJobHis
 import JobHistoryTable, { type JobItem } from '@/core/presentation/components/ui/JobHistoryTable.vue'
 import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
 import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const downloadStore = useDownloadStore()
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -36,7 +38,7 @@ const emit = defineEmits<{
 
 // Dynamic Titles & Job Types
 const modalTitle = computed(
-  () => props.title || (props.entityType === 'package' ? 'Batch Edit Paket' : 'Batch Edit Produk')
+  () => props.title || (props.entityType === 'package' ? t('master_data.batch_edit.modal_title_package') : t('master_data.batch_edit.modal_title_product'))
 )
 
 const effectiveExportJobType = computed(
@@ -56,11 +58,11 @@ const shouldShowColumns = computed(() =>
 
 // Tabs
 const activeTab = ref('export')
-const tabOptions = [
-  { value: 'export', label: '1. Download', icon: 'fa-solid fa-download' },
-  { value: 'import', label: '2. Upload', icon: 'fa-solid fa-upload' },
-  { value: 'logs', label: '3. Riwayat & Log', icon: 'fa-solid fa-history' }
-]
+const tabOptions = computed(() => [
+  { value: 'export', label: t('master_data.batch_edit.tab_download'), icon: 'fa-solid fa-download' },
+  { value: 'import', label: t('master_data.batch_edit.tab_upload'), icon: 'fa-solid fa-upload' },
+  { value: 'logs', label: t('master_data.batch_edit.tab_history'), icon: 'fa-solid fa-history' }
+])
 
 const exportFormat = ref('xlsx')
 const includeImages = ref(false)
@@ -70,20 +72,20 @@ const isDryRun = ref(false)
 const importNotes = ref('')
 
 // --- Export Columns Logic ---
-const availableColumns = [
-  { key: 'name', label: 'Nama Produk' },
-  { key: 'category_id', label: 'Kategori' },
-  { key: 'price', label: 'Harga (Rp)' },
-  { key: 'is_package', label: 'Tipe Paket' },
-  { key: 'weight', label: 'Berat (gram)' },
-  { key: 'length', label: 'Panjang (cm)' },
-  { key: 'width', label: 'Lebar (cm)' },
-  { key: 'height', label: 'Tinggi (cm)' },
-  { key: 'is_active', label: 'Status Aktif' }
-]
+const availableColumns = computed(() => [
+  { key: 'name', label: t('common.label.product_name') },
+  { key: 'category_id', label: t('common.label.category') },
+  { key: 'price', label: t('master_data.batch_edit.col_price') },
+  { key: 'is_package', label: t('master_data.batch_edit.col_package_type') },
+  { key: 'weight', label: t('master_data.batch_edit.col_weight') },
+  { key: 'length', label: t('master_data.batch_edit.col_length') },
+  { key: 'width', label: t('master_data.batch_edit.col_width') },
+  { key: 'height', label: t('master_data.batch_edit.col_height') },
+  { key: 'is_active', label: t('master_data.batch_edit.col_status') }
+])
 
 const selectedColumnsState = ref({
-  include: availableColumns.map(c => c.key),
+  include: ['name', 'category_id', 'price', 'is_package', 'weight', 'length', 'width', 'height', 'is_active'],
   exclude: [] as string[]
 })
 
@@ -170,7 +172,7 @@ const close = () => {
         <!-- STEP 1: EXPORT -->
         <div v-if="activeTab === 'export'" class="flex-1 flex flex-col h-full overflow-hidden">
           <p class="text-sm text-text/70 mb-4 shrink-0 font-medium">
-            Download data terbaru untuk diedit. Pilih format Excel untuk kemudahan atau CSV untuk kompatibilitas.
+            {{ t('master_data.batch_edit.export_hint') }}
           </p>
 
           <div class="grid grid-cols-2 gap-4 mb-6 shrink-0">
@@ -186,7 +188,7 @@ const close = () => {
               </div>
               <div>
                 <div class="font-bold text-text text-sm">Excel (.xlsx)</div>
-                <div class="text-[11px] text-text/50 font-medium mt-0.5">Direkomendasikan</div>
+                <div class="text-[11px] text-text/50 font-medium mt-0.5">{{ t('master_data.batch_edit.excel_recommended') }}</div>
               </div>
             </label>
 
@@ -202,7 +204,7 @@ const close = () => {
               </div>
               <div>
                 <div class="font-bold text-text text-sm">CSV (.csv)</div>
-                <div class="text-[11px] text-text/50 font-medium mt-0.5">Universal</div>
+                <div class="text-[11px] text-text/50 font-medium mt-0.5">{{ t('master_data.batch_edit.csv_universal') }}</div>
               </div>
             </label>
           </div>
@@ -212,9 +214,9 @@ const close = () => {
             class="mb-4 flex items-center justify-between p-4 bg-primary/5 rounded-xl border border-primary/20 shrink-0"
           >
             <div>
-              <div class="font-semibold text-text text-sm">Sertakan Tautan (Link) Gambar</div>
+              <div class="font-semibold text-text text-sm">{{ t('master_data.batch_edit.include_images_title') }}</div>
               <div class="text-[12px] text-text/60 font-medium">
-                Tambahkan kolom berisi tautan menuju gambar utama produk
+                {{ t('master_data.batch_edit.include_images_desc') }}
               </div>
             </div>
             <label class="relative inline-flex items-center cursor-pointer shrink-0">
@@ -228,9 +230,9 @@ const close = () => {
           <!-- COLUMN SELECTION -->
           <div v-if="shouldShowColumns" class="mb-6 shrink-0 bg-background border border-secondary/20 rounded-xl p-4">
             <h6 class="font-bold text-sm text-text mb-2 flex items-center gap-2">
-              Kolom yang Diexport
+              {{ t('master_data.batch_edit.exported_columns') }}
               <span class="text-[11px] font-normal text-text/50 bg-secondary/10 px-2 py-0.5 rounded"
-                >*SKU selalu disertakan secara default</span
+                >{{ t('master_data.batch_edit.sku_default_note') }}</span
               >
             </h6>
             <TriStateSelect
@@ -238,7 +240,7 @@ const close = () => {
               :options="availableColumns"
               label="label"
               trackBy="key"
-              placeholder="Pilih kolom yang akan di-export..."
+              :placeholder="t('master_data.batch_edit.select_columns_placeholder')"
               :searchable="false"
             />
           </div>
@@ -249,13 +251,13 @@ const close = () => {
           >
             <h5 class="font-bold text-sm mb-4 text-text flex items-center gap-2 shrink-0">
               <font-awesome-icon icon="fa-solid fa-clock-rotate-left" class="text-primary" />
-              Riwayat Ekspor (File Siap Diunduh)
+              {{ t('master_data.batch_edit.export_history_title') }}
             </h5>
 
             <JobHistoryTable
               :jobs="exportJobs"
               :loading="loadingExports"
-              empty-text="Belum ada file ekspor terbaru."
+              :empty-text="t('master_data.batch_edit.export_history_empty')"
               layout="list"
             />
           </div>
@@ -268,10 +270,10 @@ const close = () => {
             >
               <font-awesome-icon v-if="isExporting" icon="fa-solid fa-spinner" spin />
               <font-awesome-icon v-else icon="fa-solid fa-file-export" />
-              <span>{{ isExporting ? 'Sedang Memproses...' : 'Buat Permintaan Ekspor Baru' }}</span>
+              <span>{{ isExporting ? t('master_data.batch_edit.btn_processing') : t('master_data.batch_edit.btn_new_export') }}</span>
             </button>
             <p class="text-xs text-center mt-3.5 text-text/50 font-medium">
-              Sistem akan memproses file di latar belakang. Anda dapat memantau statusnya di kotak riwayat di atas.
+              {{ t('master_data.batch_edit.export_bg_note') }}
             </p>
           </div>
         </div>
@@ -279,8 +281,7 @@ const close = () => {
         <!-- STEP 2: IMPORT -->
         <div v-if="activeTab === 'import'" class="flex-1 flex flex-col h-full overflow-hidden">
           <p class="text-sm text-text/70 mb-4 shrink-0 font-medium">
-            Upload file master {{ entityType === 'package' ? 'paket' : 'produk' }} yang sudah Anda edit. Sistem akan
-            memproses pembaruan secara massal.
+            {{ t('master_data.batch_edit.import_hint', { entity: entityType === 'package' ? 'paket' : 'produk' }) }}
           </p>
 
           <div
@@ -298,10 +299,10 @@ const close = () => {
             </div>
 
             <h4 class="font-bold text-base text-text mb-1">
-              {{ selectedFile ? selectedFile.name : 'Pilih file atau tarik ke sini' }}
+              {{ selectedFile ? selectedFile.name : t('master_data.batch_edit.drop_or_select') }}
             </h4>
             <p class="text-xs text-text/50 max-w-sm mb-3">
-              Mendukung format .XLSX dan .CSV. Pastikan kolom SKU sesuai dengan data master produk.
+              {{ t('master_data.batch_edit.drop_format_note') }}
             </p>
 
             <div
@@ -309,19 +310,19 @@ const close = () => {
               class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 text-success text-xs font-semibold"
             >
               <font-awesome-icon icon="fa-solid fa-check" />
-              <span>File Terpilih ({{ (selectedFile.size / 1024).toFixed(1) }} KB)</span>
+              <span>{{ t('master_data.batch_edit.file_selected', { size: (selectedFile.size / 1024).toFixed(1) }) }}</span>
             </div>
           </div>
 
           <!-- Notes -->
           <div class="mb-4 shrink-0">
             <label class="block text-xs font-bold text-text mb-1.5">
-              Catatan Impor <span class="text-text/40 font-normal">(opsional)</span>
+              {{ t('master_data.batch_edit.import_notes_label') }} <span class="text-text/40 font-normal">({{ t('common.label.optional') }})</span>
             </label>
             <input
               type="text"
               v-model="importNotes"
-              placeholder="Contoh: Update harga promo akhir tahun..."
+              :placeholder="t('master_data.batch_edit.import_notes_placeholder')"
               class="w-full px-3 py-2 text-xs border border-secondary/20 rounded-xl bg-background text-text focus:outline-none focus:border-primary transition-colors"
             />
           </div>
@@ -330,9 +331,9 @@ const close = () => {
             class="mb-6 flex items-center justify-between p-4 bg-secondary/5 rounded-2xl border border-secondary/20 shrink-0"
           >
             <div>
-              <div class="font-bold text-text text-sm">Mode Simulasi (Dry Run)</div>
+              <div class="font-bold text-text text-sm">{{ t('master_data.batch_edit.dry_run_title') }}</div>
               <div class="text-xs text-text/50 mt-0.5">
-                Cek validasi data dan format tanpa menyimpan perubahan ke database
+                {{ t('master_data.batch_edit.dry_run_desc') }}
               </div>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
@@ -351,10 +352,10 @@ const close = () => {
             >
               <font-awesome-icon v-if="isImporting" icon="fa-solid fa-spinner" spin />
               <font-awesome-icon v-else icon="fa-solid fa-cloud-arrow-up" />
-              <span>{{ isImporting ? 'Mengupload File...' : 'Mulai Proses Import' }}</span>
+              <span>{{ isImporting ? t('master_data.batch_edit.btn_uploading') : t('master_data.batch_edit.btn_start_import') }}</span>
             </button>
             <p class="text-xs text-center mt-3.5 text-text/50 font-medium">
-              Data akan diimpor melalui antrean latar belakang untuk menghindari waktu tunggu browser.
+              {{ t('master_data.batch_edit.import_bg_note') }}
             </p>
           </div>
         </div>

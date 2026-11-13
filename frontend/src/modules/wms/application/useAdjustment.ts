@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { adjustmentApi } from '../infrastructure/adjustment.api'
 import type { Adjustment } from '../domain/adjustment.entity'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 export function useAdjustment() {
   const adjustments = ref<Adjustment[]>([])
@@ -9,6 +10,7 @@ export function useAdjustment() {
   const error = ref<string | null>(null)
   const totalItems = ref(0)
   const { toast } = useToast()
+  const { t } = useI18n()
 
   async function fetchAdjustments(params: Record<string, any>) {
     isLoading.value = true
@@ -18,7 +20,7 @@ export function useAdjustment() {
       totalItems.value = response.meta?.total || 0
       return response
     } catch (err: any) {
-      error.value = err?.message || 'Gagal mengambil data adjustment'
+      error.value = err?.message || t('wms.adjust.fetch_error')
       toast(error.value || 'Error', 'error')
       throw err
     } finally {
@@ -30,10 +32,10 @@ export function useAdjustment() {
     isLoading.value = true
     try {
       const response = await adjustmentApi.createAdjustment(payload)
-      toast('Adjustment berhasil dicatat', 'success')
+      toast(response?.message || t('common.status.success'), 'success')
       return response
     } catch (err: any) {
-      toast(err?.response?.data?.message || 'Gagal mencatat adjustment', 'error')
+      toast(err?.response?.data?.message || t('wms.adjust.save_error'), 'error')
       throw err
     } finally {
       isLoading.value = false
@@ -44,10 +46,10 @@ export function useAdjustment() {
     isLoading.value = true
     try {
       const response = await adjustmentApi.batchAdjust(payload)
-      toast('Batch adjustment berhasil dicatat', 'success')
+      toast(response?.message || t('common.status.success'), 'success')
       return response
     } catch (err: any) {
-      toast(err?.response?.data?.message || 'Gagal memproses batch adjustment', 'error')
+      toast(err?.response?.data?.message || t('wms.adjust.batch_error'), 'error')
       throw err
     } finally {
       isLoading.value = false

@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
 import { dayjs } from '@/core/utils/time'
 import { useTheme } from '@/core/presentation/composables/useTheme'
+import { useI18n } from '@/core/infrastructure/localization'
 import FilterBar from '@/core/presentation/components/ui/FilterBar.vue'
 import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
 import { analyticsApi } from '@/modules/analytics/infrastructure/analytics.api'
@@ -12,6 +13,7 @@ import { formatNumber, formatCurrency } from '@/core/utils/formatters'
 
 // const { toast } = useToast()
 const { themeColors, isDarkTheme, isThemeChanging } = useTheme()
+const { t, d } = useI18n()
 const isDataLoading = ref(false)
 const activeTab = ref('summary')
 const showFilters = ref(false)
@@ -33,18 +35,18 @@ const filterValues = ref({
   shopName: { include: [] as string[], exclude: [] as string[] }
 })
 
-const tabs = [
-  { id: 'summary', label: 'Ringkasan', icon: 'fa-solid fa-chart-pie' },
-  { id: 'trend', label: 'Tren Harian', icon: 'fa-solid fa-chart-line' },
-  { id: 'top-products', label: 'Produk Terlaris', icon: 'fa-solid fa-ranking-star' },
-  { id: 'comparison', label: 'Perbandingan Periode', icon: 'fa-solid fa-right-left' }
-]
+const tabs = computed(() => [
+  { id: 'summary', label: t('analytics.shop.tab_summary'), icon: 'fa-solid fa-chart-pie' },
+  { id: 'trend', label: t('analytics.shop.tab_trend'), icon: 'fa-solid fa-chart-line' },
+  { id: 'top-products', label: t('analytics.shop.tab_top_products'), icon: 'fa-solid fa-ranking-star' },
+  { id: 'comparison', label: t('analytics.shop.tab_comparison'), icon: 'fa-solid fa-right-left' }
+])
 
-const reportTypeOptions = [
-  { value: 'monthly', label: 'Bulan', icon: 'fa-solid fa-calendar' },
-  { value: 'annual', label: 'Tahun', icon: 'fa-solid fa-calendar-days' },
-  { value: 'custom', label: 'Kustom', icon: 'fa-solid fa-calendar-plus' }
-]
+const reportTypeOptions = computed(() => [
+  { value: 'monthly', label: t('analytics.shop.opt_monthly'), icon: 'fa-solid fa-calendar' },
+  { value: 'annual', label: t('analytics.shop.opt_annual'), icon: 'fa-solid fa-calendar-days' },
+  { value: 'custom', label: t('analytics.shop.opt_custom'), icon: 'fa-solid fa-calendar-plus' }
+])
 
 const sourceOptions = [
   { id: 'Tokopedia', label: 'Tokopedia / TikTok' },
@@ -52,20 +54,14 @@ const sourceOptions = [
   { id: 'Offline', label: 'Offline / Lainnya' }
 ]
 
-const availableMonths = [
-  { value: '01', label: 'Januari' },
-  { value: '02', label: 'Februari' },
-  { value: '03', label: 'Maret' },
-  { value: '04', label: 'April' },
-  { value: '05', label: 'Mei' },
-  { value: '06', label: 'Juni' },
-  { value: '07', label: 'Juli' },
-  { value: '08', label: 'Agustus' },
-  { value: '09', label: 'September' },
-  { value: '10', label: 'Oktober' },
-  { value: '11', label: 'November' },
-  { value: '12', label: 'Desember' }
-]
+const availableMonths = computed(() => {
+  return Array.from({ length: 12 }, (_, i) => {
+    const monthNum = String(i + 1).padStart(2, '0')
+    const date = new Date(2025, i, 1)
+    const label = d(date, { month: 'long' })
+    return { value: monthNum, label: label.charAt(0).toUpperCase() + label.slice(1) }
+  })
+})
 
 const availableYears = computed(() => {
   const current = new Date().getFullYear()
@@ -110,13 +106,13 @@ const getApiPayload = () => {
 }
 
 const mainFilters = computed(() => {
-  const filters = [{ type: 'segmented', key: 'reportType', label: 'Tipe Laporan', options: reportTypeOptions }]
+  const filters = [{ type: 'segmented', key: 'reportType', label: t('analytics.shop.report_type'), options: reportTypeOptions }]
 
   if (filterValues.value.reportType === 'annual') {
     filters.push({
       type: 'select',
       key: 'year',
-      label: 'Tahun',
+      label: t('analytics.reports.year'),
       options: availableYears.value.map(y => ({ id: y, label: y })),
       clearable: false,
       searchable: false
@@ -125,43 +121,43 @@ const mainFilters = computed(() => {
     filters.push({
       type: 'select',
       key: 'selectedMonth',
-      label: 'Bulan',
-      options: availableMonths,
+      label: t('analytics.reports.month'),
+      options: availableMonths.value,
       trackBy: 'value',
       clearable: false,
       searchable: false,
-      placeholder: 'Pilih Bulan'
+      placeholder: t('analytics.reports.select_month')
     })
     filters.push({
       type: 'select',
       key: 'year',
-      label: 'Tahun',
+      label: t('analytics.reports.year'),
       options: availableYears.value.map(y => ({ id: y, label: y })),
       clearable: false,
       searchable: false
     })
   } else {
-    filters.push({ type: 'daterange', keyStart: 'startDate', keyEnd: 'endDate', label: 'Rentang Waktu' })
+    filters.push({ type: 'daterange', keyStart: 'startDate', keyEnd: 'endDate', label: t('analytics.reports.date_range') })
   }
 
   filters.push(
     {
       type: 'triselect',
       key: 'source',
-      label: 'Saluran Marketplace',
+      label: t('analytics.shop.channel'),
       options: sourceOptions,
       optionLabel: 'label',
       trackBy: 'id',
-      placeholder: 'Semua Saluran'
+      placeholder: t('analytics.shop.all_channels')
     },
     {
       type: 'triselect',
       key: 'shopName',
-      label: 'Nama Toko / Sales',
+      label: t('analytics.shop.shop_name'),
       options: shopOptions.value,
       optionLabel: 'label',
       trackBy: 'id',
-      placeholder: 'Semua Toko / Sales'
+      placeholder: t('analytics.shop.all_shops')
     }
   )
 
@@ -264,11 +260,11 @@ const trendMetric = ref('omset')
 
 const trendSeries = computed(() => {
   if (trendMetric.value === 'omset') {
-    return [{ name: 'Omset (Rp)', type: 'area', data: dailyTrendData.value.map(d => d.totalRevenue) }]
+    return [{ name: `${t('analytics.shop.opt_omset')} (Rp)`, type: 'area', data: dailyTrendData.value.map(d => d.totalRevenue) }]
   } else if (trendMetric.value === 'qty') {
-    return [{ name: 'Qty Terjual', type: 'area', data: dailyTrendData.value.map(d => d.totalItemsSold) }]
+    return [{ name: t('analytics.shop.opt_qty'), type: 'area', data: dailyTrendData.value.map(d => d.totalItemsSold) }]
   } else {
-    return [{ name: 'Total Order (Resi)', type: 'area', data: dailyTrendData.value.map(d => d.totalOrders) }]
+    return [{ name: t('analytics.shop.opt_orders'), type: 'area', data: dailyTrendData.value.map(d => d.totalOrders) }]
   }
 })
 
@@ -282,7 +278,7 @@ const trendOptions = computed(() => ({
   yaxis: [
     {
       title: {
-        text: trendMetric.value === 'omset' ? 'Omset (Rp)' : trendMetric.value === 'qty' ? 'Qty' : 'Total Order',
+        text: trendMetric.value === 'omset' ? `${t('analytics.shop.opt_omset')} (Rp)` : trendMetric.value === 'qty' ? 'Qty' : t('analytics.shop.opt_orders'),
         style: { color: labelColor.value }
       },
       labels: {
@@ -317,21 +313,21 @@ const sourceBadgeClass = source => {
 // === COMPARISON TAB ===
 const compMetrics = computed(() => [
   {
-    label: 'Total Omset',
+    label: t('analytics.shop.total_revenue'),
     current: comparisonData.value.current?.totalRevenue ?? 0,
     previous: comparisonData.value.previous?.totalRevenue ?? 0,
     delta: comparisonData.value.delta?.revenue ?? 0,
     format: 'currency'
   },
   {
-    label: 'Total Order',
+    label: t('analytics.shop.total_orders'),
     current: comparisonData.value.current?.totalOrders ?? 0,
     previous: comparisonData.value.previous?.totalOrders ?? 0,
     delta: comparisonData.value.delta?.orders ?? 0,
     format: 'number'
   },
   {
-    label: 'Qty Terjual',
+    label: t('analytics.shop.total_qty_sold'),
     current: comparisonData.value.current?.totalItemsSold ?? 0,
     previous: comparisonData.value.previous?.totalItemsSold ?? 0,
     delta: comparisonData.value.delta?.items ?? 0,
@@ -340,8 +336,8 @@ const compMetrics = computed(() => [
 ])
 
 const compBarSeries = computed(() => [
-  { name: 'Periode Ini', data: compMetrics.value.map(m => m.current) },
-  { name: 'Periode Sebelumnya', data: compMetrics.value.map(m => m.previous) }
+  { name: t('analytics.shop.this_period'), data: compMetrics.value.map(m => m.current) },
+  { name: t('analytics.shop.prev_period'), data: compMetrics.value.map(m => m.previous) }
 ])
 const compBarOptions = computed(() => ({
   chart: { type: 'bar', background: 'transparent', toolbar: { show: false } },
@@ -380,8 +376,8 @@ const periodLabel = computed(() => {
       class="mb-6 border-b border-secondary/20 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
     >
       <div>
-        <h3 class="text-lg font-bold text-text">Penjualan & Performa Toko</h3>
-        <p class="text-sm text-text/50 mt-1">Analitik penjualan, tren, dan kesehatan pemenuhan per toko.</p>
+        <h3 class="text-lg font-bold text-text">{{ t('analytics.shop.page_title') }}</h3>
+        <p class="text-sm text-text/50 mt-1">{{ t('analytics.shop.page_subtitle') }}</p>
       </div>
       <div class="flex items-center w-full md:w-auto">
         <FilterToggle v-model="showFilters" />
@@ -435,7 +431,7 @@ const periodLabel = computed(() => {
       class="bg-background border border-secondary rounded-xl p-16 flex flex-col items-center justify-center text-center shadow-sm"
     >
       <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-4xl mb-4 text-primary" />
-      <p class="font-medium text-text/60">Memuat data performa toko...</p>
+      <p class="font-medium text-text/60">{{ t('analytics.shop.loading') }}</p>
     </main>
 
     <!-- Empty State -->
@@ -444,9 +440,9 @@ const periodLabel = computed(() => {
       class="bg-background border border-secondary rounded-xl p-16 flex flex-col items-center justify-center text-center shadow-sm"
     >
       <font-awesome-icon icon="fa-solid fa-store-slash" class="text-4xl mb-4 text-text/30" />
-      <h4 class="font-bold text-text text-lg">Tidak ada data penjualan toko</h4>
+      <h4 class="font-bold text-text text-lg">{{ t('analytics.shop.empty_title') }}</h4>
       <p class="text-text/60 mt-2 text-sm max-w-sm">
-        Pada rentang pencarian ini, belum ada data penjualan yang valid ter-record.
+        {{ t('analytics.shop.empty_desc') }}
       </p>
     </main>
 
@@ -455,23 +451,23 @@ const periodLabel = computed(() => {
       <!-- KPI Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
         <div class="bg-background border border-secondary rounded-xl p-5 shadow-sm">
-          <p class="text-xs font-semibold text-text/50 uppercase">Total Omset</p>
+          <p class="text-xs font-semibold text-text/50 uppercase">{{ t('analytics.shop.total_revenue') }}</p>
           <p class="text-2xl font-bold text-primary mt-1">
             {{ formatCurrency(totalRevenueOverall) }}
           </p>
         </div>
         <div class="bg-background border border-secondary rounded-xl p-5 shadow-sm">
-          <p class="text-xs font-semibold text-text/50 uppercase">Total Qty Terjual</p>
+          <p class="text-xs font-semibold text-text/50 uppercase">{{ t('analytics.shop.total_qty_sold') }}</p>
           <p class="text-2xl font-bold text-text mt-1">
             {{ formatNumber(totalItemsOverall) }} <span class="text-sm text-text/50">pcs</span>
           </p>
         </div>
         <div class="bg-background border border-secondary rounded-xl p-5 shadow-sm">
-          <p class="text-xs font-semibold text-text/50 uppercase">Total Order</p>
+          <p class="text-xs font-semibold text-text/50 uppercase">{{ t('analytics.shop.total_orders') }}</p>
           <p class="text-2xl font-bold text-text mt-1">{{ formatNumber(totalOrdersOverall) }}</p>
         </div>
         <div class="bg-background border border-secondary rounded-xl p-5 shadow-sm">
-          <p class="text-xs font-semibold text-text/50 uppercase">Rata-rata Order (AOV)</p>
+          <p class="text-xs font-semibold text-text/50 uppercase">{{ t('analytics.shop.aov') }}</p>
           <p class="text-2xl font-bold text-success mt-1">{{ formatCurrency(aovOverall) }}</p>
         </div>
       </div>
@@ -479,8 +475,8 @@ const periodLabel = computed(() => {
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
         <!-- pie Chart -->
         <div class="bg-background border border-secondary p-5 md:p-8 rounded-xl shadow-sm w-full lg:col-span-1">
-          <h4 class="font-bold text-text text-lg mb-2">Distribusi Omset</h4>
-          <p class="text-xs md:text-sm text-text/50 mb-6">Pangsa omset per toko.</p>
+          <h4 class="font-bold text-text text-lg mb-2">{{ t('analytics.shop.revenue_dist') }}</h4>
+          <p class="text-xs md:text-sm text-text/50 mb-6">{{ t('analytics.shop.revenue_dist_desc') }}</p>
           <div class="w-full flex justify-center">
             <VueApexCharts
               v-if="!isThemeChanging"
@@ -496,48 +492,48 @@ const periodLabel = computed(() => {
         <!-- Summary Table -->
         <div class="bg-background border border-secondary rounded-xl overflow-hidden shadow-sm lg:col-span-2">
           <div class="p-4 border-b border-secondary/20 flex justify-between items-center bg-secondary/5">
-            <h4 class="font-bold text-text text-sm uppercase px-2">Peringkat Toko</h4>
+            <h4 class="font-bold text-text text-sm uppercase px-2">{{ t('analytics.shop.shop_ranking') }}</h4>
           </div>
           <div class="overflow-auto max-h-[450px] custom-scrollbar">
             <table class="w-full text-left text-sm whitespace-nowrap">
               <thead class="bg-background border-b border-secondary sticky top-0 z-10">
                 <tr>
-                  <th class="px-6 py-4 font-semibold text-text/80" title="Nama toko atau cabang">Nama Toko</th>
+                  <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_shop_name_tooltip')">{{ t('analytics.shop.col_shop_name') }}</th>
                   <th
                     class="px-6 py-4 font-semibold text-text/80 text-center"
-                    title="Platform/saluran penjualan (Online/Offline/Marketplace)"
+                    :title="t('analytics.shop.col_channel_tooltip')"
                   >
-                    Saluran
+                    {{ t('analytics.shop.col_channel') }}
                   </th>
                   <th
                     class="px-6 py-4 font-semibold text-text/80 text-right"
-                    title="Jumlah transaksi atau pesanan yang terjadi"
+                    :title="t('analytics.shop.col_orders_tooltip')"
                   >
-                    Total Order
+                    {{ t('analytics.shop.col_orders') }}
                   </th>
                   <th
                     class="px-6 py-4 font-semibold text-text/80 text-right"
-                    title="Persentase kontribusi transaksi toko ini terhadap total transaksi keseluruhan"
+                    :title="t('analytics.shop.col_pct_orders_tooltip')"
                   >
-                    % Transaksi
+                    {{ t('analytics.shop.col_pct_orders') }}
                   </th>
                   <th
                     class="px-6 py-4 font-semibold text-text/80 text-right"
-                    title="Total kuantitas barang yang terjual dari toko ini"
+                    :title="t('analytics.shop.col_qty_sold_tooltip')"
                   >
-                    Qty Terjual
+                    {{ t('analytics.shop.col_qty_sold') }}
                   </th>
                   <th
                     class="px-6 py-4 font-semibold text-text/80 text-right"
-                    title="Total pendapatan kotor dari toko ini"
+                    :title="t('analytics.shop.col_revenue_tooltip')"
                   >
-                    Omset
+                    {{ t('analytics.shop.col_revenue') }}
                   </th>
                   <th
                     class="px-6 py-4 font-semibold text-text/80 text-right"
-                    title="Persentase kontribusi omset toko ini terhadap total pendapatan keseluruhan"
+                    :title="t('analytics.shop.col_pct_revenue_tooltip')"
                   >
-                    % Omset
+                    {{ t('analytics.shop.col_pct_revenue') }}
                   </th>
                 </tr>
               </thead>
@@ -611,23 +607,23 @@ const periodLabel = computed(() => {
         class="bg-background border border-secondary rounded-xl p-12 text-center shadow-sm animate-fade-in"
       >
         <font-awesome-icon icon="fa-solid fa-chart-line" class="text-3xl text-text/20 mb-3" />
-        <p class="text-text/50 text-sm">Tidak ada data tren untuk rentang waktu ini.</p>
+        <p class="text-text/50 text-sm">{{ t('analytics.shop.no_trend_data') }}</p>
       </div>
       <div v-else class="bg-background border border-secondary p-5 md:p-8 rounded-xl shadow-sm animate-fade-in">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
-            <h4 class="font-bold text-text text-lg mb-1">Tren Penjualan Harian</h4>
-            <p class="text-xs text-text/50">Pergerakan data penjualan dari hari ke hari.</p>
+            <h4 class="font-bold text-text text-lg mb-1">{{ t('analytics.shop.daily_trend_title') }}</h4>
+            <p class="text-xs text-text/50">{{ t('analytics.shop.daily_trend_subtitle') }}</p>
           </div>
           <div class="flex items-center gap-2">
-            <label class="text-xs font-semibold text-text/70">Tampilkan:</label>
+            <label class="text-xs font-semibold text-text/70">{{ t('analytics.shop.display_label') }}</label>
             <select
               v-model="trendMetric"
               class="px-3 py-1.5 bg-background border border-secondary rounded-lg text-sm font-medium text-text focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
             >
-              <option value="omset">Omset</option>
-              <option value="qty">Qty Terjual</option>
-              <option value="resi">Resi / Order</option>
+              <option value="omset">{{ t('analytics.shop.opt_omset') }}</option>
+              <option value="qty">{{ t('analytics.shop.opt_qty') }}</option>
+              <option value="resi">{{ t('analytics.shop.opt_orders') }}</option>
             </select>
           </div>
         </div>
@@ -648,29 +644,29 @@ const periodLabel = computed(() => {
         class="bg-background border border-secondary rounded-xl p-12 text-center shadow-sm animate-fade-in"
       >
         <font-awesome-icon icon="fa-solid fa-ranking-star" class="text-3xl text-text/20 mb-3" />
-        <p class="text-text/50 text-sm">Tidak ada data produk terlaris untuk rentang waktu ini.</p>
+        <p class="text-text/50 text-sm">{{ t('analytics.shop.no_top_products') }}</p>
       </div>
       <div v-else class="bg-background border border-secondary rounded-xl overflow-hidden shadow-sm animate-fade-in">
         <div class="p-4 border-b border-secondary/20 bg-secondary/5">
-          <h4 class="font-bold text-text text-sm uppercase px-2">Top 10 Produk Terlaris (Semua Toko)</h4>
+          <h4 class="font-bold text-text text-sm uppercase px-2">{{ t('analytics.shop.top_products_title') }}</h4>
         </div>
         <div class="overflow-auto max-h-[500px] custom-scrollbar">
           <table class="w-full text-left text-sm whitespace-nowrap">
             <thead class="bg-background border-b border-secondary sticky top-0 z-10">
               <tr>
-                <th class="px-6 py-4 font-semibold text-text/80" title="Peringkat penjualan">#</th>
-                <th class="px-6 py-4 font-semibold text-text/80" title="Kode unik produk">SKU</th>
-                <th class="px-6 py-4 font-semibold text-text/80" title="Nama produk">Produk</th>
-                <th class="px-6 py-4 font-semibold text-text/80" title="Toko tempat produk terjual">Toko</th>
-                <th class="px-6 py-4 font-semibold text-text/80 text-center" title="Platform penjualan">Saluran</th>
-                <th class="px-6 py-4 font-semibold text-text/80 text-right" title="Jumlah produk yang terjual">
-                  Qty Terjual
+                <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_rank_tooltip')">#</th>
+                <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_product_sku_tooltip')">SKU</th>
+                <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_product_name_tooltip')">{{ t('analytics.shop.col_product') }}</th>
+                <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_product_shop_tooltip')">{{ t('analytics.shop.col_shop_name') }}</th>
+                <th class="px-6 py-4 font-semibold text-text/80 text-center" :title="t('analytics.shop.col_product_channel_tooltip')">{{ t('analytics.shop.col_channel') }}</th>
+                <th class="px-6 py-4 font-semibold text-text/80 text-right" :title="t('analytics.shop.col_product_qty_tooltip')">
+                  {{ t('analytics.shop.col_qty_sold') }}
                 </th>
                 <th
                   class="px-6 py-4 font-semibold text-text/80 text-right"
-                  title="Total pendapatan dari penjualan produk ini"
+                  :title="t('analytics.shop.col_product_revenue_tooltip')"
                 >
-                  Pendapatan
+                  {{ t('analytics.shop.col_income') }}
                 </th>
               </tr>
             </thead>
@@ -767,7 +763,7 @@ const periodLabel = computed(() => {
 
         <!-- Grouped Bar Chart -->
         <div class="bg-background border border-secondary p-5 md:p-8 rounded-xl shadow-sm">
-          <h4 class="font-bold text-text text-lg mb-1">Grafik Perbandingan</h4>
+          <h4 class="font-bold text-text text-lg mb-1">{{ t('analytics.shop.comp_chart_title') }}</h4>
           <p class="text-xs text-text/50 mb-6">{{ periodLabel.current }} vs {{ periodLabel.previous }}</p>
           <VueApexCharts
             v-if="!isThemeChanging"

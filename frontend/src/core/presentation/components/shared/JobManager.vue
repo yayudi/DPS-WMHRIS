@@ -4,9 +4,10 @@ import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
 import { useUploadStore } from '@/core/presentation/stores/uploadStore'
 import { useFirebaseSync } from '@/core/presentation/composables/useFirebaseSync'
 import { formatFileName } from '@/core/utils/formatters'
-import dayjs from 'dayjs'
 import { useDownload } from '@/core/presentation/composables/useDownload'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
+const { t, d } = useI18n()
 const downloadStore = useDownloadStore()
 const uploadStore = useUploadStore()
 const { openDownloadUrl } = useDownload()
@@ -71,12 +72,12 @@ onMounted(() => {
 
 const formatStatus = status => {
   const map = {
-    PENDING: 'Menunggu',
-    PROCESSING: 'Memproses',
-    COMPLETED: 'Selesai',
-    COMPLETED_WITH_ERRORS: 'Selesai (Parsial)',
-    FAILED: 'Gagal',
-    CANCELLED: 'Dibatalkan',
+    PENDING: t('common.status.pending'),
+    PROCESSING: t('common.status.processing'),
+    COMPLETED: t('common.status.completed'),
+    COMPLETED_WITH_ERRORS: t('common.status.partial'),
+    FAILED: t('common.status.failed'),
+    CANCELLED: t('common.status.cancelled'),
     VOID: 'Void'
   }
   return map[status] || status
@@ -95,7 +96,10 @@ const getStatusClass = status => {
   return map[status] || 'text-text/60 bg-secondary/10'
 }
 
-const formatDate = date => dayjs(date).format('DD MMM YYYY, HH:mm')
+const formatDate = date => {
+  if (!date) return ''
+  return d(date, { dateStyle: 'medium', timeStyle: 'short' })
+}
 
 const recentDownloads = computed(() => downloadStore.jobs.slice(0, 5))
 const recentUploads = computed(() => uploadStore.jobs.slice(0, 5))
@@ -135,7 +139,7 @@ const getErrorUrl = job => {
         <div class="px-4 py-3 bg-secondary/5 border-b border-secondary/10 flex justify-between items-center shrink-0">
           <div class="flex items-center gap-2">
             <font-awesome-icon icon="fa-solid fa-up-down" class="text-primary" />
-            <h3 class="font-bold text-sm text-text">Pusat Aktivitas</h3>
+            <h3 class="font-bold text-sm text-text">{{ t('core.activity.title') }}</h3>
           </div>
           <div class="flex items-center gap-2">
             <span v-if="downloadStore.pendingCount > 0 || uploadStore.pendingCount > 0" class="flex h-2 w-2">
@@ -163,7 +167,7 @@ const getErrorUrl = job => {
             "
           >
             <font-awesome-icon icon="fa-solid fa-cloud-arrow-down" class="mr-1.5" />
-            Unduhan
+            {{ t('core.activity.downloads') }}
             <span
               v-if="downloadStore.pendingCount > 0"
               class="ml-1 px-1.5 py-0.5 rounded-full bg-primary text-secondary text-[9px]"
@@ -180,7 +184,7 @@ const getErrorUrl = job => {
             "
           >
             <font-awesome-icon icon="fa-solid fa-cloud-arrow-up" class="mr-1.5" />
-            Unggahan
+            {{ t('core.activity.uploads') }}
             <span
               v-if="uploadStore.pendingCount > 0"
               class="ml-1 px-1.5 py-0.5 rounded-full bg-primary text-secondary text-[9px]"
@@ -193,7 +197,7 @@ const getErrorUrl = job => {
         <div v-show="activeTab === 'download'" class="flex-1 overflow-y-auto custom-scrollbar p-2">
           <div v-if="recentDownloads.length === 0" class="py-8 text-center text-text/40">
             <font-awesome-icon icon="fa-solid fa-folder-open" class="text-3xl mb-2 opacity-50" />
-            <p class="text-xs font-medium">Belum ada riwayat unduhan.</p>
+            <p class="text-xs font-medium">{{ t('core.activity.no_downloads') }}</p>
           </div>
 
           <div v-else class="space-y-1">
@@ -215,7 +219,7 @@ const getErrorUrl = job => {
               </div>
 
               <div class="text-xs font-bold text-text truncate mb-2" :title="job.file_path">
-                {{ formatFileName(job.file_path, job.job_type || job.type) }}
+                {{ formatFileName(job.file_path, job.job_type || job.type, t) }}
               </div>
 
               <div class="flex justify-between items-center">
@@ -227,14 +231,14 @@ const getErrorUrl = job => {
                   @click.prevent="openDownloadUrl(job.download_url)"
                   class="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-secondary rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
                 >
-                  <font-awesome-icon icon="fa-solid fa-download" /> Unduh
+                  <font-awesome-icon icon="fa-solid fa-download" /> {{ t('common.btn.download') }}
                 </a>
                 <span
                   v-else-if="job.status === 'FAILED'"
                   class="text-[10px] text-danger font-medium truncate max-w-[120px]"
                   :title="job.error_message"
                 >
-                  {{ job.error_message || 'Gagal' }}
+                  {{ job.error_message || t('common.status.failed') }}
                 </span>
                 <span v-else-if="job.status === 'PROCESSING' || job.status === 'PENDING'" class="text-xs text-text/40">
                   <font-awesome-icon icon="fa-solid fa-circle-notch" spin />
@@ -248,7 +252,7 @@ const getErrorUrl = job => {
         <div v-show="activeTab === 'upload'" class="flex-1 overflow-y-auto custom-scrollbar p-2">
           <div v-if="recentUploads.length === 0" class="py-8 text-center text-text/40">
             <font-awesome-icon icon="fa-solid fa-file-excel" class="text-3xl mb-2 opacity-50" />
-            <p class="text-xs font-medium">Belum ada riwayat unggahan.</p>
+            <p class="text-xs font-medium">{{ t('core.activity.no_uploads') }}</p>
           </div>
 
           <div v-else class="space-y-1">
@@ -276,7 +280,7 @@ const getErrorUrl = job => {
               </div>
 
               <div class="text-xs font-bold text-text truncate mb-1">
-                {{ job.original_filename || 'Memproses file...' }}
+                {{ job.original_filename || t('common.status.processing') }}
               </div>
 
               <div v-if="job.notes" class="text-[10px] text-text/60 italic mb-2 border-l-2 border-primary/30 pl-1.5 truncate" :title="job.notes">
@@ -286,7 +290,7 @@ const getErrorUrl = job => {
               <!-- Progress Bar -->
               <div v-if="job.status === 'PROCESSING'" class="mt-2 mb-2">
                 <div class="flex justify-between text-[10px] text-text/60 mb-1">
-                  <span>Progres</span>
+                  <span>{{ t('core.activity.progress') }}</span>
                   <span>{{ job.progress || 0 }}%</span>
                 </div>
                 <div class="w-full bg-secondary/20 rounded-full h-1.5">
@@ -299,7 +303,7 @@ const getErrorUrl = job => {
 
               <div class="flex justify-between items-center mt-2">
                 <span class="text-[10px] text-text/50 truncate max-w-[150px]" :title="job.log_summary">
-                  {{ job.log_summary || 'Memproses...' }}
+                  {{ job.log_summary || t('common.status.processing') }}
                 </span>
 
                 <a
@@ -317,7 +321,7 @@ const getErrorUrl = job => {
 
         <!-- Footer link -->
         <div class="px-4 py-2 bg-secondary/5 border-t border-secondary/10 text-center shrink-0">
-          <span class="text-[10px] text-text/50 font-medium">Menampilkan 5 aktivitas terakhir.</span>
+          <span class="text-[10px] text-text/50 font-medium">{{ t('core.activity.showing_last_5') }}</span>
         </div>
       </div>
     </transition>
@@ -343,7 +347,7 @@ const getErrorUrl = job => {
         v-if="!isExpanded"
         class="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-text text-background text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none"
       >
-        Pusat Aktivitas
+        {{ t('core.activity.title') }}
       </div>
     </button>
   </div>

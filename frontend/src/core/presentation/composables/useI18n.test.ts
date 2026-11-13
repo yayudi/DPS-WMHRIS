@@ -140,4 +140,36 @@ describe('useI18n composable', () => {
     // Invalid currency option (must not throw uncaught RangeError)
     expect(() => n(500, { style: 'currency', currency: 'INVALID_CURR' as any })).not.toThrow()
   })
+
+  it('formats time and combined datetime using tTime() and dt() respecting locale and timezone', () => {
+    const store = useLocaleStore()
+    store.currentLocale = 'id-ID'
+    store.preferences = {
+      user_id: 1,
+      locale: 'id-ID',
+      theme: 'light',
+      timezone: 'Asia/Jakarta',
+      date_format: 'YYYY-MM-DD'
+    }
+
+    const { tTime, dt } = useI18n()
+    // 10:30:45 UTC -> 17:30:45 Asia/Jakarta (UTC+7)
+    const testDate = new Date('2026-11-03T10:30:45Z')
+
+    const timeId = tTime(testDate)
+    expect(timeId).toMatch(/17[:.]30[:.]45/)
+
+    const dateTimeId = dt(testDate)
+    expect(dateTimeId).toMatch(/^2026-11-03\s+17[:.]30/)
+
+    // Switch to en-US with DD/MM/YYYY
+    store.currentLocale = 'en-US'
+    store.preferences.date_format = 'DD/MM/YYYY'
+    const dateTimeEn = dt(testDate, { hour: '2-digit', minute: '2-digit', hour12: false })
+    expect(dateTimeEn).toBe('03/11/2026 17:30')
+
+    // Edge cases
+    expect(tTime('')).toBe('')
+    expect(dt('')).toBe('')
+  })
 })

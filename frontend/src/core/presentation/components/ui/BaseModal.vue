@@ -2,8 +2,10 @@
 import { watch } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
 import { useMobile } from '@/core/presentation/composables/useMobile'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const { isMobile } = useMobile()
+const { t } = useI18n()
 
 const props = defineProps({
   show: {
@@ -59,7 +61,7 @@ watch(Escape, pressed => {
         <div class="p-4 flex justify-between items-center shrink-0">
           <h3 class="font-bold text-text text-lg">
             <!-- Slot untuk judul kustom jika diperlukan -->
-            <slot name="title">{{ title }}</slot>
+            <slot name="title">{{ title === 'Judul Modal' ? t('common.modal.title') : title }}</slot>
           </h3>
           <button
             @click="emit('close')"

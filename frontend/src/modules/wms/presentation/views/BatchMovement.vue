@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, watch, defineAsyncComponent } from 'vue'
 import { useMagicKeys, useLocalStorage } from '@vueuse/core'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { userApi } from '@/modules/settings/infrastructure/user.api'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
@@ -14,6 +15,7 @@ import MultiLocationTransferTab from '@/modules/wms/presentation/components/tran
 import BatchInboundModal from '@/modules/wms/presentation/components/stock/BatchInboundModal.vue'
 
 const masterData = useMasterDataStore()
+const { t } = useI18n()
 const { copyBatchToClipboard } = useBatchClipboard()
 const StickerGeneratorModal = defineAsyncComponent(() => import('@/modules/master_data/presentation/components/stickers/StickerGeneratorModal.vue'))
 
@@ -94,10 +96,10 @@ watch(activeTab, async (newVal, oldVal) => {
 
   if (hasData && newVal && oldVal && newVal !== oldVal) {
     const isConfirmed = await swalConfirm(
-      'Pindah Tab?',
-      'Mengubah tab akan mereset seluruh data yang sudah di-input. Yakin?',
-      'Ya, Pindah',
-      'Batal'
+      t('wms.batch_move_view.switch_tab_title'),
+      t('wms.batch_move_view.switch_tab_msg'),
+      t('wms.batch_move_view.switch_tab_confirm'),
+      t('common.btn.cancel')
     )
     if (isConfirmed) {
       if (oldVal === 'DETAILED_TRANSFER' && detailedTransferTabRef.value) {
@@ -120,10 +122,10 @@ watch(fromLocation, async (newVal, oldVal) => {
   }
   if (batchList.value.length > 0 && newVal && oldVal && newVal.id !== oldVal.id) {
     const isConfirmed = await swalConfirm(
-      'Reset Daftar Produk?',
-      'Mengubah lokasi asal akan mereset seluruh daftar produk yang sudah dipilih. Yakin?',
-      'Ya, Reset',
-      'Batal'
+      t('wms.batch_move_view.reset_from_loc_title'),
+      t('wms.batch_move_view.reset_from_loc_msg'),
+      t('wms.batch_move_view.reset_confirm'),
+      t('common.btn.cancel')
     )
     if (isConfirmed) {
       batchList.value = []
@@ -142,10 +144,10 @@ watch(toLocation, async (newVal, oldVal) => {
   }
   if (batchList.value.length > 0 && newVal && oldVal && newVal.id !== oldVal.id) {
     const isConfirmed = await swalConfirm(
-      'Reset Daftar Produk?',
-      'Mengubah lokasi tujuan akan mereset seluruh daftar produk yang sudah dipilih. Yakin?',
-      'Ya, Reset',
-      'Batal'
+      t('wms.batch_move_view.reset_to_loc_title'),
+      t('wms.batch_move_view.reset_to_loc_msg'),
+      t('wms.batch_move_view.reset_confirm'),
+      t('common.btn.cancel')
     )
     if (isConfirmed) {
       batchList.value = []
@@ -176,7 +178,7 @@ const batchSearchLocationId = computed(() => {
 
 function handleAddProduct({ product, quantity }) {
   if (!product || !quantity) {
-    toast('Pilih produk dan masukkan kuantitas yang valid.', 'warning')
+    toast(t('wms.batch_move_view.invalid_product_qty'), 'warning')
     return
   }
 
@@ -200,7 +202,7 @@ async function copyFromSku() {
     batchList.value,
     item =>
       `${item.sku}\t${item.name}\t${fromLocation.value?.code || ''}\t${toLocation.value?.code || ''}\t${item.quantity}`,
-    'Daftar transfer berhasil disalin ke clipboard.'
+    t('wms.batch_move_view.copied_to_clipboard')
   )
 }
 
@@ -296,7 +298,7 @@ async function submitBatch() {
           class="bg-success/5 text-success border border-success/30 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-success hover:text-background flex items-center gap-2 transition-all"
         >
           <font-awesome-icon icon="fa-solid fa-file-import" />
-          <span>Import Massal</span>
+          <span>{{ t('wms.batch_move_view.btn_bulk_import') }}</span>
         </button>
         <button
           v-if="activeTab === 'INBOUND'"
@@ -305,7 +307,7 @@ async function submitBatch() {
           class="px-6 py-3 bg-secondary text-text rounded-lg font-bold disabled:opacity-50 border border-primary/20 hover:border-primary flex items-center gap-2"
         >
           <font-awesome-icon icon="fa-solid fa-print" />
-          <span>Cetak Label Barang Masuk</span>
+          <span>{{ t('wms.batch_move_view.btn_print_inbound_label') }}</span>
         </button>
         <button
           @click="copyFromSku()"
@@ -313,7 +315,7 @@ async function submitBatch() {
           class="px-6 py-3 bg-accent text-secondary rounded-lg font-bold disabled:opacity-50"
         >
           <font-awesome-icon icon="fa-solid fa-copy" />
-          <span>Salin Daftar</span>
+          <span>{{ t('wms.batch_move_view.btn_copy_list') }}</span>
         </button>
         <button
           @click="submitBatch"
@@ -321,7 +323,7 @@ async function submitBatch() {
           class="px-6 py-3 bg-primary text-secondary rounded-lg font-bold disabled:opacity-50 flex items-center gap-2 group"
         >
           <font-awesome-icon v-if="isLoading" icon="fa-solid fa-spinner" class="animate-spin" />
-          <span>{{ isLoading ? 'Memproses...' : 'Submit Batch' }}</span>
+          <span>{{ isLoading ? t('common.processing') : t('wms.batch_move_view.btn_submit_batch') }}</span>
           <kbd
             v-if="!isLoading"
             class="hidden md:inline-block ml-1 px-1.5 py-0.5 text-[10px] bg-secondary/20 text-secondary border border-secondary/30 rounded font-mono shadow-sm group-hover:bg-secondary/30 transition-colors"
@@ -335,7 +337,7 @@ async function submitBatch() {
   <BatchInboundModal
     :isOpen="isBatchInboundModalOpen"
     @close="isBatchInboundModalOpen = false"
-    @success="() => toast('Batch Inbound diproses!', 'success')"
+    @success="() => toast(t('wms.batch_move_view.batch_inbound_processed'), 'success')"
   />
 
   <StickerGeneratorModal :show="isStickerModalOpen" @close="isStickerModalOpen = false" :initial-batch="batchList" />

@@ -3,6 +3,9 @@
 import { ref, watch, onMounted, onUnmounted, shallowRef, computed } from 'vue'
 import { useDevicesList, useUserMedia } from '@vueuse/core'
 import jsQR from 'jsqr'
+import { useI18n } from '@/core/presentation/composables/useI18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   /**
@@ -111,7 +114,7 @@ const handleVideoPlay = () => {
 
 onMounted(async () => {
   if (!isSupported.value) {
-    errorMsg.value = 'Browser tidak mendukung akses kamera.'
+    errorMsg.value = t('common.scanner.unsupported')
     emit('error', new Error('MediaDevices not supported'))
     return
   }
@@ -122,11 +125,11 @@ onMounted(async () => {
       await start()
       scanIntervalId = setInterval(scan, props.interval)
     } else {
-      errorMsg.value = 'Izin kamera ditolak.'
+      errorMsg.value = t('common.scanner.permission_denied')
       emit('error', new Error('Camera permission denied'))
     }
   } catch (err) {
-    errorMsg.value = 'Gagal mengakses kamera.'
+    errorMsg.value = t('common.scanner.failed')
     emit('error', err)
   }
 })
@@ -155,7 +158,7 @@ onUnmounted(() => {
     <!-- Loading State -->
     <div v-else-if="!isReady" class="absolute inset-0 flex flex-col items-center justify-center z-20 bg-slate-900">
       <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-      <p class="text-slate-400 text-sm mt-4 animate-pulse">Menyiapkan kamera...</p>
+      <p class="text-slate-400 text-sm mt-4 animate-pulse">{{ t('common.scanner.preparing') }}</p>
     </div>
 
     <!-- Video Feed -->
@@ -200,7 +203,7 @@ onUnmounted(() => {
         v-if="hasMultipleCameras"
         @click.stop.prevent="switchCamera"
         class="flex items-center justify-center w-12 h-12 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm transition-all border border-white/10 active:scale-95"
-        title="Tukar Kamera"
+        :title="t('common.scanner.switch_camera')"
       >
         <i class="fa-solid fa-camera-rotate"></i>
       </button>
@@ -211,7 +214,7 @@ onUnmounted(() => {
         class="flex items-center gap-2 px-4 h-12 rounded-full bg-amber-500/90 text-white font-medium backdrop-blur-sm shadow-lg shadow-amber-500/20"
       >
         <i class="fa-solid fa-pause"></i>
-        <span>Jeda</span>
+        <span>{{ t('common.scanner.paused') }}</span>
       </div>
     </div>
   </div>

@@ -52,13 +52,13 @@ async function login() {
         auth.setUser(res.user)
       }
       auth.setToken() // trigger PWA check
-      toast('Login berhasil', 'success')
+      toast(t('auth.login.toast_success'), 'success')
       // Force hard navigation untuk memastikan PWA update terbaru diambil dari server
       window.location.href = '/'
     }
   } catch (err: any) {
     console.error(err)
-    const message = err?.response?.data?.message || err?.message || 'Username atau password salah.'
+    const message = err?.response?.data?.message || err?.message || t('auth.login.invalid_credentials')
     error.value = message
   } finally {
     loading.value = false

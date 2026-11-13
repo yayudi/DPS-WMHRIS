@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
-import { generateDynamicExportName, formatFileName } from '@/core/utils/formatters'
+import { useI18n } from '@/core/infrastructure/localization'
+import { generateDynamicExportName, formatFileName, formatJobType } from '@/core/utils/formatters'
 import { analyticsApi } from '../../infrastructure/analytics.api'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 import { useToast } from '@/core/presentation/composables/useToast'
@@ -11,11 +12,14 @@ import BaseFilterPanel from '@/core/presentation/components/ui/BaseFilterPanel.v
 import BaseSkeleton from '@/core/presentation/components/ui/BaseSkeleton.vue'
 import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
 import { useDownload } from '@/core/presentation/composables/useDownload'
+import { useAnalyticsFilterOptions } from '../composables/useAnalyticsFilterOptions'
 
+const { t, d, tTime } = useI18n()
 const { openDownloadUrl } = useDownload()
 const masterData = useMasterDataStore()
 const downloadStore = useDownloadStore()
 const { toast } = useToast()
+const { productTypeOptions: typeOptions, stockStatusOptions } = useAnalyticsFilterOptions()
 
 const isRequesting = ref(false)
 const isHistoryLoading = ref(false)
@@ -71,18 +75,6 @@ const purposeOptions = computed(() => {
   return (reportFilters.value?.purposes || []).map(p => ({ value: p, label: p }))
 })
 
-const typeOptions = [
-  { value: 'all', label: 'Semua', icon: 'fa-solid fa-layer-group' },
-  { value: '0', label: 'Tunggal', icon: 'fa-solid fa-box' },
-  { value: '1', label: 'Paket', icon: 'fa-solid fa-box-open' }
-]
-
-const stockStatusOptions = [
-  { value: 'all', label: 'Semua', icon: 'fa-solid fa-boxes-stacked' },
-  { value: 'positive', label: 'Positif', icon: 'fa-solid fa-plus' },
-  { value: 'negative', label: 'Minus', icon: 'fa-solid fa-minus' }
-]
-
 const formatOptions = [
   { value: 'xlsx', label: 'Excel (.xlsx)', icon: 'fa-solid fa-file-excel' },
   { value: 'csv', label: 'CSV (.csv)', icon: 'fa-solid fa-file-csv' }
@@ -132,21 +124,13 @@ async function handleRequestExport() {
   isRequesting.value = true
   try {
     const response = await analyticsApi.requestExportStock(filters)
-    toast(response.message || 'Permintaan diterima!', 'success')
+    toast(response.message || t('analytics.export.request_accepted'), 'success')
     downloadStore.notifyNewJob()
   } catch (error) {
     console.error(error)
   } finally {
     isRequesting.value = false
   }
-}
-
-function formatJobType(type) {
-  if (!type) return '-'
-  return type
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ')
 }
 </script>
 
@@ -155,48 +139,48 @@ function formatJobType(type) {
     class="bg-background rounded-xl shadow-md border border-secondary/20 p-6 relative overflow-visible animate-fade-in"
   >
     <div class="mb-6 border-b border-secondary pb-4">
-      <h3 class="text-lg font-bold text-text">Ekspor Laporan Stok</h3>
-      <p class="text-sm text-text/50 mt-1">Filter dan unduh data stok gudang dalam format Excel.</p>
+      <h3 class="text-lg font-bold text-text">{{ t('analytics.export.title') }}</h3>
+      <p class="text-sm text-text/50 mt-1">{{ t('analytics.export.subtitle') }}</p>
     </div>
 
     <div class="grid lg:grid-cols-3 gap-8">
       <div class="lg:col-span-1">
-        <BaseFilterPanel title="Filter Export">
+        <BaseFilterPanel :title="t('analytics.export.filter_title')">
           <template #filters>
             <div class="space-y-5 w-full">
               <div>
-                <label class="label-input">Cari Produk</label>
+                <label class="label-input">{{ t('analytics.export.label_search') }}</label>
                 <SearchInput
                   id="search-filter"
                   v-model="selectedFilters.searchQuery"
-                  placeholder="Cari SKU atau Nama Produk..."
+                  :placeholder="t('common.placeholder.search_sku')"
                 />
               </div>
 
               <div>
-                <label class="label-input">Tujuan</label>
+                <label class="label-input">{{ t('common.label.purpose') }}</label>
                 <TriStateSelect
                   v-model="selectedFilters.purpose"
                   :options="purposeOptions"
                   label="label"
                   track-by="value"
-                  placeholder="Semua Tujuan"
+                  :placeholder="t('common.filter.all_purposes')"
                 />
               </div>
 
               <div>
-                <label class="label-input">Gedung</label>
+                <label class="label-input">{{ t('common.label.building') }}</label>
                 <TriStateSelect
                   v-model="selectedFilters.building"
                   :options="availableBuildings"
                   label="label"
                   track-by="value"
-                  placeholder="Semua Gedung"
+                  :placeholder="t('common.filter.all_buildings')"
                 />
               </div>
 
               <SegmentedControl
-                label="Tipe"
+                :label="t('analytics.export.label_type')"
                 label-variant="compact"
                 v-model="selectedFilters.isPackage"
                 :options="typeOptions"
@@ -204,7 +188,7 @@ function formatJobType(type) {
               />
 
               <SegmentedControl
-                label="Status Stok"
+                :label="t('analytics.export.label_stock_status')"
                 label-variant="compact"
                 v-model="selectedFilters.stockStatus"
                 :options="stockStatusOptions"
@@ -212,7 +196,7 @@ function formatJobType(type) {
               />
 
               <SegmentedControl
-                label="Format File"
+                :label="t('analytics.export.label_file_format')"
                 label-variant="compact"
                 v-model="selectedFilters.format"
                 :options="formatOptions"
@@ -226,7 +210,7 @@ function formatJobType(type) {
               >
                 <font-awesome-icon v-if="isRequesting" icon="fa-solid fa-circle-notch" spin />
                 <font-awesome-icon v-else icon="fa-solid fa-file-export" />
-                <span>{{ isRequesting ? 'Memproses...' : 'Generate Laporan' }}</span>
+                <span>{{ isRequesting ? t('common.processing') : t('analytics.export.generate_report') }}</span>
               </button>
             </div>
           </template>
@@ -235,14 +219,14 @@ function formatJobType(type) {
 
       <div class="lg:col-span-2">
         <div class="flex justify-between items-center mb-4">
-          <h4 class="text-sm font-bold text-text/70 uppercase tracking-wide">Riwayat Generate</h4>
+          <h4 class="text-sm font-bold text-text/70 uppercase tracking-wide">{{ t('analytics.export.history_title') }}</h4>
           <button
             @click="refreshHistory"
             class="text-xs text-text/60 hover:text-primary transition-colors flex items-center gap-1.5"
             :disabled="isHistoryLoading"
           >
             <font-awesome-icon icon="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': isHistoryLoading }" />
-            <span>Segarkan</span>
+            <span>{{ t('common.btn.refresh') }}</span>
           </button>
         </div>
 
@@ -255,23 +239,23 @@ function formatJobType(type) {
                 <th
                   class="px-3 py-3 font-bold text-xs text-text/60 uppercase sticky left-0 z-10 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]"
                 >
-                  Nama File
+                  {{ t('analytics.reports.col_file') }}
                 </th>
                 <th
                   class="px-3 py-3 font-bold text-xs text-text/60 uppercase sticky left-0 z-10 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]"
                 >
-                  Waktu
+                  {{ t('analytics.reports.col_request_time') }}
                 </th>
                 <th
                   class="px-3 py-3 font-bold text-xs text-text/60 uppercase sticky left-0 z-10 bg-background/95 backdrop-blur-md border-b border-secondary/10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]"
                 >
-                  Tipe
+                  {{ t('analytics.reports.col_type') }}
                 </th>
-                <th class="px-3 py-3 font-bold text-xs text-text/60 uppercase border-b border-secondary/10">Status</th>
+                <th class="px-3 py-3 font-bold text-xs text-text/60 uppercase border-b border-secondary/10">{{ t('common.label.status') }}</th>
                 <th
                   class="px-3 py-3 font-bold text-xs text-text/60 uppercase text-right border-b border-secondary/10 sticky right-0 z-30 bg-background/95 backdrop-blur-md shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]"
                 >
-                  Aksi
+                  {{ t('common.label.action') }}
                 </th>
               </tr>
             </thead>
@@ -288,12 +272,12 @@ function formatJobType(type) {
               </template>
 
               <tr v-else-if="jobHistory.length === 0" key="empty">
-                <td colspan="3" class="px-6 py-12 text-sm text-text/40 text-center italic">
+                <td colspan="5" class="px-6 py-12 text-sm text-text/40 text-center italic">
                   <font-awesome-icon
                     icon="fa-solid fa-clock-rotate-left"
                     class="mb-3 text-3xl opacity-20 block mx-auto"
                   />
-                  Belum ada riwayat permintaan.
+                  {{ t('analytics.export.empty_history') }}
                 </td>
               </tr>
 
@@ -307,52 +291,48 @@ function formatJobType(type) {
                   class="px-2 py-1 text-text text-xs sticky left-0 bg-background group-hover:bg-secondary/5 transition-colors shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]"
                 >
                   <div class="flex flex-col">
-                    <span class="font-bold text-sm">{{ formatFileName(job.file_path, job.job_type || job.type) }}</span>
+                    <span class="font-bold text-sm">{{ formatFileName(job.file_path, job.job_type || job.type, t) }}</span>
                   </div>
                 </td>
                 <td
                   class="px-2 py-1 text-text text-xs sticky left-0 bg-background group-hover:bg-secondary/5 transition-colors shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]"
                 >
                   <div class="flex flex-col">
-                    <span class="font-bold text-sm">{{
-                      new Date(job.created_at || job.createdAt).toLocaleDateString('id-ID')
-                    }}</span>
-                    <span class="text-text/40 text-[10px]">{{
-                      new Date(job.created_at || job.createdAt).toLocaleTimeString('id-ID')
-                    }}</span>
+                    <span class="font-bold text-sm">{{ d(job.created_at || job.createdAt) }}</span>
+                    <span class="text-text/40 text-[10px]">{{ tTime(job.created_at || job.createdAt) }}</span>
                   </div>
                 </td>
                 <td class="px-2 py-1">
                   <div class="flex flex-col">
-                    <span class="font-bold text-sm">{{ formatJobType(job.job_type || job.type) }}</span>
+                    <span class="font-bold text-sm">{{ formatJobType(job.job_type || job.type, t) }}</span>
                   </div>
                 </td>
                 <td class="px-2 py-1">
                   <span
                     v-if="job.status === 'PENDING'"
                     class="inline-flex items-center gap-1.5 justify-center align-center w-full py-1 rounded-full text-[10px] font-bold bg-warning/10 text-warning border border-warning/20"
-                    title="Menunggu"
+                    :title="t('analytics.reports.status_pending')"
                   >
                     <font-awesome-icon icon="fa-solid fa-clock" class="animate-ping" />
                   </span>
                   <span
                     v-if="job.status === 'COMPLETED'"
                     class="inline-flex items-center gap-1.5 justify-center align-center w-full py-1 rounded-full text-[10px] font-bold bg-success/10 text-success border border-success/20"
-                    title="Selesai"
+                    :title="t('common.status.completed')"
                   >
                     <font-awesome-icon icon="fa-solid fa-check" />
                   </span>
                   <span
                     v-else-if="job.status === 'FAILED'"
                     class="inline-flex items-center gap-1.5 justify-center align-center w-full py-1 rounded-full text-[10px] font-bold bg-danger/10 text-danger border border-danger/20"
-                    :title="job.error_message || Gagal"
+                    :title="job.error_message || t('common.status.failed')"
                   >
                     <font-awesome-icon icon="fa-solid fa-xmark" />
                   </span>
                   <span
                     v-else-if="job.status === 'PROCESSING'"
                     class="inline-flex items-center gap-1.5 justify-center align-center w-full py-1 rounded-full text-[10px] font-bold bg-warning/10 text-warning border border-warning/20"
-                    title="Proses"
+                    :title="t('analytics.reports.status_processing')"
                   >
                     <span class="w-1.5 h-1.5 rounded-full bg-current animate-ping"></span>
                   </span>
@@ -373,9 +353,9 @@ function formatJobType(type) {
                     class="text-xs text-danger/60 bg-re align-center justify-center italic cursor-help underline decoration-dotted"
                     :title="job.error_message"
                   >
-                    Error
+                    {{ t('common.status.failed') }}
                   </span>
-                  <span v-else class="text-xs text-text/30 align-center justify-center italic"> Menunggu... </span>
+                  <span v-else class="text-xs text-text/30 align-center justify-center italic"> {{ t('analytics.reports.status_pending') }}... </span>
                 </td>
               </tr>
             </TransitionGroup>

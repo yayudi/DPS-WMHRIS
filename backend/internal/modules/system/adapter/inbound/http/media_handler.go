@@ -46,7 +46,7 @@ func (h *MediaHandler) ListMedia(c *gin.Context) {
 
 	result, err := h.mediaService.GetMediaAssets(c.Request.Context(), page, limit, filter)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil media", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.media.fetch_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
@@ -60,7 +60,7 @@ func (h *MediaHandler) GetMediaByID(c *gin.Context) {
 	}
 	asset, err := h.mediaService.GetMediaDetailsWithProducts(c.Request.Context(), id)
 	if err != nil || asset == nil {
-		utils.ErrorResponse(c, http.StatusNotFound, "Aset tidak ditemukan", "NOT_FOUND")
+		utils.ErrorResponse(c, http.StatusNotFound, "settings.media.asset_not_found", "NOT_FOUND")
 		return
 	}
 	utils.SuccessDataResponse(c, http.StatusOK, asset)
@@ -101,7 +101,7 @@ func (h *MediaHandler) GetPresignedUrls(c *gin.Context) {
 	}
 	req := *req_ptr
 	if len(req.Files) == 0 {
-		utils.ErrorResponse(c, http.StatusBadRequest, "List file tidak valid", "")
+		utils.ErrorResponse(c, http.StatusBadRequest, "settings.media.invalid_file_list", "")
 		return
 	}
 
@@ -130,7 +130,7 @@ func (h *MediaHandler) ConfirmUpload(c *gin.Context) {
 	}
 	req := *req_ptr
 	if len(req.Assets) == 0 {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Metadata aset tidak valid", "")
+		utils.ErrorResponse(c, http.StatusBadRequest, "settings.media.invalid_asset_metadata", "")
 		return
 	}
 
@@ -143,7 +143,7 @@ func (h *MediaHandler) ConfirmUpload(c *gin.Context) {
 		if dupErr, ok := err.(system_usecase.DuplicateError); ok {
 			utils.RawResponse(c, http.StatusConflict, gin.H{
 				"success":    false,
-				"message":    "File sudah pernah diunggah sebelumnya.",
+				"message":    "settings.media.duplicate_file",
 				"error_code": "DUPLICATE_MEDIA",
 				"duplicate":  dupErr.DuplicateOf,
 			})
@@ -153,7 +153,7 @@ func (h *MediaHandler) ConfirmUpload(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Media berhasil disimpan", uploadedAssets)
+	utils.SuccessResponse(c, http.StatusOK, "settings.media.save_success", uploadedAssets)
 }
 
 func (h *MediaHandler) DeleteMedia(c *gin.Context) {
@@ -166,14 +166,14 @@ func (h *MediaHandler) DeleteMedia(c *gin.Context) {
 
 	if err != nil {
 		if strings.Contains(err.Error(), "foreign key constraint fails") || strings.Contains(err.Error(), "a foreign key constraint fails") || strings.Contains(err.Error(), "ROW_IS_REFERENCED") {
-			utils.ErrorResponse(c, http.StatusConflict, "Tidak bisa dihapus karena sedang dipakai oleh produk", "CONFLICT")
+			utils.ErrorResponse(c, http.StatusConflict, "settings.media.cannot_delete_used", "CONFLICT")
 			return
 		}
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menghapus media", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.media.delete_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Media berhasil dihapus", nil)
+	utils.SuccessResponse(c, http.StatusOK, "settings.media.delete_success", nil)
 }
 
 func (h *MediaHandler) UpdateMediaTags(c *gin.Context) {
@@ -189,10 +189,10 @@ func (h *MediaHandler) UpdateMediaTags(c *gin.Context) {
 
 	err := h.mediaService.UpdateMediaTags(c.Request.Context(), id, req.Tags)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal update tags", "")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.media.update_tags_failed", "")
 		return
 	}
-	utils.SuccessResponse(c, http.StatusOK, "Tags berhasil diperbarui", nil)
+	utils.SuccessResponse(c, http.StatusOK, "settings.media.update_tags_success", nil)
 }
 
 func (h *MediaHandler) UpdateMediaTitle(c *gin.Context) {
@@ -208,10 +208,10 @@ func (h *MediaHandler) UpdateMediaTitle(c *gin.Context) {
 
 	err := h.mediaService.UpdateMediaTitle(c.Request.Context(), id, req.Title)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal update title", "")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.media.update_title_failed", "")
 		return
 	}
-	utils.SuccessResponse(c, http.StatusOK, "Judul berhasil diperbarui", nil)
+	utils.SuccessResponse(c, http.StatusOK, "settings.media.update_title_success", nil)
 }
 
 // DownloadBulkLinkTemplate generates and returns the Excel template for bulk linking media.
@@ -221,9 +221,8 @@ func (h *MediaHandler) DownloadBulkLinkTemplate(c *gin.Context) {
 }
 
 func (h *MediaHandler) BulkLinkExcel(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Tidak ada sesi pengguna", "")
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -249,5 +248,5 @@ func (h *MediaHandler) BulkLinkExcel(c *gin.Context) {
 		return
 	}
 
-	utils.JobCreatedResponse(c, http.StatusOK, "File Bulk Link masuk antrian.", jobID)
+	utils.JobCreatedResponse(c, http.StatusOK, "settings.media.job_queued", jobID)
 }

@@ -1,4 +1,5 @@
 import { ref, onMounted, getCurrentInstance } from 'vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import type { ExecutePickingPayload } from '../infrastructure/wms.api'
 import { wmsApi } from '../infrastructure/wms.api'
 import {
@@ -20,6 +21,8 @@ let isListenerRegistered = false
  * Composable for managing WMS Dead Zone picking offline buffer and auto-sync.
  */
 export function useOfflineSync() {
+  const { t } = useI18n()
+
   const refreshPendingCount = async () => {
     try {
       pendingCount.value = await getPendingScanCount()
@@ -77,7 +80,7 @@ export function useOfflineSync() {
         failed: failureCount
       }
     } catch (err: any) {
-      syncError.value = err?.message || 'Gagal sinkronisasi data offline'
+      syncError.value = err?.message || t('wms.offline.sync_error')
       return { synced: 0, failed: pendingCount.value }
     } finally {
       isSyncing.value = false
@@ -113,7 +116,7 @@ export function useOfflineSync() {
         return { success: true, offline: true }
       }
 
-      return { success: false, offline: false, error: err?.message || 'Eksekusi picking gagal' }
+      return { success: false, offline: false, error: err?.message || t('wms.offline.picking_failed') }
     }
   }
 

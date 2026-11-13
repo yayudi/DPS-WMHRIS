@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
 import { dayjs } from '@/core/utils/time'
 import { useTheme } from '@/core/presentation/composables/useTheme'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import DateRangeFilter from '@/core/presentation/components/ui/DateRangeFilter.vue'
 import SearchInput from '@/core/presentation/components/ui/SearchInput.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
@@ -9,6 +10,7 @@ import { analyticsApi } from '@/modules/analytics/infrastructure/analytics.api'
 import { serializeFilterParams } from '@/core/utils/filterParams'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
 
+const { t } = useI18n()
 const masterData = useMasterDataStore()
 const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
 
@@ -47,11 +49,11 @@ onMounted(async () => {
 
 const activeResolution = ref('daily')
 
-const reportTypeOptions = [
-  { id: 'monthly', label: 'Bulanan (Per Hari)' },
-  { id: 'annual', label: 'Tahunan (Per Bulan)' },
-  { id: 'custom', label: 'Rentang Waktu Kustom' }
-]
+const reportTypeOptions = computed(() => [
+  { id: 'monthly', label: t('analytics.time_perf.opt_monthly') },
+  { id: 'annual', label: t('analytics.time_perf.opt_annual') },
+  { id: 'custom', label: t('analytics.time_perf.opt_custom') }
+])
 
 const availableMonths = [
   { value: '01', label: 'Januari' },
@@ -133,8 +135,8 @@ const labelColor = computed(() => themeColors.value.text)
 
 const chartTimelineSeries = computed(() => {
   return [
-    { name: 'Masuk (Inbound)', data: timelineList.value.map(t => t.total_in) },
-    { name: 'Keluar (Outbound)', data: timelineList.value.map(t => t.total_out * -1) }
+    { name: t('analytics.time_perf.series_in'), data: timelineList.value.map(t => t.total_in) },
+    { name: t('analytics.time_perf.series_out'), data: timelineList.value.map(t => t.total_out * -1) }
   ]
 })
 
@@ -195,10 +197,9 @@ const toggleSort = () => {
 <template>
   <div class="space-y-6">
     <div class="mb-6 border-b border-secondary/20 pb-4">
-      <h3 class="text-lg font-bold text-text">Performa Waktu</h3>
+      <h3 class="text-lg font-bold text-text">{{ t('analytics.time_perf.title') }}</h3>
       <p class="text-sm text-text/50 mt-1">
-        Grafik volume mutasi aktivitas gudang harian secara kumulatif di rentang waktu yang direpresentasikan ke garis
-        masa.
+        {{ t('analytics.time_perf.subtitle') }}
       </p>
     </div>
 
@@ -207,13 +208,17 @@ const toggleSort = () => {
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
         <!-- Tipe Laporan -->
         <div>
-          <label class="block text-xs font-semibold text-text/60 mb-2">Tipe Laporan</label>
+          <label class="block text-xs font-semibold text-text/60 mb-2">{{
+            t('analytics.time_perf.report_type')
+          }}</label>
           <BaseSelect v-model="filterValues.reportType" :options="reportTypeOptions" emitValue :searchable="false" />
         </div>
 
         <!-- Rentang Tanggal / Bulan / Tahun -->
         <div>
-          <label class="block text-xs font-semibold text-text/60 mb-2">Waktu Spesifik</label>
+          <label class="block text-xs font-semibold text-text/60 mb-2">{{
+            t('analytics.time_perf.specific_time')
+          }}</label>
 
           <div v-if="filterValues.reportType === 'annual'">
             <BaseSelect v-model="filterValues.year" :options="availableYears" emitValue :searchable="false" />
@@ -248,8 +253,10 @@ const toggleSort = () => {
 
         <!-- Filter Nama / SKU -->
         <div>
-          <label class="block text-xs font-semibold text-text/60 mb-2">Pencarian / SKU</label>
-          <SearchInput v-model="filterValues.searchQuery" placeholder="Cari SKU atau Nama Produk..." />
+          <label class="block text-xs font-semibold text-text/60 mb-2">{{
+            t('analytics.time_perf.search_label')
+          }}</label>
+          <SearchInput v-model="filterValues.searchQuery" :placeholder="t('common.placeholder.search_sku')" />
         </div>
       </div>
 
@@ -257,12 +264,14 @@ const toggleSort = () => {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-secondary/20 pt-4">
         <!-- Gedung -->
         <div>
-          <label class="block text-xs font-semibold text-text/60 mb-2">Lokasi / Gedung Khusus</label>
+          <label class="block text-xs font-semibold text-text/60 mb-2">{{
+            t('analytics.time_perf.building_label')
+          }}</label>
           <BaseSelect
             v-model="filterValues.buildings"
             :options="reportFilters.allBuildings"
             :multiple="true"
-            placeholder="Semua Gedung"
+            :placeholder="t('common.filter.all_buildings')"
           />
         </div>
 
@@ -273,7 +282,7 @@ const toggleSort = () => {
             class="h-[42px] w-full px-8 bg-primary text-secondary font-bold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex justify-center items-center text-sm"
           >
             <font-awesome-icon v-if="isDataLoading" icon="fa-solid fa-spinner" spin class="mr-2" />
-            Terapkan Laporan
+            {{ t('analytics.time_perf.btn_apply') }}
           </button>
         </div>
       </div>
@@ -285,14 +294,14 @@ const toggleSort = () => {
       class="bg-background border border-secondary rounded-xl p-16 flex flex-col items-center justify-center text-center shadow-sm"
     >
       <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-4xl mb-4 text-primary" />
-      <p class="font-medium text-text/60">Memuat data garis waktu...</p>
+      <p class="font-medium text-text/60">{{ t('analytics.time_perf.loading') }}</p>
     </main>
 
     <template v-else-if="timelineList.length > 0">
       <div class="bg-background border border-secondary p-5 md:p-8 rounded-xl shadow-sm animate-fade-in w-full">
-        <h4 class="font-bold text-text text-lg mb-2">Visualisasi Transaksi (Masuk & Keluar)</h4>
+        <h4 class="font-bold text-text text-lg mb-2">{{ t('analytics.time_perf.chart_title') }}</h4>
         <p class="text-xs md:text-sm text-text/50 mb-6">
-          Puncak batang tinggi mengindikasikan lonjakan aktivitas massal di hari terkait.
+          {{ t('analytics.time_perf.chart_desc') }}
         </p>
 
         <div class="w-full block">
@@ -310,7 +319,7 @@ const toggleSort = () => {
       <!-- Data Table -->
       <div class="bg-background border border-secondary rounded-xl overflow-hidden shadow-sm animate-fade-in mt-6">
         <div class="p-4 border-b border-secondary/20 flex justify-between items-center bg-secondary/5">
-          <h4 class="font-bold text-text text-sm uppercase px-2">Tabel Rekapitulasi Harian</h4>
+          <h4 class="font-bold text-text text-sm uppercase px-2">{{ t('analytics.time_perf.table_title') }}</h4>
         </div>
         <div class="overflow-auto max-h-[500px]">
           <table class="w-full text-left text-sm whitespace-nowrap">
@@ -319,19 +328,34 @@ const toggleSort = () => {
                 <th
                   @click="toggleSort"
                   class="px-6 py-4 font-semibold text-text/80 cursor-pointer hover:bg-secondary/40 w-[200px]"
-                  title="Periode waktu terjadinya pergerakan barang (hari/bulan)"
+                  :title="t('analytics.time_perf.col_period_title')"
                 >
                   <div class="flex items-center gap-2">
-                    Periode Waktu
+                    {{ t('analytics.time_perf.col_period') }}
                     <font-awesome-icon
                       :icon="sortDesc ? 'fa-solid fa-sort-down' : 'fa-solid fa-sort-up'"
                       class="text-xs opacity-50"
                     />
                   </div>
                 </th>
-                <th class="px-6 py-4 font-semibold text-text/80 text-center" title="Total barang yang masuk (inbound) pada periode ini">Total Inbound</th>
-                <th class="px-6 py-4 font-semibold text-text/80 text-center" title="Total barang yang keluar (outbound) pada periode ini">Total Outbound</th>
-                <th class="px-6 py-4 font-semibold text-text/80 text-right" title="Selisih bersih antara barang masuk dan keluar (Inbound - Outbound)">Selisih Kuantitas (Net)</th>
+                <th
+                  class="px-6 py-4 font-semibold text-text/80 text-center"
+                  :title="t('analytics.time_perf.col_inbound_title')"
+                >
+                  {{ t('analytics.time_perf.col_inbound') }}
+                </th>
+                <th
+                  class="px-6 py-4 font-semibold text-text/80 text-center"
+                  :title="t('analytics.time_perf.col_outbound_title')"
+                >
+                  {{ t('analytics.time_perf.col_outbound') }}
+                </th>
+                <th
+                  class="px-6 py-4 font-semibold text-text/80 text-right"
+                  :title="t('analytics.time_perf.col_net_title')"
+                >
+                  {{ t('analytics.time_perf.col_net') }}
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-secondary/20">
@@ -379,9 +403,9 @@ const toggleSort = () => {
       class="bg-background border border-secondary rounded-xl p-16 flex flex-col items-center justify-center text-center shadow-sm"
     >
       <font-awesome-icon icon="fa-solid fa-calendar-xmark" class="text-4xl mb-4 text-text/30" />
-      <h4 class="font-bold text-text text-lg">Tidak ada aktivitas stok</h4>
+      <h4 class="font-bold text-text text-lg">{{ t('analytics.time_perf.empty_title') }}</h4>
       <p class="text-text/60 mt-2 text-sm max-w-sm">
-        Pada rentang tanggal ini, tidak tercetak pergerakan riil mutasi satupun barang.
+        {{ t('analytics.time_perf.empty_desc') }}
       </p>
     </main>
   </div>

@@ -23,7 +23,7 @@ func (h *SalesChannelHandler) GetAllChannels(c *gin.Context) {
 	activeOnly := c.Query("activeOnly") == "true"
 	data, err := h.salesChannelService.GetAllChannels(c.Request.Context(), activeOnly)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil data sales channels", "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
@@ -37,7 +37,7 @@ func (h *SalesChannelHandler) GetChannelByID(c *gin.Context) {
 	}
 	data, err := h.salesChannelService.GetChannelByID(c.Request.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusNotFound, "Sales channel tidak ditemukan", "NOT_FOUND")
+		utils.ErrorResponse(c, http.StatusNotFound, "master_data.sales_channel.not_found", "NOT_FOUND")
 		return
 	}
 
@@ -57,15 +57,11 @@ func (h *SalesChannelHandler) CreateChannel(c *gin.Context) {
 
 	id, err := h.salesChannelService.CreateChannel(c.Request.Context(), req, userID, ip, userAgent)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menambahkan sales channel", "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.RawResponse(c, http.StatusCreated, gin.H{
-		"success": true,
-		"message": "Saluran penjualan berhasil ditambahkan.",
-		"data":    gin.H{"id": id},
-	})
+	utils.SuccessResponse(c, http.StatusCreated, "master_data.sales_channel.create_success", gin.H{"id": id})
 }
 
 func (h *SalesChannelHandler) UpdateChannel(c *gin.Context) {
@@ -85,11 +81,11 @@ func (h *SalesChannelHandler) UpdateChannel(c *gin.Context) {
 
 	err := h.salesChannelService.UpdateChannel(c.Request.Context(), id, req, userID, ip, userAgent)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui sales channel", "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Saluran penjualan berhasil diperbarui.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "master_data.sales_channel.update_success", nil)
 }
 
 func (h *SalesChannelHandler) DeleteChannel(c *gin.Context) {
@@ -103,9 +99,9 @@ func (h *SalesChannelHandler) DeleteChannel(c *gin.Context) {
 
 	err := h.salesChannelService.DeleteChannel(c.Request.Context(), id, userID, ip, userAgent)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menghapus sales channel", "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Saluran penjualan berhasil dihapus.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "master_data.sales_channel.delete_success", nil)
 }

@@ -76,24 +76,21 @@ export const productApi = {
    * Menghubungkan media asset ke produk.
    */
   async linkMedia(productId: number | string, payload: { mediaId?: number; mediaIds?: number[]; isPrimary?: boolean }): Promise<any> {
-    const response = await http.post(`/products/${productId}/link-media`, payload)
-    return response.data
+    return http.post(`/products/${productId}/link-media`, payload)
   },
 
   /**
    * Menghapus gambar produk (relasi pivot).
    */
   async deleteProductImage(productId: number | string, imageId: number | string): Promise<any> {
-    const response = await http.delete(`/products/${productId}/images/${imageId}`)
-    return response.data
+    return http.delete(`/products/${productId}/images/${imageId}`)
   },
 
   /**
    * Menjadikan gambar produk sebagai gambar utama.
    */
   async setPrimaryImage(productId: number | string, imageId: number | string): Promise<any> {
-    const response = await http.put(`/products/${productId}/images/${imageId}/primary`)
-    return response.data
+    return http.put(`/products/${productId}/images/${imageId}/primary`)
   },
 
   /**

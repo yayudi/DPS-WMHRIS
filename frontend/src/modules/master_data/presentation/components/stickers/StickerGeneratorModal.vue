@@ -2,6 +2,7 @@
 import { swalConfirm, swalAlert } from '@/core/presentation/composables/useSweetAlert'
 import { ref, computed, watch, defineAsyncComponent } from 'vue'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { useDownload } from '@/core/presentation/composables/useDownload'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import DpvStickerTemplate from './DpvStickerTemplate.vue'
@@ -21,6 +22,7 @@ const props = defineProps({
 
 defineEmits(['close'])
 const { toast } = useToast()
+const { t } = useI18n()
 const { downloadBlob } = useDownload()
 
 // Data struktur: array of { id, line1, line2, copies }
@@ -130,17 +132,17 @@ const onTemplateSaved = async savedData => {
 
 const deleteTemplate = async id => {
   if (!id) {
-    await swalAlert('ID template tidak ditemukan pada object. Harap refresh.')
+    await swalAlert(t('master_data.sticker.template_id_not_found'))
     return
   }
-  if (!(await swalConfirm(`Hapus template ini (ID: ${id})?`))) return
+  if (!(await swalConfirm(t('master_data.sticker.confirm_delete_template', { id })))) return
   try {
     await stickerApi.deleteStickerTemplate(id)
     if (selectedTemplate.value?.id === id) selectedTemplate.value = null
     fetchTemplates()
   } catch (e) {
     console.error(e)
-    await swalAlert(e?.response?.data?.message || 'Gagal menghapus template')
+    await swalAlert(e?.response?.data?.message || t('master_data.sticker.delete_template_failed'))
   }
 }
 
@@ -338,7 +340,7 @@ const printStickers = computed(() => {
 
 const handleDownloadZip = async () => {
   if (!printRenderers.value || printRenderers.value.length === 0) {
-    toast('Tidak ada sticker untuk diunduh.', 'warning')
+    toast(t('master_data.sticker.no_sticker_to_download'), 'warning')
     return
   }
 
@@ -365,7 +367,7 @@ const handleDownloadZip = async () => {
     if (count > 0) {
       const content = await zip.generateAsync({ type: 'blob' })
       downloadBlob(content, `stickers_batch_${Date.now()}.zip`)
-      toast(`Berhasil mengunduh ${count} stiker.`, 'success')
+      toast(t('master_data.sticker.download_success', { count }), 'success')
     } else {
       //
     }
@@ -416,8 +418,8 @@ const printStickerHeight = computed(() => {
               <font-awesome-icon icon="fa-solid fa-print" />
             </div>
             <div>
-              <h3 class="text-xl font-bold text-text">Sticker Generator</h3>
-              <p class="text-sm text-text/60">Buat dan cetak sticker label DPV</p>
+              <h3 class="text-xl font-bold text-text">{{ t('master_data.sticker.modal_title') }}</h3>
+              <p class="text-sm text-text/60">{{ t('master_data.sticker.modal_subtitle') }}</p>
             </div>
           </div>
           <button
@@ -433,7 +435,7 @@ const printStickerHeight = computed(() => {
           <!-- Editor Form -->
           <div class="flex-1 space-y-4 w-full lg:w-1/2">
             <div class="flex justify-between items-center">
-              <h4 class="font-bold text-text">Daftar Sticker</h4>
+              <h4 class="font-bold text-text">{{ t('master_data.sticker.list_title') }}</h4>
               <div class="flex items-center gap-2">
                 <!-- Scanner Mode Toggle -->
                 <ScannerToggle v-model="enableScanner" />
@@ -442,7 +444,7 @@ const printStickerHeight = computed(() => {
                   @click="addSticker"
                   class="text-xs px-3 py-1 h-7 bg-primary/10 text-primary rounded-lg font-bold hover:bg-primary hover:text-white transition-colors flex items-center"
                 >
-                  <font-awesome-icon icon="fa-solid fa-plus" class="mr-1" /> Tambah
+                  <font-awesome-icon icon="fa-solid fa-plus" class="mr-1" /> {{ t('common.btn.add') }}
                 </button>
               </div>
             </div>
@@ -503,7 +505,7 @@ const printStickerHeight = computed(() => {
 
                   <!-- Copies -->
                   <div class="w-20">
-                    <label class="block text-xs font-bold text-text/70 mb-1">Copy</label>
+                    <label class="block text-xs font-bold text-text/70 mb-1">{{ t('master_data.sticker.copy_label') }}</label>
                     <input
                       v-model.number="sticker.copies"
                       type="number"
@@ -520,13 +522,13 @@ const printStickerHeight = computed(() => {
           <div class="w-full lg:w-1/2 flex flex-col gap-4">
             <!-- Template Selection & Builder -->
             <div class="bg-secondary/30 p-4 rounded-xl border border-secondary">
-              <label class="block text-xs font-bold text-text/70 mb-2">Pilih Template</label>
+              <label class="block text-xs font-bold text-text/70 mb-2">{{ t('master_data.sticker.select_template') }}</label>
               <div class="flex flex-wrap sm:flex-nowrap gap-2">
                 <select
                   v-model="selectedTemplate"
                   class="flex-1 bg-background border border-primary/20 rounded-lg px-2 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
                 >
-                  <option :value="null">Default (Statis)</option>
+                  <option :value="null">{{ t('master_data.sticker.template_default') }}</option>
                   <option v-for="t in templates" :key="t.id" :value="t">{{ t.name }}</option>
                 </select>
                 <button
@@ -562,7 +564,7 @@ const printStickerHeight = computed(() => {
               </button>
             </div>
 
-            <h4 class="font-bold text-text mt-2">Live Preview</h4>
+            <h4 class="font-bold text-text mt-2">{{ t('master_data.sticker.live_preview') }}</h4>
             <div
               class="bg-background border border-secondary rounded-xl p-4 flex flex-col items-center justify-center gap-4 flex-1"
             >
@@ -598,7 +600,7 @@ const printStickerHeight = computed(() => {
         >
           <div class="flex flex-wrap items-center justify-center lg:justify-start gap-4 w-full lg:w-auto">
             <div class="flex items-center gap-2 border-r border-primary/20 pr-4">
-              <label class="text-sm font-bold text-text/70">Ukuran Kertas:</label>
+              <label class="text-sm font-bold text-text/70">{{ t('master_data.sticker.paper_size') }}</label>
               <select
                 v-model="selectedPaperSize"
                 :disabled="!!selectedTemplate"
@@ -616,15 +618,15 @@ const printStickerHeight = computed(() => {
               </button>
             </div>
             <div class="flex items-center gap-2">
-              <label class="text-sm font-bold text-text/70">Orientasi:</label>
+              <label class="text-sm font-bold text-text/70">{{ t('master_data.sticker.orientation') }}</label>
               <select
                 v-model="paperOrientation"
                 :disabled="!!selectedTemplate"
                 class="bg-secondary border border-primary/20 rounded-lg px-3 py-1.5 text-sm font-bold text-text focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 :title="selectedTemplate ? 'Orientasi otomatis mengikuti ukuran kertas template' : 'Pilih orientasi'"
               >
-                <option value="landscape">Landscape</option>
-                <option value="portrait">Portrait</option>
+                <option value="landscape">{{ t('master_data.sticker.orientation_landscape') }}</option>
+                <option value="portrait">{{ t('master_data.sticker.orientation_portrait') }}</option>
               </select>
             </div>
             <div class="text-sm text-text/60 font-semibold border-l border-primary/20 pl-4 hidden lg:block">
@@ -636,7 +638,7 @@ const printStickerHeight = computed(() => {
               @click="$emit('close')"
               class="flex-1 sm:flex-none px-6 py-2 rounded-xl font-bold text-text bg-secondary border border-primary/20 hover:bg-background transition-colors"
             >
-              Batal
+              {{ t('common.btn.cancel') }}
             </button>
             <button
               @click="handleDownloadZip"
@@ -652,7 +654,7 @@ const printStickerHeight = computed(() => {
               class="w-full sm:w-auto px-6 py-2 rounded-xl font-bold text-white bg-primary hover:bg-primary/90 transition-colors shadow-lg shadow-primary/30 flex justify-center items-center gap-2"
             >
               <font-awesome-icon icon="fa-solid fa-print" />
-              Cetak Sekarang
+              {{ t('common.btn.print') }}
             </button>
           </div>
         </div>

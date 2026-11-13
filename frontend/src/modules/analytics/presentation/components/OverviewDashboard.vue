@@ -1,9 +1,11 @@
 <!-- src/components/stats/OverviewDashboard.vue -->
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from '@/core/infrastructure/localization'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { formatNumber, formatCurrency } from '@/core/utils/formatters'
 
+const { t, d } = useI18n()
 const auth = useAuthStore()
 
 const props = defineProps({
@@ -14,7 +16,7 @@ const props = defineProps({
 })
 
 const todayDateString = computed(() => {
-  return new Date().toLocaleDateString('id-ID', {
+  return d(new Date(), {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -30,8 +32,8 @@ const todayDateString = computed(() => {
       class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-secondary/20 pb-6"
     >
       <div>
-        <h2 class="text-2xl font-black text-primary mb-1 tracking-tight">Executive Summary</h2>
-        <p class="text-sm text-text/60">Ringkasan performa gudang dan analitik WMS secara keseluruhan.</p>
+        <h2 class="text-2xl font-black text-primary mb-1 tracking-tight">{{ t('analytics.overview.title') }}</h2>
+        <p class="text-sm text-text/60">{{ t('analytics.overview.subtitle') }}</p>
       </div>
       <div class="bg-background border border-secondary/30 px-4 py-2 rounded-full shadow-sm flex items-center gap-2">
         <font-awesome-icon icon="fa-solid fa-calendar-day" class="text-primary text-sm" />
@@ -51,7 +53,7 @@ const todayDateString = computed(() => {
         <div class="relative z-10 flex flex-col h-full justify-between">
           <div class="flex justify-between items-start mb-3 gap-2">
             <p class="text-[11px] font-extrabold text-text/50 uppercase tracking-widest leading-tight">
-              List Selesai Hari Ini
+              {{ t('analytics.overview.lists_completed_today') }}
             </p>
             <div
               class="w-10 h-10 rounded-xl bg-success/10 border border-success/20 flex items-center justify-center text-success shrink-0 group-hover:scale-110 transition-transform"
@@ -78,7 +80,7 @@ const todayDateString = computed(() => {
         <div class="relative z-10 flex flex-col h-full justify-between">
           <div class="flex justify-between items-start mb-3 gap-2">
             <p class="text-[11px] font-extrabold text-text/50 uppercase tracking-widest leading-tight">
-              Item Terambil (PCS)
+              {{ t('analytics.overview.items_picked_today') }}
             </p>
             <div
               class="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 group-hover:scale-110 transition-transform"
@@ -105,7 +107,7 @@ const todayDateString = computed(() => {
         <div class="relative z-10 flex flex-col h-full justify-between">
           <div class="flex justify-between items-start mb-3 gap-2">
             <p class="text-[11px] font-extrabold text-text/50 uppercase tracking-widest leading-tight">
-              User Aktif Gudang
+              {{ t('analytics.overview.active_users_today') }}
             </p>
             <div
               class="w-10 h-10 rounded-xl bg-warning/10 border border-warning/20 flex items-center justify-center text-warning shrink-0 group-hover:scale-110 transition-transform"
@@ -133,7 +135,7 @@ const todayDateString = computed(() => {
         <div class="relative z-10 flex flex-col h-full justify-between">
           <div class="flex justify-between items-start mb-3 gap-2">
             <p class="text-[11px] font-extrabold text-text/50 uppercase tracking-widest leading-tight">
-              Total Nilai Inventaris
+              {{ t('analytics.overview.total_inventory_value') }}
             </p>
             <div
               class="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shrink-0 group-hover:scale-110 transition-transform"

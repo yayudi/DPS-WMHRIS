@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 
 const props = defineProps({
   show: Boolean,
@@ -10,6 +11,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'confirm'])
+const { t } = useI18n()
 
 const fromLocationId = ref(null)
 const toLocationId = ref(null)
@@ -31,15 +33,15 @@ watch(
 
 function handleConfirm() {
   if (!fromLocationId.value || !toLocationId.value) {
-    error.value = 'Lokasi asal dan tujuan harus dipilih.'
+    error.value = t('wms.transfer.error_select_both')
     return
   }
   if (fromLocationId.value.id === toLocationId.value.id) {
-    error.value = 'Lokasi asal dan tujuan tidak boleh sama.'
+    error.value = t('wms.transfer.error_same_location')
     return
   }
   if (quantity.value <= 0) {
-    error.value = 'Kuantitas harus lebih dari 0.'
+    error.value = t('wms.transfer.error_positive_qty')
     return
   }
 
@@ -53,30 +55,30 @@ function handleConfirm() {
 </script>
 
 <template>
-  <BaseModal :show="show" @close="emit('close')" title="Transfer Stok">
+  <BaseModal :show="show" @close="emit('close')" :title="t('wms.transfer.modal_title')">
     <div v-if="product" class="space-y-4">
       <p class="text-sm text-text/80">
-        Anda akan mentransfer produk: <strong class="text-text">{{ product.name }}</strong>
+        {{ t('wms.transfer.prompt_prefix') }} <strong class="text-text">{{ product.name }}</strong>
       </p>
 
       <!-- From Location -->
       <div>
-        <label class="block text-sm font-medium text-text/90 mb-1">Dari Lokasi</label>
-        <BaseSelect v-model="fromLocationId" :options="locations" placeholder="Pilih lokasi asal" label="code"
+        <label class="block text-sm font-medium text-text/90 mb-1">{{ t('common.label.from_location') }}</label>
+        <BaseSelect v-model="fromLocationId" :options="locations" :placeholder="t('wms.transfer.select_from_placeholder')" label="code"
           track-by="id" />
       </div>
 
       <!-- To Location -->
       <div>
-        <label class="block text-sm font-medium text-text/90 mb-1">Ke Lokasi</label>
-        <BaseSelect v-model="toLocationId" :options="locations" placeholder="Pilih lokasi tujuan" label="code"
+        <label class="block text-sm font-medium text-text/90 mb-1">{{ t('common.label.to_location') }}</label>
+        <BaseSelect v-model="toLocationId" :options="locations" :placeholder="t('wms.transfer.select_to_placeholder')" label="code"
           track-by="id">
           <template #option="{ option }">
             <div class="flex justify-between items-center w-full">
               <span class="font-medium font-mono text-xs">{{ option.code }}</span>
               <span class="text-[10px] px-1.5 py-0.5 rounded border"
                 :class="option.quantity === 0 ? 'bg-danger/10 text-danger border-danger/20' : 'bg-success/10 text-success border-success/20'">
-                Stok: {{ option.quantity }}
+                {{ t('wms.transfer.stock_label') }}: {{ option.quantity }}
               </span>
             </div>
           </template>
@@ -85,7 +87,7 @@ function handleConfirm() {
 
       <!-- Quantity -->
       <div>
-        <label class="block text-sm font-medium text-text/90 mb-1">Jumlah</label>
+        <label class="block text-sm font-medium text-text/90 mb-1">{{ t('common.label.quantity') }}</label>
         <input v-model.number="quantity" type="number" min="1"
           class="w-full px-3 py-2 bg-background border border-secondary/50 text-text rounded-lg" />
       </div>
@@ -95,10 +97,10 @@ function handleConfirm() {
 
     <template #footer>
       <button @click="emit('close')" class="px-4 py-2 bg-secondary/20 text-text/80 rounded-lg">
-        Batal
+        {{ t('common.btn.cancel') }}
       </button>
       <button @click="handleConfirm" class="px-4 py-2 bg-primary text-secondary rounded-lg">
-        Konfirmasi Transfer
+        {{ t('wms.transfer.confirm_btn') }}
       </button>
     </template>
   </BaseModal>

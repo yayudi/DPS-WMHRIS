@@ -22,7 +22,7 @@ func NewRoleHandler(roleUseCase port.RoleUseCase) *RoleHandler {
 func (h *RoleHandler) GetRoles(c *gin.Context) {
 	roles, err := h.roleUseCase.GetRoles(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil data peran", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.roles.fetch_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
@@ -32,7 +32,7 @@ func (h *RoleHandler) GetRoles(c *gin.Context) {
 func (h *RoleHandler) GetPermissions(c *gin.Context) {
 	permissions, err := h.roleUseCase.GetPermissions(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil data izin", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.roles.fetch_permissions_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
@@ -47,7 +47,7 @@ func (h *RoleHandler) GetRolePermissions(c *gin.Context) {
 
 	permissionIDs, err := h.roleUseCase.GetRolePermissions(c.Request.Context(), roleID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil izin peran", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.roles.fetch_role_permissions_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
@@ -69,11 +69,11 @@ func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	err := h.roleUseCase.UpdateRolePermissions(c.Request.Context(), roleID, req, userID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Gagal memperbarui izin. "+err.Error(), "UPDATE_FAILED")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Izin berhasil diperbarui", nil)
+	utils.SuccessResponse(c, http.StatusOK, "settings.roles.permissions_update_success", nil)
 }
 
 func (h *RoleHandler) CreateRole(c *gin.Context) {
@@ -86,16 +86,12 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	newID, err := h.roleUseCase.CreateRole(c.Request.Context(), req, userID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Gagal membuat peran", "CREATE_FAILED")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.RawResponse(c, http.StatusCreated, gin.H{
-		"success": true,
-		"message": "Peran berhasil dibuat",
-		"data": gin.H{
-			"id": newID,
-		},
+	utils.SuccessResponse(c, http.StatusCreated, "settings.roles.create_success", gin.H{
+		"id": newID,
 	})
 }
 
@@ -114,11 +110,11 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	err := h.roleUseCase.UpdateRole(c.Request.Context(), roleID, req, userID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "UPDATE_FAILED")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Peran berhasil diperbarui", nil)
+	utils.SuccessResponse(c, http.StatusOK, "settings.roles.update_success", nil)
 }
 
 func (h *RoleHandler) DeleteRole(c *gin.Context) {
@@ -130,9 +126,9 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	err := h.roleUseCase.DeleteRole(c.Request.Context(), roleID, userID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Gagal menghapus peran (mungkin sedang digunakan).", "DELETE_FAILED")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Peran berhasil dihapus", nil)
+	utils.SuccessResponse(c, http.StatusOK, "settings.roles.delete_success", nil)
 }

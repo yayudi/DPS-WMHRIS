@@ -1,20 +1,20 @@
 package domain
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/kernel"
 )
 
 var (
 	// ErrSlotRoomRequired occurs when room name or code is missing.
-	ErrSlotRoomRequired = errors.New("ruang is required")
+	ErrSlotRoomRequired = apperror.Validation("wms.slotting.err_room_required", "Ruangan wajib diisi")
 	// ErrSlotRackRequired occurs when rack code is missing.
-	ErrSlotRackRequired = errors.New("rak is required")
+	ErrSlotRackRequired = apperror.Validation("wms.slotting.err_rack_required", "Rak wajib diisi")
 	// ErrSlotNotFound occurs when a product location slot does not exist.
-	ErrSlotNotFound = errors.New("product location slot not found")
+	ErrSlotNotFound = apperror.NotFound("wms.slotting.err_not_found", "Koordinat slotting produk tidak ditemukan")
 )
 
 const (

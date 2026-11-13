@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
@@ -9,6 +10,7 @@ import { formatCurrency } from '@/core/utils/formatters'
 import { useMobile } from '@/core/presentation/composables/useMobile'
 
 const { isMobile } = useMobile()
+const { t } = useI18n()
 
 defineProps({
   show: Boolean
@@ -109,17 +111,17 @@ const addItem = product => {
   searchQuery.value = ''
   showSearchResults.value = false
   searchResults.value = []
-  toast(`${product.name} ditambahkan ke simulasi`, 'success')
+  toast(t('wms.simulation.toast_added', { name: product.name }), 'success')
 }
 
 const removeItem = index => {
   items.value.splice(index, 1)
-  toast('Item dihapus dari simulasi', 'info')
+  toast(t('wms.simulation.toast_removed'), 'info')
 }
 
 const resetSimulation = () => {
   items.value = []
-  toast('Simulasi direset', 'info')
+  toast(t('wms.simulation.toast_reset'), 'info')
 }
 
 // formatCurrency removed (imported from utils)
@@ -141,17 +143,17 @@ const close = () => {
 </script>
 
 <template>
-  <BaseModal :show="show" title="Simulasi Penjualan" @close="close">
+  <BaseModal :show="show" :title="t('wms.simulation.title')" @close="close">
     <div class="p-6 space-y-6">
       <!-- Search Bar -->
       <div class="relative">
-        <label class="block text-sm font-bold text-text mb-2">Cari Produk</label>
+        <label class="block text-sm font-bold text-text mb-2">{{ t('wms.simulation.search_label') }}</label>
         <div class="relative">
           <input
             v-model="searchQuery"
             @input="handleSearch"
             type="text"
-            placeholder="Ketik nama atau SKU"
+            :placeholder="t('wms.simulation.search_placeholder')"
             class="w-full pl-10 pr-4 py-3 bg-background border border-secondary/30 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all"
           />
           <font-awesome-icon icon="fa-solid fa-search" class="absolute left-3 top-3.5 text-text/40" />
@@ -193,7 +195,7 @@ const close = () => {
       <div class="flex flex-wrap items-end gap-4 p-4 bg-secondary/5 rounded-xl border border-secondary/10">
         <!-- Weight Unit Selector -->
         <div class="flex-1 min-w-[200px]">
-          <label class="block text-xs font-bold text-text/70 mb-1.5 uppercase tracking-wide">Satuan Berat</label>
+          <label class="block text-xs font-bold text-text/70 mb-1.5 uppercase tracking-wide">{{ t('wms.simulation.weight_unit_label') }}</label>
           <BaseSelect
             v-model="weightUnit"
             :options="WEIGHT_UNITS"
@@ -214,7 +216,7 @@ const close = () => {
               ></div>
             </div>
             <span class="text-sm font-bold text-text/80 group-hover:text-primary transition-colors">
-              Hitung PPN (11%)
+              {{ t('wms.simulation.include_ppn') }}
             </span>
           </label>
         </div>
@@ -225,12 +227,12 @@ const close = () => {
         <table class="w-full text-sm text-left" :class="isMobile ? 'block' : ''">
           <thead class="bg-secondary/5 text-text/70 uppercase text-xs font-bold" :class="isMobile ? 'hidden' : ''">
             <tr>
-              <th class="px-2 py-3 text-left">Produk</th>
-              <th class="px-1 py-3 text-center w-20">Qty</th>
-              <th class="px-1 py-3 text-center w-40">Diskon</th>
-              <th class="px-1 py-3 text-right w-28">Berat</th>
-              <th class="px-1 py-3 text-right w-28">Volume</th>
-              <th class="px-1 py-3 text-right w-32">Total</th>
+              <th class="px-2 py-3 text-left">{{ t('wms.simulation.th_product') }}</th>
+              <th class="px-1 py-3 text-center w-20">{{ t('common.label.qty') }}</th>
+              <th class="px-1 py-3 text-center w-40">{{ t('wms.simulation.th_discount') }}</th>
+              <th class="px-1 py-3 text-right w-28">{{ t('wms.simulation.th_weight') }}</th>
+              <th class="px-1 py-3 text-right w-28">{{ t('wms.simulation.th_volume') }}</th>
+              <th class="px-1 py-3 text-right w-32">{{ t('common.label.total') }}</th>
               <th class="px-1 py-3 text-center w-10"></th>
             </tr>
           </thead>
@@ -252,7 +254,7 @@ const close = () => {
               <td
                 :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-1 py-3'"
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Qty</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.qty') }}</span>
                 <input
                   v-model.number="item.quantity"
                   type="number"
@@ -264,7 +266,7 @@ const close = () => {
               <td
                 :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-1 py-3'"
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Diskon</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.simulation.th_discount') }}</span>
                 <div class="flex items-center gap-1 justify-center">
                   <BaseSelect
                     v-model="item.discount.type"
@@ -292,7 +294,7 @@ const close = () => {
                     : 'px-1 py-3 text-right text-text/70'
                 "
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Berat</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.simulation.th_weight') }}</span>
                 <span>{{ formatWeight(item.weight * item.quantity) }} {{ weightUnit }}</span>
               </td>
               <td
@@ -302,7 +304,7 @@ const close = () => {
                     : 'px-1 py-3 text-right text-text/70'
                 "
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Volume</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('wms.simulation.th_volume') }}</span>
                 <span>{{ formatCbm(item.total_cbm * item.quantity) }} CBM</span>
               </td>
               <td
@@ -312,7 +314,7 @@ const close = () => {
                     : 'px-1 py-3 text-right font-medium'
                 "
               >
-                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">Total</span>
+                <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.total') }}</span>
                 <div v-if="item.discount.value > 0" class="flex flex-col items-end">
                   <span class="text-[10px] text-text/40 line-through decoration-danger">
                     {{ formatCurrency(item.price * item.quantity) }}
@@ -332,7 +334,7 @@ const close = () => {
           </tbody>
           <tfoot class="bg-secondary/10 font-bold border-t border-secondary/20">
             <tr>
-              <td colspan="3" class="px-4 py-3 text-right text-text/70">Total:</td>
+              <td colspan="3" class="px-4 py-3 text-right text-text/70">{{ t('common.label.total') }}:</td>
               <td class="px-4 py-3 text-right text-primary flex flex-col gap-1 items-end whitespace-nowrap">
                 <span
                   >{{ totalWeightDisplay.toLocaleString('id-ID', { maximumFractionDigits: 2 }) }} {{ weightUnit }}</span
@@ -343,7 +345,7 @@ const close = () => {
                 <div class="flex flex-col items-end leading-tight">
                   <span>{{ formatCurrency(totalPrice) }}</span>
                   <span v-if="includePpn" class="text-[10px] text-text/50 font-normal italic">
-                    (Termasuk PPN 11%)
+                    {{ t('wms.simulation.including_ppn') }}
                   </span>
                 </div>
               </td>
@@ -354,7 +356,7 @@ const close = () => {
       </div>
       <div v-else class="text-center py-8 text-text/40 border-2 border-dashed border-secondary/20 rounded-xl">
         <font-awesome-icon icon="fa-solid fa-calculator" class="text-4xl mb-2" />
-        <p>Belum ada item dalam simulasi.</p>
+        <p>{{ t('wms.simulation.empty_state') }}</p>
       </div>
     </div>
     <template #footer>
@@ -363,7 +365,7 @@ const close = () => {
         @click="close"
         class="px-5 py-2.5 bg-secondary hover:bg-secondary/80 text-text rounded-xl font-bold transition-all"
       >
-        Tutup
+        {{ t('common.btn.close') }}
       </button>
       <button
         v-if="items.length > 0"
@@ -372,7 +374,7 @@ const close = () => {
         class="px-5 py-2.5 bg-danger/10 hover:bg-danger/20 text-danger rounded-xl font-bold transition-all ml-auto"
       >
         <font-awesome-icon icon="fa-solid fa-trash" class="mr-2" />
-        Reset
+        {{ t('common.btn.reset') }}
       </button>
     </template>
   </BaseModal>

@@ -2,6 +2,7 @@
 import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
 import { ref, computed, watch, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { uploadMediaToR2 } from '@/modules/master_data/application/utils/mediaUploader'
 import { productApi } from '@/modules/master_data/infrastructure/product.api'
@@ -24,6 +25,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'refresh'])
 
 const { toast } = useToast()
+const { t } = useI18n()
 const authStore = useAuthStore()
 
 const loading = ref(false)
@@ -37,15 +39,15 @@ const isMediaPickerOpen = ref(false)
 const handleMediaSelect = async (media) => {
   loading.value = true
   try {
-    await productApi.linkMedia(props.productData.id, {
+    const res = await productApi.linkMedia(props.productData.id, {
       mediaIds: [media.id]
     })
-    toast('Media berhasil ditautkan.', 'success')
+    toast(res?.message || t('common.status.success'), 'success')
     await fetchImages()
     emit('refresh')
   } catch (error) {
     console.error(error)
-    const msg = error.response?.data?.message || 'Gagal menautkan media.'
+    const msg = error.response?.data?.message || t('master_data.media.link_error')
     toast(msg, 'error')
   } finally {
     loading.value = false
@@ -57,7 +59,7 @@ const lightboxImages = computed(() =>
   existingImages.value.map(img => ({
     main_path: img.image_path || img.main_path,
     thumbnail_path: img.thumbnail_path || img.image_path || img.main_path,
-    title: img.title || 'Gambar Produk'
+    title: img.title || t('master_data.media.default_product_title')
   }))
 )
 
@@ -140,7 +142,7 @@ async function handleImageUpload(event) {
 
   const validFiles = files.filter(f => f.type.match('image.*'))
   if (validFiles.length < files.length) {
-    toast('Beberapa file bukan gambar dan diabaikan.', 'warning')
+    toast(t('master_data.media.invalid_file_warning'), 'warning')
   }
 
   if (validFiles.length === 0) return
@@ -198,7 +200,7 @@ async function saveNewImages() {
   // Validasi judul generik
   const invalidIndex = fileTitles.value.findIndex(t => isGenericTitle(t))
   if (invalidIndex !== -1) {
-    toast(`Silakan ubah nama file "${fileTitles.value[invalidIndex]}" menjadi lebih deskriptif.`, 'warning')
+    toast(t('master_data.media.rename_warning', { filename: fileTitles.value[invalidIndex] }), 'warning')
     return
   }
 
@@ -216,7 +218,7 @@ async function saveNewImages() {
     const data = await uploadMediaToR2(selectedImages.value, fileTitles.value, tags, [props.productData.id])
 
     if (data && (data.success || data.id)) {
-      toast(`${selectedImages.value.length} gambar berhasil diunggah.`, 'success')
+      toast(t('master_data.media.upload_success_count', { count: selectedImages.value.length }), 'success')
       selectedImages.value = []
       fileTitles.value = []
       uploadTagsStr.value = ''
@@ -230,7 +232,7 @@ async function saveNewImages() {
     console.error(error) // Auto-added to prevent unused var
     const errData = error.response?.data
     if (errData?.error_code === 'DUPLICATE_MEDIA') {
-      toast(`Duplikat: ${errData.message} (ID aset: ${errData.duplicateOf})`, 'warning')
+      toast(t('master_data.media.duplicate_warning', { message: errData.message, id: errData.duplicateOf }), 'warning')
     } else {
       console.error(error)
     }
@@ -240,12 +242,12 @@ async function saveNewImages() {
 }
 
 async function deleteImage(imageId) {
-  if (!(await swalConfirm('Hapus gambar ini permanen?'))) return
+  if (!(await swalConfirm(t('master_data.media.confirm_delete')))) return
 
   loading.value = true
   try {
-    await productApi.deleteProductImage(props.productData.id, imageId)
-    toast('Gambar dihapus.', 'success')
+    const res = await productApi.deleteProductImage(props.productData.id, imageId)
+    toast(res?.message || t('common.status.success'), 'success')
     await fetchImages()
     emit('refresh')
   } catch (error) {
@@ -258,8 +260,8 @@ async function deleteImage(imageId) {
 async function setPrimary(imageId) {
   loading.value = true
   try {
-    await productApi.setPrimaryImage(props.productData.id, imageId)
-    toast('Gambar utama diperbarui.', 'success')
+    const res = await productApi.setPrimaryImage(props.productData.id, imageId)
+    toast(res?.message || t('common.status.success'), 'success')
     await fetchImages()
     emit('refresh')
   } catch (error) {
@@ -277,7 +279,7 @@ const getImageUrl = resolveUrl
   <BaseModal :show="show" @close="$emit('close')" maxWidth="max-w-4xl">
     <template #title>
       <div class="-mt-1">
-        <h3 class="font-bold text-lg text-text">Galeri Produk</h3>
+        <h3 class="font-bold text-lg text-text">{{ t('master_data.media.gallery_title') }}</h3>
         <p class="text-xs text-text/60 font-mono font-normal mt-1">{{ productData.sku }} - {{ productData.name }}</p>
       </div>
     </template>
@@ -285,14 +287,14 @@ const getImageUrl = resolveUrl
     <div class="flex flex-col gap-6 h-full pb-6 overflow-y-auto custom-scrollbar">
       <div v-if="fetching" class="flex flex-col items-center justify-center py-12 text-text/40">
         <font-awesome-icon icon="fa-solid fa-spinner" class="animate-spin text-3xl mb-3" />
-        <span class="text-sm">Memuat galeri...</span>
+        <span class="text-sm">{{ t('master_data.media.gallery_loading') }}</span>
       </div>
 
       <div v-else class="flex flex-col gap-8">
         <div>
           <div class="flex items-center justify-between mb-3">
-            <h4 class="font-bold text-text/80 text-sm uppercase tracking-wide">Foto Tersimpan</h4>
-            <span class="text-xs text-text/50">{{ existingImages.length }} gambar</span>
+            <h4 class="font-bold text-text/80 text-sm uppercase tracking-wide">{{ t('master_data.media.saved_photos') }}</h4>
+            <span class="text-xs text-text/50">{{ existingImages.length }} {{ t('master_data.media.images_count') }}</span>
           </div>
 
           <div
@@ -300,7 +302,7 @@ const getImageUrl = resolveUrl
             class="p-8 border-2 border-dashed border-secondary/20 rounded-xl flex flex-col items-center text-text/30 bg-secondary/5"
           >
             <font-awesome-icon icon="fa-solid fa-images" class="text-4xl mb-2" />
-            <span class="text-sm font-medium">Belum ada foto produk.</span>
+            <span class="text-sm font-medium">{{ t('master_data.media.no_photos') }}</span>
           </div>
 
           <div v-else class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -309,7 +311,7 @@ const getImageUrl = resolveUrl
               :key="img.id"
               :image-url="getImageUrl(img.thumbnail_path || img.image_path || img.main_path)"
               :image-id="img.id"
-              :display-name="img.title || 'Gambar Produk'"
+              :display-name="img.title || t('master_data.media.default_product_title')"
               @click="((isLightboxOpen = true), (lightboxIndex = index))"
             >
               <template #badges>
@@ -317,7 +319,7 @@ const getImageUrl = resolveUrl
                   v-if="img.is_primary"
                   class="absolute top-2 left-2 bg-primary text-background text-[10px] font-bold px-2 py-0.5 rounded shadow-sm z-10 flex items-center gap-1"
                 >
-                  <font-awesome-icon icon="fa-solid fa-star" /> Utama
+                  <font-awesome-icon icon="fa-solid fa-star" /> {{ t('master_data.media.badge_primary') }}
                 </div>
               </template>
 
@@ -328,7 +330,7 @@ const getImageUrl = resolveUrl
                     @click.stop="setPrimary(img.id)"
                     :disabled="loading"
                     class="px-2 py-1 md:py-3 align-center items-center justify-center rounded-md bg-accent text-background hover:backdrop-brightness-75 transition-transform hover:scale-110 shadow-md"
-                    title="Jadikan Utama"
+                    :title="t('master_data.media.set_primary_title')"
                   >
                     <font-awesome-icon icon="fa-solid fa-star" />
                   </button>
@@ -337,7 +339,7 @@ const getImageUrl = resolveUrl
                     @click.stop="deleteImage(img.id)"
                     :disabled="loading"
                     class="px-2 py-1 md:py-3 align-center items-center justify-center rounded-md bg-danger text-background hover:backdrop-brightness-75 transition-transform hover:scale-110 shadow-md"
-                    title="Hapus Gambar"
+                    :title="t('master_data.media.delete_image_title')"
                   >
                     <font-awesome-icon icon="fa-solid fa-trash" />
                   </button>
@@ -348,7 +350,7 @@ const getImageUrl = resolveUrl
         </div>
         <div v-if="canUpload" class="border-t border-secondary/10 pt-6">
           <div class="flex justify-between items-center mb-3">
-            <h4 class="font-bold text-text/80 text-sm uppercase tracking-wide">Upload Baru</h4>
+            <h4 class="font-bold text-text/80 text-sm uppercase tracking-wide">{{ t('master_data.media.upload_new') }}</h4>
             <button
               v-if="selectedImages.length > 0"
               @click="autoCropAll"
@@ -357,7 +359,7 @@ const getImageUrl = resolveUrl
             >
               <font-awesome-icon v-if="autoCropAllProcessing" icon="fa-solid fa-spinner" spin />
               <font-awesome-icon v-else icon="fa-solid fa-crop-simple" />
-              Auto 1:1 Semua
+              {{ t('master_data.media.auto_crop_all') }}
             </button>
           </div>
           <div class="flex flex-col sm:flex-row gap-4">
@@ -368,9 +370,9 @@ const getImageUrl = resolveUrl
                 class="flex flex-col items-center justify-center pt-5 pb-6 text-primary group-hover:scale-105 transition-transform text-center px-4"
               >
                 <font-awesome-icon icon="fa-solid fa-cloud-arrow-up" class="text-3xl mb-2" />
-                <p class="text-sm font-bold">Upload Baru</p>
+                <p class="text-sm font-bold">{{ t('master_data.media.upload_new') }}</p>
                 <p class="text-[10px] opacity-70">
-                  Klik/Paste (Max 5MB)
+                  {{ t('master_data.media.upload_drop_hint') }}
                 </p>
               </div>
               <!-- Input Multiple -->
@@ -391,9 +393,9 @@ const getImageUrl = resolveUrl
                 class="flex flex-col items-center justify-center pt-5 pb-6 text-primary group-hover:scale-105 transition-transform text-center px-4"
               >
                 <font-awesome-icon icon="fa-solid fa-images" class="text-3xl mb-2" />
-                <p class="text-sm font-bold">Dari Galeri</p>
+                <p class="text-sm font-bold">{{ t('master_data.media.from_gallery') }}</p>
                 <p class="text-[10px] opacity-70">
-                  Pilih media yang sudah ada
+                  {{ t('master_data.media.pick_existing_hint') }}
                 </p>
               </div>
             </div>
@@ -417,7 +419,7 @@ const getImageUrl = resolveUrl
                         <button
                           @click.prevent="openCropper(idx)"
                           class="w-6 h-6 rounded-full bg-primary text-background flex items-center justify-center hover:scale-110 transition-transform shadow-lg"
-                          title="Crop Gambar"
+                          :title="t('master_data.media.crop_image')"
                         >
                           <font-awesome-icon icon="fa-solid fa-crop-simple" class="text-[10px]" />
                         </button>
@@ -440,13 +442,13 @@ const getImageUrl = resolveUrl
                         type="text"
                         v-model="fileTitles[idx]"
                         class="w-full bg-background border border-secondary/20 rounded pl-8 pr-3 py-1.5 text-xs text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-                        placeholder="Ubah judul gambar..."
+                        :placeholder="t('master_data.media.edit_title_placeholder')"
                       />
                     </div>
                     <button
                       @click.prevent="removeSelectedImage(idx)"
                       class="shrink-0 w-8 h-8 rounded-full bg-danger/10 text-danger flex items-center justify-center hover:bg-danger hover:text-white transition-colors"
-                      title="Batal Unggah"
+                      :title="t('master_data.media.cancel_upload')"
                     >
                       <font-awesome-icon icon="fa-solid fa-times" />
                     </button>
@@ -461,7 +463,7 @@ const getImageUrl = resolveUrl
                   type="text"
                   v-model="uploadTagsStr"
                   class="flex-1 bg-background border border-secondary/20 rounded px-3 py-1.5 text-xs text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-                  placeholder="Tambahkan tag (pisahkan dengan koma). Contoh: depan, atas, merah"
+                  :placeholder="t('master_data.media.tags_placeholder')"
                 />
               </div>
 
@@ -470,7 +472,7 @@ const getImageUrl = resolveUrl
                   @click="((selectedImages = []), (fileTitles = []))"
                   class="px-4 py-2 text-text/60 font-bold hover:bg-secondary/10 rounded-lg text-sm transition-colors"
                 >
-                  Batal
+                  {{ t('common.btn.cancel') }}
                 </button>
                 <button
                   @click="saveNewImages"
@@ -478,7 +480,7 @@ const getImageUrl = resolveUrl
                   class="px-6 py-2 bg-primary hover:bg-primary-dark text-secondary font-bold rounded-lg shadow-lg flex items-center gap-2 transition-all active:scale-95"
                 >
                   <font-awesome-icon v-if="loading" icon="fa-solid fa-spinner" class="animate-spin" />
-                  <span v-else>Simpan ({{ selectedImages.length }})</span>
+                  <span v-else>{{ t('common.btn.save') }} ({{ selectedImages.length }})</span>
                 </button>
               </div>
             </div>

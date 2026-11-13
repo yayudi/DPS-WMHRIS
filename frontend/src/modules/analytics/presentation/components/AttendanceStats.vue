@@ -6,6 +6,7 @@ import { useAuthStore } from '@/modules/auth/application/auth.store'
 import { formatJamMenit } from '@/core/utils/time'
 import { formatCurrency } from '@/core/utils/formatters'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
+import { useI18n } from '@/core/infrastructure/localization'
 
 const props = defineProps({
   users: {
@@ -43,6 +44,7 @@ const props = defineProps({
 })
 
 const authStore = useAuthStore()
+const { t, d: formatDate } = useI18n()
 
 // --- Aggregation Logic ---
 
@@ -101,33 +103,33 @@ const kpiStats = computed(() => {
 
   return [
     {
-      label: 'Rate Kehadiran',
+      label: t('analytics.attendance.rate_label'),
       value: `${attendanceRate}%`,
-      sub: `${totalHadirDays} / ${maxManDays} Man-Days`,
+      sub: `${totalHadirDays} / ${maxManDays} ${t('analytics.attendance.man_days')}`,
       color: 'text-success',
       bg: 'bg-success/10',
       icon: 'fa-solid fa-users-viewfinder'
     },
     {
-      label: 'Keterlambatan',
+      label: t('analytics.attendance.lateness_label'),
       value: formatJamMenit(totalTelatMinutes),
-      sub: `${totalTelatUsers} User Terlambat`,
+      sub: t('analytics.attendance.users_late', { count: totalTelatUsers }),
       color: 'text-warning',
       bg: 'bg-warning/10',
       icon: 'fa-solid fa-user-clock'
     },
     {
-      label: 'Total Absen',
-      value: `${totalAbsenceDays} Hari`,
-      sub: 'Akumulasi Bulan Ini',
+      label: t('analytics.attendance.total_absent_label'),
+      value: `${totalAbsenceDays} ${t('analytics.attendance.days')}`,
+      sub: t('analytics.attendance.monthly_accumulation'),
       color: 'text-danger',
       bg: 'bg-danger/10',
       icon: 'fa-solid fa-user-xmark'
     },
     {
-      label: 'Total Lembur',
+      label: t('analytics.attendance.total_overtime_label'),
       value: formatJamMenit(totalLemburMinutes),
-      sub: 'Akumulasi Bulan Ini',
+      sub: t('analytics.attendance.monthly_accumulation'),
       color: 'text-primary',
       bg: 'bg-primary/10',
       icon: 'fa-solid fa-briefcase'
@@ -170,8 +172,8 @@ const chartDataPoints = computed(() => {
 const chartSeries = computed(() => {
   const { hadir, telat } = chartDataPoints.value
   return [
-    { name: 'Hadir', data: hadir },
-    { name: 'Terlambat', data: telat }
+    { name: t('hris.attendance.present'), data: hadir },
+    { name: t('hris.attendance.late'), data: telat }
   ]
 })
 
@@ -187,7 +189,7 @@ const chartOptions = computed(() => {
     }
     categories = days.map(d => d.getDate().toString())
     if (days.length <= 31) categories = days.map(d => d.getDate())
-    else categories = days.map(d => `${d.getDate()} ${d.toLocaleString('id-ID', { month: 'short' })}`)
+    else categories = days.map(dayItem => `${dayItem.getDate()} ${formatDate(dayItem, { month: 'short' })}`)
   } else if (props.year && props.month) {
     const daysInMonth = new Date(props.year, props.month, 0).getDate()
     categories = Array.from({ length: daysInMonth }, (_, i) => i + 1)
@@ -300,7 +302,7 @@ const userArrivalSeries = computed(() => {
     })
   }
 
-  return [{ name: 'Jam Masuk', data: dataPoints }]
+  return [{ name: t('analytics.attendance.arrival_time'), data: dataPoints }]
 })
 
 const userOvertimeSeries = computed(() => {
@@ -316,7 +318,7 @@ const userOvertimeSeries = computed(() => {
       }
     })
   }
-  return [{ name: 'Lembur (Menit)', data: dataPoints }]
+  return [{ name: t('analytics.attendance.overtime_duration_min'), data: dataPoints }]
 })
 
 const userDetailChartOptions = computed(() => ({
@@ -395,7 +397,7 @@ const userOvertimeChartOptions = computed(() => ({
         <!-- Main Chart -->
         <div class="lg:col-span-2 bg-background border border-secondary/20 rounded-xl p-6 shadow-sm">
           <h4 class="text-sm font-bold text-text/70 uppercase mb-6">
-            Tren Harian ({{ new Date(2000, month - 1).toLocaleString('id-ID', { month: 'long' }) }} {{ year }})
+            {{ t('analytics.attendance.daily_trend') }} ({{ formatDate(new Date(2000, month - 1), { month: 'long' }) }} {{ year }})
           </h4>
           <div class="h-[300px] w-full">
             <VueApexCharts type="area" height="100%" :options="chartOptions" :series="chartSeries" />
@@ -408,7 +410,7 @@ const userOvertimeChartOptions = computed(() => ({
           <div class="bg-background border border-secondary/20 rounded-xl p-6 shadow-sm">
             <h4 class="text-sm font-bold text-text/70 uppercase mb-4 flex items-center gap-2">
               <font-awesome-icon icon="fa-solid fa-triangle-exclamation" class="text-warning" />
-              Top Terlambat
+              {{ t('analytics.attendance.top_late') }}
             </h4>
             <div class="space-y-3">
               <div v-for="(u, idx) in topLateUsers" :key="idx" class="flex justify-between items-center text-sm">
@@ -421,7 +423,7 @@ const userOvertimeChartOptions = computed(() => ({
                   <div class="text-[10px] text-text/40">{{ u.count }}x</div>
                 </div>
               </div>
-              <div v-if="!topLateUsers.length" class="text-center text-text/40 text-xs py-4">Nihil</div>
+              <div v-if="!topLateUsers.length" class="text-center text-text/40 text-xs py-4">{{ t('analytics.attendance.none') }}</div>
             </div>
           </div>
 
@@ -429,7 +431,7 @@ const userOvertimeChartOptions = computed(() => ({
           <div class="bg-background border border-secondary/20 rounded-xl p-6 shadow-sm">
             <h4 class="text-sm font-bold text-text/70 uppercase mb-4 flex items-center gap-2">
               <font-awesome-icon icon="fa-solid fa-user-xmark" class="text-danger" />
-              Top Absen
+              {{ t('analytics.attendance.top_absent') }}
             </h4>
             <div class="space-y-3">
               <div v-for="(u, idx) in topAbsentUsers" :key="idx" class="flex justify-between items-center text-sm">
@@ -438,10 +440,10 @@ const userOvertimeChartOptions = computed(() => ({
                   <span class="font-medium text-text">{{ u.name }}</span>
                 </div>
                 <div class="text-right">
-                  <div class="font-bold text-danger">{{ u.days }} Hari</div>
+                  <div class="font-bold text-danger">{{ u.days }} {{ t('analytics.attendance.days') }}</div>
                 </div>
               </div>
-              <div v-if="!topAbsentUsers.length" class="text-center text-text/40 text-xs py-4">Nihil</div>
+              <div v-if="!topAbsentUsers.length" class="text-center text-text/40 text-xs py-4">{{ t('analytics.attendance.none') }}</div>
             </div>
           </div>
 
@@ -449,7 +451,7 @@ const userOvertimeChartOptions = computed(() => ({
           <div class="bg-background border border-secondary/20 rounded-xl p-6 shadow-sm">
             <h4 class="text-sm font-bold text-text/70 uppercase mb-4 flex items-center gap-2">
               <font-awesome-icon icon="fa-solid fa-moon" class="text-primary" />
-              Top Lembur
+              {{ t('analytics.attendance.top_overtime') }}
             </h4>
             <div class="space-y-3">
               <div v-for="(u, idx) in topOvertimeUsers" :key="idx" class="flex justify-between items-center text-sm">
@@ -459,7 +461,7 @@ const userOvertimeChartOptions = computed(() => ({
                 </div>
                 <div class="font-bold text-primary">{{ formatJamMenit(u.minutes) }}</div>
               </div>
-              <div v-if="!topOvertimeUsers.length" class="text-center text-text/40 text-xs py-4">Nihil</div>
+              <div v-if="!topOvertimeUsers.length" class="text-center text-text/40 text-xs py-4">{{ t('analytics.attendance.none') }}</div>
             </div>
           </div>
         </div>
@@ -468,11 +470,11 @@ const userOvertimeChartOptions = computed(() => ({
       <!-- Per-Person Table -->
       <div class="bg-background border border-secondary/20 rounded-xl p-6 shadow-sm">
         <div class="flex justify-between items-center mb-4">
-          <h4 class="text-sm font-bold text-text/70 uppercase">Statistik Per Karyawan</h4>
+          <h4 class="text-sm font-bold text-text/70 uppercase">{{ t('analytics.attendance.per_employee_stats') }}</h4>
           <input
             type="text"
             v-model="tableSearch"
-            placeholder="Cari karyawan..."
+            :placeholder="t('analytics.attendance.search_employee_placeholder')"
             class="bg-secondary/80 border border-secondary/20 rounded-lg px-3 py-1 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
@@ -480,13 +482,13 @@ const userOvertimeChartOptions = computed(() => ({
           <table class="w-full text-left text-sm border-collapse block md:table">
             <thead class="hidden md:table-header-group">
               <tr class="text-text/50 uppercase text-xs border-b border-secondary/20">
-                <th class="px-6 py-3">Nama</th>
-                <th class="px-6 py-3 text-center">Hadir</th>
-                <th class="px-6 py-3 text-center">Telat</th>
-                <th class="px-6 py-3 text-center">Cepat</th>
-                <th class="px-6 py-3 text-center">Lembur</th>
-                <th class="px-6 py-3 text-center">Absen</th>
-                <th class="px-6 py-3 text-right">Denda</th>
+                <th class="px-6 py-3">{{ t('common.table.name') }}</th>
+                <th class="px-6 py-3 text-center">{{ t('hris.attendance.present') }}</th>
+                <th class="px-6 py-3 text-center">{{ t('hris.attendance.late') }}</th>
+                <th class="px-6 py-3 text-center">{{ t('hris.attendance.early') }}</th>
+                <th class="px-6 py-3 text-center">{{ t('hris.attendance.overtime') }}</th>
+                <th class="px-6 py-3 text-center">{{ t('hris.attendance.absent') }}</th>
+                <th class="px-6 py-3 text-right">{{ t('hris.attendance.penalty') }}</th>
               </tr>
             </thead>
             <tbody class="block md:table-row-group">
@@ -502,19 +504,19 @@ const userOvertimeChartOptions = computed(() => ({
                 >
                   <span class="text-base md:text-sm">{{ u.nama }}</span>
                   <span class="md:hidden text-xs font-normal text-text/60 bg-secondary/10 px-2 py-1 rounded"
-                    >Detail ></span
+                    >{{ t('common.table.detail') }} ></span
                   >
                 </td>
 
                 <td class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center">
-                  <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Hadir</span>
+                  <span class="md:hidden text-text/60 text-xs uppercase font-semibold">{{ t('hris.attendance.present') }}</span>
                   <span class="inline-block px-2 py-0.5 rounded-md bg-success/10 text-success font-bold text-xs">
-                    {{ u.stats.hadirDays }} Hari
+                    {{ u.stats.hadirDays }} {{ t('analytics.attendance.days') }}
                   </span>
                 </td>
 
                 <td class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center">
-                  <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Telat</span>
+                  <span class="md:hidden text-text/60 text-xs uppercase font-semibold">{{ t('hris.attendance.late') }}</span>
                   <div v-if="u.stats.telatHours !== '0j 0m'" class="text-warning font-bold">
                     {{ u.stats.telatHours }}
                   </div>
@@ -528,7 +530,7 @@ const userOvertimeChartOptions = computed(() => ({
                   v-if="mobileLayout !== 'compact'"
                   class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center"
                 >
-                  <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Cepat</span>
+                  <span class="md:hidden text-text/60 text-xs uppercase font-semibold">{{ t('hris.attendance.early') }}</span>
                   <div v-if="u.stats.earlyOutHours !== '0j 0m'" class="text-danger font-bold">
                     {{ u.stats.earlyOutHours }}
                   </div>
@@ -539,7 +541,7 @@ const userOvertimeChartOptions = computed(() => ({
                 </td>
 
                 <td class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center">
-                  <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Lembur</span>
+                  <span class="md:hidden text-text/60 text-xs uppercase font-semibold">{{ t('hris.attendance.overtime') }}</span>
                   <div v-if="u.stats.lemburHours !== '0j 0m'" class="text-primary font-bold">
                     {{ u.stats.lemburHours }}
                   </div>
@@ -550,13 +552,13 @@ const userOvertimeChartOptions = computed(() => ({
                 </td>
 
                 <td class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-center">
-                  <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Absen</span>
+                  <span class="md:hidden text-text/60 text-xs uppercase font-semibold">{{ t('hris.attendance.absent') }}</span>
                   <span v-if="u.stats.absenceDays > 0" class="text-danger font-bold"
-                    >{{ u.stats.absenceDays }} Hari</span
+                    >{{ u.stats.absenceDays }} {{ t('analytics.attendance.days') }}</span
                   >
                   <span v-else class="text-text/30">
                     <span class="md:block hidden">-</span>
-                    <span class="md:hidden">0 Hari</span>
+                    <span class="md:hidden">0 {{ t('analytics.attendance.days') }}</span>
                   </span>
                 </td>
 
@@ -564,13 +566,13 @@ const userOvertimeChartOptions = computed(() => ({
                   v-if="mobileLayout !== 'compact'"
                   class="flex justify-between items-center md:table-cell px-2 md:px-6 py-1 md:py-4 text-right font-mono text-text/70 border-t border-secondary/10 md:border-none mt-2 md:mt-0 pt-2 md:pt-4"
                 >
-                  <span class="md:hidden text-text/60 text-xs uppercase font-semibold">Denda</span>
+                  <span class="md:hidden text-text/60 text-xs uppercase font-semibold">{{ t('hris.attendance.penalty') }}</span>
                   <span>{{ formatCurrency(u.stats.dendaTelat) }}</span>
                 </td>
               </tr>
               <tr v-if="!filteredUserSummaries.length" class="block md:table-row">
                 <td colspan="7" class="px-6 py-8 text-center text-text/40 italic block md:table-cell">
-                  Tidak ada data karyawan yang cocok.
+                  {{ t('analytics.attendance.no_employee_match') }}
                 </td>
               </tr>
             </tbody>
@@ -587,8 +589,7 @@ const userOvertimeChartOptions = computed(() => ({
         <div class="-mt-1">
           <h4 class="text-xl font-bold text-text">{{ selectedUser?.nama }}</h4>
           <p class="text-sm text-text/50 font-normal mt-1">
-            Detail Statistik Absensi ({{ new Date(2000, month - 1).toLocaleString('id-ID', { month: 'long' }) }}
-            {{ year }})
+            {{ t('analytics.attendance.detail_modal_subtitle', { month: formatDate(new Date(2000, month - 1), { month: 'long' }), year }) }}
           </p>
         </div>
       </template>
@@ -597,19 +598,19 @@ const userOvertimeChartOptions = computed(() => ({
         <!-- Summary Cards Small -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div class="bg-secondary/5 rounded-lg p-3 border border-secondary/10">
-            <div class="text-xs text-text/50 uppercase font-bold">Total Hadir</div>
-            <div class="text-lg font-bold text-success">{{ selectedUser.stats.hadirDays }} Hari</div>
+            <div class="text-xs text-text/50 uppercase font-bold">{{ t('analytics.attendance.total_present') }}</div>
+            <div class="text-lg font-bold text-success">{{ selectedUser.stats.hadirDays }} {{ t('analytics.attendance.days') }}</div>
           </div>
           <div class="bg-secondary/5 rounded-lg p-3 border border-secondary/10">
-            <div class="text-xs text-text/50 uppercase font-bold">Total Telat</div>
+            <div class="text-xs text-text/50 uppercase font-bold">{{ t('analytics.attendance.total_late') }}</div>
             <div class="text-lg font-bold text-warning">{{ selectedUser.stats.telatHours }}</div>
           </div>
           <div class="bg-secondary/5 rounded-lg p-3 border border-secondary/10">
-            <div class="text-xs text-text/50 uppercase font-bold">Total Lembur</div>
+            <div class="text-xs text-text/50 uppercase font-bold">{{ t('analytics.attendance.total_overtime') }}</div>
             <div class="text-lg font-bold text-primary">{{ selectedUser.stats.lemburHours }}</div>
           </div>
           <div class="bg-secondary/5 rounded-lg p-3 border border-secondary/10">
-            <div class="text-xs text-text/50 uppercase font-bold">Estimasi Denda</div>
+            <div class="text-xs text-text/50 uppercase font-bold">{{ t('analytics.attendance.estimated_penalty') }}</div>
             <div class="text-lg font-bold text-danger">
               {{ formatCurrency(selectedUser.stats.dendaTelat) }}
             </div>
@@ -620,14 +621,14 @@ const userOvertimeChartOptions = computed(() => ({
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <!-- Arrival Time Chart -->
           <div class="bg-secondary/5 rounded-xl p-4 border border-secondary/10">
-            <h5 class="text-sm font-bold text-text/70 mb-4">Waktu Kedatangan</h5>
+            <h5 class="text-sm font-bold text-text/70 mb-4">{{ t('analytics.attendance.arrival_time') }}</h5>
             <div class="h-[250px]">
               <VueApexCharts type="line" height="100%" :options="userDetailChartOptions" :series="userArrivalSeries" />
             </div>
           </div>
           <!-- Overtime Duration Chart -->
           <div class="bg-secondary/5 rounded-xl p-4 border border-secondary/10">
-            <h5 class="text-sm font-bold text-text/70 mb-4">Durasi Lembur (Menit)</h5>
+            <h5 class="text-sm font-bold text-text/70 mb-4">{{ t('analytics.attendance.overtime_duration_min') }}</h5>
             <div class="h-[250px]">
               <VueApexCharts
                 type="bar"

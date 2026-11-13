@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useToast } from '@/core/presentation/composables/useToast'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import ProductSearchSelector from '@/modules/wms/presentation/components/transfer/ProductSearchSelector.vue'
 import ScannerToggle from '@/modules/wms/presentation/components/scanner/ScannerToggle.vue'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
@@ -15,6 +16,7 @@ const props = defineProps({
 
 const emit = defineEmits(['add-product'])
 const { toast } = useToast()
+const { t } = useI18n()
 
 const selectedProduct = ref(null)
 const quantityToAdd = ref(1)
@@ -23,7 +25,7 @@ const searchSelectorRef = ref(null)
 
 function onAddClick() {
   if (!selectedProduct.value) {
-    toast('Harap pilih produk.', 'warning')
+    toast(t('wms.product_search.please_select_product'), 'warning')
     return
   }
 
@@ -71,14 +73,14 @@ async function handleCameraDetect(code) {
       selectedProduct.value = match
       quantityToAdd.value = 1
       onAddClick()
-      toast(`SKU ${code} ditambahkan!`, 'success')
+      toast(t('wms.product_search.sku_added', { code }), 'success')
       // Resume scanner
       setTimeout(() => {
         isScannerPaused.value = false
         isSearchingCamera.value = false
       }, 1000)
     } else {
-      toast(`SKU ${code} tidak ditemukan di lokasi ini.`, 'error')
+      toast(t('wms.product_search.sku_not_found', { code }), 'error')
       setTimeout(() => {
         isScannerPaused.value = false
         isSearchingCamera.value = false
@@ -86,7 +88,7 @@ async function handleCameraDetect(code) {
     }
   } catch (error) {
     console.error(error)
-    toast(`Gagal mencari SKU ${code}`, 'error')
+    toast(t('wms.product_search.sku_search_failed', { code }), 'error')
     isScannerPaused.value = false
     isSearchingCamera.value = false
   }
@@ -102,10 +104,10 @@ async function handleCameraDetect(code) {
         type="button"
         @click="isCameraModalOpen = true"
         class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border bg-secondary/10 border-secondary/20 text-text/50 hover:bg-secondary/30 h-[38px] sm:h-[42px]"
-        title="Pindai dengan Kamera"
+        :title="t('wms.product_search.scan_camera_title')"
       >
         <font-awesome-icon icon="fa-solid fa-camera" />
-        <span>Kamera</span>
+        <span>{{ t('wms.product_search.camera') }}</span>
       </button>
 
       <!-- Scanner Mode Toggle -->
@@ -121,7 +123,7 @@ async function handleCameraDetect(code) {
         :disabled="disabled"
         :enable-scanner="enableScanner"
         @scanner-match="handleScannerMatch"
-        placeholder="Cari SKU atau Nama Produk..."
+        :placeholder="t('common.placeholder.search_sku')"
       />
     </div>
 
@@ -132,7 +134,7 @@ async function handleCameraDetect(code) {
         v-if="(activeTab === 'TRANSFER' || activeTab === 'ADJUSTMENT') && selectedProduct"
         class="h-[42px] flex flex-col justify-center items-center px-3 bg-secondary/20 border border-secondary/20 shadow-sm rounded-lg min-w-[70px] shrink-0"
       >
-        <span class="text-[10px] text-text/70 uppercase font-bold leading-none mb-1">Stok</span>
+        <span class="text-[10px] text-text/70 uppercase font-bold leading-none mb-1">{{ t('wms.product_search.stock') }}</span>
         <span
           class="font-bold text-sm leading-none"
           :class="{
@@ -163,13 +165,13 @@ async function handleCameraDetect(code) {
         :disabled="disabled || !selectedProduct"
       >
         <font-awesome-icon icon="fa-solid fa-plus" />
-        <span>Tambah</span>
+        <span>{{ t('common.btn.add') }}</span>
       </button>
     </div>
   </div>
 
   <Teleport to="body">
-    <BaseModal :show="isCameraModalOpen" title="Pemindai Kamera" @close="isCameraModalOpen = false">
+    <BaseModal :show="isCameraModalOpen" :title="t('wms.product_search.camera_scanner_title')" @close="isCameraModalOpen = false">
       <div class="flex flex-col items-center justify-center min-h-[300px]">
         <BaseQrScanner
           v-if="isCameraModalOpen"
@@ -178,9 +180,9 @@ async function handleCameraDetect(code) {
           @detect="handleCameraDetect"
         />
 
-        <div v-if="isSearchingCamera" class="mt-4 text-primary font-bold animate-pulse">Memeriksa SKU...</div>
+        <div v-if="isSearchingCamera" class="mt-4 text-primary font-bold animate-pulse">{{ t('wms.product_search.checking_sku') }}</div>
         <div v-else class="mt-4 text-sm text-text/60 text-center">
-          Arahkan kamera ke QR Code/Barcode. Data akan ditambahkan secara otomatis.
+          {{ t('wms.product_search.camera_instructions') }}
         </div>
       </div>
     </BaseModal>

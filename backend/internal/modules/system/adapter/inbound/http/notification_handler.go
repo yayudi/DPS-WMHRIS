@@ -28,11 +28,11 @@ func (h *NotificationHandler) GetRecentPending(c *gin.Context) {
 
 	data, err := h.notificationService.FetchRecentPending(c.Request.Context(), userID, limit)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil notifikasi terbaru", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "system.notifications.fetch_recent_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Recent pending notifications fetched", data)
+	utils.SuccessDataResponse(c, http.StatusOK, data)
 }
 
 // GetAll handles GET /notifications
@@ -42,11 +42,11 @@ func (h *NotificationHandler) GetAll(c *gin.Context) {
 
 	data, err := h.notificationService.FetchAll(c.Request.Context(), userID, filterType)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil notifikasi", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "system.notifications.fetch_all_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Notifications fetched", data)
+	utils.SuccessDataResponse(c, http.StatusOK, data)
 }
 
 // MarkAsDone handles PUT /notifications/:id/done
@@ -55,7 +55,7 @@ func (h *NotificationHandler) MarkAsDone(c *gin.Context) {
 	if c.Param("id") == "all" {
 		err := h.notificationService.MarkAllNotificationsAsDone(c.Request.Context(), userID)
 		if err != nil {
-			utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menandai semua notifikasi sebagai selesai", "INTERNAL_SERVER_ERROR")
+			utils.ErrorResponse(c, http.StatusInternalServerError, "system.notifications.mark_all_done_failed", "INTERNAL_SERVER_ERROR")
 			return
 		}
 	} else {
@@ -65,12 +65,12 @@ func (h *NotificationHandler) MarkAsDone(c *gin.Context) {
 		}
 		err := h.notificationService.MarkNotificationAsDone(c.Request.Context(), notificationID, userID)
 		if err != nil {
-			utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menandai notifikasi sebagai selesai", "INTERNAL_SERVER_ERROR")
+			utils.ErrorResponse(c, http.StatusInternalServerError, "system.notifications.mark_done_failed", "INTERNAL_SERVER_ERROR")
 			return
 		}
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Marked as done", nil)
+	utils.SuccessResponse(c, http.StatusOK, "system.notifications.mark_done_success", nil)
 }
 
 // GetPreferences handles GET /notifications/preferences
@@ -79,11 +79,11 @@ func (h *NotificationHandler) GetPreferences(c *gin.Context) {
 
 	data, err := h.notificationService.FetchPreferences(c.Request.Context(), userID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil preferensi notifikasi", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "system.notifications.fetch_preferences_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Preferences fetched", data)
+	utils.SuccessDataResponse(c, http.StatusOK, data)
 }
 
 // UpdatePreferences handles PUT /notifications/preferences
@@ -97,11 +97,11 @@ func (h *NotificationHandler) UpdatePreferences(c *gin.Context) {
 
 	err := h.notificationService.UpdatePreferences(c.Request.Context(), userID, req.Preferences)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui preferensi notifikasi", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "system.notifications.update_preferences_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Preferences updated successfully", nil)
+	utils.SuccessResponse(c, http.StatusOK, "system.notifications.update_preferences_success", nil)
 }
 
 // ClaimNotification handles PUT /notifications/:id/claim
@@ -114,13 +114,13 @@ func (h *NotificationHandler) ClaimNotification(c *gin.Context) {
 
 	success, err := h.notificationService.ClaimNotification(c.Request.Context(), notificationID, userID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil tugas", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "system.notifications.claim_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
 	if success {
-		utils.SuccessResponse(c, http.StatusOK, "Tugas berhasil diambil", nil)
+		utils.SuccessResponse(c, http.StatusOK, "system.notifications.claim_success", nil)
 	} else {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Tugas sudah diambil oleh orang lain atau sudah selesai", "")
+		utils.ErrorResponse(c, http.StatusBadRequest, "system.notifications.claim_conflict", "")
 	}
 }

@@ -22,7 +22,7 @@ func NewStickerTemplateHandler(stickerTemplateService misc_usecase.StickerTempla
 func (h *StickerTemplateHandler) GetAllStickerTemplates(c *gin.Context) {
 	data, err := h.stickerTemplateService.GetAllStickerTemplates(c.Request.Context())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil data sticker templates", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.sticker_template.fetch_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
@@ -36,7 +36,7 @@ func (h *StickerTemplateHandler) GetStickerTemplateByID(c *gin.Context) {
 	}
 	data, err := h.stickerTemplateService.GetStickerTemplateByID(c.Request.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusNotFound, "Sticker template tidak ditemukan", "NOT_FOUND")
+		utils.ErrorResponse(c, http.StatusNotFound, "settings.sticker_template.not_found", "NOT_FOUND")
 		return
 	}
 
@@ -56,15 +56,11 @@ func (h *StickerTemplateHandler) CreateStickerTemplate(c *gin.Context) {
 
 	id, err := h.stickerTemplateService.CreateStickerTemplate(c.Request.Context(), req, userID, ip, userAgent)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menambahkan sticker template", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.sticker_template.create_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.RawResponse(c, http.StatusCreated, gin.H{
-		"success": true,
-		"message": "Sticker template berhasil ditambahkan.",
-		"data":    gin.H{"id": id},
-	})
+	utils.SuccessResponse(c, http.StatusCreated, "settings.sticker_template.create_success", gin.H{"id": id})
 }
 
 func (h *StickerTemplateHandler) UpdateStickerTemplate(c *gin.Context) {
@@ -84,11 +80,11 @@ func (h *StickerTemplateHandler) UpdateStickerTemplate(c *gin.Context) {
 
 	err := h.stickerTemplateService.UpdateStickerTemplate(c.Request.Context(), id, req, userID, ip, userAgent)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui sticker template", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.sticker_template.update_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Sticker template berhasil diperbarui.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "settings.sticker_template.update_success", nil)
 }
 
 func (h *StickerTemplateHandler) DeleteStickerTemplate(c *gin.Context) {
@@ -102,9 +98,9 @@ func (h *StickerTemplateHandler) DeleteStickerTemplate(c *gin.Context) {
 
 	err := h.stickerTemplateService.DeleteStickerTemplate(c.Request.Context(), id, userID, ip, userAgent)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menghapus sticker template", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.sticker_template.delete_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Sticker template berhasil dihapus.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "settings.sticker_template.delete_success", nil)
 }

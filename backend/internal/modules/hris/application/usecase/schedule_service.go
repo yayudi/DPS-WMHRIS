@@ -14,6 +14,8 @@ import (
 	hris_port "github.com/dps-wmhris/backend/internal/modules/hris/port"
 	iam_port "github.com/dps-wmhris/backend/internal/modules/iam/port"
 
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
+	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/xuri/excelize/v2"
 )
@@ -124,17 +126,17 @@ func (s *scheduleUseCaseImpl) ProcessImport(ctx context.Context, jobID int, file
 	}
 
 	if len(errorsList) > 0 {
-		return "", fmt.Errorf("Ditemukan %d error validasi: %s", len(errorsList), strings.Join(errorsList, " | "))
+		return "", apperror.Validation("hris.schedule.err_validation_failed", fmt.Sprintf("Ditemukan %d error validasi: %s", len(errorsList), strings.Join(errorsList, " | ")), map[string]any{"count": len(errorsList)})
 	}
 
 	if len(schedules) == 0 {
-		return "", fmt.Errorf("Tidak ada data valid di dalam file")
+		return "", apperror.Validation("hris.schedule.err_no_valid_data", "Tidak ada data valid di dalam file")
 	}
 
 	// Fetch users and shifts to build maps
 	users, err := s.userRepo.GetAll(ctx)
 	if err != nil {
-		return "", fmt.Errorf("Gagal memuat data user: %v", err)
+		return "", apperror.Internal("hris.schedule.err_fetch_users_failed", "Gagal memuat data user", err)
 	}
 	userMap := make(map[string]int)
 	for _, u := range users {
@@ -143,7 +145,7 @@ func (s *scheduleUseCaseImpl) ProcessImport(ctx context.Context, jobID int, file
 
 	shifts, err := s.shiftRepo.GetAll(ctx)
 	if err != nil {
-		return "", fmt.Errorf("Gagal memuat data shift: %v", err)
+		return "", apperror.Internal("hris.schedule.err_fetch_shifts_failed", "Gagal memuat data shift", err)
 	}
 	shiftMap := make(map[string]int)
 	for _, sh := range shifts {
@@ -175,7 +177,7 @@ func (s *scheduleUseCaseImpl) ProcessImport(ctx context.Context, jobID int, file
 	}
 
 	if len(finalErrors) > 0 {
-		return "", fmt.Errorf("Ditemukan %d error validasi: %s", len(finalErrors), strings.Join(finalErrors, " | "))
+		return "", apperror.Validation("hris.schedule.err_validation_failed", fmt.Sprintf("Ditemukan %d error validasi: %s", len(finalErrors), strings.Join(finalErrors, " | ")), map[string]any{"count": len(finalErrors)})
 	}
 
 	// Process Upsert
@@ -186,10 +188,16 @@ func (s *scheduleUseCaseImpl) ProcessImport(ctx context.Context, jobID int, file
 
 		err := s.scheduleRepo.Upsert(ctx, userID, shiftID, sc.Date, &createdBy)
 		if err != nil {
-			return "", fmt.Errorf("Gagal menyimpan data baris %d: %v", sc.RowNumber, err)
+			return "", apperror.Internal("hris.schedule.err_save_row_failed", fmt.Sprintf("Gagal menyimpan data baris %d: %v", sc.RowNumber, err), err, map[string]any{"row": sc.RowNumber})
 		}
 		successCount++
 	}
 
-	return fmt.Sprintf("Berhasil mengimpor jadwal untuk %d baris", successCount), nil
+	summary := i18n.T(ctx, "hris.schedule.import_summary", map[string]any{
+		"count": successCount,
+	})
+	if summary == "hris.schedule.import_summary" {
+		summary = fmt.Sprintf("Berhasil mengimpor jadwal untuk %d baris", successCount)
+	}
+	return summary, nil
 }

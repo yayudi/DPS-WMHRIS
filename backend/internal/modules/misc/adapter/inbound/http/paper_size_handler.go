@@ -24,7 +24,7 @@ func (h *PaperSizeHandler) GetAllPaperSizes(c *gin.Context) {
 	data, err := h.paperSizeService.GetAllPaperSizes(c.Request.Context())
 	if err != nil {
 		log.Printf("[ERROR] GetAllPaperSizes: %v", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal mengambil data paper sizes", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.paper_size.fetch_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
@@ -38,7 +38,7 @@ func (h *PaperSizeHandler) GetPaperSizeByID(c *gin.Context) {
 	}
 	data, err := h.paperSizeService.GetPaperSizeByID(c.Request.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusNotFound, "Paper size tidak ditemukan", "NOT_FOUND")
+		utils.ErrorResponse(c, http.StatusNotFound, "settings.paper_size.not_found", "NOT_FOUND")
 		return
 	}
 
@@ -58,15 +58,11 @@ func (h *PaperSizeHandler) CreatePaperSize(c *gin.Context) {
 
 	id, err := h.paperSizeService.CreatePaperSize(c.Request.Context(), req, userID, ip, userAgent)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menambahkan paper size", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.paper_size.create_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.RawResponse(c, http.StatusCreated, gin.H{
-		"success": true,
-		"message": "Paper size berhasil ditambahkan.",
-		"data":    gin.H{"id": id},
-	})
+	utils.SuccessResponse(c, http.StatusCreated, "settings.paper_size.create_success", gin.H{"id": id})
 }
 
 func (h *PaperSizeHandler) UpdatePaperSize(c *gin.Context) {
@@ -86,11 +82,11 @@ func (h *PaperSizeHandler) UpdatePaperSize(c *gin.Context) {
 
 	err := h.paperSizeService.UpdatePaperSize(c.Request.Context(), id, req, userID, ip, userAgent)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui paper size", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.paper_size.update_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Paper size berhasil diperbarui.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "settings.paper_size.update_success", nil)
 }
 
 func (h *PaperSizeHandler) DeletePaperSize(c *gin.Context) {
@@ -104,9 +100,9 @@ func (h *PaperSizeHandler) DeletePaperSize(c *gin.Context) {
 
 	err := h.paperSizeService.DeletePaperSize(c.Request.Context(), id, userID, ip, userAgent)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Gagal menghapus paper size", "INTERNAL_SERVER_ERROR")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.paper_size.delete_failed", "INTERNAL_SERVER_ERROR")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Paper size berhasil dihapus.", nil)
+	utils.SuccessResponse(c, http.StatusOK, "settings.paper_size.delete_success", nil)
 }

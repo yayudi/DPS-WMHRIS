@@ -6,16 +6,13 @@ export const salesChannelApi = {
     const response = await http.get('/sales-channels', { params })
     return response.data || []
   },
-  async createSalesChannel(payload: any): Promise<any> {
-    const response = await http.post('/sales-channels', payload)
-    return response.data
+  createSalesChannel(payload: any): Promise<any> {
+    return http.post('/sales-channels', payload)
   },
-  async updateSalesChannel(id: number | string, payload: any): Promise<any> {
-    const response = await http.put(`/sales-channels/${id}`, payload)
-    return response.data
+  updateSalesChannel(id: number | string, payload: any): Promise<any> {
+    return http.put(`/sales-channels/${id}`, payload)
   },
-  async deleteSalesChannel(id: number | string): Promise<any> {
-    const response = await http.delete(`/sales-channels/${id}`)
-    return response.data
+  deleteSalesChannel(id: number | string): Promise<any> {
+    return http.delete(`/sales-channels/${id}`)
   }
 }
