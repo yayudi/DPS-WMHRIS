@@ -1,14 +1,43 @@
 // frontend\src\composables\useAppHotkeys.js
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMagicKeys } from '@vueuse/core'
+import { useMagicKeys, useEventListener } from '@vueuse/core'
 import { useTheme } from './useTheme'
+import { useI18n } from './useI18n'
+import { useToast } from './useToast'
 import { useAuthStore } from '@/modules/auth/application/auth.store'
 import Swal from 'sweetalert2'
 
 export const isCheatSheetOpen = ref(false)
 
-export function useAppHotkeys(emitLogout) {
+/**
+ * Memeriksa apakah KeyboardEvent cocok dengan pintasan Alt + L (tanpa Shift/Ctrl/Meta).
+ */
+export function isLanguageToggleShortcut(e: KeyboardEvent): boolean {
+  if (e.repeat || e.isComposing) return false
+  if (!e.altKey || e.shiftKey || e.ctrlKey || e.metaKey) return false
+  return e.code === 'KeyL' || e.key?.toLowerCase() === 'l'
+}
+
+/**
+ * Mendaftarkan pintasan keyboard global Alt + L untuk mengganti bahasa secara bergiliran.
+ */
+export function useLanguageHotkey(): void {
+  const { cycleLocale, t } = useI18n()
+  const { toast } = useToast()
+
+  useEventListener('keydown', async (e: KeyboardEvent) => {
+    if (!isLanguageToggleShortcut(e)) return
+    e.preventDefault()
+
+    const switched = await cycleLocale()
+    if (switched) {
+      toast(t('core.locale.switched_toast', { name: switched.name }), 'info', 2000)
+    }
+  })
+}
+
+export function useAppHotkeys(emitLogout?: () => void) {
   const router = useRouter()
   const auth = useAuthStore()
   const { themes, currentTheme, applyTheme } = useTheme()
@@ -68,7 +97,8 @@ export function useAppHotkeys(emitLogout) {
   // SweetAlert2 Global Hotkeys (swalConfirm / swalAlert)
   watch(Enter, pressed => {
     if (pressed) {
-      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return
+      const activeTag = (document.activeElement as HTMLElement | null)?.tagName ?? ''
+      if (['INPUT', 'TEXTAREA'].includes(activeTag)) return
       if (Swal.isVisible()) Swal.clickConfirm()
     }
   })

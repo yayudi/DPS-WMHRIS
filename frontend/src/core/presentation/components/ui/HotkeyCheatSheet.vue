@@ -14,6 +14,7 @@ const globalHotkeys = computed(() => [
   { keys: ['Alt', '5'], desc: t('common.hotkey.admin') },
   { keys: ['Alt', 'H'], desc: t('common.hotkey.system_guide') },
   { keys: ['Alt', 'T'], desc: t('common.hotkey.toggle_theme') },
+  { keys: ['Alt', 'L'], desc: t('common.hotkey.toggle_language') },
   { keys: ['Alt', 'Shift', 'L'], desc: t('common.hotkey.logout') },
   { keys: ['Alt', 'Q'], desc: t('common.hotkey.help') }
 ])

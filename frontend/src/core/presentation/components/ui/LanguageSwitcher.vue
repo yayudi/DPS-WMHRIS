@@ -46,7 +46,7 @@ onUnmounted(() => {
       type="button"
       @click="toggleDropdown"
       class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm font-medium text-text/80 hover:text-primary hover:bg-secondary/10 transition-colors focus:outline-none"
-      :title="`${t('core.locale.select_language')} (${currentLocale})`"
+      :title="`${t('core.locale.select_language')} (${currentLocale}) — Alt + L`"
       :disabled="isLoading"
     >
       <font-awesome-icon icon="fa-solid fa-language" class="text-base text-primary" />

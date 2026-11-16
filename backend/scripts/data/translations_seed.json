@@ -4417,6 +4417,14 @@
   },
   {
     "module": "common",
+    "key": "hotkey.toggle_language",
+    "translations": {
+      "en-US": "Switch Language",
+      "id-ID": "Ganti Bahasa"
+    }
+  },
+  {
+    "module": "common",
     "key": "hotkey.toggle_theme",
     "translations": {
       "en-US": "Switch Theme",
@@ -5597,6 +5605,14 @@
     "translations": {
       "en-US": "Select Language",
       "id-ID": "Pilih Bahasa"
+    }
+  },
+  {
+    "module": "core",
+    "key": "locale.switched_toast",
+    "translations": {
+      "en-US": "Language switched to {name}",
+      "id-ID": "Bahasa diubah ke {name}"
     }
   },
   {

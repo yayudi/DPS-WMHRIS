@@ -17,6 +17,7 @@ const tabs = [
 const hotkeys = [
   { group: 'Navigasi Global', keys: ['Alt', '1 - 5'], desc: 'Pindah antar modul utama (WMS, Media, Absensi, dll).' },
   { group: 'Navigasi Global', keys: ['Alt', 'T'], desc: 'Mengubah tema secara bergiliran.' },
+  { group: 'Navigasi Global', keys: ['Alt', 'L'], desc: 'Mengubah bahasa secara bergiliran (Indonesia / English).' },
   { group: 'Navigasi Global', keys: ['Alt', 'Shift', 'L'], desc: 'Keluar dari aplikasi (Logout).' },
   { group: 'Navigasi Global', keys: ['Alt', '/'], desc: 'Membuka modal contekan hotkey.' },
   { group: 'Aksi Modal & Tabel', keys: ['/'], desc: 'Memfokuskan kursor ke kolom pencarian.' },

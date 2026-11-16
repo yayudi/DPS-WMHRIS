@@ -155,6 +155,21 @@ export const useLocaleStore = defineStore('locale', () => {
   }
 
   /**
+   * Mengganti bahasa aktif secara bergiliran sesuai daftar bahasa yang tersedia.
+   */
+  async function cycleLocale(): Promise<LocaleItem | null> {
+    const list = availableLocales.value
+    if (list.length < 2) return null
+
+    const currentIndex = list.findIndex(loc => loc.code === currentLocale.value)
+    const nextLocale = list[(currentIndex + 1) % list.length]
+    if (!nextLocale || nextLocale.code === currentLocale.value) return null
+
+    await setLocale(nextLocale.code)
+    return nextLocale
+  }
+
+  /**
    * Menyelaraskan preferensi dari profil pengguna saat sesi login aktif.
    */
   function syncUserPreferences(pref?: UserPreference): void {
@@ -189,6 +204,7 @@ export const useLocaleStore = defineStore('locale', () => {
     fetchDictionary,
     fetchLocales,
     setLocale,
+    cycleLocale,
     syncUserPreferences,
     resetPreferences
   }

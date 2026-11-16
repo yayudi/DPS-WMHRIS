@@ -44,7 +44,7 @@ export function useToast() {
     if (resolvedMsg && I18N_KEY_PATTERN.test(resolvedMsg)) {
       try {
         const localeStore = useLocaleStore()
-        resolvedMsg = localeStore.translate(resolvedMsg)
+        resolvedMsg = localeStore.dictionary[resolvedMsg] ?? resolvedMsg
       } catch {
         // Abaikan jika Pinia belum aktif
       }

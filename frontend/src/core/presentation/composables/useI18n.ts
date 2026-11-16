@@ -202,6 +202,7 @@ export function useI18n() {
     preferences: computed(() => store.preferences),
     isLoading: computed(() => store.isLoading),
     setLocale: store.setLocale,
+    cycleLocale: store.cycleLocale,
     initLocale: store.initLocale
   }
 }

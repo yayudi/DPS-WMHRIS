@@ -1,7 +1,7 @@
 /**
  * Baseline Default Dictionaries for DPS-WMHRIS (id-ID and en-US).
  * Generated automatically from backend/scripts/data/translations_seed.json.
- * Total bilingual keys: 2190
+ * Total bilingual keys: 2192
  */
 
 export const DEFAULT_ID_DICTIONARY: Record<string, string> = {
@@ -557,6 +557,7 @@ export const DEFAULT_ID_DICTIONARY: Record<string, string> = {
   "common.hotkey.stats": "Buka Modul Stats",
   "common.hotkey.submit_form": "untuk submit/simpan form.",
   "common.hotkey.system_guide": "Buka Modul Guide",
+  "common.hotkey.toggle_language": "Ganti Bahasa",
   "common.hotkey.toggle_theme": "Ganti Tema",
   "common.hotkey.view_list": "untuk melihat daftar Hotkey",
   "common.hotkey.wms": "Buka Modul WMS",
@@ -705,6 +706,7 @@ export const DEFAULT_ID_DICTIONARY: Record<string, string> = {
   "core.import.void": "Void",
   "core.import.void_error": "Gagal melakukan void.",
   "core.locale.select_language": "Pilih Bahasa",
+  "core.locale.switched_toast": "Bahasa diubah ke {name}",
   "core.media.attached_products": "Sematan Produk",
   "core.media.cancel_upload": "Batal Unggah",
   "core.media.click_to_select": "Klik untuk pilih gambar",
@@ -2750,6 +2752,7 @@ export const DEFAULT_EN_DICTIONARY: Record<string, string> = {
   "common.hotkey.stats": "Open Stats Module",
   "common.hotkey.submit_form": "to submit/save form.",
   "common.hotkey.system_guide": "Open Guide Module",
+  "common.hotkey.toggle_language": "Switch Language",
   "common.hotkey.toggle_theme": "Switch Theme",
   "common.hotkey.view_list": "to view Hotkeys list",
   "common.hotkey.wms": "Open WMS Module",
@@ -2898,6 +2901,7 @@ export const DEFAULT_EN_DICTIONARY: Record<string, string> = {
   "core.import.void": "Void",
   "core.import.void_error": "Failed to void queue.",
   "core.locale.select_language": "Select Language",
+  "core.locale.switched_toast": "Language switched to {name}",
   "core.media.attached_products": "Linked Products",
   "core.media.cancel_upload": "Cancel Upload",
   "core.media.click_to_select": "Click to select image",

@@ -5,6 +5,7 @@ import { useAuthStore } from '@/modules/auth/application/auth.store'
 import AppHeader from '@/app/layouts/components/AppHeader.vue'
 import GlobalSidebar from '@/app/layouts/components/GlobalSidebar.vue'
 import { useTheme } from '@/core/presentation/composables/useTheme'
+import { useLanguageHotkey } from '@/core/presentation/composables/useAppHotkeys'
 import PwaUpdatePrompt from '@/core/presentation/components/ui/PwaUpdatePrompt.vue'
 import PwaInstallBanner from '@/core/presentation/components/ui/PwaInstallBanner.vue'
 import JobManager from '@/core/presentation/components/shared/JobManager.vue'
@@ -14,6 +15,7 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const { initTheme } = useTheme()
+useLanguageHotkey()
 const { isMobile } = useMobile()
 const showHeader = computed(() => route.name && route.name !== 'Login' && auth.isAuthenticated)
 const showLayout = computed(() => showHeader.value && !route.meta.hideLayout)

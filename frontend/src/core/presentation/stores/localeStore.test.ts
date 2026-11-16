@@ -170,4 +170,43 @@ describe('localeStore', () => {
     expect(store.currentLocale).toBe('en-US')
     expect(store.dictionary['common.btn.save']).toBe('Save (English)')
   })
+
+  it('cycles through availableLocales cleanly and wraps back to the first locale', async () => {
+    vi.mocked(localizationApi.getDictionary).mockResolvedValue({
+      data: {
+        locale: 'en-US',
+        version: 2,
+        entries: { 'common.btn.save': 'Save' }
+      },
+      notModified: false,
+      eTag: 'W/v2'
+    })
+
+    const store = useLocaleStore()
+    store.currentLocale = 'id-ID'
+    store.availableLocales = [
+      { code: 'id-ID', name: 'Bahasa Indonesia', is_default: true, version: 1 },
+      { code: 'en-US', name: 'English', is_default: false, version: 1 }
+    ]
+
+    const firstSwitch = await store.cycleLocale()
+    expect(firstSwitch?.code).toBe('en-US')
+    expect(store.currentLocale).toBe('en-US')
+
+    const secondSwitch = await store.cycleLocale()
+    expect(secondSwitch?.code).toBe('id-ID')
+    expect(store.currentLocale).toBe('id-ID')
+  })
+
+  it('returns null when cycleLocale has fewer than two active locales', async () => {
+    const store = useLocaleStore()
+    store.currentLocale = 'id-ID'
+    store.availableLocales = [
+      { code: 'id-ID', name: 'Bahasa Indonesia', is_default: true, version: 1 }
+    ]
+
+    const result = await store.cycleLocale()
+    expect(result).toBeNull()
+    expect(store.currentLocale).toBe('id-ID')
+  })
 })
