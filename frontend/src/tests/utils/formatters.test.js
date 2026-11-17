@@ -16,7 +16,9 @@ import {
   formatWorkDaysLabel,
   formatTimeAgo,
   timeToMinutes,
-  minutesToTime
+  minutesToTime,
+  parseJsonSafe,
+  getExportFormat
 } from '@/utils/formatters.js'
 
 describe('formatters utility', () => {
@@ -192,6 +194,29 @@ describe('formatters utility', () => {
       expect(minutesToTime(0)).toBe('00:00')
       expect(minutesToTime(null)).toBe('')
       expect(minutesToTime(-10)).toBe('')
+    })
+  })
+
+  describe('parseJsonSafe & getExportFormat', () => {
+    it('parses valid JSON strings and returns pre-parsed objects as-is', () => {
+      expect(parseJsonSafe('{"format":"csv"}')).toEqual({ format: 'csv' })
+      const obj = { format: 'xlsx', exportType: 'PRODUCT_MASTER' }
+      expect(parseJsonSafe(obj)).toBe(obj)
+    })
+
+    it('returns fallback on null, empty, or malformed JSON', () => {
+      expect(parseJsonSafe(null)).toEqual({})
+      expect(parseJsonSafe(undefined, [])).toEqual([])
+      expect(parseJsonSafe('')).toEqual({})
+      expect(parseJsonSafe('{bad-json', { format: 'xlsx' })).toEqual({ format: 'xlsx' })
+    })
+
+    it('resolves uppercase export format from both object and JSON string filters', () => {
+      expect(getExportFormat({ format: 'csv' })).toBe('CSV')
+      expect(getExportFormat('{"format":"xlsx"}')).toBe('XLSX')
+      expect(getExportFormat({})).toBe('XLSX')
+      expect(getExportFormat(null)).toBe('XLSX')
+      expect(getExportFormat('{invalid')).toBe('XLSX')
     })
   })
 })

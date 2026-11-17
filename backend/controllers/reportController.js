@@ -48,8 +48,9 @@ export const getUserExportJobs = catchAsync(async (req, res, next) => {
 
   // Ubah file_path menjadi URL Lengkap (Absolute URL) & Parse Filters
   const jobsWithUrl = jobs.map((job) => {
-    // Parse Filters untuk mendapatkan Tipe Export
+    // Parse Filters untuk mendapatkan Tipe Export & normalisasi ke Object
     const parsedFilters = parseJsonSafe(job.filters, {});
+    job.filters = parsedFilters;
     job.type = parsedFilters.exportType || "STOCK_REPORT";
 
     if (job.file_path) {

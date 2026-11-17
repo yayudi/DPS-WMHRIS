@@ -299,3 +299,35 @@ export const minutesToTime = (minutes, options = {}) => {
 
 export const formatJamMenit = minutesToTime
 
+/**
+ * Mengurai nilai JSON dari API/database dengan aman (mendukung string JSON maupun Object ter-deserialisasi).
+ * @template T
+ * @param {any} raw - Nilai input (string JSON, Object, null, undefined)
+ * @param {T} [fallback={}] - Nilai default jika input kosong atau gagal parse
+ * @returns {T|any}
+ */
+export const parseJsonSafe = (raw, fallback = {}) => {
+  if (raw === null || raw === undefined || raw === '') return fallback
+  if (typeof raw === 'object') return raw
+
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw)
+    } catch {
+      return fallback
+    }
+  }
+
+  return fallback
+}
+
+/**
+ * Mengambil label format file ekspor uppercase (default: 'XLSX') dari payload filters job.
+ * @param {string|object|null|undefined} filters - Kolom filters job ekspor
+ * @returns {string}
+ */
+export const getExportFormat = (filters) => {
+  const parsed = parseJsonSafe(filters, {})
+  return (parsed?.format || 'xlsx').toUpperCase()
+}
+

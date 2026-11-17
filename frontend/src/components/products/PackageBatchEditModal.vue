@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
-import { formatDate } from '@/utils/formatters.js'
+import { formatDate, getExportFormat } from '@/utils/formatters.js'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseTabs from '@/components/ui/BaseTabs.vue'
 import ImportJobHistory from '@/components/shared/ImportJobHistory.vue'
@@ -203,9 +203,7 @@ const close = () => {
                   </p>
                   <p v-else class="text-xs text-text/80 font-bold flex items-center gap-1.5">
                     <font-awesome-icon icon="fa-solid fa-file-lines" class="text-text/40" />
-                    Data Master Paket ({{
-                      job.filters ? (JSON.parse(job.filters).format || 'xlsx').toUpperCase() : 'XLSX'
-                    }})
+                    Data Master Paket ({{ getExportFormat(job.filters) }})
                   </p>
                 </div>
 
