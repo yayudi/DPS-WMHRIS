@@ -1,6 +1,7 @@
 import { withTransaction, withConnection } from "../utils/dbUtils.js";
-import { buildTriStateWhere } from "../utils/sqlUtils.js";
 import { normalizePagination, formatPaginationMeta } from "../utils/paginationUtils.js";
+import { STOCK_MOVEMENT_TYPE } from "../config/wmsConstants.js";
+import AppError from "../utils/AppError.js";
 import Logger from "../utils/logger.js";
 import ExcelJS from "exceljs";
 
@@ -20,6 +21,172 @@ import { signals } from "./firebaseSignalService.js";
 // ==============================================================================
 
 /**
+ * Mengirim notifikasi transfer stok secara fire-and-forget setelah transaksi berhasil commit.
+ * @param {string} title
+ * @param {string} message
+ * @param {Object} actionPayload
+ * @param {number|string} userId
+ * @returns {void}
+ */
+const notifyStockTransfer = (title, message, actionPayload, userId) => {
+  try {
+    notificationService
+      .notifyUsersByPermission(
+        "manage-stock-batch",
+        "WMS",
+        title,
+        message,
+        actionPayload,
+        userId,
+        true,
+      )
+      .catch((e) => Logger.error("Failed to send notification", e, "STOCK_SERVICE"));
+  } catch (e) {
+    Logger.error("Failed to prepare notification", e, "STOCK_SERVICE");
+  }
+};
+
+/**
+ * Memeriksa izin akses lokasi user dengan cache per-transaksi untuk menghindari query berulang.
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {Map<number|string, boolean>} accessCache
+ * @param {number|string} userId
+ * @param {number|string} locationId
+ * @param {string} errorMessage
+ * @returns {Promise<void>}
+ * @throws {AppError}
+ */
+const assertLocationAccess = async (connection, accessCache, userId, locationId, errorMessage) => {
+  if (!accessCache.has(locationId)) {
+    const hasAccess = await userRepo.hasLocationAccess(connection, userId, locationId);
+    accessCache.set(locationId, hasAccess);
+  }
+  if (!accessCache.get(locationId)) {
+    throw new AppError(errorMessage, 403, "FORBIDDEN");
+  }
+};
+
+/**
+ * Menerapkan penyesuaian stok (tambah/kurang) dengan validasi agar stok tidak minus.
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {Object} params
+ * @param {number|string} params.productId
+ * @param {string} params.sku
+ * @param {number|string} params.locationId
+ * @param {number} params.deltaQty
+ * @param {number|string} params.userId
+ * @param {string} [params.notes]
+ * @returns {Promise<void>}
+ * @throws {AppError}
+ */
+const applyStockAdjustment = async (
+  connection,
+  { productId, sku, locationId, deltaQty, userId, notes },
+) => {
+  if (deltaQty < 0) {
+    const currentStock = await locationRepo.getStockAtLocation(
+      connection,
+      productId,
+      locationId,
+      true,
+    );
+    if (currentStock + deltaQty < 0) {
+      throw new AppError(
+        `Stok SKU '${sku}' tidak cukup untuk dikurangi. Ada: ${currentStock}, Butuh: ${Math.abs(deltaQty)}.`,
+        400,
+        "INSUFFICIENT_STOCK",
+      );
+    }
+  }
+
+  await locationRepo.incrementStock(connection, productId, locationId, deltaQty);
+  await stockRepo.createLog(connection, {
+    productId,
+    quantity: Math.abs(deltaQty),
+    fromLocationId: null,
+    toLocationId: locationId,
+    type: STOCK_MOVEMENT_TYPE.ADJUSTMENT,
+    userId,
+    notes,
+  });
+};
+
+/**
+ * Memvalidasi kecukupan stok pada lokasi asal (dengan row lock) lalu mengurangi stoknya.
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {Object} params
+ * @param {number|string} params.productId
+ * @param {string} params.sku
+ * @param {number|string} params.locationId
+ * @param {number} params.quantity
+ * @returns {Promise<void>}
+ * @throws {AppError}
+ */
+const assertSufficientStockAndDeduct = async (
+  connection,
+  { productId, sku, locationId, quantity },
+) => {
+  const currentStock = await locationRepo.getStockAtLocation(connection, productId, locationId, true);
+  if (currentStock < quantity) {
+    throw new AppError(
+      `Stok SKU '${sku}' kurang. Ada: ${currentStock}, Butuh: ${quantity}.`,
+      400,
+      "INSUFFICIENT_STOCK",
+    );
+  }
+  await locationRepo.deductStock(connection, productId, locationId, quantity);
+};
+
+/**
+ * Menambah stok ke lokasi tujuan dan mencatat log pergerakan masuk.
+ * @param {import('mysql2/promise').Connection} connection
+ * @param {Object} params
+ * @param {number|string} params.productId
+ * @param {number|string|null} params.locationId
+ * @param {number} params.quantity
+ * @param {string} params.type
+ * @param {number|string} params.userId
+ * @param {string} [params.notes]
+ * @returns {Promise<void>}
+ * @throws {AppError}
+ */
+const applyStockIncrement = async (
+  connection,
+  { productId, locationId, quantity, type, userId, notes },
+) => {
+  if (!locationId) throw new AppError("Lokasi tujuan wajib diisi.", 400, "VALIDATION_ERROR");
+  await locationRepo.incrementStock(connection, productId, locationId, quantity);
+  await stockRepo.createLog(connection, {
+    productId,
+    quantity,
+    fromLocationId: null,
+    toLocationId: locationId,
+    type,
+    userId,
+    notes,
+  });
+};
+
+/**
+ * Mengekstrak dan memvalidasi SKU dari daftar movement sebelum query massal.
+ * @param {Array<{ sku?: string }>} movements
+ * @param {string} emptyMessage
+ * @returns {string[]} Daftar SKU unik yang sudah di-trim
+ * @throws {AppError}
+ */
+const extractValidatedSkus = (movements, emptyMessage) => {
+  const skuSet = new Set();
+  for (const mov of movements) {
+    const sku = typeof mov.sku === "string" ? mov.sku.trim() : "";
+    if (!sku) {
+      throw new AppError(emptyMessage, 400, "VALIDATION_ERROR");
+    }
+    skuSet.add(sku);
+  }
+  return Array.from(skuSet);
+};
+
+/**
  * Menerima array pergerakan stok (SKU & Qty), lalu:
  * - Validasi SKU ke DB
  * - Cek apakah Paket? Jika ya, pecah jadi komponen
@@ -27,26 +194,30 @@ import { signals } from "./firebaseSignalService.js";
  * @param {import('mysql2/promise').Connection} connection
  * @param {Array<{ sku: string, quantity: number, [key: string]: any }>} movements
  * @returns {Promise<Array<{ productId: number, sku: string, quantity: number, isComponent?: boolean, parentSku?: string, [key: string]: any }>>}
+ * @throws {AppError}
  */
 const resolveInventoryItems = async (connection, movements) => {
   const resolvedItems = [];
-  const skuSet = new Set(movements.map((m) => m.sku));
+  const uniqueSkus = extractValidatedSkus(movements, "SKU wajib diisi untuk setiap item pergerakan.");
 
   // Bulk Fetch Info Produk & Komponen
-  const productMap = await productRepo.getProductMapWithComponents(connection, Array.from(skuSet));
+  const productMap = await productRepo.getProductMapWithComponents(connection, uniqueSkus);
 
   for (const mov of movements) {
-    const product = productMap.get(mov.sku.toUpperCase());
+    const sku = mov.sku.trim();
+    const product = productMap.get(sku.toUpperCase());
 
     if (!product) {
-      throw new Error(`SKU '${mov.sku}' tidak ditemukan di database.`);
+      throw new AppError(`SKU '${sku}' tidak ditemukan di database.`, 404, "NOT_FOUND");
     }
 
     // Logic Pecah Paket
     if (product.is_package) {
       if (!product.components || product.components.length === 0) {
-        throw new Error(
+        throw new AppError(
           `Produk Paket "${product.name}" (${product.sku}) tidak memiliki komponen terdaftar.`,
+          400,
+          "VALIDATION_ERROR",
         );
       }
 
@@ -88,18 +259,28 @@ const resolveInventoryItems = async (connection, movements) => {
 
 /**
  * Service: Transfer Stok (Single)
+ * @param {Object} params
+ * @param {number|string} params.productId
+ * @param {number|string} params.fromLocationId
+ * @param {number|string} params.toLocationId
+ * @param {number} params.quantity
+ * @param {number|string} params.userId
+ * @param {string} [params.notes]
+ * @param {import('mysql2/promise').Connection|null} [existingConnection=null]
+ * @returns {Promise<{ success: boolean, message: string }>}
+ * @throws {AppError}
  */
 export const transferStockService = async (
   { productId, fromLocationId, toLocationId, quantity, userId, notes },
   existingConnection = null,
 ) => {
-  return withTransaction(async (connection) => {
+  const { itemsCount, sku } = await withTransaction(async (connection) => {
     const product = await productRepo.getProductById(connection, productId);
-    if (!product) throw new Error("Produk tidak ditemukan.");
-    const sku = product.sku;
+    if (!product) throw new AppError("Produk tidak ditemukan.", 404, "NOT_FOUND");
+    const productSku = product.sku;
 
     const itemsToMove = await resolveInventoryItems(connection, [
-      { sku, quantity, fromLocationId, toLocationId },
+      { sku: productSku, quantity, fromLocationId, toLocationId },
     ]);
 
     for (const item of itemsToMove) {
@@ -111,9 +292,11 @@ export const transferStockService = async (
         true,
       );
       if (currentStock < item.quantity) {
-        throw new Error(
+        throw new AppError(
           `Stok tidak cukup untuk ${item.sku}. Butuh: ${item.quantity}, Ada: ${currentStock}.` +
             (item.isComponent ? ` (Komponen dari paket ${item.parentSku})` : ""),
+          400,
+          "INSUFFICIENT_STOCK",
         );
       }
 
@@ -128,109 +311,111 @@ export const transferStockService = async (
         quantity: item.quantity,
         fromLocationId,
         toLocationId,
-        type: "TRANSFER",
+        type: STOCK_MOVEMENT_TYPE.TRANSFER,
         userId,
         notes: finalNote,
       });
     }
 
-    // Kirim Notifikasi
-    try {
-      const title = "Transfer Stok";
-      const itemsCount = itemsToMove.length;
-      const msg = `Transfer stok untuk ${itemsCount} item (SKU: ${sku}) telah berhasil dilakukan.`;
-      const actionPayload = { productId, fromLocationId, toLocationId, quantity };
-
-      // Background process untuk notifikasi
-      notificationService
-        .notifyUsersByPermission(
-          "manage-stock-batch",
-          "WMS",
-          title,
-          msg,
-          actionPayload,
-          userId,
-          true,
-        )
-        .catch((e) => Logger.error("Failed to send notification", e, "STOCK_SERVICE"));
-    } catch (e) {
-      Logger.error("Failed to prepare notification", e, "STOCK_SERVICE");
-    }
-
-    signals.refreshStock();
-
-    return { success: true, message: "Transfer berhasil." };
+    return { itemsCount: itemsToMove.length, sku: productSku };
   }, existingConnection);
+
+  // Side-effect hanya dipicu jika transaksi ini berdiri sendiri dan sudah commit
+  if (!existingConnection) {
+    notifyStockTransfer(
+      "Transfer Stok",
+      `Transfer stok untuk ${itemsCount} item (SKU: ${sku}) telah berhasil dilakukan.`,
+      { productId, fromLocationId, toLocationId, quantity },
+      userId,
+    );
+    signals.refreshStock();
+  }
+
+  return { success: true, message: "Transfer berhasil." };
 };
 
 /**
  * Service: Adjust Stock (Single)
+ * @param {Object} params
+ * @param {number|string} params.productId
+ * @param {number|string} params.locationId
+ * @param {number} params.quantity
+ * @param {number|string} params.userId
+ * @param {string} [params.notes]
+ * @param {import('mysql2/promise').Connection|null} [existingConnection=null]
+ * @returns {Promise<{ success: boolean, message: string }>}
+ * @throws {AppError}
  */
 export const adjustStockService = async (
   { productId, locationId, quantity, userId, notes },
   existingConnection = null,
 ) => {
-  return withTransaction(async (connection) => {
+  await withTransaction(async (connection) => {
     const product = await productRepo.getProductById(connection, productId);
-    if (!product) throw new Error("Produk tidak ditemukan.");
+    if (!product) throw new AppError("Produk tidak ditemukan.", 404, "NOT_FOUND");
 
     // Helper Resolver (Juga memecah paket saat opname jika user opname paket!)
     const itemsToAdjust = await resolveInventoryItems(connection, [
-      { sku: product.sku, quantity: Math.abs(quantity) },
+      { sku: product.sku, quantity },
     ]);
 
     for (const item of itemsToAdjust) {
-      // Balikkan tanda negatif jika quantity awal negatif
-      const realQty = quantity < 0 ? -item.quantity : item.quantity;
-
-      if (realQty < 0) {
-        const currentStock = await locationRepo.getStockAtLocation(
-          connection,
-          item.productId,
-          locationId,
-          true,
-        );
-        if (currentStock + realQty < 0) {
-          throw new Error(`Stok ${item.sku} tidak cukup untuk dikurangi.`);
-        }
-      }
-
-      await locationRepo.incrementStock(connection, item.productId, locationId, realQty);
-
       const finalNote = item.isComponent ? `${notes} [Adj Paket ${item.parentSku}]` : notes;
-      await stockRepo.createLog(connection, {
+      await applyStockAdjustment(connection, {
         productId: item.productId,
-        quantity: Math.abs(realQty),
-        toLocationId: locationId,
-        type: "ADJUSTMENT",
+        sku: item.sku,
+        locationId,
+        deltaQty: item.quantity,
         userId,
         notes: finalNote,
       });
     }
-
-    signals.refreshStock();
-
-    return { success: true, message: "Penyesuaian stok berhasil." };
   }, existingConnection);
+
+  if (!existingConnection) {
+    signals.refreshStock();
+  }
+
+  return { success: true, message: "Penyesuaian stok berhasil." };
 };
 
 /**
- * Service: Process Batch Movements (INBOUND, RETURN, TRANSFER, etc)
+ * Service: Process Batch Movements (INBOUND, RETURN, TRANSFER, TRANSFER_MULTI, etc)
+ * @param {Object} params
+ * @param {string} params.type
+ * @param {number|string|null} [params.fromLocationId]
+ * @param {number|string|null} [params.toLocationId]
+ * @param {string} [params.notes]
+ * @param {Array<Object>} params.movements
+ * @param {number|string} params.userId
+ * @param {number} params.userRoleId
+ * @param {import('mysql2/promise').Connection|null} [existingConnection=null]
+ * @returns {Promise<{ success: boolean, count: number }>}
+ * @throws {AppError}
  */
 export const processBatchMovementsService = async (
   { type, fromLocationId, toLocationId, notes, movements, userId, userRoleId },
   existingConnection = null,
 ) => {
-  return withTransaction(async (connection) => {
-    // Permission Check
-    if (type === "TRANSFER" || type === "ADJUSTMENT") {
-      if (userRoleId !== 1) {
-        const locationToCheck = type === "TRANSFER" ? fromLocationId : toLocationId;
-        if (!locationToCheck) throw new Error("Lokasi wajib diisi untuk operasi ini.");
+  const result = await withTransaction(async (connection) => {
+    const locationAccessCache = new Map();
 
-        const hasAccess = await userRepo.hasLocationAccess(connection, userId, locationToCheck);
-        if (!hasAccess)
-          throw new Error("Akses ditolak. Anda tidak memiliki izin untuk lokasi ini.");
+    // Permission Check
+    if (type === STOCK_MOVEMENT_TYPE.TRANSFER || type === STOCK_MOVEMENT_TYPE.ADJUSTMENT) {
+      if (userRoleId !== 1) {
+        const locationToCheck =
+          type === STOCK_MOVEMENT_TYPE.TRANSFER ? fromLocationId : toLocationId;
+        if (!locationToCheck) {
+          throw new AppError("Lokasi wajib diisi untuk operasi ini.", 400, "VALIDATION_ERROR");
+        }
+
+        await assertLocationAccess(
+          connection,
+          locationAccessCache,
+          userId,
+          locationToCheck,
+          "Akses ditolak. Anda tidak memiliki izin untuk lokasi ini.",
+        );
       }
     }
 
@@ -261,194 +446,189 @@ export const processBatchMovementsService = async (
       const itemNote = isComponent ? `${baseNote} [Via ${parentSku}]` : baseNote;
 
       switch (type) {
-        case "TRANSFER":
-        case "TRANSFER_MULTI": {
-          if (!srcLoc || !destLoc)
-            throw new Error(`Lokasi asal/tujuan tidak valid untuk ${item.sku}`);
-
-          if (type === "TRANSFER_MULTI" && userRoleId !== 1) {
-            const hasAccess = await userRepo.hasLocationAccess(connection, userId, srcLoc);
-            if (!hasAccess) throw new Error(`Akses ditolak untuk lokasi asal SKU '${item.sku}'.`);
+        case STOCK_MOVEMENT_TYPE.TRANSFER:
+        case STOCK_MOVEMENT_TYPE.TRANSFER_MULTI: {
+          if (!srcLoc || !destLoc) {
+            throw new AppError(
+              `Lokasi asal/tujuan tidak valid untuk ${item.sku}`,
+              400,
+              "VALIDATION_ERROR",
+            );
           }
 
-          const currentStock = await locationRepo.getStockAtLocation(
-            connection,
-            productId,
-            srcLoc,
-            true,
-          );
-          if (currentStock < quantity)
-            throw new Error(
-              `Stok SKU '${item.sku}' kurang. Ada: ${currentStock}, Butuh: ${quantity}.`,
+          if (type === STOCK_MOVEMENT_TYPE.TRANSFER_MULTI && userRoleId !== 1) {
+            await assertLocationAccess(
+              connection,
+              locationAccessCache,
+              userId,
+              srcLoc,
+              `Akses ditolak untuk lokasi asal SKU '${item.sku}'.`,
             );
+          }
 
-          await locationRepo.deductStock(connection, productId, srcLoc, quantity);
+          await assertSufficientStockAndDeduct(connection, {
+            productId,
+            sku: item.sku,
+            locationId: srcLoc,
+            quantity,
+          });
           await locationRepo.incrementStock(connection, productId, destLoc, quantity);
           await stockRepo.createLog(connection, {
             productId,
             quantity,
             fromLocationId: srcLoc,
             toLocationId: destLoc,
-            type: "TRANSFER",
+            type: STOCK_MOVEMENT_TYPE.TRANSFER,
             userId,
             notes: itemNote,
           });
           break;
         }
 
-        case "INBOUND":
-        case "RETURN":
-          if (!destLoc) throw new Error("Lokasi tujuan wajib diisi.");
-          await locationRepo.incrementStock(connection, productId, destLoc, quantity);
-          await stockRepo.createLog(connection, {
+        case STOCK_MOVEMENT_TYPE.INBOUND:
+        case STOCK_MOVEMENT_TYPE.RETURN:
+          await applyStockIncrement(connection, {
             productId,
+            locationId: destLoc,
             quantity,
-            fromLocationId: null,
-            toLocationId: destLoc,
             type,
             userId,
             notes: itemNote,
           });
           break;
 
-        case "TRANSFER_OUT":
-        case "OUTBOUND": {
-          if (!srcLoc) throw new Error("Lokasi asal wajib diisi.");
-          const currentStockOut = await locationRepo.getStockAtLocation(
-            connection,
+        case STOCK_MOVEMENT_TYPE.TRANSFER_OUT:
+        case STOCK_MOVEMENT_TYPE.OUTBOUND: {
+          if (!srcLoc) throw new AppError("Lokasi asal wajib diisi.", 400, "VALIDATION_ERROR");
+          await assertSufficientStockAndDeduct(connection, {
             productId,
-            srcLoc,
-            true,
-          );
-          if (currentStockOut < quantity)
-            throw new Error(
-              `Stok SKU '${item.sku}' kurang. Ada: ${currentStockOut}, Butuh: ${quantity}.`,
-            );
-
-          await locationRepo.deductStock(connection, productId, srcLoc, quantity);
+            sku: item.sku,
+            locationId: srcLoc,
+            quantity,
+          });
           await stockRepo.createLog(connection, {
             productId,
             quantity,
             fromLocationId: srcLoc,
             toLocationId: null,
-            type: type === "OUTBOUND" ? "OUTBOUND" : "TRANSFER_OUT",
+            type:
+              type === STOCK_MOVEMENT_TYPE.OUTBOUND
+                ? STOCK_MOVEMENT_TYPE.OUTBOUND
+                : STOCK_MOVEMENT_TYPE.TRANSFER_OUT,
             userId,
             notes: itemNote,
           });
           break;
         }
 
-        case "TRANSFER_IN":
-          if (!destLoc) throw new Error("Lokasi tujuan wajib diisi.");
-          await locationRepo.incrementStock(connection, productId, destLoc, quantity);
-          await stockRepo.createLog(connection, {
+        case STOCK_MOVEMENT_TYPE.TRANSFER_IN:
+          await applyStockIncrement(connection, {
             productId,
+            locationId: destLoc,
             quantity,
-            fromLocationId: null,
-            toLocationId: destLoc,
-            type: "TRANSFER_IN",
+            type: STOCK_MOVEMENT_TYPE.TRANSFER_IN,
             userId,
             notes: itemNote,
           });
           break;
 
-        case "ADJUSTMENT": {
-          if (!destLoc) throw new Error("Lokasi wajib diisi.");
-          const originalMov = movements.find((m) => m.sku === (item.parentSku || item.sku));
-          const isNegative = originalMov && originalMov.quantity < 0;
-          const finalQty = isNegative ? -quantity : quantity;
-
-          await locationRepo.incrementStock(connection, productId, destLoc, finalQty);
-          await stockRepo.createLog(connection, {
+        case STOCK_MOVEMENT_TYPE.ADJUSTMENT:
+          if (!destLoc) throw new AppError("Lokasi wajib diisi.", 400, "VALIDATION_ERROR");
+          await applyStockAdjustment(connection, {
             productId,
-            quantity: Math.abs(finalQty),
-            fromLocationId: null,
-            toLocationId: destLoc,
-            type: "ADJUSTMENT",
+            sku: item.sku,
+            locationId: destLoc,
+            deltaQty: quantity,
             userId,
             notes: itemNote,
           });
           break;
-        }
 
         default:
-          throw new Error(`Tipe pergerakan '${type}' tidak dikenal.`);
+          throw new AppError(`Tipe pergerakan '${type}' tidak dikenal.`, 400, "VALIDATION_ERROR");
       }
     }
-
-    await connection.commit();
-
-    // Kirim Notifikasi untuk Transfer
-    if (type === "TRANSFER" || type === "TRANSFER_MULTI") {
-      try {
-        const title = `Batch Transfer Stok (${type})`;
-        const msg = `Transfer stok massal untuk ${resolvedItems.length} item telah berhasil dilakukan.`;
-        const actionPayload = { type, fromLocationId, toLocationId, count: resolvedItems.length };
-
-        // Background process untuk notifikasi
-        notificationService
-          .notifyUsersByPermission(
-            "manage-stock-batch",
-            "WMS",
-            title,
-            msg,
-            actionPayload,
-            userId,
-            true,
-          )
-          .catch((e) => Logger.error("Failed to send notification", e, "STOCK_SERVICE"));
-      } catch (e) {
-        Logger.error("Failed to prepare batch notification", e, "STOCK_SERVICE");
-      }
-    }
-
-    signals.refreshStock();
 
     return { success: true, count: resolvedItems.length };
   }, existingConnection);
+
+  // Side-effect hanya dipicu jika transaksi ini berdiri sendiri dan sudah commit
+  if (!existingConnection) {
+    if (
+      type === STOCK_MOVEMENT_TYPE.TRANSFER ||
+      type === STOCK_MOVEMENT_TYPE.TRANSFER_MULTI
+    ) {
+      notifyStockTransfer(
+        `Batch Transfer Stok (${type})`,
+        `Transfer stok massal untuk ${result.count} item telah berhasil dilakukan.`,
+        { type, fromLocationId, toLocationId, count: result.count },
+        userId,
+      );
+    }
+
+    signals.refreshStock();
+  }
+
+  return result;
 };
 
 /**
  * Service: Process Batch Stock Opname (Pure Override)
  * Bypass component breakdown. Fails if package SKU included.
+ * @param {Object} params
+ * @param {Array<{ sku: string, quantity: number, toLocationId: number|string, notes?: string }>} params.movements
+ * @param {number|string} params.userId
+ * @param {number} params.userRoleId
+ * @param {import('mysql2/promise').Connection|null} [existingConnection=null]
+ * @returns {Promise<{ success: boolean, count: number }>}
+ * @throws {AppError}
  */
 export const processBatchOpnameService = async (
   { movements, userId, userRoleId },
   existingConnection = null,
 ) => {
-  return withTransaction(async (connection) => {
+  const result = await withTransaction(async (connection) => {
+    const locationAccessCache = new Map();
+
     // 1. Resolve Items using getProductMap (to check if product exists and if it's package)
-    const skuSet = new Set(movements.map((m) => m.sku));
-    const productMap = await productRepo.getProductMapWithComponents(
-      connection,
-      Array.from(skuSet),
-    );
+    const uniqueSkus = extractValidatedSkus(movements, "SKU wajib diisi untuk setiap item opname.");
+    const productMap = await productRepo.getProductMapWithComponents(connection, uniqueSkus);
 
     let processedCount = 0;
 
     for (const mov of movements) {
-      const product = productMap.get(mov.sku.toUpperCase());
+      const sku = mov.sku.trim();
+      const product = productMap.get(sku.toUpperCase());
       if (!product) {
-        throw new Error(`SKU '${mov.sku}' tidak ditemukan di database.`);
+        throw new AppError(`SKU '${sku}' tidak ditemukan di database.`, 404, "NOT_FOUND");
       }
 
       // Block packages
       if (product.is_package) {
-        throw new Error(
-          `SKU Paket '${mov.sku}' tidak dapat di-opname secara langsung. Opname hanya berlaku untuk barang fisik (komponen).`,
+        throw new AppError(
+          `SKU Paket '${sku}' tidak dapat di-opname secara langsung. Opname hanya berlaku untuk barang fisik (komponen).`,
+          400,
+          "VALIDATION_ERROR",
         );
       }
 
       if (!mov.toLocationId) {
-        throw new Error(`Lokasi tujuan wajib diisi untuk opname SKU '${mov.sku}'.`);
+        throw new AppError(
+          `Lokasi tujuan wajib diisi untuk opname SKU '${sku}'.`,
+          400,
+          "VALIDATION_ERROR",
+        );
       }
 
       // Ensure user has location permission if not superadmin
       if (userRoleId !== 1) {
-        const hasAccess = await userRepo.hasLocationAccess(connection, userId, mov.toLocationId);
-        if (!hasAccess) {
-          throw new Error(`Akses ditolak untuk mencatat stok pada lokasi SKU '${mov.sku}'.`);
-        }
+        await assertLocationAccess(
+          connection,
+          locationAccessCache,
+          userId,
+          mov.toLocationId,
+          `Akses ditolak untuk mencatat stok pada lokasi SKU '${sku}'.`,
+        );
       }
 
       const actualQty = mov.quantity; // Quantity passed is ACTUAL stock counted
@@ -471,7 +651,7 @@ export const processBatchOpnameService = async (
           productId: product.id,
           quantity: Math.abs(difference),
           toLocationId: mov.toLocationId,
-          type: "OPNAME",
+          type: STOCK_MOVEMENT_TYPE.OPNAME,
           userId,
           notes: mov.notes || "Stock Opname Override",
         });
@@ -480,11 +660,15 @@ export const processBatchOpnameService = async (
       }
     }
 
-    signals.refreshStock();
-
     // Return processedCount (how many actual updates happened)
     return { success: true, count: processedCount };
   }, existingConnection);
+
+  if (!existingConnection) {
+    signals.refreshStock();
+  }
+
+  return result;
 };
 
 /**
@@ -498,7 +682,7 @@ export const batchTransferService = async ({
   userRoleId,
 }) => {
   return processBatchMovementsService({
-    type: "TRANSFER",
+    type: STOCK_MOVEMENT_TYPE.TRANSFER,
     fromLocationId,
     toLocationId,
     notes: "Batch Transfer",
@@ -513,93 +697,89 @@ export const batchTransferService = async ({
 // ==============================================================================
 
 /**
- * @returns {Promise<any>}
+ * Membuat workbook template Excel dengan sheet tersembunyi `DataValidasi` untuk dropdown lokasi.
+ * @param {Object} options
+ * @param {string} options.sheetName - Nama worksheet utama
+ * @param {Array<{ header: string, key: string, width: number }>} options.columns - Definisi kolom
+ * @returns {Promise<import('exceljs').Workbook>}
  */
-export const generateAdjustmentTemplateService = async () => {
+const generateLocationTemplateWorkbook = async ({ sheetName, columns }) => {
   return withConnection(async (connection) => {
     const locationCodes = await locationRepo.getAllLocationCodes(connection);
 
     const workbook = new ExcelJS.Workbook();
-    const mainSheet = workbook.addWorksheet("Input Stok");
+    const mainSheet = workbook.addWorksheet(sheetName);
     const validationSheet = workbook.addWorksheet("DataValidasi");
 
     validationSheet.state = "hidden";
     validationSheet.getColumn("A").values = locationCodes;
 
-    mainSheet.columns = [
+    mainSheet.columns = columns;
+    mainSheet.getRow(1).font = { bold: true };
+
+    if (locationCodes.length > 0) {
+      const validationFormula = `DataValidasi!$A$1:$A$${locationCodes.length}`;
+
+      for (let i = 2; i <= 1002; i++) {
+        mainSheet.getCell(`B${i}`).dataValidation = {
+          type: "list",
+          allowBlank: true,
+          formulae: [validationFormula],
+          showErrorMessage: true,
+          errorStyle: "warning",
+          errorTitle: "Lokasi Tidak Valid",
+          error: "Silakan pilih lokasi yang valid dari daftar dropdown.",
+        };
+      }
+    }
+
+    return workbook;
+  });
+};
+
+/**
+ * Menghasilkan workbook template Stock Opname / Adjustment dengan validasi dropdown lokasi.
+ * @returns {Promise<import('exceljs').Workbook>}
+ */
+export const generateAdjustmentTemplateService = async () => {
+  return generateLocationTemplateWorkbook({
+    sheetName: "Input Stok",
+    columns: [
       { header: "SKU", key: "sku", width: 25 },
       { header: "LT (Lokasi)", key: "location", width: 20 },
       { header: "ACTUAL", key: "actual", width: 10 },
       { header: "NOTES", key: "notes", width: 35 },
-    ];
-    mainSheet.getRow(1).font = { bold: true };
-
-    const validationFormula = `DataValidasi!$A$1:$A$${locationCodes.length}`;
-
-    for (let i = 2; i <= 1002; i++) {
-      mainSheet.getCell(`B${i}`).dataValidation = {
-        type: "list",
-        allowBlank: true,
-        formulae: [validationFormula],
-        showErrorMessage: true,
-        errorStyle: "warning",
-        errorTitle: "Lokasi Tidak Valid",
-        error: "Silakan pilih lokasi yang valid dari daftar dropdown.",
-      };
-    }
-    return workbook;
+    ],
   });
 };
 
 /**
- * @returns {Promise<any>}
+ * Menghasilkan workbook template Inbound Stok dengan validasi dropdown lokasi.
+ * @returns {Promise<import('exceljs').Workbook>}
  */
 export const generateInboundTemplateService = async () => {
-  return withConnection(async (connection) => {
-    const locationCodes = await locationRepo.getAllLocationCodes(connection);
-
-    const workbook = new ExcelJS.Workbook();
-    const mainSheet = workbook.addWorksheet("Inbound Stok");
-    const validationSheet = workbook.addWorksheet("DataValidasi");
-
-    validationSheet.state = "hidden";
-    validationSheet.getColumn("A").values = locationCodes;
-
-    mainSheet.columns = [
+  return generateLocationTemplateWorkbook({
+    sheetName: "Inbound Stok",
+    columns: [
       { header: "SKU", key: "sku", width: 25 },
       { header: "Lokasi Tujuan", key: "location", width: 20 },
       { header: "Quantity", key: "quantity", width: 15 },
       { header: "Notes", key: "notes", width: 35 },
-    ];
-    mainSheet.getRow(1).font = { bold: true };
-
-    const validationFormula = `DataValidasi!$A$1:$A$${locationCodes.length}`;
-
-    for (let i = 2; i <= 1002; i++) {
-      mainSheet.getCell(`B${i}`).dataValidation = {
-        type: "list",
-        allowBlank: true,
-        formulae: [validationFormula],
-        showErrorMessage: true,
-        errorStyle: "warning",
-        errorTitle: "Lokasi Tidak Valid",
-        error: "Silakan pilih lokasi yang valid dari daftar dropdown.",
-      };
-    }
-    return workbook;
+    ],
   });
 };
 
 /**
+ * Mengambil riwayat pergerakan stok per produk secara terpaginasi.
  * @param {number|string} productId
- * @param {any} page
- * @param {number} limit
- * @param {any} movementType
- * @param {any} startDate
- * @param {any} endDate
- * @param {number|string} locationId
- * @param {any} user
- * @returns {Promise<any>}
+ * @param {number|string} [page=1]
+ * @param {number|string} [limit=15]
+ * @param {string|null} [movementType=null]
+ * @param {string|null} [startDate=null]
+ * @param {string|null} [endDate=null]
+ * @param {number|string|null} [locationId=null]
+ * @param {string|null} [user=null]
+ * @returns {Promise<{ data: Array<Object>, pagination: Object }>}
  */
 export const getStockHistoryService = async (
   productId,
@@ -613,87 +793,38 @@ export const getStockHistoryService = async (
 ) => {
   const { page: safePage, limit: safeLimit, offset } = normalizePagination({ page, limit }, 15);
   return withConnection(async (connection) => {
-    let countQuery =
-      "SELECT COUNT(*) as total FROM stock_movements sm JOIN users u ON sm.user_id = u.id WHERE sm.product_id = ?";
-    const countParams = [productId];
-
-    let historyQuery = `
-    SELECT
-      sm.id,
-      sm.quantity,
-      sm.movement_type,
-      sm.notes,
-      sm.created_at,
-      u.username as user,
-      from_loc.code as from_location,
-      to_loc.code as to_location
-    FROM stock_movements sm
-    JOIN users u ON sm.user_id = u.id
-    LEFT JOIN locations from_loc ON sm.from_location_id = from_loc.id
-    LEFT JOIN locations to_loc ON sm.to_location_id = to_loc.id
-    WHERE sm.product_id = ?`;
-    const historyParams = [productId];
-
-    if (movementType && movementType !== "all") {
-      countQuery += " AND sm.movement_type = ?";
-      countParams.push(movementType);
-
-      historyQuery += " AND sm.movement_type = ?";
-      historyParams.push(movementType);
-    }
-
-    if (startDate && endDate) {
-      countQuery += " AND DATE(sm.created_at) BETWEEN ? AND ?";
-      countParams.push(startDate, endDate);
-      historyQuery += " AND DATE(sm.created_at) BETWEEN ? AND ?";
-      historyParams.push(startDate, endDate);
-    } else if (startDate) {
-      countQuery += " AND DATE(sm.created_at) >= ?";
-      countParams.push(startDate);
-      historyQuery += " AND DATE(sm.created_at) >= ?";
-      historyParams.push(startDate);
-    } else if (endDate) {
-      countQuery += " AND DATE(sm.created_at) <= ?";
-      countParams.push(endDate);
-      historyQuery += " AND DATE(sm.created_at) <= ?";
-      historyParams.push(endDate);
-    }
-
-    if (locationId && locationId !== "all") {
-      countQuery += " AND (sm.from_location_id = ? OR sm.to_location_id = ?)";
-      countParams.push(locationId, locationId);
-
-      historyQuery += " AND (sm.from_location_id = ? OR sm.to_location_id = ?)";
-      historyParams.push(locationId, locationId);
-    }
-
-    if (user) {
-      countQuery += " AND u.username LIKE ?";
-      countParams.push(`%${user}%`);
-
-      historyQuery += " AND u.username LIKE ?";
-      historyParams.push(`%${user}%`);
-    }
-
-    historyQuery += " ORDER BY sm.created_at DESC LIMIT ? OFFSET ?";
-    historyParams.push(safeLimit, offset);
-
-    const [totalRows] = await connection.query(countQuery, countParams);
-    const [history] = await connection.query(historyQuery, historyParams);
+    const { rows, total } = await stockRepo.getStockHistory(connection, {
+      productId,
+      movementType,
+      startDate,
+      endDate,
+      locationId,
+      user,
+      limit: safeLimit,
+      offset,
+    });
 
     return {
-      data: history,
-      pagination: formatPaginationMeta(totalRows[0].total, safePage, safeLimit),
+      data: rows,
+      pagination: formatPaginationMeta(total, safePage, safeLimit),
     };
   });
 };
 
-// Re-export for backward compatibility with exportService and consumers
-export { buildTriStateWhere };
-
 /**
+ * Mengambil log pergerakan stok batch terfilter dan terpaginasi.
  * @param {Object} options
- * @returns {Promise<any>}
+ * @param {string} options.startDate
+ * @param {string} options.endDate
+ * @param {string} [options.productName]
+ * @param {any} [options.movementType]
+ * @param {any} [options.sourceLocation]
+ * @param {any} [options.destinationLocation]
+ * @param {string} [options.userId]
+ * @param {string} [options.notes]
+ * @param {number|string} [options.page=1]
+ * @param {number|string} [options.limit=50]
+ * @returns {Promise<{ data: Array<Object>, pagination: Object }>}
  */
 export const getBatchLogsService = async ({
   startDate,
@@ -707,102 +838,51 @@ export const getBatchLogsService = async ({
   page = 1,
   limit = 50,
 }) => {
+  const { page: safePage, limit: safeLimit, offset } = normalizePagination({ page, limit }, 50);
   return withConnection(async (connection) => {
-    const { page: safePage, limit: safeLimit, offset } = normalizePagination({ page, limit }, 50);
-    const baseWhere = `sm.created_at BETWEEN ? AND ?`;
-    const params = [startDate, `${endDate} 23:59:59`];
-
-    let countQuery = `
-    SELECT COUNT(*) as total
-    FROM stock_movements sm
-    JOIN products p ON sm.product_id = p.id
-    JOIN users u ON sm.user_id = u.id
-    LEFT JOIN locations from_loc ON sm.from_location_id = from_loc.id
-    LEFT JOIN locations to_loc ON sm.to_location_id = to_loc.id
-    WHERE `;
-
-    let dataQuery = `
-    SELECT sm.id,
-      p.sku,
-      p.name as product_name,
-      sm.quantity,
-      sm.movement_type,
-      sm.notes,
-      sm.created_at,
-      u.username as user,
-      from_loc.code as from_location,
-      to_loc.code as to_location
-    FROM stock_movements sm
-    JOIN products p ON sm.product_id = p.id
-    JOIN users u ON sm.user_id = u.id
-    LEFT JOIN locations from_loc ON sm.from_location_id = from_loc.id
-    LEFT JOIN locations to_loc ON sm.to_location_id = to_loc.id
-    WHERE `;
-
-    const conditions = [baseWhere];
-
-    if (productName) {
-      conditions.push(`(p.name LIKE ? OR p.sku LIKE ?)`);
-      params.push(`%${productName}%`, `%${productName}%`);
-    }
-
-    const typeClauses = buildTriStateWhere("sm.movement_type", movementType, params);
-    if (typeClauses.length > 0) {
-      conditions.push(`(${typeClauses.join(" AND ")})`);
-    }
-
-    const sourceClauses = buildTriStateWhere("sm.from_location_id", sourceLocation, params);
-    if (sourceClauses.length > 0) {
-      conditions.push(`(${sourceClauses.join(" AND ")})`);
-    }
-
-    const destinationClauses = buildTriStateWhere("sm.to_location_id", destinationLocation, params);
-    if (destinationClauses.length > 0) {
-      conditions.push(`(${destinationClauses.join(" AND ")})`);
-    }
-
-    if (userId) {
-      conditions.push(`u.username LIKE ?`);
-      params.push(`%${userId}%`);
-    }
-
-    if (notes) {
-      conditions.push(`sm.notes LIKE ?`);
-      params.push(`%${notes}%`);
-    }
-
-    const whereClause = conditions.join(" AND ");
-    countQuery += whereClause;
-    dataQuery += whereClause;
-
-    dataQuery += ` ORDER BY sm.created_at DESC LIMIT ? OFFSET ?`;
-
-    const [totalRows] = await connection.query(countQuery, params);
-    const dataParams = [...params, safeLimit, offset];
-    const [logs] = await connection.query(dataQuery, dataParams);
+    const { rows, total } = await stockRepo.getBatchLogs(connection, {
+      startDate,
+      endDate,
+      productName,
+      movementType,
+      sourceLocation,
+      destinationLocation,
+      userId,
+      notes,
+      limit: safeLimit,
+      offset,
+    });
 
     return {
-      data: logs,
-      pagination: formatPaginationMeta(totalRows[0].total, safePage, safeLimit),
+      data: rows,
+      pagination: formatPaginationMeta(total, safePage, safeLimit),
     };
   });
 };
 
 /**
+ * Service: Validasi barang retur dari picking list ke lokasi tujuan.
  * @param {Object} options
- * @returns {Promise<any>}
+ * @param {number|string} options.pickingListItemId
+ * @param {number|string} options.returnToLocationId
+ * @param {number|string} options.userId
+ * @param {import('mysql2/promise').Connection|null} [existingConnection=null]
+ * @returns {Promise<{ success: boolean, message: string }>}
+ * @throws {AppError}
  */
 export const validateReturnService = async (
   { pickingListItemId, returnToLocationId, userId },
   existingConnection = null,
 ) => {
-  return withTransaction(async (connection) => {
+  const result = await withTransaction(async (connection) => {
     const returnedItem = await pickingRepo.getReturnedItemForValidation(
       connection,
       pickingListItemId,
     );
 
-    if (!returnedItem) throw new Error("Item retur tidak ditemukan atau sudah diproses.");
+    if (!returnedItem) {
+      throw new AppError("Item retur tidak ditemukan atau sudah diproses.", 404, "NOT_FOUND");
+    }
     const { product_id, quantity } = returnedItem;
 
     await locationRepo.incrementStock(connection, product_id, returnToLocationId, quantity);
@@ -810,16 +890,21 @@ export const validateReturnService = async (
       productId: product_id,
       quantity,
       toLocationId: returnToLocationId,
-      type: "RETURN",
+      type: STOCK_MOVEMENT_TYPE.RETURN,
       userId,
       notes: `Validasi Retur Item ID: ${pickingListItemId}`,
     });
     await pickingRepo.updateItemStatus(connection, pickingListItemId, "COMPLETED_RETURN");
 
-    signals.refreshStock();
-    signals.refreshPicking();
     return { success: true, message: `Item (ID: ${pickingListItemId}) berhasil divalidasi.` };
   }, existingConnection);
+
+  if (!existingConnection) {
+    signals.refreshStock();
+    signals.refreshPicking();
+  }
+
+  return result;
 };
 
 /**

@@ -8,6 +8,6 @@ export const roleSchema = z.object({
 
 export const assignPermissionsSchema = z.object({
   permissionIds: z.array(z.coerce.number(), {
-    invalid_type_error: "Input harus berupa array ID izin.",
+    error: "Input harus berupa array ID izin.",
   }),
 });

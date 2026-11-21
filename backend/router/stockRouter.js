@@ -8,13 +8,16 @@ import { fileURLToPath } from "url";
 import { getTimestampString_YYMMDDHHSS } from "../services/helpers/sharedHelpers.js";
 import Logger from "../utils/logger.js";
 import { validate } from "../middleware/validate.js";
-import { 
-  stockTransferSchema, 
+import {
+  stockTransferSchema,
   stockAdjustSchema,
   batchProcessSchema,
   batchTransferSchema,
   validateReturnSchema,
-  batchLogsSchema
+  batchLogsSchema,
+  batchLogExportSchema,
+  productIdParamSchema,
+  jobIdParamSchema,
 } from "../validators/stockValidator.js";
 
 const router = express.Router();
@@ -106,19 +109,18 @@ router.post("/validate-return", validate(validateReturnSchema), stockController.
  * GET /api/stock/history/:productId
  * Riwayat pergerakan stok per produk
  */
-router.get("/history/:productId", stockController.getStockHistory);
+router.get("/history/:productId", validate(productIdParamSchema, "params"), stockController.getStockHistory);
 
 /**
  * GET /api/stock/batch-log
  * Log batch pergerakan berdasarkan tanggal
  */
-router.get("/batch-log", validate(batchLogsSchema, 'query'), stockController.getBatchLogs);
+router.get("/batch-log", validate(batchLogsSchema, "query"), stockController.getBatchLogs);
 
 /**
  * POST /api/stock/batch-log/export
  * Ekspor batch log (Background Job)
  */
-import { batchLogExportSchema } from "../validators/stockValidator.js";
 router.post("/batch-log/export", validate(batchLogExportSchema), stockController.requestBatchLogExport);
 
 /**
@@ -169,6 +171,6 @@ router.get("/import-jobs", stockController.getImportJobs);
  * POST /api/stock/import-jobs/:id/void
  * Batalkan job import yang masih pending
  */
-router.post("/import-jobs/:id/void", stockController.voidImportJob);
+router.post("/import-jobs/:id/void", validate(jobIdParamSchema, "params"), stockController.voidImportJob);
 
 export default router;

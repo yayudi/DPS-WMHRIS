@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { nullablePositiveInt } from "./zodHelpers.js";
 
 /**
  * Zod Schema untuk validasi pembuatan dan pembaruan produk.
@@ -8,7 +9,7 @@ import { z } from "zod";
 export const productSchema = z.object({
   sku: z.string().min(1, "SKU wajib diisi").optional(), // optional saat update
   name: z.string().min(1, "Nama wajib diisi").optional(),
-  category_id: z.coerce.number().optional().nullable(),
+  category_id: nullablePositiveInt("Category ID tidak valid"),
   price: z.coerce.number().optional().default(0),
   weight: z.coerce.number().optional().default(0),
   length: z.coerce.number().optional().default(0),

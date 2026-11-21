@@ -4,6 +4,7 @@ import * as jobService from "../services/jobService.js";
 import * as jobRepo from "../repositories/jobRepository.js";
 import db from "../config/db.js";
 import { EXPORT_JOB_TYPE, IMPORT_JOB_TYPE } from "../config/jobConstants.js";
+import { STOCK_MOVEMENT_TYPE } from "../config/wmsConstants.js";
 
 import AppError from "../utils/AppError.js";
 // ============================================================================
@@ -164,7 +165,7 @@ export const voidImportJob = catchAsync(async (req, res, next) => {
 export const processBatchMovements = catchAsync(async (req, res, next) => {
   const { type, fromLocationId, toLocationId, notes, movements } = req.body;
 
-  if (type === "OPNAME") {
+  if (type === STOCK_MOVEMENT_TYPE.OPNAME) {
     const mappedMovements = movements.map((m) => ({
       sku: m.sku,
       quantity: m.quantity,
@@ -262,6 +263,7 @@ export const requestBatchLogExport = catchAsync(async (req, res, next) => {
     movementType,
     sourceLocation,
     destinationLocation,
+    userId: filterUserId,
     notes,
     format,
   } = req.body;
@@ -273,6 +275,7 @@ export const requestBatchLogExport = catchAsync(async (req, res, next) => {
     movementType,
     sourceLocation,
     destinationLocation,
+    userId: filterUserId,
     notes,
     format: format || "xlsx",
     exportType: EXPORT_JOB_TYPE.BATCH_LOG_EXPORT,

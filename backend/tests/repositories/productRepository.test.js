@@ -80,6 +80,114 @@ describe('Product Repository', () => {
       // In node-mysql2, arrays passed to `?` are flattened
       expect(dataParams).toContainEqual([1, 2, 3]);
     });
+
+    it('should apply building & floor filters for non-gudang locations (pajangan)', async () => {
+      mockConnection.query.mockResolvedValueOnce([[{ total: 0 }], []]);
+      mockConnection.query.mockResolvedValueOnce([[], []]);
+
+      await getProductsWithFilters(mockConnection, {
+        limit: 10,
+        offset: 0,
+        status: 'active',
+        location: 'pajangan',
+        stockStatus: 'all',
+        buildingInclude: ['A19'],
+        buildingExclude: ['B16'],
+        floorInclude: ['2']
+      });
+
+      const [dataQuery, dataParams] = mockConnection.query.mock.calls[1];
+
+      expect(dataQuery).toContain('l.purpose = ?');
+      expect(dataQuery).toContain('l.building IN (?)');
+      expect(dataQuery).toContain('l.building NOT IN (?)');
+      expect(dataQuery).toContain('l.floor IN (?)');
+      expect(dataParams.slice(0, 4)).toEqual(['DISPLAY', ['A19'], ['B16'], ['2']]);
+    });
+
+    it('should apply building filter on location "all" without purpose condition', async () => {
+      mockConnection.query.mockResolvedValueOnce([[{ total: 0 }], []]);
+      mockConnection.query.mockResolvedValueOnce([[], []]);
+
+      await getProductsWithFilters(mockConnection, {
+        limit: 10,
+        offset: 0,
+        status: 'active',
+        location: 'all',
+        stockStatus: 'all',
+        buildingInclude: ['A19', 'A20']
+      });
+
+      const [dataQuery, dataParams] = mockConnection.query.mock.calls[1];
+
+      expect(dataQuery).toContain('EXISTS');
+      expect(dataQuery).toContain('l.building IN (?)');
+      expect(dataQuery).not.toContain('l.purpose = ?');
+      expect(dataParams).toContainEqual(['A19', 'A20']);
+    });
+
+    it('should not add location EXISTS clause when location is "all" and no detail filters', async () => {
+      mockConnection.query.mockResolvedValueOnce([[{ total: 0 }], []]);
+      mockConnection.query.mockResolvedValueOnce([[], []]);
+
+      await getProductsWithFilters(mockConnection, {
+        limit: 10,
+        offset: 0,
+        status: 'active',
+        location: 'all',
+        stockStatus: 'all'
+      });
+
+      const [dataQuery] = mockConnection.query.mock.calls[1];
+      expect(dataQuery).not.toContain('EXISTS');
+    });
+
+    it('should apply building/floor filters to package component stock query (no ReferenceError)', async () => {
+      mockConnection.query.mockResolvedValueOnce([[{ total: 1 }], []]); // count
+      mockConnection.query.mockResolvedValueOnce([[{ id: 1, is_package: 1 }], []]); // products
+      mockConnection.query.mockResolvedValueOnce([[], []]); // stock_locations
+      mockConnection.query.mockResolvedValueOnce([
+        [{ package_product_id: 1, id: 10, quantity: 2, name: 'Komponen', sku: 'K-1', weight: 100 }],
+        []
+      ]); // components
+      mockConnection.query.mockResolvedValueOnce([[{ product_id: 10, total_stock: 7 }], []]); // component stock
+
+      const result = await getProductsWithFilters(mockConnection, {
+        limit: 10,
+        offset: 0,
+        status: 'active',
+        location: 'pajangan',
+        stockStatus: 'all',
+        buildingInclude: ['A19'],
+        floorExclude: ['4']
+      });
+
+      const [stockQuery, stockParams] = mockConnection.query.mock.calls[4];
+      expect(stockQuery).toContain('l.purpose = ?');
+      expect(stockQuery).toContain('l.building IN (?)');
+      expect(stockQuery).toContain('l.floor NOT IN (?)');
+      expect(stockParams).toEqual([[10], 'DISPLAY', ['A19'], ['4']]);
+      expect(result.data[0].components[0].stock_available).toBe(7);
+    });
+
+    it('should select building and floor in stock_locations query', async () => {
+      mockConnection.query.mockResolvedValueOnce([[{ total: 1 }], []]);
+      mockConnection.query.mockResolvedValueOnce([[{ id: 1, is_package: 0 }], []]);
+      mockConnection.query.mockResolvedValueOnce([[], []]);
+
+      await getProductsWithFilters(mockConnection, {
+        limit: 10,
+        offset: 0,
+        status: 'active',
+        location: 'all',
+        stockStatus: 'all',
+        skipComponents: true
+      });
+
+      const [stockQuery] = mockConnection.query.mock.calls[2];
+      expect(stockQuery).toContain('l.building');
+      expect(stockQuery).toContain('l.floor');
+    });
   });
 
   describe('searchProducts', () => {

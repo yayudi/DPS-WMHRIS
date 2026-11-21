@@ -3,6 +3,7 @@ import ExcelJS from "exceljs";
 import * as stockService from "./stockService.js";
 import * as locationRepo from "../repositories/locationRepository.js";
 import * as productRepo from "../repositories/productRepository.js";
+import { STOCK_MOVEMENT_TYPE } from "../config/wmsConstants.js";
 
 /**
  * @param {number|string} jobId
@@ -99,7 +100,7 @@ export const processStockInboundImport = async (
 
     // 4. Execute Batch Inbound
     const result = await stockService.processBatchMovementsService({
-      type: "INBOUND",
+      type: STOCK_MOVEMENT_TYPE.INBOUND,
       fromLocationId: null,
       toLocationId: null, // Individual items carry their own toLocationId
       notes: jobNotes || "Batch Inbound",

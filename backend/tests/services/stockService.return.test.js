@@ -45,6 +45,7 @@ jest.unstable_mockModule("../../services/firebaseSignalService.js", () => ({
 // ============================================================================
 
 const stockService = await import("../../services/stockService.js");
+const { default: AppError } = await import("../../utils/AppError.js");
 const productRepo = await import("../../repositories/productRepository.js");
 const locationRepo = await import("../../repositories/locationRepository.js");
 const stockRepo = await import("../../repositories/stockMovementRepository.js");
@@ -95,7 +96,7 @@ describe("stockService.processBatchMovementsService (RETURN)", () => {
 
     // 1. DB Transaction
     expect(mockConnection.beginTransaction).toHaveBeenCalled();
-    expect(mockConnection.commit).toHaveBeenCalled();
+    expect(mockConnection.commit).toHaveBeenCalledTimes(1);
 
     // 2. Stock Increment
     expect(locationRepo.incrementStock).toHaveBeenCalledWith(
@@ -178,8 +179,10 @@ describe("stockService.processBatchMovementsService (RETURN)", () => {
     productMap.set("SKU-A", { id: 1, sku: "SKU-A", is_package: false });
     productRepo.getProductMapWithComponents.mockResolvedValue(productMap);
 
-    await expect(stockService.processBatchMovementsService(input))
-      .rejects.toThrow("Lokasi tujuan wajib diisi.");
+    const missingLocErr = await stockService.processBatchMovementsService(input).catch((e) => e);
+    expect(missingLocErr).toBeInstanceOf(AppError);
+    expect(missingLocErr.statusCode).toBe(400);
+    expect(missingLocErr.message).toBe("Lokasi tujuan wajib diisi.");
 
     expect(mockConnection.rollback).toHaveBeenCalled();
     expect(locationRepo.incrementStock).not.toHaveBeenCalled();
@@ -196,8 +199,10 @@ describe("stockService.processBatchMovementsService (RETURN)", () => {
     // Resolver returns empty map or map without that SKU
     productRepo.getProductMapWithComponents.mockResolvedValue(new Map());
 
-    await expect(stockService.processBatchMovementsService(input))
-      .rejects.toThrow("SKU 'UNKNOWN-SKU' tidak ditemukan di database.");
+    const notFoundErr = await stockService.processBatchMovementsService(input).catch((e) => e);
+    expect(notFoundErr).toBeInstanceOf(AppError);
+    expect(notFoundErr.statusCode).toBe(404);
+    expect(notFoundErr.message).toBe("SKU 'UNKNOWN-SKU' tidak ditemukan di database.");
 
     expect(mockConnection.rollback).toHaveBeenCalled();
   });

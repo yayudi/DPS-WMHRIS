@@ -311,6 +311,25 @@ export function useWms() {
     if (observer && newLoader) observer.observe(newLoader)
   })
 
+  // Cascade filter lokasi: purpose (tab) > gedung > lantai.
+  // Reset anak saat parent berubah. flush 'sync' agar reset terjadi sebelum watcher
+  // refetch utama (hindari fetch ganda).
+  const hasFilter = f => f.value.include.length > 0 || f.value.exclude.length > 0
+  const resetFloor = () => {
+    if (hasFilter(selectedFloor)) selectedFloor.value = { include: [], exclude: [] }
+  }
+
+  watch(
+    activeView,
+    () => {
+      if (hasFilter(selectedBuilding)) selectedBuilding.value = { include: [], exclude: [] }
+      resetFloor()
+    },
+    { flush: 'sync' }
+  )
+
+  watch(selectedBuilding, resetFloor, { flush: 'sync' })
+
   watch(
     [
       searchTerm,

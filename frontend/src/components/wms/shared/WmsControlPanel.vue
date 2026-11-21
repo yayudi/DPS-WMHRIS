@@ -175,8 +175,8 @@ onClickOutside(
     <!-- Actions & Filters (Inline Right) -->
     <template #actions>
       <div class="flex flex-wrap items-end justify-start lg:justify-end gap-2 w-full lg:w-auto">
-        <!-- Filter Warehouse (Hanya tampil jika view gudang) -->
-        <div v-if="activeView === 'gudang'" class="flex gap-2 w-full lg:w-auto shrink-0">
+        <!-- Filter Gedung & Lantai (cascade: purpose tab > gedung > lantai) -->
+        <div v-if="buildingFilterOptions.length > 0" class="flex gap-2 w-full lg:w-auto shrink-0">
           <div class="flex flex-col gap-1 w-1/2 lg:w-[110px]">
             <label class="block text-xs font-semibold text-text/60 text-center mb-1">Gedung</label>
             <TriStateSelect
@@ -196,6 +196,8 @@ onClickOutside(
               :model-value="selectedFloor"
               @update:modelValue="emit('update:selectedFloor', $event)"
               :options="floorFilterOptions"
+              :disabled="floorFilterOptions.length === 0"
+              :title="floorFilterOptions.length === 0 ? 'Pilih Gedung terlebih dahulu' : ''"
               placeholder="Lantai"
               label="label"
               track-by="value"

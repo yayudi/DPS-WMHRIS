@@ -10,6 +10,52 @@ const ALLOWED_PRODUCT_SORT_COLUMNS = Object.freeze([
   "weight",
 ]);
 
+/**
+ * Membangun kondisi SQL detail lokasi (gedung & lantai) pada alias tabel `l` (locations)
+ * dan memasukkan parameternya ke queryParams (parameterized, urutan sesuai kemunculan SQL).
+ * @param {Object} filters - Objek filter produk
+ * @param {Array<string>} [filters.buildingInclude]
+ * @param {Array<string>} [filters.buildingExclude]
+ * @param {string} [filters.building] - Fallback single value ('all' = abaikan)
+ * @param {Array<string>} [filters.floorInclude]
+ * @param {Array<string>} [filters.floorExclude]
+ * @param {string} [filters.floor] - Fallback single value ('all' = abaikan)
+ * @param {Array} queryParams - Array parameter query yang akan diisi
+ * @returns {Array<string>} Daftar klausul SQL
+ */
+const buildLocationDetailConditions = (filters, queryParams) => {
+  const conditions = [];
+  const { buildingInclude, buildingExclude, building, floorInclude, floorExclude, floor } = filters;
+
+  if (buildingInclude && buildingInclude.length > 0) {
+    conditions.push("l.building IN (?)");
+    queryParams.push(buildingInclude);
+  } else if (building && building !== "all") {
+    conditions.push("l.building = ?");
+    queryParams.push(building);
+  }
+
+  if (buildingExclude && buildingExclude.length > 0) {
+    conditions.push("l.building NOT IN (?)");
+    queryParams.push(buildingExclude);
+  }
+
+  if (floorInclude && floorInclude.length > 0) {
+    conditions.push("l.floor IN (?)");
+    queryParams.push(floorInclude);
+  } else if (floor && floor !== "all") {
+    conditions.push("l.floor = ?");
+    queryParams.push(floor);
+  }
+
+  if (floorExclude && floorExclude.length > 0) {
+    conditions.push("l.floor NOT IN (?)");
+    queryParams.push(floorExclude);
+  }
+
+  return conditions;
+};
+
 // ============================================================================
 // READ OPERATIONS (Complex Queries & Aggregations)
 // ============================================================================
@@ -42,8 +88,6 @@ export const getProductsWithFilters = async (connection, filters) => {
     packageOnly,
     is_package,
     status,
-    building,
-    floor,
     sortBy,
     sortOrder,
     skipComponents,
@@ -94,38 +138,15 @@ export const getProductsWithFilters = async (connection, filters) => {
   else if (location === "pajangan") purpose = "DISPLAY";
   else if (location === "ltc") purpose = "BRANCH";
 
+  const existsConditions = [];
   if (location !== "all") {
-    const existsConditions = ["l.purpose = ?"];
+    existsConditions.push("l.purpose = ?");
     queryParams.push(purpose);
+  }
+  // Filter detail gedung/lantai berlaku untuk semua purpose (gudang, pajangan, ltc, all)
+  existsConditions.push(...buildLocationDetailConditions(filters, queryParams));
 
-    if (location === "gudang") {
-      if (filters.buildingInclude && filters.buildingInclude.length > 0) {
-        existsConditions.push("l.building IN (?)");
-        queryParams.push(filters.buildingInclude);
-      } else if (building !== "all") {
-        existsConditions.push("l.building = ?");
-        queryParams.push(building);
-      }
-
-      if (filters.buildingExclude && filters.buildingExclude.length > 0) {
-        existsConditions.push("l.building NOT IN (?)");
-        queryParams.push(filters.buildingExclude);
-      }
-
-      if (filters.floorInclude && filters.floorInclude.length > 0) {
-        existsConditions.push("l.floor IN (?)");
-        queryParams.push(filters.floorInclude);
-      } else if (floor !== "all") {
-        existsConditions.push("l.floor = ?");
-        queryParams.push(floor);
-      }
-
-      if (filters.floorExclude && filters.floorExclude.length > 0) {
-        existsConditions.push("l.floor NOT IN (?)");
-        queryParams.push(filters.floorExclude);
-      }
-    }
-
+  if (existsConditions.length > 0) {
     const existsSql = `EXISTS (
         SELECT 1 FROM stock_locations sl
         JOIN locations l ON sl.location_id = l.id
@@ -155,38 +176,10 @@ export const getProductsWithFilters = async (connection, filters) => {
     const statusConditions = [];
     if (location !== "all") {
       statusConditions.push("l.purpose = ?");
-      // Parameter purpose sudah ada di queryParams jika location != all,
       queryParams.push(purpose);
     }
-
-    // Jika ada filter lokasi gudang detail
-    if (location === "gudang") {
-      if (filters.buildingInclude && filters.buildingInclude.length > 0) {
-        statusConditions.push("l.building IN (?)");
-        queryParams.push(filters.buildingInclude);
-      } else if (building !== "all") {
-        statusConditions.push("l.building = ?");
-        queryParams.push(building);
-      }
-
-      if (filters.buildingExclude && filters.buildingExclude.length > 0) {
-        statusConditions.push("l.building NOT IN (?)");
-        queryParams.push(filters.buildingExclude);
-      }
-
-      if (filters.floorInclude && filters.floorInclude.length > 0) {
-        statusConditions.push("l.floor IN (?)");
-        queryParams.push(filters.floorInclude);
-      } else if (floor !== "all") {
-        statusConditions.push("l.floor = ?");
-        queryParams.push(floor);
-      }
-
-      if (filters.floorExclude && filters.floorExclude.length > 0) {
-        statusConditions.push("l.floor NOT IN (?)");
-        queryParams.push(filters.floorExclude);
-      }
-    }
+    // Filter detail gedung/lantai berlaku untuk semua purpose (tidak hanya gudang)
+    statusConditions.push(...buildLocationDetailConditions(filters, queryParams));
 
     const statusWhere = statusConditions.length > 0 ? `AND ${statusConditions.join(" AND ")}` : "";
 
@@ -228,7 +221,7 @@ export const getProductsWithFilters = async (connection, filters) => {
   }
   const productIds = products.map((p) => p.id);
   const stockLocationsQuery = `
-      SELECT sl.product_id, l.code as location_code, l.purpose, sl.quantity
+      SELECT sl.product_id, l.code as location_code, l.building, l.floor, l.purpose, sl.quantity
       FROM stock_locations sl
       JOIN locations l ON sl.location_id = l.id
       WHERE sl.quantity != 0 AND sl.product_id IN (?)
@@ -277,34 +270,11 @@ export const getProductsWithFilters = async (connection, filters) => {
       if (location !== "all") {
         stockQuery += " AND l.purpose = ?";
         stockParams.push(purpose);
-
-        if (location === "gudang") {
-          if (filters.buildingInclude && filters.buildingInclude.length > 0) {
-            stockQuery += " AND l.building IN (?)";
-            stockParams.push(filters.buildingInclude);
-          } else if (building !== "all") {
-            stockQuery += " AND l.building = ?";
-            stockParams.push(building);
-          }
-
-          if (filters.buildingExclude && filters.buildingExclude.length > 0) {
-            stockQuery += " AND l.building NOT IN (?)";
-            stockParams.push(filters.buildingExclude);
-          }
-
-          if (filters.floorInclude && filters.floorInclude.length > 0) {
-            stockQuery += " AND l.floor IN (?)";
-            stockParams.push(filters.floorInclude);
-          } else if (floor !== "all") {
-            stockQuery += " AND l.floor = ?";
-            stockParams.push(floor);
-          }
-
-          if (filters.floorExclude && filters.floorExclude.length > 0) {
-            stockQuery += " AND l.floor NOT IN (?)";
-            stockParams.push(filters.floorExclude);
-          }
-        }
+      }
+      // Filter detail gedung/lantai berlaku untuk semua purpose (konsisten dengan filter produk utama)
+      const componentLocationConditions = buildLocationDetailConditions(filters, stockParams);
+      if (componentLocationConditions.length > 0) {
+        stockQuery += ` AND ${componentLocationConditions.join(" AND ")}`;
       }
 
       stockQuery += " GROUP BY sl.product_id";

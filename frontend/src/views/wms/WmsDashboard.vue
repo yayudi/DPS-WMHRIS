@@ -22,6 +22,7 @@ import SalesSimulationModal from '@/components/wms/shared/SalesSimulationModal.v
 import ProductImageModal from '@/components/products/ProductImageModal.vue'
 const StickerGeneratorModal = defineAsyncComponent(() => import('@/components/utilities/StickerGeneratorModal.vue'))
 import BasePagination from '@/components/ui/BasePagination.vue'
+import { getBuildingOptions, getFloorOptions } from '@/utils/wmsLocationFilters.js'
 
 const { isMobile } = useMobile()
 const {
@@ -116,19 +117,12 @@ const searchTabs = [
   { label: 'SKU', value: 'sku' }
 ]
 
-const buildingFilterOptions = [
-  { label: 'A19', value: 'A19' },
-  { label: 'A20', value: 'A20' },
-  { label: 'B16', value: 'B16' },
-  { label: 'OASIS', value: 'OASIS' }
-]
+// Opsi Gedung & Lantai dinamis mengikuti location.purpose pada tab aktif
+const buildingFilterOptions = computed(() => getBuildingOptions(allLocations.value, activeView.value))
 
-const floorFilterOptions = [
-  { label: '1', value: '1' },
-  { label: '2', value: '2' },
-  { label: '3', value: '3' },
-  { label: '4', value: '4' }
-]
+const floorFilterOptions = computed(() =>
+  getFloorOptions(allLocations.value, activeView.value, selectedBuilding.value)
+)
 
 function openTransferModal(product) {
   selectedProduct.value = product
@@ -434,7 +428,12 @@ watch(Escape, pressed => {
     @refresh="resetAndRefetch"
   />
 
-  <StickerGeneratorModal v-if="isStickerModalOpen" :show="isStickerModalOpen" :initialProduct="selectedStickerProduct" @close="closeModal" />
+  <StickerGeneratorModal
+    v-if="isStickerModalOpen"
+    :show="isStickerModalOpen"
+    :initialProduct="selectedStickerProduct"
+    @close="closeModal"
+  />
 </template>
 
 <style scoped>

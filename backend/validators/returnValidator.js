@@ -1,19 +1,28 @@
 // backend/validators/returnValidator.js
 import { z } from "zod";
+import {
+  optionalNullableString,
+  requiredNonNegativeNumber,
+  requiredPositiveInt,
+  requiredTrimmedString,
+} from "./zodHelpers.js";
 
 export const createManualReturnSchema = z.object({
-  productId: z.number().int().positive("Product ID wajib diisi"),
-  quantity: z.number().int().positive("Quantity harus lebih besar dari 0"),
-  locationId: z.number().int().positive("Location ID wajib diisi"),
-  condition: z.string().min(1, "Kondisi wajib diisi"),
-  reference: z.string().optional(),
-  notes: z.string().optional(),
+  productId: requiredPositiveInt("Product ID wajib diisi"),
+  quantity: requiredPositiveInt("Quantity harus lebih besar dari 0"),
+  locationId: requiredPositiveInt("Location ID wajib diisi"),
+  condition: requiredTrimmedString("Kondisi wajib diisi"),
+  reference: optionalNullableString,
+  notes: optionalNullableString,
 });
 
 export const approveReturnSchema = z.object({
-  itemId: z.number().int().positive("Item ID wajib diisi"),
-  qtyAccepted: z.number().int().min(0, "Qty Accepted tidak boleh negatif"),
-  locationId: z.number().int().positive("Location ID wajib diisi"),
-  condition: z.string().min(1, "Condition wajib diisi"),
-  notes: z.string().optional(),
+  itemId: requiredPositiveInt("Item ID wajib diisi"),
+  qtyAccepted: requiredNonNegativeNumber(
+    "Qty Accepted wajib diisi",
+    "Qty Accepted tidak boleh negatif",
+  ).refine((val) => Number.isInteger(val), "Qty Accepted harus bilangan bulat"),
+  locationId: requiredPositiveInt("Location ID wajib diisi"),
+  condition: requiredTrimmedString("Condition wajib diisi"),
+  notes: optionalNullableString,
 });
