@@ -86,7 +86,7 @@ describe('useJobHistory composable', () => {
 
     expect(swalConfirmModule.swalConfirm).toHaveBeenCalledWith('Void antrian file "test.csv"?')
     expect(stockApi.voidImportJob).toHaveBeenCalledWith(10)
-    expect(mockToast).toHaveBeenCalledWith('Antrian berhasil di-void.', 'success')
+    expect(mockToast).toHaveBeenCalledWith('Berhasil', 'success')
     expect(mockFetchJobs).toHaveBeenCalled() // fetchJobHistory called after void
   })
 

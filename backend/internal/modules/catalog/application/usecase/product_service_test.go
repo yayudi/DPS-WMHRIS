@@ -72,6 +72,9 @@ type mockCategoryRepo struct{}
 func (m *mockCategoryRepo) FindAllActive(ctx context.Context) ([]domain.Category, error) {
 	return []domain.Category{{Name: "Elektronik"}}, nil
 }
+func (m *mockCategoryRepo) FindByStatus(ctx context.Context, status string) ([]domain.Category, error) {
+	return m.FindAllActive(ctx)
+}
 func (m *mockCategoryRepo) Create(ctx context.Context, category *domain.Category) error { return nil }
 func (m *mockCategoryRepo) Update(ctx context.Context, id int, name string) error { return nil }
 func (m *mockCategoryRepo) Delete(ctx context.Context, id int) error { return nil }

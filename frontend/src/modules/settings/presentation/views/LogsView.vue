@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
+import { useMagicKeys } from '@vueuse/core'
 import { dayjs } from '@/core/utils/time' // Can be refactored later
 import DateRangeFilter from '@/core/presentation/components/ui/DateRangeFilter.vue'
-import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
+import SearchInput from '@/core/presentation/components/ui/SearchInput.vue'
 import BaseSkeleton from '@/core/presentation/components/ui/BaseSkeleton.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
 import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
@@ -31,18 +32,19 @@ const {
 })
 
 // Filters
-const actionFilter = ref({ include: [], exclude: [] })
-const targetFilter = ref({ include: [], exclude: [] })
+const actionFilter = ref<{ include: string[]; exclude: string[] }>({ include: [], exclude: [] })
+const targetFilter = ref<{ include: string[]; exclude: string[] }>({ include: [], exclude: [] })
 
 const startDate = ref<string | null>(null)
 const endDate = ref<string | null>(null)
-const showFilters = ref(false)
 
 const actionOptions = [
   { id: 'CREATE', label: 'CREATE' },
   { id: 'UPDATE', label: 'UPDATE' },
   { id: 'DELETE', label: 'DELETE' },
-  { id: 'LOGIN', label: 'LOGIN' }
+  { id: 'LOGIN', label: 'LOGIN' },
+  { id: 'UPDATE_FULFILLMENT_SOURCE', label: 'UPDATE_FULFILLMENT_SOURCE' },
+  { id: 'UPDATE_LOCALIZATION', label: 'UPDATE_LOCALIZATION' }
 ]
 
 const targetOptions = [
@@ -50,7 +52,12 @@ const targetOptions = [
   { id: 'USER', label: 'USER' },
   { id: 'ROLE', label: 'ROLE' },
   { id: 'LOCATION', label: 'LOCATION' },
-  { id: 'SETTING', label: 'SETTING' }
+  { id: 'CATEGORY', label: 'CATEGORY' },
+  { id: 'SETTING', label: 'SETTING' },
+  { id: 'SALES_CHANNEL', label: 'SALES_CHANNEL' },
+  { id: 'PAPER_SIZE', label: 'PAPER_SIZE' },
+  { id: 'STICKER_TEMPLATE', label: 'STICKER_TEMPLATE' },
+  { id: 'localization_locales', label: 'localization_locales' }
 ]
 
 const loadLogs = async () => {
@@ -110,52 +117,70 @@ watch([page, limit], () => {
 onMounted(() => {
   loadLogs()
 })
+
+const { Slash } = useMagicKeys()
+watch(Slash, pressed => {
+  if (pressed) {
+    setTimeout(() => {
+      const el = document.getElementById('global-search-input')
+      if (el) el.focus()
+    }, 10)
+  }
+})
 </script>
 
 <template>
   <div class="px-6">
-    <div class="flex flex-col sm:flex-row items-center justify-end gap-4 w-full mb-4">
-      <FilterToggle v-model="showFilters" />
-      <button
-        @click="loadLogs"
-        class="bg-primary/10 text-primary px-4 py-2 rounded-lg hover:bg-primary/20 transition-colors"
-      >
-        <font-awesome-icon icon="fa-solid fa-rotate-right" :spin="isLoading" />
-        {{ t('common.btn.refresh') }}
-      </button>
-    </div>
+    <div class="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center justify-between gap-3 w-full mb-4">
+      <div class="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center gap-3 w-full sm:w-auto sm:flex-1 min-w-0">
+        <div class="w-full sm:flex-1 sm:min-w-[180px] sm:max-w-xs min-w-0">
+          <SearchInput
+            v-model="search"
+            input-id="global-search-input"
+            :placeholder="t('settings.log.search_placeholder')"
+          />
+        </div>
 
-    <!-- Filters -->
-    <div
-      v-show="showFilters"
-      class="animate-fade-in-down bg-secondary/50 rounded-xl shadow-sm border border-secondary/20 p-4 mb-6 flex flex-wrap gap-4"
-    >
-      <div class="flex-1 min-w-[200px]">
-        <input
-          v-model="search"
-          :placeholder="t('settings.log.search_placeholder')"
-          class="w-full px-4 py-2 bg-background border border-secondary/30 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-text"
-        />
+        <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 w-full sm:w-auto shrink-0">
+          <DateRangeFilter
+            v-model:startDate="startDate"
+            v-model:endDate="endDate"
+            class="w-full sm:w-auto shrink-0"
+          />
+
+          <div class="w-full sm:w-auto sm:max-w-[190px] shrink-0">
+            <TriStateSelect
+              v-model="actionFilter"
+              :options="actionOptions"
+              label="label"
+              track-by="id"
+              :placeholder="t('settings.log.all_actions')"
+              :label-prefix="t('common.label.action')"
+              :searchable="true"
+            />
+          </div>
+
+          <div class="w-full sm:w-auto sm:max-w-[190px] shrink-0">
+            <TriStateSelect
+              v-model="targetFilter"
+              :options="targetOptions"
+              label="label"
+              track-by="id"
+              :placeholder="t('settings.log.all_types')"
+              :label-prefix="t('settings.log.col_target')"
+              :searchable="true"
+            />
+          </div>
+        </div>
       </div>
 
-      <DateRangeFilter v-model:startDate="startDate" v-model:endDate="endDate" />
-
-      <TriStateSelect
-        v-model="actionFilter"
-        :options="actionOptions"
-        label="label"
-        track="id"
-        :placeholder="t('settings.log.all_actions')"
-        class="min-w-[150px]"
-      />
-      <TriStateSelect
-        v-model="targetFilter"
-        :options="targetOptions"
-        label="label"
-        track="id"
-        :placeholder="t('settings.log.all_types')"
-        class="min-w-[150px]"
-      />
+      <button
+        @click="loadLogs"
+        class="bg-primary/10 text-primary text-sm font-semibold px-4 h-[42px] rounded-lg hover:bg-primary/20 transition-colors flex items-center justify-center gap-2 shrink-0 whitespace-nowrap sm:ml-auto"
+      >
+        <font-awesome-icon icon="fa-solid fa-rotate-right" :spin="isLoading" />
+        <span>{{ t('common.btn.refresh') }}</span>
+      </button>
     </div>
 
     <!-- Table & Pagination Card -->
@@ -240,7 +265,7 @@ onMounted(() => {
                     'bg-warning/10 text-warning border-warning/20': log.action === 'UPDATE',
                     'bg-danger/10 text-danger border-danger/20': log.action === 'DELETE',
                     'bg-accent/10 text-accent border-accent/20': log.action === 'LOGIN',
-                    'bg-secondary/10 text-secondary border-secondary/20': log.action === 'OTHER'
+                    'bg-secondary/15 text-text/80 border-secondary/30': !['CREATE', 'UPDATE', 'DELETE', 'LOGIN'].includes(log.action)
                   }"
                 >
                   {{ log.action }}

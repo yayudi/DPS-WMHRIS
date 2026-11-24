@@ -36,10 +36,18 @@ func (s *categoryServiceImpl) GetActiveCategories(ctx context.Context) ([]domain
 	return s.categoryRepo.FindAllActive(ctx)
 }
 
+func (s *categoryServiceImpl) GetCategories(ctx context.Context, status string) ([]domain.Category, error) {
+	return s.categoryRepo.FindByStatus(ctx, status)
+}
+
 func (s *categoryServiceImpl) UpdateCategory(ctx context.Context, id int, req catalog_dto.UpdateCategoryRequest) error {
 	return s.categoryRepo.Update(ctx, id, req.Name)
 }
 
 func (s *categoryServiceImpl) DeleteCategory(ctx context.Context, id int) error {
 	return s.categoryRepo.Delete(ctx, id)
+}
+
+func (s *categoryServiceImpl) RestoreCategory(ctx context.Context, id int) error {
+	return s.categoryRepo.Restore(ctx, id)
 }

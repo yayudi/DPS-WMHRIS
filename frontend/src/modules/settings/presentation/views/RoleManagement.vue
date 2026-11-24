@@ -3,6 +3,9 @@ import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
 import { ref, onMounted, computed, watch } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
+import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
+import SearchInput from '@/core/presentation/components/ui/SearchInput.vue'
+import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
 import { useMobile } from '@/core/presentation/composables/useMobile'
 import { useI18n } from '@/core/infrastructure/localization'
 import { useRoles } from '../../application/useRoles'
@@ -33,18 +36,78 @@ const isRoleModalOpen = ref(false)
 const isEditingRole = ref(false)
 const roleForm = ref<UpdateRolePayload & { id: number | null }>({ id: null, name: '', description: '' })
 
+// Filter State (Panel Kiri & Kanan)
+const roleSearchQuery = ref('')
+const permissionSearchQuery = ref('')
+const selectedPermissionGroups = ref<{ include: string[]; exclude: string[] }>({ include: [], exclude: [] })
+const permissionStatusFilter = ref<'all' | 'checked' | 'unchecked'>('all')
+
+const selectedPermissionSet = computed(() => new Set(selectedPermissionIds.value))
+
+const filteredRoles = computed(() => {
+  const query = roleSearchQuery.value.trim().toLowerCase()
+  if (!query) return allRoles.value
+  return allRoles.value.filter(role => {
+    const nameMatch = role.name.toLowerCase().includes(query)
+    const descMatch = (role.description || '').toLowerCase().includes(query)
+    return nameMatch || descMatch
+  })
+})
+
 /**
  * Mengelompokkan izin (permissions) berdasarkan properti 'group'.
  */
 const groupedPermissions = computed(() => {
-  return allPermissions.value.reduce((acc, permission) => {
-    const group = permission.group || t('common.label.other')
-    if (!acc[group]) {
-      acc[group] = []
+  return allPermissions.value.reduce(
+    (acc, permission) => {
+      const group = permission.group || t('common.label.other')
+      if (!acc[group]) {
+        acc[group] = []
+      }
+      acc[group].push(permission)
+      return acc
+    },
+    {} as Record<string, Permission[]>
+  )
+})
+
+const permissionGroupOptions = computed(() => Object.keys(groupedPermissions.value).sort())
+
+const permissionStatusOptions = computed(() => [
+  { value: 'all', label: t('common.filter.all') },
+  { value: 'checked', label: t('settings.roles.status_checked') },
+  { value: 'unchecked', label: t('settings.roles.status_unchecked') }
+])
+
+const filteredGroupedPermissions = computed(() => {
+  const query = permissionSearchQuery.value.trim().toLowerCase()
+  const { include, exclude } = selectedPermissionGroups.value
+  const checkedSet = selectedPermissionSet.value
+
+  const result: Record<string, Permission[]> = {}
+  for (const [groupName, permissions] of Object.entries(groupedPermissions.value)) {
+    if (include.length > 0 && !include.includes(groupName)) continue
+    if (exclude.length > 0 && exclude.includes(groupName)) continue
+
+    const groupMatchesQuery = query !== '' && groupName.toLowerCase().includes(query)
+
+    const matching = permissions.filter(permission => {
+      if (permissionStatusFilter.value === 'checked' && !checkedSet.has(permission.id)) return false
+      if (permissionStatusFilter.value === 'unchecked' && checkedSet.has(permission.id)) return false
+
+      if (query && !groupMatchesQuery) {
+        const nameMatch = permission.name.toLowerCase().includes(query)
+        const descMatch = (permission.description || '').toLowerCase().includes(query)
+        if (!nameMatch && !descMatch) return false
+      }
+      return true
+    })
+
+    if (matching.length > 0) {
+      result[groupName] = matching
     }
-    acc[group].push(permission)
-    return acc
-  }, {} as Record<string, Permission[]>)
+  }
+  return result
 })
 
 /**
@@ -176,10 +239,10 @@ async function handleDeleteRole(role: Role) {
 }
 
 /**
- * Memilih semua izin dalam satu grup.
+ * Memilih semua izin dalam satu grup (mengikuti filter aktif).
  */
 function toggleGroup(groupName: string, value: boolean) {
-  const groupPermissionIds = groupedPermissions.value[groupName].map(p => p.id)
+  const groupPermissionIds = (filteredGroupedPermissions.value[groupName] || []).map(p => p.id)
   const currentPermissionSet = new Set(selectedPermissionIds.value)
 
   if (value) {
@@ -193,7 +256,7 @@ function toggleGroup(groupName: string, value: boolean) {
 }
 
 // --- LOCAL HOTKEYS ---
-const { Alt_N, Alt_S } = useMagicKeys()
+const { Alt_N, Alt_S, Slash } = useMagicKeys()
 
 watch(Alt_N, pressed => {
   if (pressed && !isRoleModalOpen.value) {
@@ -210,13 +273,22 @@ watch(Alt_S, pressed => {
     }
   }
 })
+
+watch(Slash, pressed => {
+  if (pressed && !isRoleModalOpen.value) {
+    setTimeout(() => {
+      const el = document.getElementById('global-search-input')
+      if (el) el.focus()
+    }, 10)
+  }
+})
 </script>
 
 <template>
   <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
     <!-- Kolom Kiri: Daftar Peran -->
     <div class="md:col-span-1">
-      <div class="flex justify-between items-center mb-2">
+      <div class="flex justify-between items-center mb-3">
         <h3 class="font-semibold text-text">{{ t('settings.roles.list_title') }}</h3>
         <button
           @click="openCreateRoleModal"
@@ -226,9 +298,13 @@ watch(Alt_S, pressed => {
           <span>{{ t('common.action.new') }}</span>
         </button>
       </div>
+      <SearchInput v-model="roleSearchQuery" :placeholder="t('settings.roles.search_role_placeholder')" class="mb-3" />
       <div v-if="isLoadingRoles" class="text-center text-text/60">{{ t('settings.roles.loading_roles') }}</div>
-      <ul v-else class="space-y-1">
-        <li v-for="role in allRoles" :key="role.id" class="group">
+      <div v-else-if="filteredRoles.length === 0" class="text-center text-sm text-text/50 italic py-6">
+        {{ t('settings.roles.no_matching_roles') }}
+      </div>
+      <ul v-else class="space-y-1 max-h-[65vh] overflow-y-auto custom-scrollbar p-1">
+        <li v-for="role in filteredRoles" :key="role.id" class="group">
           <button
             @click="selectRole(role)"
             :class="[
@@ -300,11 +376,54 @@ watch(Alt_S, pressed => {
           </button>
         </div>
 
+        <!-- Toolbar Filter Permission -->
+        <div class="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap sm:items-center gap-3 mb-4">
+          <div class="w-full sm:flex-1 sm:min-w-[200px] sm:max-w-xs min-w-0">
+            <SearchInput
+              v-model="permissionSearchQuery"
+              input-id="global-search-input"
+              :placeholder="t('settings.roles.search_permission_placeholder')"
+            />
+          </div>
+
+          <div class="w-full sm:w-auto sm:max-w-[200px] shrink-0">
+            <TriStateSelect
+              v-model="selectedPermissionGroups"
+              :options="permissionGroupOptions"
+              :placeholder="t('settings.roles.filter_group')"
+              :label-prefix="t('settings.roles.group_label')"
+              :searchable="true"
+            />
+          </div>
+
+          <div class="w-full sm:w-auto sm:max-w-[210px] shrink-0">
+            <BaseSelect
+              v-model="permissionStatusFilter"
+              :options="permissionStatusOptions"
+              class="w-full h-[42px]"
+              :class="[permissionStatusFilter !== 'all' ? 'ring-1 ring-primary/50 rounded-lg' : '']"
+              :placeholder="t('settings.roles.filter_status')"
+              :label-prefix="t('settings.roles.filter_status')"
+              prefer-placeholder
+              label="label"
+              track-by="value"
+              :searchable="false"
+              emit-value
+            />
+          </div>
+        </div>
+
         <div v-if="isLoadingPermissions" class="text-center py-16">{{ t('settings.roles.loading_permissions') }}</div>
+        <div
+          v-else-if="Object.keys(filteredGroupedPermissions).length === 0"
+          class="text-center text-sm text-text/50 italic py-12 border border-dashed border-secondary/30 rounded-lg"
+        >
+          {{ t('settings.roles.no_matching_permissions') }}
+        </div>
         <div v-else class="space-y-6 custom-scrollbar max-h-[60vh] overflow-y-auto">
           <!-- v-for untuk Grup Izin -->
           <div
-            v-for="(permissionsInGroup, groupName) in groupedPermissions"
+            v-for="(permissionsInGroup, groupName) in filteredGroupedPermissions"
             :key="groupName"
             class="border border-secondary/20 rounded-lg"
           >
@@ -368,7 +487,9 @@ watch(Alt_S, pressed => {
     >
       <form @submit.prevent="handleSaveRole" class="p-6 space-y-4">
         <div>
-          <label for="roleName" class="block text-sm font-medium text-text/80 mb-1">{{ t('settings.roles.name_label') }}</label>
+          <label for="roleName" class="block text-sm font-medium text-text/80 mb-1">{{
+            t('settings.roles.name_label')
+          }}</label>
           <input
             id="roleName"
             v-model="roleForm.name"
@@ -380,7 +501,9 @@ watch(Alt_S, pressed => {
           <p class="text-xs text-text/60 mt-1">{{ t('settings.roles.name_hint') }}</p>
         </div>
         <div>
-          <label for="roleDesc" class="block text-sm font-medium text-text/80 mb-1">{{ t('settings.roles.desc_label') }}</label>
+          <label for="roleDesc" class="block text-sm font-medium text-text/80 mb-1">{{
+            t('settings.roles.desc_label')
+          }}</label>
           <input
             id="roleDesc"
             v-model="roleForm.description"

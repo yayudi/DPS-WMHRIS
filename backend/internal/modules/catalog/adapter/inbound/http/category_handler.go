@@ -36,7 +36,8 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 }
 
 func (h *CategoryHandler) GetAllActive(c *gin.Context) {
-	categories, err := h.categoryService.GetActiveCategories(c.Request.Context())
+	status := c.DefaultQuery("status", "active")
+	categories, err := h.categoryService.GetCategories(c.Request.Context(), status)
 	if err != nil {
 		utils.HandleDomainError(c, err)
 		return
@@ -79,4 +80,19 @@ func (h *CategoryHandler) Delete(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "master_data.category.delete_success", nil)
+}
+
+func (h *CategoryHandler) Restore(c *gin.Context) {
+	id, ok := utils.ParseIntParam(c, "id")
+	if !ok {
+		return
+	}
+
+	err := h.categoryService.RestoreCategory(c.Request.Context(), id)
+	if err != nil {
+		utils.HandleDomainError(c, err)
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "common.status.success", nil)
 }

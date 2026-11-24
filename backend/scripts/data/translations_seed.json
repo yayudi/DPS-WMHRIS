@@ -4649,14 +4649,6 @@
   },
   {
     "module": "common",
-    "key": "label.sort_by",
-    "translations": {
-      "en-US": "Sort by:",
-      "id-ID": "Urutkan:"
-    }
-  },
-  {
-    "module": "common",
     "key": "label.status",
     "translations": {
       "en-US": "Status",
@@ -7771,8 +7763,8 @@
     "module": "localization",
     "key": "complete",
     "translations": {
-      "en-US": "Complete ✓",
-      "id-ID": "Lengkap ✓"
+      "en-US": "Complete",
+      "id-ID": "Lengkap"
     }
   },
   {
@@ -7857,10 +7849,26 @@
   },
   {
     "module": "localization",
+    "key": "search_by_key",
+    "translations": {
+      "en-US": "Key",
+      "id-ID": "Key"
+    }
+  },
+  {
+    "module": "localization",
     "key": "search_placeholder",
     "translations": {
       "en-US": "Search key or translated text...",
       "id-ID": "Cari key atau teks terjemahan..."
+    }
+  },
+  {
+    "module": "localization",
+    "key": "status_unsaved",
+    "translations": {
+      "en-US": "Unsaved",
+      "id-ID": "Belum Disimpan"
     }
   },
   {
@@ -7917,14 +7925,6 @@
     "translations": {
       "en-US": "Translation Key",
       "id-ID": "Translation Key"
-    }
-  },
-  {
-    "module": "localization",
-    "key": "untranslated_only",
-    "translations": {
-      "en-US": "Untranslated Only",
-      "id-ID": "Belum Diterjemahkan Saja"
     }
   },
   {
@@ -8313,6 +8313,14 @@
   },
   {
     "module": "master_data",
+    "key": "category.col_product_count",
+    "translations": {
+      "en-US": "Products",
+      "id-ID": "Produk"
+    }
+  },
+  {
+    "module": "master_data",
     "key": "category.confirm_deactivate",
     "translations": {
       "en-US": "Are you sure you want to deactivate this category?",
@@ -8325,6 +8333,14 @@
     "translations": {
       "en-US": "Delete Category",
       "id-ID": "Hapus Kategori"
+    }
+  },
+  {
+    "module": "master_data",
+    "key": "category.context_restore",
+    "translations": {
+      "en-US": "Restore Category",
+      "id-ID": "Pulihkan Kategori"
     }
   },
   {
@@ -8429,6 +8445,30 @@
     "translations": {
       "en-US": "Category updated successfully.",
       "id-ID": "Kategori berhasil diperbarui."
+    }
+  },
+  {
+    "module": "master_data",
+    "key": "category.usage_empty",
+    "translations": {
+      "en-US": "Unused",
+      "id-ID": "Kosong"
+    }
+  },
+  {
+    "module": "master_data",
+    "key": "category.usage_filter",
+    "translations": {
+      "en-US": "Usage",
+      "id-ID": "Pemakaian"
+    }
+  },
+  {
+    "module": "master_data",
+    "key": "category.usage_used",
+    "translations": {
+      "en-US": "In Use",
+      "id-ID": "Terpakai"
     }
   },
   {
@@ -10803,8 +10843,8 @@
     "module": "settings",
     "key": "log.search_placeholder",
     "translations": {
-      "en-US": "Search Target ID...",
-      "id-ID": "Cari ID Target..."
+      "en-US": "Search Target ID, User, or Changes...",
+      "id-ID": "Cari Target ID, Pengguna, atau Perubahan..."
     }
   },
   {
@@ -11329,6 +11369,30 @@
   },
   {
     "module": "settings",
+    "key": "roles.filter_group",
+    "translations": {
+      "en-US": "All Groups",
+      "id-ID": "Semua Grup"
+    }
+  },
+  {
+    "module": "settings",
+    "key": "roles.filter_status",
+    "translations": {
+      "en-US": "Permission Status",
+      "id-ID": "Status Izin"
+    }
+  },
+  {
+    "module": "settings",
+    "key": "roles.group_label",
+    "translations": {
+      "en-US": "Group",
+      "id-ID": "Grup"
+    }
+  },
+  {
+    "module": "settings",
     "key": "roles.invalid_role_or_permission",
     "translations": {
       "en-US": "Invalid role or permission ID.",
@@ -11385,6 +11449,22 @@
   },
   {
     "module": "settings",
+    "key": "roles.no_matching_permissions",
+    "translations": {
+      "en-US": "No permissions match the filter.",
+      "id-ID": "Tidak ada izin yang cocok dengan filter."
+    }
+  },
+  {
+    "module": "settings",
+    "key": "roles.no_matching_roles",
+    "translations": {
+      "en-US": "No matching roles.",
+      "id-ID": "Tidak ada peran yang cocok."
+    }
+  },
+  {
+    "module": "settings",
     "key": "roles.permissions_for",
     "translations": {
       "en-US": "Permissions for:",
@@ -11417,10 +11497,42 @@
   },
   {
     "module": "settings",
+    "key": "roles.search_permission_placeholder",
+    "translations": {
+      "en-US": "Search permission code or description...",
+      "id-ID": "Cari kode atau deskripsi izin..."
+    }
+  },
+  {
+    "module": "settings",
+    "key": "roles.search_role_placeholder",
+    "translations": {
+      "en-US": "Search roles...",
+      "id-ID": "Cari peran..."
+    }
+  },
+  {
+    "module": "settings",
     "key": "roles.select_role_hint",
     "translations": {
       "en-US": "Select a role on the left to view and edit its permissions.",
       "id-ID": "Pilih sebuah peran di sebelah kiri untuk melihat dan mengedit izinnya."
+    }
+  },
+  {
+    "module": "settings",
+    "key": "roles.status_checked",
+    "translations": {
+      "en-US": "Selected",
+      "id-ID": "Terpilih"
+    }
+  },
+  {
+    "module": "settings",
+    "key": "roles.status_unchecked",
+    "translations": {
+      "en-US": "Unselected",
+      "id-ID": "Belum Terpilih"
     }
   },
   {
@@ -12933,14 +13045,6 @@
     "translations": {
       "en-US": "Display Mode",
       "id-ID": "Mode Tampilan"
-    }
-  },
-  {
-    "module": "wms",
-    "key": "control.location_view",
-    "translations": {
-      "en-US": "Location View",
-      "id-ID": "Tampilan Lokasi"
     }
   },
   {
@@ -15053,6 +15157,30 @@
     "translations": {
       "en-US": "Scan barcode or type floor code...",
       "id-ID": "Scan barcode atau ketik kode lantai..."
+    }
+  },
+  {
+    "module": "wms",
+    "key": "replenishment.search_by_location",
+    "translations": {
+      "en-US": "Source Floor",
+      "id-ID": "Lokasi Sumber"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "replenishment.search_by_order",
+    "translations": {
+      "en-US": "Order No",
+      "id-ID": "No. Order"
+    }
+  },
+  {
+    "module": "wms",
+    "key": "replenishment.search_by_product",
+    "translations": {
+      "en-US": "SKU & Product",
+      "id-ID": "SKU & Produk"
     }
   },
   {

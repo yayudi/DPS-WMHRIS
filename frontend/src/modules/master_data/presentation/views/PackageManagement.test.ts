@@ -104,7 +104,7 @@ describe('PackageManagement.vue', () => {
 
     await new Promise(r => setTimeout(r, 50))
 
-    expect(axios.get).toHaveBeenCalledWith(
+    expect(http.get).toHaveBeenCalledWith(
       '/products',
       expect.objectContaining({
         params: expect.objectContaining({

@@ -34,6 +34,10 @@ const props = defineProps({
   disabled: {
     type: Boolean,
     default: false
+  },
+  labelPrefix: {
+    type: String,
+    default: ''
   }
 })
 
@@ -306,17 +310,21 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
         disabled ? 'opacity-50 cursor-not-allowed bg-secondary/10' : 'focus:ring-2 focus:ring-primary/50'
       ]"
     >
-      <div class="flex items-center gap-2 truncate pr-2 flex-grow text-sm">
+      <div
+        class="flex items-center gap-2 truncate pr-1 flex-1 min-w-0 text-sm"
+        :title="labelPrefix && !isPlaceholderState ? `${labelPrefix}: ${displayValue}` : displayValue"
+      >
         <span v-if="isPlaceholderState" class="text-text/40 font-normal truncate">
           {{ placeholder }}
         </span>
-        <div v-else class="flex items-center gap-1.5 text-primary font-bold truncate">
+        <div v-else class="flex items-center gap-1.5 text-primary font-bold truncate min-w-0">
           <font-awesome-icon v-if="includeCount > 0" icon="fa-solid fa-check" class="text-xs shrink-0" />
           <font-awesome-icon
             v-if="excludeCount > 0 && includeCount === 0"
             icon="fa-solid fa-ban"
             class="text-xs text-danger shrink-0"
           />
+          <span v-if="labelPrefix" class="text-text/60 font-medium shrink-0">{{ labelPrefix }}:</span>
           <span class="truncate">{{ displayValue }}</span>
         </div>
       </div>

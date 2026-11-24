@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useMagicKeys } from '@vueuse/core'
 import { localizationApi } from '@/core/infrastructure/localization.api'
 import { useLocaleStore } from '@/core/presentation/stores/localeStore'
 import { useToast } from '@/core/presentation/composables/useToast'
 import { useI18n } from '@/core/presentation/composables/useI18n'
+import { usePagination } from '@/core/presentation/composables/usePagination'
+import SearchInput from '@/core/presentation/components/ui/SearchInput.vue'
+import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
+import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
+import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
 import type {
   TranslationMatrixResponse,
-  TranslationMatrixRow,
-  TranslationMatrixFilter
+  TranslationMatrixRow
 } from '@/core/domain/localization.types'
 
 const { t } = useI18n()
@@ -19,9 +24,25 @@ const isSaving = ref<boolean>(false)
 const matrixData = ref<TranslationMatrixResponse | null>(null)
 
 // Filters
-const selectedModule = ref<string>('')
 const searchQuery = ref<string>('')
-const missingOnly = ref<boolean>(false)
+const searchBy = ref<'all' | 'key' | 'text'>('all')
+const selectedModules = ref<{ include: string[]; exclude: string[] }>({ include: [], exclude: [] })
+const statusFilter = ref<'all' | 'incomplete' | 'complete' | 'dirty'>('all')
+
+const searchByOptions = computed(() => [
+  { value: 'all', label: t('common.filter.all') },
+  { value: 'key', label: t('localization.search_by_key') },
+  { value: 'text', label: t('common.label.text') }
+])
+
+const moduleOptions = computed(() => matrixData.value?.modules || [])
+
+const statusOptions = computed(() => [
+  { value: 'all', label: t('common.filter.all') },
+  { value: 'incomplete', label: t('localization.incomplete') },
+  { value: 'complete', label: t('localization.complete') },
+  { value: 'dirty', label: t('localization.status_unsaved') }
+])
 
 // Dirty State Tracking: Record<locale_code, Record<fullKey, string>>
 const dirtyEdits = ref<Record<string, Record<string, string>>>({})
@@ -43,15 +64,93 @@ const totalDirtyCount = computed(() => {
   return count
 })
 
+const dirtyKeySet = computed(() => {
+  const keys = new Set<string>()
+  for (const loc in dirtyEdits.value) {
+    for (const fullKey in dirtyEdits.value[loc]) {
+      keys.add(fullKey)
+    }
+  }
+  return keys
+})
+
+const hasActiveFilters = computed(
+  () =>
+    Boolean(searchQuery.value.trim()) ||
+    selectedModules.value.include.length > 0 ||
+    selectedModules.value.exclude.length > 0 ||
+    statusFilter.value !== 'all'
+)
+
+const filteredRows = computed<TranslationMatrixRow[]>(() => {
+  const rows = matrixData.value?.rows || []
+  const query = searchQuery.value.trim().toLowerCase()
+  const { include, exclude } = selectedModules.value
+  const status = statusFilter.value
+  const dirtySet = dirtyKeySet.value
+
+  return rows.filter(row => {
+    if (include.length > 0 && !include.includes(row.module)) return false
+    if (exclude.length > 0 && exclude.includes(row.module)) return false
+
+    if (status === 'incomplete' && row.is_complete) return false
+    if (status === 'complete' && !row.is_complete) return false
+    if (status === 'dirty' && !dirtySet.has(`${row.module}.${row.translation_key}`)) return false
+
+    if (query) {
+      if (searchBy.value === 'key') {
+        const fullKey = `${row.module}.${row.translation_key}`.toLowerCase()
+        const matchMod = row.module.toLowerCase().includes(query)
+        const matchKey = row.translation_key.toLowerCase().includes(query)
+        if (!fullKey.includes(query) && !matchMod && !matchKey) return false
+      } else if (searchBy.value === 'text') {
+        const matchText = Object.values(row.values || {}).some(v => (v || '').toLowerCase().includes(query))
+        if (!matchText) return false
+      } else {
+        const fullKey = `${row.module}.${row.translation_key}`.toLowerCase()
+        const matchKey =
+          fullKey.includes(query) ||
+          row.module.toLowerCase().includes(query) ||
+          row.translation_key.toLowerCase().includes(query)
+        const matchText = Object.values(row.values || {}).some(v => (v || '').toLowerCase().includes(query))
+        if (!matchKey && !matchText) return false
+      }
+    }
+
+    return true
+  })
+})
+
+const {
+  paginatedData: visibleRows,
+  meta: pagination,
+  changePage,
+  changePageSize
+} = usePagination({
+  totalItems: filteredRows,
+  storageKey: 'localizationPageSize',
+  initialLimit: 50
+})
+
+watch(
+  [searchQuery, searchBy, selectedModules, statusFilter],
+  () => {
+    changePage(1)
+  },
+  { deep: true }
+)
+
+function resetFilters(): void {
+  searchQuery.value = ''
+  searchBy.value = 'all'
+  selectedModules.value = { include: [], exclude: [] }
+  statusFilter.value = 'all'
+}
+
 async function fetchMatrix(): Promise<void> {
   isLoading.value = true
   try {
-    const filter: TranslationMatrixFilter = {
-      module: selectedModule.value || undefined,
-      search: searchQuery.value.trim() || undefined,
-      missing_only: missingOnly.value ? true : undefined
-    }
-    const res = await localizationApi.getTranslationMatrix(filter)
+    const res = await localizationApi.getTranslationMatrix()
     if (res.data) {
       matrixData.value = res.data
     }
@@ -184,6 +283,26 @@ async function handleAddKey(): Promise<void> {
 onMounted(() => {
   fetchMatrix()
 })
+
+const { Slash } = useMagicKeys()
+
+watch(Slash, pressed => {
+  if (!pressed || showAddModal.value) return
+  const active = document.activeElement as HTMLElement | null
+  if (
+    active &&
+    (active.tagName === 'INPUT' ||
+      active.tagName === 'TEXTAREA' ||
+      active.tagName === 'SELECT' ||
+      active.isContentEditable)
+  ) {
+    return
+  }
+  setTimeout(() => {
+    const el = document.getElementById('global-search-input')
+    if (el) el.focus()
+  }, 10)
+})
 </script>
 
 <template>
@@ -242,7 +361,7 @@ onMounted(() => {
       <div class="p-4 rounded-2xl bg-secondary/5 border border-secondary/20 flex flex-col justify-between">
         <span class="text-xs font-bold uppercase tracking-wider text-text/60">{{ t('localization.total_entries') }}</span>
         <div class="mt-2 flex items-baseline justify-between">
-          <span class="text-3xl font-black text-text">{{ matrixData.totalKeys }}</span>
+          <span class="text-3xl font-black text-text">{{ matrixData.total_keys }}</span>
           <span class="text-xs text-text/50 font-medium">{{ t('localization.keys_registered') }}</span>
         </div>
       </div>
@@ -266,7 +385,7 @@ onMounted(() => {
         <div class="mt-2 flex items-baseline justify-between">
           <span class="text-2xl font-bold text-text">
             {{ stat.translated_count }}
-            <span class="text-xs font-normal text-text/60">/ {{ matrixData.totalKeys }}</span>
+            <span class="text-xs font-normal text-text/60">/ {{ matrixData.total_keys }}</span>
           </span>
           <span v-if="stat.missing_count > 0" class="text-xs font-semibold text-warning">
             {{ stat.missing_count }} {{ t('localization.missing') }}
@@ -279,46 +398,63 @@ onMounted(() => {
     </div>
 
     <!-- Filter Toolbar -->
-    <div class="p-4 rounded-2xl bg-secondary/5 border border-secondary/20 flex flex-wrap items-center justify-between gap-3">
-      <div class="flex flex-wrap items-center gap-3 flex-1">
-        <!-- Module Filter -->
-        <select
-          v-model="selectedModule"
-          @change="fetchMatrix"
-          class="px-3 py-2 text-sm rounded-xl bg-background border border-secondary/20 text-text focus:outline-none focus:border-primary"
-        >
-          <option value="">{{ t('localization.all_modules') }}</option>
-          <option v-for="mod in matrixData?.modules || []" :key="mod" :value="mod">
-            {{ mod }}
-          </option>
-        </select>
-
-        <!-- Search Input -->
-        <div class="relative flex-1 min-w-[200px] max-w-md">
-          <input
+    <div class="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center justify-between gap-3 w-full">
+      <div class="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center gap-3 w-full sm:w-auto sm:flex-1 min-w-0">
+        <div class="w-full sm:flex-1 sm:min-w-[220px] sm:max-w-md min-w-0">
+          <SearchInput
             v-model="searchQuery"
-            @keyup.enter="fetchMatrix"
-            type="text"
+            v-model:search-by="searchBy"
+            :search-by-options="searchByOptions"
+            input-id="global-search-input"
             :placeholder="t('localization.search_placeholder')"
-            class="w-full pl-9 pr-4 py-2 text-sm rounded-xl bg-background border border-secondary/20 text-text focus:outline-none focus:border-primary"
           />
-          <font-awesome-icon
-            icon="fa-solid fa-magnifying-glass"
-            class="absolute left-3 top-1/2 -translate-y-1/2 text-text/40 text-xs"
+        </div>
+
+        <div class="w-full sm:w-auto sm:max-w-[200px] shrink-0">
+          <TriStateSelect
+            v-model="selectedModules"
+            :options="moduleOptions"
+            :placeholder="t('localization.all_modules')"
+            :label-prefix="t('localization.module')"
+            :searchable="true"
+          />
+        </div>
+
+        <div class="w-full sm:w-auto sm:max-w-[210px] shrink-0">
+          <BaseSelect
+            v-model="statusFilter"
+            :options="statusOptions"
+            class="w-full h-[42px]"
+            :class="[statusFilter !== 'all' ? 'ring-1 ring-primary/50 rounded-lg' : '']"
+            :placeholder="t('common.label.status')"
+            :label-prefix="t('common.label.status')"
+            prefer-placeholder
+            label="label"
+            track-by="value"
+            :searchable="false"
+            emit-value
           />
         </div>
       </div>
 
-      <!-- Missing Only Checkbox -->
-      <label class="flex items-center gap-2 cursor-pointer select-none text-sm font-semibold text-text">
-        <input
-          v-model="missingOnly"
-          @change="fetchMatrix"
-          type="checkbox"
-          class="w-4 h-4 rounded text-primary focus:ring-primary border-secondary/40"
-        />
-        <span>{{ t('localization.untranslated_only') }}</span>
-      </label>
+      <div v-if="matrixData || hasActiveFilters" class="flex items-center justify-end gap-2 shrink-0 sm:ml-auto">
+        <span
+          v-if="matrixData"
+          class="px-3 h-[42px] inline-flex items-center text-xs font-semibold rounded-lg bg-secondary/10 border border-secondary/20 text-text/70 whitespace-nowrap"
+        >
+          {{ filteredRows.length }} / {{ matrixData.total_keys }}
+        </span>
+
+        <button
+          v-if="hasActiveFilters"
+          type="button"
+          @click="resetFilters"
+          class="px-3 h-[42px] text-xs font-semibold rounded-lg border border-secondary/20 text-text/70 hover:text-text hover:bg-secondary/10 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+        >
+          <font-awesome-icon icon="fa-solid fa-rotate-left" />
+          <span>{{ t('common.btn.reset') }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Matrix Table -->
@@ -341,7 +477,7 @@ onMounted(() => {
                 <p>{{ t('localization.loading_dictionary') }}</p>
               </td>
             </tr>
-            <tr v-else-if="!matrixData?.rows?.length" class="text-center py-8">
+            <tr v-else-if="!filteredRows.length" class="text-center py-8">
               <td colspan="5" class="py-12 text-text/50">
                 <font-awesome-icon icon="fa-solid fa-inbox" class="text-3xl mb-2 opacity-40" />
                 <p>{{ t('localization.empty_matrix') }}</p>
@@ -349,7 +485,7 @@ onMounted(() => {
             </tr>
             <tr
               v-else
-              v-for="row in matrixData.rows"
+              v-for="row in visibleRows"
               :key="`${row.module}.${row.translation_key}`"
               class="hover:bg-secondary/5 transition-colors"
             >
@@ -395,7 +531,7 @@ onMounted(() => {
               <!-- Status -->
               <td class="py-3 px-4 align-top text-center">
                 <span
-                  v-if="row.isComplete"
+                  v-if="row.is_complete"
                   class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-success/15 text-success whitespace-nowrap"
                 >
                   {{ t('localization.complete') }}
@@ -410,6 +546,15 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+      </div>
+      <div v-if="!isLoading && filteredRows.length > 0" class="border-t border-secondary/20 px-4">
+        <BasePagination
+          :pagination="pagination"
+          :show-limit-picker="true"
+          @changePage="changePage"
+          @update:limit="changePageSize"
+          class="bg-transparent mb-0 pb-1"
+        />
       </div>
     </div>
 

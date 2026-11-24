@@ -14,16 +14,15 @@ import PackageTable from '@/modules/master_data/presentation/components/products
 import PackageBatchEditModal from '@/modules/master_data/presentation/components/products/PackageBatchEditModal.vue'
 import BaseFilterPanel from '@/core/presentation/components/ui/BaseFilterPanel.vue'
 import BaseSwitch from '@/core/presentation/components/ui/BaseSwitch.vue'
+import SearchInput from '@/core/presentation/components/ui/SearchInput.vue'
 import { useInlineSave } from '@/core/presentation/composables/useInlineSave'
 import { useDownloadStore } from '@/core/presentation/stores/downloadStore'
 import { useUploadStore } from '@/core/presentation/stores/uploadStore'
-import { useMobile } from '@/core/presentation/composables/useMobile'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
 import { usePagination } from '@/core/presentation/composables/usePagination'
 import { useCatalogManagement } from '../composables/useCatalogManagement'
 
 const { toast } = useToast()
-const { isMobile } = useMobile()
 const { t } = useI18n()
 
 // --- CATALOG COMPOSABLE ---
@@ -65,6 +64,11 @@ const toggleSelectAll = () => baseToggleSelectAll(products.value)
 const products = ref([])
 const debouncedSearchQuery = refDebounced(searchQuery, 300)
 const packageTableRef = ref(null)
+
+const searchByOptions = computed(() => [
+  { value: 'name', label: t('common.label.name') },
+  { value: 'sku', label: t('common.label.sku') }
+])
 
 const {
   dirtyProducts,
@@ -108,7 +112,6 @@ const searchParams = computed(() => ({
 
 const { usePackageSearchQuery, exportPackages, uploadPackageUpdate } = usePackages()
 const { deleteProduct: apiDeleteProduct, bulkAction: apiBulkAction } = useProducts()
-
 const { data: productsData, isLoading: loading, refetch: fetchProducts } = usePackageSearchQuery(searchParams)
 
 watch(
@@ -258,17 +261,14 @@ watch(Slash, pressed => {
           <BaseFilterPanel>
             <template #search>
               <div class="flex flex-col sm:flex-row items-center gap-4 w-full">
-                <div class="relative flex-1 w-full">
-                  <input
-                    id="global-search-input"
-                    v-model="searchQuery"
-                    type="text"
-                    placeholder="Cari nama paket atau SKU (Tekan / )"
-                    class="min-w-[450px] w-full h-[40px] pl-10 pr-4 py-2 bg-background border border-secondary rounded-lg focus:outline-none focus:border-primary text-sm shadow-sm"
-                    :class="isMobile ? 'mb-4 mr-4' : 'm-0'"
-                  />
-                  <font-awesome-icon icon="fa-solid fa-search" class="absolute left-3 top-2.5 text-text/40" />
-                </div>
+                <SearchInput
+                  v-model="searchQuery"
+                  v-model:search-by="searchBy"
+                  :search-by-options="searchByOptions"
+                  input-id="global-search-input"
+                  :placeholder="`${t('common.btn.search')} ${searchBy === 'sku' ? t('master_data.package.sku') : t('common.label.package_name')}...`"
+                  class="flex-1 w-full sm:min-w-[320px] lg:min-w-[420px]"
+                />
                 <div class="flex items-center gap-2 w-full sm:w-auto">
                   <BaseSwitch
                     :model-value="filterStatus === 'archived'"

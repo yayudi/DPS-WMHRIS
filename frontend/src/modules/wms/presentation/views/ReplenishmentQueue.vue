@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
+import { useMagicKeys } from '@vueuse/core'
 import { useReplenishment } from '../../application/useReplenishment'
 import { useI18n } from '@/core/presentation/composables/useI18n'
 import QuickTransferModal from '../components/replenishment/QuickTransferModal.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
+import SearchInput from '@/core/presentation/components/ui/SearchInput.vue'
+import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
+import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 
 const { t, d } = useI18n()
 
@@ -17,10 +21,13 @@ const {
   loading,
   releasingId,
   transferring,
-  selectedBuilding,
+  selectedBuildings,
   availableBuildings,
   searchQuery,
+  searchBy,
   sortBy,
+  hasActiveFilters,
+  resetFilters,
   soundEnabled,
   isTransferModalOpen,
   activeTransferContext,
@@ -33,6 +40,46 @@ const {
   releaseFulfillment,
   calculateSla
 } = useReplenishment()
+
+const searchByOptions = computed(() => [
+  { value: 'all', label: t('common.filter.all') },
+  { value: 'order', label: t('wms.replenishment.search_by_order') },
+  { value: 'product', label: t('wms.replenishment.search_by_product') },
+  { value: 'location', label: t('wms.replenishment.search_by_location') }
+])
+
+const buildingOptions = computed(() =>
+  availableBuildings.value.map(bld => ({
+    id: bld,
+    label: t('wms.replenishment.building_name', { bld })
+  }))
+)
+
+const sortOptions = computed(() => [
+  { value: 'SLA_URGENT', label: t('wms.replenishment.sort_urgent') },
+  { value: 'NEWEST', label: t('wms.replenishment.sort_newest') },
+  { value: 'OLDEST', label: t('wms.replenishment.sort_oldest') }
+])
+
+const { Slash } = useMagicKeys()
+
+watch(Slash, pressed => {
+  if (!pressed || isTransferModalOpen.value) return
+  const active = document.activeElement as HTMLElement | null
+  if (
+    active &&
+    (active.tagName === 'INPUT' ||
+      active.tagName === 'TEXTAREA' ||
+      active.tagName === 'SELECT' ||
+      active.isContentEditable)
+  ) {
+    return
+  }
+  setTimeout(() => {
+    const el = document.getElementById('global-search-input')
+    if (el) el.focus()
+  }, 10)
+})
 
 onMounted(async () => {
   await Promise.all([loadOnHoldFulfillments(), loadLocations()])
@@ -84,7 +131,9 @@ function getSuggestedBuildings(deficits: any[]): string[] {
               : 'bg-secondary/30 text-text/70 border-secondary/40'
           "
           class="px-3.5 py-2 border rounded-xl text-xs font-semibold flex items-center gap-2 transition"
-          :title="soundEnabled ? t('wms.replenishment.sound_active_title') : t('wms.replenishment.sound_inactive_title')"
+          :title="
+            soundEnabled ? t('wms.replenishment.sound_active_title') : t('wms.replenishment.sound_inactive_title')
+          "
           @click="soundEnabled = !soundEnabled"
         >
           <font-awesome-icon :icon="soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark'" />
@@ -134,42 +183,63 @@ function getSuggestedBuildings(deficits: any[]): string[] {
     </div>
 
     <!-- Filter & Search Toolbar -->
-    <div
-      class="flex flex-col md:flex-row items-center justify-between gap-3 p-3 bg-surface rounded-xl border border-secondary/30"
-    >
-      <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-medium text-text/70">{{ t('wms.replenishment.building_label') }}</span>
-          <select
-            v-model="selectedBuilding"
-            class="px-3 py-1.5 bg-background border border-secondary/40 text-text rounded-lg text-xs font-medium focus:outline-none focus:border-primary"
-            @change="loadOnHoldFulfillments"
-          >
-            <option value="ALL">{{ t('common.filter.all_buildings') }}</option>
-            <option v-for="bld in availableBuildings" :key="bld" :value="bld">{{ t('wms.replenishment.building_name', { bld }) }}</option>
-          </select>
+    <div class="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center justify-between gap-3 w-full">
+      <div class="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center gap-3 w-full sm:w-auto sm:flex-1 min-w-0">
+        <div class="w-full sm:flex-1 sm:min-w-[220px] sm:max-w-md min-w-0">
+          <SearchInput
+            v-model="searchQuery"
+            v-model:search-by="searchBy"
+            :search-by-options="searchByOptions"
+            input-id="global-search-input"
+            :placeholder="t('wms.replenishment.search_placeholder')"
+          />
         </div>
 
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-medium text-text/70">{{ t('common.label.sort_by') }}</span>
-          <select
+        <div class="w-full sm:w-auto sm:max-w-[210px] shrink-0">
+          <TriStateSelect
+            v-model="selectedBuildings"
+            :options="buildingOptions"
+            label="label"
+            track-by="id"
+            :placeholder="t('common.filter.all_buildings')"
+            :label-prefix="t('common.label.building')"
+            :searchable="true"
+          />
+        </div>
+
+        <div class="w-full sm:w-auto sm:max-w-[260px] shrink-0">
+          <BaseSelect
             v-model="sortBy"
-            class="px-3 py-1.5 bg-background border border-secondary/40 text-text rounded-lg text-xs font-medium focus:outline-none focus:border-primary"
-          >
-            <option value="SLA_URGENT">{{ t('wms.replenishment.sort_urgent') }}</option>
-            <option value="NEWEST">{{ t('wms.replenishment.sort_newest') }}</option>
-            <option value="OLDEST">{{ t('wms.replenishment.sort_oldest') }}</option>
-          </select>
+            :options="sortOptions"
+            class="w-full h-[42px]"
+            :class="[sortBy !== 'SLA_URGENT' ? 'ring-1 ring-primary/50 rounded-lg' : '']"
+            :placeholder="t('common.filter.order')"
+            :label-prefix="t('common.filter.order')"
+            :placeholder-values="[]"
+            label="label"
+            track-by="value"
+            :searchable="false"
+            emit-value
+          />
         </div>
       </div>
 
-      <div class="w-full md:w-72">
-        <input
-          v-model="searchQuery"
-          type="text"
-          :placeholder="t('wms.replenishment.search_placeholder')"
-          class="w-full px-3 py-1.5 bg-background border border-secondary/40 text-text rounded-lg text-xs placeholder:text-text/40 focus:outline-none focus:border-primary"
-        />
+      <div class="flex items-center justify-end gap-2 shrink-0 sm:ml-auto">
+        <span
+          class="px-3 h-[42px] inline-flex items-center text-xs font-semibold rounded-lg bg-secondary/10 border border-secondary/20 text-text/70 whitespace-nowrap"
+        >
+          {{ filteredFulfillments.length }} / {{ stats.total }}
+        </span>
+
+        <button
+          v-if="hasActiveFilters"
+          type="button"
+          @click="resetFilters"
+          class="px-3 h-[42px] text-xs font-semibold rounded-lg border border-secondary/20 text-text/70 hover:text-text hover:bg-secondary/10 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+        >
+          <font-awesome-icon icon="fa-solid fa-rotate-left" />
+          <span>{{ t('common.btn.reset') }}</span>
+        </button>
       </div>
     </div>
 
@@ -180,10 +250,28 @@ function getSuggestedBuildings(deficits: any[]): string[] {
     </div>
 
     <div
+      v-else-if="filteredFulfillments.length === 0 && hasActiveFilters"
+      class="py-16 px-4 bg-surface rounded-2xl border border-secondary/20 text-center space-y-3"
+    >
+      <div class="text-3xl text-text/40">
+        <font-awesome-icon icon="fa-solid fa-magnifying-glass" />
+      </div>
+      <div class="text-base font-bold text-text">{{ t('common.empty.no_data') }}</div>
+      <button
+        type="button"
+        @click="resetFilters"
+        class="px-4 py-2 text-xs font-semibold rounded-lg border border-secondary/30 text-text hover:bg-secondary/10 transition-colors inline-flex items-center gap-1.5"
+      >
+        <font-awesome-icon icon="fa-solid fa-rotate-left" />
+        <span>{{ t('common.btn.reset') }}</span>
+      </button>
+    </div>
+
+    <div
       v-else-if="filteredFulfillments.length === 0"
       class="py-16 px-4 bg-surface rounded-2xl border border-secondary/20 text-center space-y-2"
     >
-      <div class="text-4xl text-success">✓</div>
+      <font-awesome-icon icon="fa-solid fa-check" class="text-4xl text-success" />
       <div class="text-base font-bold text-text">{{ t('wms.replenishment.empty_title') }}</div>
       <p class="text-xs text-text/70 max-w-md mx-auto">
         {{ t('wms.replenishment.empty_desc') }}
@@ -231,17 +319,23 @@ function getSuggestedBuildings(deficits: any[]): string[] {
               class="text-xs px-2.5 py-0.5 rounded-full bg-danger/15 border border-danger/30 text-danger font-bold flex items-center gap-1.5 animate-pulse"
             >
               <font-awesome-icon icon="fa-solid fa-triangle-exclamation" />
-              <span>{{ t('wms.replenishment.deadline_urgent', { time: calculateSla(fulfillment.created_at).formattedText }) }}</span>
+              <span>{{
+                t('wms.replenishment.deadline_urgent', { time: calculateSla(fulfillment.created_at).formattedText })
+              }}</span>
             </span>
             <span
               v-else-if="calculateSla(fulfillment.created_at).level === 'WARNING'"
               class="text-xs px-2.5 py-0.5 rounded-full bg-warning/15 border border-warning/30 text-warning font-semibold flex items-center gap-1.5"
             >
               <font-awesome-icon icon="fa-solid fa-clock" />
-              <span>{{ t('wms.replenishment.deadline_text', { time: calculateSla(fulfillment.created_at).formattedText }) }}</span>
+              <span>{{
+                t('wms.replenishment.deadline_text', { time: calculateSla(fulfillment.created_at).formattedText })
+              }}</span>
             </span>
             <span v-else class="text-xs px-2 py-0.5 rounded-md bg-secondary/20 text-text/70 border border-secondary/30">
-              <span>{{ t('wms.replenishment.deadline_text', { time: calculateSla(fulfillment.created_at).formattedText }) }}</span>
+              <span>{{
+                t('wms.replenishment.deadline_text', { time: calculateSla(fulfillment.created_at).formattedText })
+              }}</span>
             </span>
           </div>
 
@@ -325,7 +419,9 @@ function getSuggestedBuildings(deficits: any[]): string[] {
                       <span class="text-success font-semibold">({{ source.available_quantity }} pcs)</span>
                     </button>
                   </div>
-                  <span v-else class="text-[11px] text-danger/80 italic"> {{ t('wms.replenishment.no_storage_stock') }} </span>
+                  <span v-else class="text-[11px] text-danger/80 italic">
+                    {{ t('wms.replenishment.no_storage_stock') }}
+                  </span>
                 </td>
 
                 <!-- Action button -->
@@ -351,7 +447,8 @@ function getSuggestedBuildings(deficits: any[]): string[] {
           <div class="text-[11px] text-text/70 flex items-center gap-1.5">
             <font-awesome-icon icon="fa-solid fa-circle-info" class="text-primary/70" />
             <span>
-              {{ t('wms.replenishment.footer_hint_prefix') }}<strong v-if="fulfillment.assigned_building">
+              {{ t('wms.replenishment.footer_hint_prefix')
+              }}<strong v-if="fulfillment.assigned_building">
                 ({{ t('wms.replenishment.building_name', { bld: fulfillment.assigned_building }) }})</strong
               >, {{ t('wms.replenishment.footer_hint_suffix') }}
             </span>

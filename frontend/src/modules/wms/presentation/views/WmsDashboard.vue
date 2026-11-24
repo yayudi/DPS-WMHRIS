@@ -114,7 +114,7 @@ const warehouseViews = computed(() => [
 ])
 
 const searchTabs = computed(() => [
-  { label: t('common.label.product_name'), value: 'name' },
+  { label: t('common.label.name'), value: 'name' },
   { label: t('common.label.sku'), value: 'sku' }
 ])
 

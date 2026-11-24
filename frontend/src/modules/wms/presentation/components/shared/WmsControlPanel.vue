@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/vue'
 import BaseFilterPanel from '@/core/presentation/components/ui/BaseFilterPanel.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
+import SearchInput from '@/core/presentation/components/ui/SearchInput.vue'
 import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
 import SegmentedControl from '@/core/presentation/components/ui/SegmentedControl.vue'
 import { useMobile } from '@/core/presentation/composables/useMobile'
@@ -52,18 +53,7 @@ const emit = defineEmits([
   'toggle-refetch'
 ])
 
-const searchInput = ref(null)
 const { isMobile } = useMobile(1024)
-
-function onSearchInput(e) {
-  emit('update:searchValue', e.target.value)
-  emit('search', e.target.value)
-}
-
-function clearSearch() {
-  emit('update:searchValue', '')
-  emit('search', '')
-}
 
 const typeOptions = computed(() => [
   { value: 'all', label: t('wms.type.all'), icon: 'fa-solid fa-list' },
@@ -101,18 +91,14 @@ function handleToggleColumn(colId) {
   emit('toggle-column', colId)
 }
 
-onMounted(() => {
-  // Auto focus search input
-  if (searchInput.value) {
-    searchInput.value.focus()
-  }
-})
-
 const buttonRef = ref(null)
 const dropdownRef = ref(null)
 
-const { floatingStyles } = useFloating(buttonRef, dropdownRef, {
+const { floatingStyles, isPositioned: isColumnMenuPositioned } = useFloating(buttonRef, dropdownRef, {
+  open: isColumnMenuOpen,
   placement: 'bottom-end',
+  strategy: 'fixed',
+  transform: false,
   middleware: [offset(8), flip(), shift({ padding: 10 })],
   whileElementsMounted: autoUpdate
 })
@@ -139,83 +125,58 @@ onClickOutside(
   <BaseFilterPanel class="z-30" :collapse-breakpoint="1024">
     <!-- Search Row -->
     <template #search>
-      <div class="relative flex-grow group w-full xl:w-[1vw] shadow-sm rounded-lg">
-        <span
-          class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text/40 group-focus-within:text-primary transition-colors"
-        >
-          <font-awesome-icon icon="fa-solid fa-search" />
-        </span>
-
-        <input
-          ref="searchInput"
-          id="global-search-input"
-          :value="searchValue"
-          @input="onSearchInput"
-          type="text"
-          :placeholder="searchPlaceholder || t('common.filter.search')"
-          class="w-full px-10 py-2 bg-background border border-secondary rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 text-text transition-all placeholder-text/30 h-[42px]"
-        />
-
-        <button
-          v-if="searchValue"
-          @click="clearSearch"
-          class="absolute inset-y-0 right-0 flex items-center pr-4 text-text/40 hover:text-danger cursor-pointer transition-colors"
-          :title="t('common.btn.clear_search')"
-        >
-          <font-awesome-icon icon="fa-solid fa-times-circle" />
-        </button>
-      </div>
+      <SearchInput
+        :model-value="searchValue"
+        @update:modelValue="emit('update:searchValue', $event)"
+        @search="emit('search', $event)"
+        :search-by="searchBy"
+        @update:searchBy="emit('update:searchBy', $event)"
+        :search-by-options="searchTabs"
+        :placeholder="searchPlaceholder || t('common.filter.search')"
+        input-id="global-search-input"
+        auto-focus
+        class="flex-grow xl:w-[1vw]"
+      />
     </template>
 
     <!-- Tabs Row -->
     <template #tabs>
-      <div class="flex flex-col md:flex-row gap-2 w-full lg:w-auto items-end">
-        <!-- Search By Tabs -->
-        <SegmentedControl
-          :model-value="searchBy"
-          @update:modelValue="emit('update:searchBy', $event)"
-          :options="searchTabs.map(t => ({ value: t.value, label: t.label }))"
-          class="w-full md:w-auto shrink-0"
-        />
-
+      <div class="flex flex-col md:flex-row gap-2 w-full lg:w-auto items-center">
         <!-- View Tabs -->
-        <div class="flex flex-col gap-1 w-full lg:w-[260px] shrink-0">
-          <label class="hidden md:block text-xs font-semibold text-text/60 text-center">{{ t('wms.control.location_view') }}</label>
-          <SegmentedControl
-            :model-value="activeView"
-            @update:modelValue="emit('update:activeView', $event)"
-            :options="warehouseViews.map(v => ({ value: v.value, label: v.label }))"
-            class="w-full"
-          />
-        </div>
+        <SegmentedControl
+          :model-value="activeView"
+          @update:modelValue="emit('update:activeView', $event)"
+          :options="warehouseViews.map(v => ({ value: v.value, label: v.label }))"
+          class="w-full lg:w-[260px] shrink-0"
+        />
       </div>
     </template>
 
     <!-- Actions & Filters (Inline Right) -->
     <template #actions>
-      <div class="flex flex-wrap items-end justify-start lg:justify-end gap-2 w-full lg:w-auto">
+      <div class="flex flex-wrap items-center justify-start lg:justify-end gap-2 w-full lg:w-auto">
         <!-- Filter Warehouse (Hanya tampil jika view gudang atau pajangan) -->
         <div v-if="['gudang', 'pajangan'].includes(activeView)" class="flex gap-2 w-full lg:w-auto shrink-0">
-          <div v-if="activeView === 'gudang'" class="flex flex-col gap-1 w-1/2 lg:w-[110px]">
-            <label class="block text-xs font-semibold text-text/60 text-center mb-1">{{ t('common.label.building') }}</label>
+          <div v-if="activeView === 'gudang'" class="w-1/2 lg:w-auto lg:max-w-[160px]">
             <TriStateSelect
               :model-value="selectedBuilding"
               @update:modelValue="emit('update:selectedBuilding', $event)"
               :options="buildingFilterOptions"
               :placeholder="t('common.label.building')"
+              :label-prefix="t('common.label.building')"
               label="label"
               track-by="value"
               class="w-full"
             />
           </div>
 
-          <div class="flex flex-col gap-1 lg:w-[110px]" :class="activeView === 'gudang' ? 'w-1/2' : 'w-full'">
-            <label class="block text-xs font-semibold text-text/60 text-center mb-1">{{ t('common.label.floor') }}</label>
+          <div class="lg:w-auto lg:max-w-[140px]" :class="activeView === 'gudang' ? 'w-1/2' : 'w-full'">
             <TriStateSelect
               :model-value="selectedFloor"
               @update:modelValue="emit('update:selectedFloor', $event)"
               :options="floorFilterOptions"
               :placeholder="t('common.label.floor')"
+              :label-prefix="t('common.label.floor_abbr')"
               label="label"
               track-by="value"
               class="w-full"
@@ -224,14 +185,15 @@ onClickOutside(
         </div>
 
         <!-- Type Filter -->
-        <div class="flex flex-col gap-1 w-full lg:w-[110px] shrink-0">
-          <label class="block text-xs font-semibold text-text/60 text-center mb-1">{{ t('wms.control.product_type') }}</label>
+        <div class="w-full lg:w-auto lg:max-w-[170px] shrink-0">
           <BaseSelect
             :model-value="productTypeFilter"
             @update:modelValue="emit('update:productTypeFilter', $event)"
             :options="typeOptions"
             class="h-[42px] w-full"
             :placeholder="t('wms.control.product_type')"
+            :label-prefix="t('wms.history.th_type')"
+            prefer-placeholder
             label="label"
             track-by="value"
             :searchable="false"
@@ -240,8 +202,7 @@ onClickOutside(
         </div>
 
         <!-- Status Stock -->
-        <div class="flex flex-col gap-1 w-full lg:w-[110px] shrink-0">
-          <label class="block text-xs font-semibold text-text/60 text-center mb-1">{{ t('wms.control.stock_status') }}</label>
+        <div class="w-full lg:w-auto lg:max-w-[190px] shrink-0">
           <BaseSelect
             :model-value="stockStatusFilter"
             @update:modelValue="emit('update:stockStatusFilter', $event)"
@@ -249,6 +210,8 @@ onClickOutside(
             class="w-full h-[42px]"
             :class="[stockStatusFilter !== 'all' ? 'ring-1 ring-primary/50 rounded-lg' : '']"
             :placeholder="t('wms.control.stock_status')"
+            :label-prefix="t('wms.table.stock')"
+            prefer-placeholder
             label="label"
             track-by="value"
             :searchable="false"
@@ -257,13 +220,13 @@ onClickOutside(
         </div>
 
         <!-- Category Filter -->
-        <div class="flex flex-col gap-1 w-full lg:w-[110px] shrink-0">
-          <label class="block text-xs font-semibold text-text/60 text-center mb-1">{{ t('common.label.category') }}</label>
+        <div class="w-full lg:w-auto lg:max-w-[200px] shrink-0">
           <TriStateSelect
             :model-value="selectedCategory"
             @update:modelValue="emit('update:selectedCategory', $event)"
             :options="categoryFilterOptions"
             :placeholder="t('common.label.category')"
+            :label-prefix="t('common.label.category')"
             label="label"
             track-by="id"
             :searchable="true"
@@ -314,12 +277,12 @@ onClickOutside(
             />
           </div>
 
-          <div class="flex flex-col gap-1 shrink-0 mt-auto mb-0.5 mx-auto lg:mx-0">
+          <div class="flex flex-col gap-1 shrink-0 mt-auto mb-0.5 lg:my-0 mx-auto lg:mx-0">
             <!-- Column Visibility Selector -->
             <button
               ref="buttonRef"
               @click.stop="toggleColumnMenu"
-              class="w-[36px] h-[36px] flex items-center justify-center rounded-lg border border-secondary/20 bg-background text-text/60 hover:text-primary transition-all shadow-sm shrink-0 relative"
+              class="w-[36px] h-[36px] lg:w-[42px] lg:h-[42px] flex items-center justify-center rounded-lg border border-secondary/20 bg-background text-text/60 hover:text-primary transition-all shadow-sm shrink-0 relative"
               :class="{
                 'bg-primary/10 text-primary border-primary': isColumnMenuOpen,
                 'border-primary/50 text-primary': slottingStatusFilter !== 'all' && !isColumnMenuOpen
@@ -340,60 +303,66 @@ onClickOutside(
           <div
             v-if="isColumnMenuOpen"
             ref="dropdownRef"
-            class="fixed z-[9999] bg-background border border-secondary/20 rounded-lg shadow-xl p-2 animate-fade-in-down column-selector-group w-[220px]"
+            class="fixed z-[9999] column-selector-group w-[220px]"
+            :class="{ 'invisible pointer-events-none': !isColumnMenuPositioned }"
             :style="floatingStyles"
           >
-            <div v-if="!isMobile" class="flex flex-col gap-1 mb-4">
-              <span class="text-[10px] font-bold text-text/50 uppercase tracking-wide px-1 mb-1">{{ t('wms.control.display_mode') }}</span>
-              <div class="flex items-center justify-center lg:justify-start gap-2 h-[36px]">
-                <!-- View Mode (Scroll / Page) -->
-                <SegmentedControl
-                  :model-value="viewMode"
-                  @update:modelValue="emit('update:viewMode', $event)"
-                  :options="viewModeOptions"
-                  class="shrink-0 min-w-[200px] !w-[200px]"
-                />
-              </div>
-            </div>
-
-            <!-- Status Rak / Slotting (Desktop: BaseSelect) -->
-            <div v-if="!isMobile" class="flex flex-col gap-1 mb-4">
-              <span class="text-[10px] font-bold text-text/50 uppercase tracking-wide px-1 mb-1">{{ t('wms.control.slotting_status') }}</span>
-              <BaseSelect
-                :model-value="slottingStatusFilter"
-                @update:modelValue="emit('update:slottingStatusFilter', $event)"
-                :options="slottingOptions"
-                class="w-full h-[42px]"
-                :class="[slottingStatusFilter !== 'all' ? 'ring-1 ring-primary/50 rounded-lg' : '']"
-                :placeholder="t('wms.control.slotting_status')"
-                label="label"
-                track-by="value"
-                :searchable="false"
-                emit-value
-              />
-            </div>
-
-            <div class="flex flex-col gap-1">
-              <span class="text-[10px] font-bold text-text/50 uppercase tracking-wide px-1 mb-1">
-                {{ t('wms.control.column_visibility') }}
-              </span>
-              <div
-                v-for="col in availableColumns"
-                :key="col.id"
-                class="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-secondary/10 rounded transition-colors"
-                @click.stop="handleToggleColumn(col.id)"
-              >
-                <div
-                  class="w-4 h-4 rounded border border-secondary flex items-center justify-center"
-                  :class="visibleColumns.has(col.id) ? 'bg-primary border-primary' : 'bg-transparent'"
-                >
-                  <font-awesome-icon
-                    v-if="visibleColumns.has(col.id)"
-                    icon="fa-solid fa-check"
-                    class="text-secondary text-[10px]"
+            <div
+              class="bg-background border border-secondary/20 rounded-lg shadow-xl p-2 w-full"
+              :class="isColumnMenuPositioned ? 'animate-fade-in-down' : 'opacity-0'"
+            >
+              <div v-if="!isMobile" class="flex flex-col gap-1 mb-4">
+                <span class="text-[10px] font-bold text-text/50 uppercase tracking-wide px-1 mb-1">{{ t('wms.control.display_mode') }}</span>
+                <div class="flex items-center justify-center lg:justify-start gap-2 h-[36px]">
+                  <!-- View Mode (Scroll / Page) -->
+                  <SegmentedControl
+                    :model-value="viewMode"
+                    @update:modelValue="emit('update:viewMode', $event)"
+                    :options="viewModeOptions"
+                    class="shrink-0 min-w-[200px] !w-[200px]"
                   />
                 </div>
-                <span class="text-sm font-semibold text-text/80">{{ col.label }}</span>
+              </div>
+
+              <!-- Status Rak / Slotting (Desktop: BaseSelect) -->
+              <div v-if="!isMobile" class="flex flex-col gap-1 mb-4">
+                <span class="text-[10px] font-bold text-text/50 uppercase tracking-wide px-1 mb-1">{{ t('wms.control.slotting_status') }}</span>
+                <BaseSelect
+                  :model-value="slottingStatusFilter"
+                  @update:modelValue="emit('update:slottingStatusFilter', $event)"
+                  :options="slottingOptions"
+                  class="w-full h-[42px]"
+                  :class="[slottingStatusFilter !== 'all' ? 'ring-1 ring-primary/50 rounded-lg' : '']"
+                  :placeholder="t('wms.control.slotting_status')"
+                  label="label"
+                  track-by="value"
+                  :searchable="false"
+                  emit-value
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <span class="text-[10px] font-bold text-text/50 uppercase tracking-wide px-1 mb-1">
+                  {{ t('wms.control.column_visibility') }}
+                </span>
+                <div
+                  v-for="col in availableColumns"
+                  :key="col.id"
+                  class="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-secondary/10 rounded transition-colors"
+                  @click.stop="handleToggleColumn(col.id)"
+                >
+                  <div
+                    class="w-4 h-4 rounded border border-secondary flex items-center justify-center"
+                    :class="visibleColumns.has(col.id) ? 'bg-primary border-primary' : 'bg-transparent'"
+                  >
+                    <font-awesome-icon
+                      v-if="visibleColumns.has(col.id)"
+                      icon="fa-solid fa-check"
+                      class="text-secondary text-[10px]"
+                    />
+                  </div>
+                  <span class="text-sm font-semibold text-text/80">{{ col.label }}</span>
+                </div>
               </div>
             </div>
           </div>

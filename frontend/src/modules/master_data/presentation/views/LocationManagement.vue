@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
-import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
+import SearchInput from '@/core/presentation/components/ui/SearchInput.vue'
 import { ref, onMounted, computed, watch } from 'vue'
 import { useFirebaseSync } from '@/core/presentation/composables/useFirebaseSync'
 import { useMagicKeys } from '@vueuse/core'
@@ -8,6 +8,7 @@ import { useToast } from '@/core/presentation/composables/useToast'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import BaseSkeleton from '@/core/presentation/components/ui/BaseSkeleton.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
+import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
 import { useMobile } from '@/core/presentation/composables/useMobile'
 import { usePagination } from '@/core/presentation/composables/usePagination'
@@ -15,7 +16,6 @@ import BaseContextMenu from '@/core/presentation/components/ui/BaseContextMenu.v
 import { useContextMenu } from '@/core/presentation/composables/useContextMenu'
 import { useInstantInlineEdit } from '@/core/presentation/composables/useInstantInlineEdit'
 import { getLocationBuildingColorClass, getLocationPurposeColorClass } from '@/core/utils/formatters'
-
 import { useLocations } from '../../application/useLocations'
 import type { Location, CreateLocationPayload, UpdateLocationPayload } from '../../domain/location.entity'
 import { useI18n } from '@/core/presentation/composables/useI18n'
@@ -56,7 +56,13 @@ const purposeOptions = computed(() => {
 const searchQuery = ref('')
 const selectedBuilding = ref({ include: [] as string[], exclude: [] as string[] })
 const selectedPurpose = ref({ include: [] as string[], exclude: [] as string[] })
-const showFilters = ref(false)
+const filterFulfillment = ref<'all' | 'active' | 'inactive'>('all')
+
+const fulfillmentOptions = computed(() => [
+  { value: 'all', label: t('common.filter.all') },
+  { value: 'active', label: t('common.status.active') },
+  { value: 'inactive', label: t('common.status.inactive') }
+])
 
 const buildingOptions = computed(() => {
   const buildings = allLocations.value.map(l => l.building).filter(Boolean)
@@ -79,8 +85,13 @@ const filteredLocations = computed(() => {
     if (selectedPurpose.value.exclude.length > 0 && selectedPurpose.value.exclude.includes(loc.purpose)) return false
 
     // 3. Building filter
-    if (selectedBuilding.value.include.length > 0 && !selectedBuilding.value.include.includes(loc.building)) return false
+    if (selectedBuilding.value.include.length > 0 && !selectedBuilding.value.include.includes(loc.building))
+      return false
     if (selectedBuilding.value.exclude.length > 0 && selectedBuilding.value.exclude.includes(loc.building)) return false
+
+    // 4. Fulfillment source filter
+    if (filterFulfillment.value === 'active' && !loc.is_fulfillment_source) return false
+    if (filterFulfillment.value === 'inactive' && loc.is_fulfillment_source) return false
 
     return true
   })
@@ -178,17 +189,21 @@ function handleContextAction(action: string) {
 }
 
 async function handleDelete(locationId: number) {
-  if (
-    await swalConfirm(
-      t('master_data.location.confirm_delete')
-    )
-  ) {
+  if (await swalConfirm(t('master_data.location.confirm_delete'))) {
     await deleteLocation(locationId)
   }
 }
 
+watch(
+  [searchQuery, selectedBuilding, selectedPurpose, filterFulfillment],
+  () => {
+    changePage(1)
+  },
+  { deep: true }
+)
+
 // --- LOCAL HOTKEYS ---
-const { Alt_N, Alt_S } = useMagicKeys()
+const { Alt_N, Alt_S, Slash } = useMagicKeys()
 
 watch(Alt_N, pressed => {
   if (pressed && !isModalOpen.value) {
@@ -201,14 +216,70 @@ watch(Alt_S, pressed => {
     handleSave()
   }
 })
+
+watch(Slash, pressed => {
+  if (pressed && !isModalOpen.value) {
+    setTimeout(() => {
+      const el = document.getElementById('global-search-input')
+      if (el) el.focus()
+    }, 10)
+  }
+})
 </script>
 
 <template>
-  <div class="flex flex-col sm:flex-row items-center justify-end gap-4 w-full mb-4">
-    <FilterToggle v-model="showFilters" />
+  <div class="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center justify-between gap-3 w-full mb-4">
+    <div class="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center gap-3 w-full sm:w-auto sm:flex-1 min-w-0">
+      <div class="w-full sm:flex-1 sm:min-w-[180px] sm:max-w-xs min-w-0">
+        <SearchInput
+          v-model="searchQuery"
+          input-id="global-search-input"
+          :placeholder="t('master_data.location.search_placeholder')"
+        />
+      </div>
+
+      <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 w-full sm:w-auto shrink-0">
+        <div class="w-full sm:w-auto sm:max-w-[190px] shrink-0">
+          <TriStateSelect
+            v-model="selectedBuilding"
+            :options="buildingOptions"
+            :placeholder="t('common.filter.all_buildings')"
+            :label-prefix="t('common.label.building')"
+            :searchable="true"
+          />
+        </div>
+
+        <div class="w-full sm:w-auto sm:max-w-[190px] shrink-0">
+          <TriStateSelect
+            v-model="selectedPurpose"
+            :options="purposeOptions"
+            :placeholder="t('common.filter.all_purposes')"
+            :label-prefix="t('common.label.purpose')"
+            :searchable="true"
+          />
+        </div>
+
+        <div class="w-full sm:w-auto sm:max-w-[230px] shrink-0">
+          <BaseSelect
+            v-model="filterFulfillment"
+            :options="fulfillmentOptions"
+            class="w-full h-[42px]"
+            :class="[filterFulfillment !== 'all' ? 'ring-1 ring-primary/50 rounded-lg' : '']"
+            :placeholder="t('master_data.location.fulfillment_source')"
+            :label-prefix="t('master_data.location.fulfillment_source')"
+            prefer-placeholder
+            label="label"
+            track-by="value"
+            :searchable="false"
+            emit-value
+          />
+        </div>
+      </div>
+    </div>
+
     <button
       @click="openCreateModal"
-      class="bg-primary text-secondary text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+      class="bg-primary text-secondary text-sm font-semibold px-4 h-[42px] rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-md shadow-primary/20 shrink-0 whitespace-nowrap sm:ml-auto"
     >
       <font-awesome-icon icon="fa-solid fa-plus" />
       <span>{{ t('master_data.location.add_btn') }}</span>
@@ -216,51 +287,6 @@ watch(Alt_S, pressed => {
   </div>
 
   <div class="flex flex-col gap-4">
-    <!-- Filter Bar -->
-    <div
-      v-show="showFilters"
-      class="flex flex-col md:flex-row gap-4 items-center justify-between bg-secondary/50 p-4 rounded-xl shadow-sm border border-secondary/20 animate-fade-in-down"
-    >
-      <div class="w-full relative group bg-background rounded-xl">
-        <font-awesome-icon
-          icon="fa-solid fa-search"
-          class="absolute left-3 top-1/2 -translate-y-1/2 text-text/40 group-focus-within:text-primary transition-colors"
-        />
-        <input
-          v-model="searchQuery"
-          type="text"
-          :placeholder="t('master_data.location.search_placeholder')"
-          class="w-full pl-10 pr-4 py-2.5 bg-secondary/5 border border-secondary/20 focus:border-primary focus:bg-background rounded-lg text-sm transition-all focus:ring-4 focus:ring-primary/10 outline-none placeholder:text-text/40"
-        />
-        <button
-          v-if="searchQuery"
-          @click="searchQuery = ''"
-          class="absolute right-3 top-1/2 -translate-y-1/2 text-text/30 hover:text-danger transition-colors p-1"
-        >
-          <font-awesome-icon icon="fa-solid fa-xmark" />
-        </button>
-      </div>
-
-      <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0 z-10">
-        <div class="w-full sm:w-48 shrink-0">
-          <TriStateSelect
-            v-model="selectedBuilding"
-            :options="buildingOptions"
-            :placeholder="t('common.filter.all_buildings')"
-            :searchable="true"
-          />
-        </div>
-
-        <div class="w-full sm:w-48 shrink-0">
-          <TriStateSelect
-            v-model="selectedPurpose"
-            :options="purposeOptions"
-            :placeholder="t('common.filter.all_purposes')"
-            :searchable="true"
-          />
-        </div>
-      </div>
-    </div>
 
     <div
       class="bg-background shadow-md rounded-xl border border-secondary/20 overflow-x-auto overflow-y-auto relative custom-scrollbar h-[calc(100vh-220px)] table-container"
@@ -280,7 +306,9 @@ watch(Alt_S, pressed => {
             <th class="px-6 py-3 border-b border-secondary/10">{{ t('common.label.floor') }}</th>
             <th class="px-6 py-3 border-b border-secondary/10">{{ t('master_data.location.name') }}</th>
             <th class="px-6 py-3 border-b border-secondary/10">{{ t('common.label.purpose') }}</th>
-            <th class="px-6 py-3 border-b border-secondary/10 text-center">{{ t('master_data.location.fulfillment_source') }}</th>
+            <th class="px-6 py-3 border-b border-secondary/10 text-center">
+              {{ t('master_data.location.fulfillment_source') }}
+            </th>
           </tr>
         </thead>
         <TransitionGroup
@@ -330,7 +358,9 @@ watch(Alt_S, pressed => {
                   : 'px-6 py-4 sticky left-0 z-20 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]'
               "
             >
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans">{{ t('master_data.location.code') }}</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans">{{
+                t('master_data.location.code')
+              }}</span>
               <span
                 contenteditable="true"
                 class="outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[30px]"
@@ -340,7 +370,9 @@ watch(Alt_S, pressed => {
               >
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'">
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.building') }}</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{
+                t('common.label.building')
+              }}</span>
               <span
                 contenteditable="true"
                 class="outline-none focus:ring-2 focus:ring-primary inline-flex items-center px-2 py-1 -mx-2 rounded min-w-[30px] font-medium ring-1 ring-inset"
@@ -351,7 +383,9 @@ watch(Alt_S, pressed => {
               >
             </td>
             <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'">
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.label.floor') }}</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{
+                t('common.label.floor')
+              }}</span>
               <span
                 contenteditable="true"
                 class="outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[30px]"
@@ -364,7 +398,9 @@ watch(Alt_S, pressed => {
               class="text-text/80"
               :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
             >
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('master_data.location.name') }}</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{
+                t('master_data.location.name')
+              }}</span>
               <span
                 contenteditable="true"
                 class="outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[30px]"
@@ -377,7 +413,9 @@ watch(Alt_S, pressed => {
               class="font-mono text-xs"
               :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
             >
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans font-semibold">{{ t('common.label.purpose') }}</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans font-semibold">{{
+                t('common.label.purpose')
+              }}</span>
               <span
                 class="inline-flex items-center px-2 py-1 -mx-2 rounded font-medium ring-1 ring-inset"
                 :class="getLocationPurposeColorClass(loc.purpose)"
@@ -397,7 +435,9 @@ watch(Alt_S, pressed => {
               class="text-center"
               :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
             >
-              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans font-semibold">{{ t('master_data.location.fulfillment_source') }}</span>
+              <span v-if="isMobile" class="text-text/60 text-xs uppercase font-sans font-semibold">{{
+                t('master_data.location.fulfillment_source')
+              }}</span>
               <div class="inline-flex items-center gap-1.5 justify-center">
                 <button
                   type="button"
@@ -405,17 +445,20 @@ watch(Alt_S, pressed => {
                   @click="handleToggleFulfillment(loc)"
                   class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 disabled:opacity-30 disabled:cursor-not-allowed"
                   :class="loc.is_fulfillment_source ? 'bg-primary' : 'bg-secondary/30'"
-                  :title="isDisallowedFulfillmentPurpose(loc.purpose) ? t('master_data.location.fulfillment_disallowed_tooltip') : (loc.is_fulfillment_source ? t('master_data.location.fulfillment_active_tooltip') : t('master_data.location.fulfillment_inactive_tooltip'))"
+                  :title="
+                    isDisallowedFulfillmentPurpose(loc.purpose)
+                      ? t('master_data.location.fulfillment_disallowed_tooltip')
+                      : loc.is_fulfillment_source
+                        ? t('master_data.location.fulfillment_active_tooltip')
+                        : t('master_data.location.fulfillment_inactive_tooltip')
+                  "
                 >
                   <span
                     class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out"
                     :class="loc.is_fulfillment_source ? 'translate-x-4' : 'translate-x-0'"
                   />
                 </button>
-                <span
-                  v-if="loc.is_fulfillment_source"
-                  class="text-[11px] font-semibold text-primary uppercase ml-0.5"
-                >
+                <span v-if="loc.is_fulfillment_source" class="text-[11px] font-semibold text-primary uppercase ml-0.5">
                   {{ t('common.status.active') }}
                 </span>
               </div>
@@ -459,7 +502,9 @@ watch(Alt_S, pressed => {
     >
       <form @submit.prevent="handleSave" class="p-6 space-y-4">
         <div>
-          <label class="block text-sm font-medium text-text/80 mb-1">{{ t('analytics.capacity.col_location_code') }}</label>
+          <label class="block text-sm font-medium text-text/80 mb-1">{{
+            t('analytics.capacity.col_location_code')
+          }}</label>
           <input
             v-model="selectedLocation.code"
             type="text"

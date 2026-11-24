@@ -13,6 +13,8 @@ import type {
 import type { StockLocation } from '../domain/stock.entity'
 
 export type SlaUrgencyLevel = 'CRITICAL' | 'WARNING' | 'NORMAL'
+export type ReplenishmentSearchBy = 'all' | 'order' | 'product' | 'location'
+export type TriStateFilter = { include: string[]; exclude: string[] }
 
 export interface SlaInfo {
   remainingMinutes: number
@@ -27,8 +29,9 @@ const allLocations = ref<StockLocation[]>([])
 const loading = ref(false)
 const releasingId = ref<number | null>(null)
 const transferring = ref(false)
-const selectedBuilding = ref('ALL')
+const selectedBuildings = ref<TriStateFilter>({ include: [], exclude: [] })
 const searchQuery = ref('')
+const searchBy = ref<ReplenishmentSearchBy>('all')
 const sortBy = ref<'SLA_URGENT' | 'NEWEST' | 'OLDEST'>('SLA_URGENT')
 const soundEnabled = ref(false)
 
@@ -116,9 +119,7 @@ export function useReplenishment() {
   async function loadOnHoldFulfillments() {
     loading.value = true
     try {
-      const data = await wmsApi.fetchOnHoldFulfillments(
-        selectedBuilding.value === 'ALL' ? undefined : selectedBuilding.value
-      )
+      const data = await wmsApi.fetchOnHoldFulfillments()
       const previousCount = fulfillments.value.length
       fulfillments.value = data
 
@@ -201,25 +202,80 @@ export function useReplenishment() {
     }
   }
 
+  function getFulfillmentBuildings(f: OnHoldFulfillmentSummary): string[] {
+    if (f.assigned_building) return [f.assigned_building]
+    const set = new Set<string>()
+    for (const d of f.deficits || []) {
+      for (const s of d.suggested_sources || []) {
+        if (s.building) set.add(s.building)
+      }
+    }
+    return Array.from(set)
+  }
+
+  const hasActiveFilters = computed(
+    () =>
+      Boolean(searchQuery.value.trim()) ||
+      searchBy.value !== 'all' ||
+      selectedBuildings.value.include.length > 0 ||
+      selectedBuildings.value.exclude.length > 0 ||
+      sortBy.value !== 'SLA_URGENT'
+  )
+
+  function resetFilters() {
+    searchQuery.value = ''
+    searchBy.value = 'all'
+    selectedBuildings.value = { include: [], exclude: [] }
+    sortBy.value = 'SLA_URGENT'
+    currentPage.value = 1
+  }
+
   const filteredFulfillments = computed(() => {
     let list = [...fulfillments.value]
 
-    if (selectedBuilding.value !== 'ALL') {
-      list = list.filter(f => f.assigned_building === selectedBuilding.value)
+    const { include, exclude } = selectedBuildings.value
+    if (include.length > 0 || exclude.length > 0) {
+      list = list.filter(f => {
+        const blds = getFulfillmentBuildings(f)
+        if (include.length > 0 && !blds.some(b => include.includes(b))) return false
+        if (exclude.length > 0 && blds.some(b => exclude.includes(b))) return false
+        return true
+      })
     }
 
     const q = searchQuery.value.trim().toLowerCase()
     if (q) {
       list = list.filter(f => {
+        if (searchBy.value === 'order') {
+          return (
+            (f.reference_id || '').toLowerCase().includes(q) ||
+            (f.transaction_no || '').toLowerCase().includes(q)
+          )
+        }
+        if (searchBy.value === 'product') {
+          return (f.deficits || []).some(
+            d =>
+              (d.sku || '').toLowerCase().includes(q) ||
+              (d.product_name || '').toLowerCase().includes(q)
+          )
+        }
+        if (searchBy.value === 'location') {
+          return (f.deficits || []).some(d =>
+            (d.suggested_sources || []).some(s => (s.location_code || '').toLowerCase().includes(q))
+          )
+        }
+
         const matchOrder =
-          f.reference_id.toLowerCase().includes(q) ||
-          f.transaction_no.toLowerCase().includes(q) ||
-          f.assigned_building.toLowerCase().includes(q)
+          (f.reference_id || '').toLowerCase().includes(q) ||
+          (f.transaction_no || '').toLowerCase().includes(q) ||
+          (f.assigned_building || '').toLowerCase().includes(q)
         if (matchOrder) return true
 
-        return f.deficits.some(d =>
-          d.sku.toLowerCase().includes(q) ||
-          d.product_name.toLowerCase().includes(q)
+        return (f.deficits || []).some(
+          d =>
+            (d.sku || '').toLowerCase().includes(q) ||
+            (d.product_name || '').toLowerCase().includes(q) ||
+            (d.suggested_sources || []).some(s => (s.location_code || '').toLowerCase().includes(q))
         )
       })
     }
@@ -244,6 +300,11 @@ export function useReplenishment() {
     const set = new Set<string>()
     fulfillments.value.forEach(f => {
       if (f.assigned_building) set.add(f.assigned_building)
+      for (const d of f.deficits || []) {
+        for (const s of d.suggested_sources || []) {
+          if (s.building) set.add(s.building)
+        }
+      }
     })
     allLocations.value.forEach(l => {
       if (l.building) set.add(l.building)
@@ -256,9 +317,13 @@ export function useReplenishment() {
   const currentPage = ref(1)
   const pageSize = ref(10)
 
-  watch([searchQuery, selectedBuilding, sortBy], () => {
-    currentPage.value = 1
-  })
+  watch(
+    [searchQuery, searchBy, selectedBuildings, sortBy],
+    () => {
+      currentPage.value = 1
+    },
+    { deep: true }
+  )
 
   function setPage(page: number) {
     currentPage.value = page
@@ -325,10 +390,13 @@ export function useReplenishment() {
     loading,
     releasingId,
     transferring,
-    selectedBuilding,
+    selectedBuildings,
     availableBuildings,
     searchQuery,
+    searchBy,
     sortBy,
+    hasActiveFilters,
+    resetFilters,
     soundEnabled,
     isTransferModalOpen,
     activeTransferContext,

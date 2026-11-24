@@ -67,7 +67,7 @@ describe('Axios Interceptors & HTTP Helpers', () => {
     await expect(rejectedHandler(error)).rejects.toBe(error)
 
     expect(logoutSpy).toHaveBeenCalled()
-    expect(mockToast).toHaveBeenCalledWith('Sesi Anda telah habis, silakan login kembali.', 'error')
+    expect(mockToast).toHaveBeenCalledWith('Sesi telah berakhir atau tidak memiliki izin', 'error')
 
     vi.advanceTimersByTime(2000)
     expect(window.location.href).toBe('/login')

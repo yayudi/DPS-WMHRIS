@@ -4,6 +4,7 @@ import (
 	database "github.com/dps-wmhris/backend/internal/shared/database"
 
 	"context"
+	"encoding/json"
 	"strings"
 
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
@@ -48,22 +49,47 @@ func (r *systemLogRepositoryImpl) Create(ctx context.Context, log *system_domain
 	return err
 }
 
+type triStateFilter struct {
+	Include []string `json:"include"`
+	Exclude []string `json:"exclude"`
+}
+
+func nonEmptyTrimmed(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		if trimmed := strings.TrimSpace(v); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
 func buildTriStateWhere(column string, filterValue string, conditions *[]string, params *[]interface{}) {
+	filterValue = strings.TrimSpace(filterValue)
 	if filterValue == "" || filterValue == "all" || filterValue == "All" {
 		return
 	}
-	// For simplicity, we just handle comma separated values as IN clauses if needed
-	// The node.js code handled JSON format for include/exclude. We will assume simple string match for now,
-	// or IN clause if comma separated.
-	if strings.Contains(filterValue, "{") {
-		// Fallback for JSON strings if sent by frontend
+
+	if strings.HasPrefix(filterValue, "{") {
+		var ts triStateFilter
+		if err := json.Unmarshal([]byte(filterValue), &ts); err == nil {
+			if include := nonEmptyTrimmed(ts.Include); len(include) > 0 {
+				*conditions = append(*conditions, column+" IN (?)")
+				*params = append(*params, include)
+			}
+			if exclude := nonEmptyTrimmed(ts.Exclude); len(exclude) > 0 {
+				*conditions = append(*conditions, column+" NOT IN (?)")
+				*params = append(*params, exclude)
+			}
+		}
 		return
 	}
 
 	if strings.Contains(filterValue, ",") {
-		parts := strings.Split(filterValue, ",")
-		*conditions = append(*conditions, column+" IN (?)")
-		*params = append(*params, parts)
+		if parts := nonEmptyTrimmed(strings.Split(filterValue, ",")); len(parts) > 0 {
+			*conditions = append(*conditions, column+" IN (?)")
+			*params = append(*params, parts)
+		}
 	} else {
 		*conditions = append(*conditions, column+" = ?")
 		*params = append(*params, filterValue)
@@ -74,10 +100,10 @@ func (r *systemLogRepositoryImpl) GetLogs(ctx context.Context, req system_dto.Ge
 	conditions := []string{"1=1"}
 	var params []interface{}
 
-	if req.Search != "" {
-		conditions = append(conditions, "(l.target_id LIKE ? OR l.changes LIKE ?)")
-		searchStr := "%" + req.Search + "%"
-		params = append(params, searchStr, searchStr)
+	if search := strings.TrimSpace(req.Search); search != "" {
+		conditions = append(conditions, "(l.target_id LIKE ? OR l.changes LIKE ? OR u.username LIKE ? OR u.nickname LIKE ?)")
+		searchStr := "%" + search + "%"
+		params = append(params, searchStr, searchStr, searchStr, searchStr)
 	}
 
 	buildTriStateWhere("l.action", req.Action, &conditions, &params)

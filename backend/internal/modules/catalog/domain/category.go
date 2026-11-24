@@ -6,6 +6,7 @@ import (
 
 type Category struct {
 	kernel.BaseEntity
-	Name     string `db:"name" json:"name"`
-	IsActive bool   `db:"is_active" json:"is_active"`
+	Name         string `db:"name" json:"name"`
+	IsActive     bool   `db:"is_active" json:"is_active"`
+	ProductCount int    `db:"-" json:"product_count"`
 }

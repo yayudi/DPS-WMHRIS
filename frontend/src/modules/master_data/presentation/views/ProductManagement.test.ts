@@ -30,15 +30,19 @@ vi.mock('@/modules/master_data/presentation/components/stickers/StickerGenerator
 
 import { ref } from 'vue'
 
-vi.mock('@vueuse/core', () => ({
-  useMagicKeys: () => ({
-    Alt_N: ref(false),
-    Alt_A: ref(false),
-    Alt_R: ref(false),
-    Slash: ref(false),
-  }),
-  useMediaQuery: () => ref(false)
-}))
+vi.mock('@vueuse/core', async importOriginal => {
+  const actual = await importOriginal<typeof import('@vueuse/core')>()
+  return {
+    ...actual,
+    useMagicKeys: () => ({
+      Alt_N: ref(false),
+      Alt_A: ref(false),
+      Alt_R: ref(false),
+      Slash: ref(false)
+    }),
+    useMediaQuery: () => ref(false)
+  }
+})
 
 // Mock ResizeObserver for some components (e.g., masonry or charts)
 globalThis.ResizeObserver = class ResizeObserver {
@@ -104,7 +108,7 @@ describe('ProductManagement.vue', () => {
     const masterStore = (await import('@/modules/master_data/application/masterData.store')).useMasterDataStore()
     masterStore.getCategories = vi.fn().mockResolvedValue([{ id: 1, name: 'Kategori 1' }])
 
-    expect(axios.get).toHaveBeenCalledWith('/products', expect.any(Object))
+    expect(http.get).toHaveBeenCalledWith('/products', expect.any(Object))
 
     // Cek komponen child dipanggil dengan properti yang benar (karena di-stub, kita cek attr/props)
     const table = wrapper.findComponent({ name: 'ProductTable' })

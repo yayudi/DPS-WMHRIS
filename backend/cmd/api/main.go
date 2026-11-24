@@ -126,6 +126,7 @@ func main() {
 			protected.POST("/categories", categoryHandler.Create)
 			protected.PUT("/categories/:id", categoryHandler.Update)
 			protected.DELETE("/categories/:id", categoryHandler.Delete)
+			protected.POST("/categories/:id/restore", categoryHandler.Restore)
 
 			// Locations
 			locations := protected.Group("/locations", middleware.RequirePermission(db, "location.manage"))

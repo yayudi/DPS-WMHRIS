@@ -3,19 +3,14 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useMagicKeys } from '@vueuse/core'
 import { swalConfirm } from '@/core/presentation/composables/useSweetAlert'
 import { useMasterDataStore } from '@/modules/master_data/application/masterData.store'
-
-// UI Components
 import UserLocationModal from '@/modules/settings/presentation/components/users/locationModal.vue'
 import UserEditModal from '@/modules/settings/presentation/components/users/EditModal.vue'
 import BaseModal from '@/core/presentation/components/ui/BaseModal.vue'
 import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
 import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
-import BaseFilterPanel from '@/core/presentation/components/ui/BaseFilterPanel.vue'
-import FilterToggle from '@/core/presentation/components/ui/FilterToggle.vue'
+import SearchInput from '@/core/presentation/components/ui/SearchInput.vue'
 import BaseSkeleton from '@/core/presentation/components/ui/BaseSkeleton.vue'
 import BaseContextMenu from '@/core/presentation/components/ui/BaseContextMenu.vue'
-
-// Composables
 import { useContextMenu } from '@/core/presentation/composables/useContextMenu'
 import { useInstantInlineEdit } from '@/core/presentation/composables/useInstantInlineEdit'
 import { useMobile } from '@/core/presentation/composables/useMobile'
@@ -28,27 +23,29 @@ import type { UserManagementUser } from '../../domain/user.entity'
 const masterData = useMasterDataStore()
 const { isMobile } = useMobile()
 const { t } = useI18n()
-
-// Composables for Users and Roles
 const { users, isLoading: loadingUsers, fetchUsers, createUser, updateUser, deleteUser } = useUsers()
 const { roles: allRoles, fetchRoles } = useRoles()
-
 const allShifts = ref<any[]>([])
 const loading = computed(() => loadingUsers.value)
 const selectedUser = ref<UserManagementUser | null>(null)
 
 // Filter State
 const searchQuery = ref('')
-const searchRole = ref({ include: [], exclude: [] })
-const searchShift = ref({ include: [], exclude: [] })
-const showFilters = ref(false)
+const searchRole = ref<{ include: number[]; exclude: number[] }>({ include: [], exclude: [] })
+const searchShift = ref<{ include: (number | null)[]; exclude: (number | null)[] }>({ include: [], exclude: [] })
 
 // State untuk semua modal
 const isCreateModalOpen = ref(false)
 const isLocationModalOpen = ref(false)
 const isEditModalOpen = ref(false)
 
-const newUser = ref({ username: '', password: '', role_id: null as number | null, shift_id: null as number | null, nickname: '' })
+const newUser = ref({
+  username: '',
+  password: '',
+  role_id: null as number | null,
+  shift_id: null as number | null,
+  nickname: ''
+})
 
 const shiftOptions = computed(() => {
   return [
@@ -83,23 +80,17 @@ const filteredUsers = computed(() => {
     }
 
     // 2. Role Filter (TriState)
-    if (searchRole.value.include.length > 0 && !searchRole.value.include.includes(user.role_id as never)) return false
-    if (searchRole.value.exclude.length > 0 && searchRole.value.exclude.includes(user.role_id as never)) return false
+    if (searchRole.value.include.length > 0 && !searchRole.value.include.includes(user.role_id)) return false
+    if (searchRole.value.exclude.length > 0 && searchRole.value.exclude.includes(user.role_id)) return false
 
     // 3. Shift Filter (TriState) - Note: shift_id bisa null
-    const shiftId = (user as any).shift_id
-    if (searchShift.value.include.length > 0 && !searchShift.value.include.includes(shiftId as never)) return false
-    if (searchShift.value.exclude.length > 0 && searchShift.value.exclude.includes(shiftId as never)) return false
+    const shiftId = ((user as { shift_id?: number | null }).shift_id ?? null)
+    if (searchShift.value.include.length > 0 && !searchShift.value.include.includes(shiftId)) return false
+    if (searchShift.value.exclude.length > 0 && searchShift.value.exclude.includes(shiftId)) return false
 
     return true
   })
 })
-
-function handleResetFilters() {
-  searchQuery.value = ''
-  searchRole.value = { include: [], exclude: [] }
-  searchShift.value = { include: [], exclude: [] }
-}
 
 async function fetchData() {
   try {
@@ -112,7 +103,7 @@ async function fetchData() {
         try {
           // fetchShifts is temporarily imported dynamically or via api helpers if kept, or replaced by store.
           // In original it was imported from '@/api/helpers/admin.js'
-          // Since we might have deleted it, let's use the masterData store if possible, 
+          // Since we might have deleted it, let's use the masterData store if possible,
           // or we must restore the API call for shifts. Let's assume masterData handles it.
           // Actually, let's just use dynamic import for legacy API if still needed or fetch directly.
           // For now, I'll mock it if not available, or use the existing backend route.
@@ -141,7 +132,7 @@ async function handleCreateUser() {
     // shift_id isn't in standard payload, but backend might accept it
     ...(newUser.value.shift_id ? { shift_id: newUser.value.shift_id } : {})
   } as any)
-  
+
   if (success) {
     isCreateModalOpen.value = false
     newUser.value = { username: '', password: '', role_id: null, shift_id: null, nickname: '' }
@@ -149,13 +140,7 @@ async function handleCreateUser() {
 }
 
 async function handleDeleteUser(user: UserManagementUser) {
-  if (
-    !(await swalConfirm(
-      t('settings.user.confirm_delete_title'),
-      t('settings.user.confirm_delete_desc')
-    ))
-  )
-    return
+  if (!(await swalConfirm(t('settings.user.confirm_delete_title'), t('settings.user.confirm_delete_desc')))) return
 
   await deleteUser(user.id)
 }
@@ -196,7 +181,7 @@ const handleContextAction = (action: string) => {
 }
 
 // --- LOCAL HOTKEYS ---
-const { Alt_N, Alt_S, Alt_R } = useMagicKeys()
+const { Alt_N, Alt_S, Alt_R, Slash } = useMagicKeys()
 watch(Alt_N, pressed => {
   if (pressed && !isCreateModalOpen.value && !isEditModalOpen.value && !isLocationModalOpen.value) {
     isCreateModalOpen.value = true
@@ -212,79 +197,63 @@ watch(Alt_R, pressed => {
     fetchData()
   }
 })
+watch(Slash, pressed => {
+  if (pressed && !isCreateModalOpen.value && !isEditModalOpen.value && !isLocationModalOpen.value) {
+    setTimeout(() => {
+      const el = document.getElementById('global-search-input')
+      if (el) el.focus()
+    }, 10)
+  }
+})
 
 onMounted(fetchData)
 </script>
 
 <template>
-  <div class="flex flex-col sm:flex-row items-center justify-end gap-4 w-full mb-4">
-    <FilterToggle v-model="showFilters" />
+  <div class="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center justify-between gap-3 w-full mb-4">
+    <div class="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center gap-3 w-full sm:w-auto sm:flex-1 min-w-0">
+      <div class="w-full sm:flex-1 sm:min-w-[180px] sm:max-w-xs min-w-0">
+        <SearchInput
+          v-model="searchQuery"
+          input-id="global-search-input"
+          :placeholder="t('settings.user.search_placeholder')"
+        />
+      </div>
+
+      <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 w-full sm:w-auto shrink-0">
+        <div class="w-full sm:w-auto sm:max-w-[200px] shrink-0">
+          <TriStateSelect
+            v-model="searchRole"
+            :options="roleOptions"
+            label="label"
+            track-by="id"
+            :placeholder="t('settings.user.all_roles')"
+            :label-prefix="t('settings.user.role')"
+            :searchable="true"
+          />
+        </div>
+
+        <div class="w-full sm:w-auto sm:max-w-[210px] shrink-0">
+          <TriStateSelect
+            v-model="searchShift"
+            :options="shiftOptions"
+            label="label"
+            track-by="id"
+            :placeholder="t('settings.user.all_shifts')"
+            :label-prefix="t('settings.user.shift')"
+            :searchable="true"
+          />
+        </div>
+      </div>
+    </div>
+
     <button
       @click="isCreateModalOpen = true"
-      class="bg-primary text-secondary text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90 hover:shadow-sm transition-colors flex items-center gap-2 w-full md:w-auto justify-center"
+      class="bg-primary text-secondary text-sm font-semibold px-4 h-[42px] rounded-lg hover:bg-primary/90 hover:shadow-sm transition-colors flex items-center justify-center gap-2 shrink-0 whitespace-nowrap sm:ml-auto"
     >
       <font-awesome-icon icon="fa-solid fa-plus" />
       <span>{{ t('settings.user.add_btn') }}</span>
     </button>
-  </div>
-  <!-- Filter Section -->
-  <div v-show="showFilters" class="animate-fade-in-down mb-6">
-    <BaseFilterPanel>
-      <template #filters>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:flex xl:flex-row lg:justify-between items-end gap-4">
-          <!-- Search -->
-          <div class="space-y-1.5 flex-1">
-            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">{{ t('common.filter.search') }}</label>
-            <div class="relative group lg:min-w-[400px]">
-              <span
-                class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text/40 group-focus-within:text-primary transition-colors"
-              >
-                <font-awesome-icon icon="fa-solid fa-search" />
-              </span>
-              <input
-                v-model="searchQuery"
-                type="text"
-                class="w-full pl-10 pr-4 py-2.5 bg-background border border-secondary hover:border-primary/50 focus:border-primary rounded-lg text-sm transition-all shadow-sm"
-                :placeholder="t('settings.user.search_placeholder')"
-              />
-            </div>
-          </div>
-
-          <!-- Role Filter -->
-          <div class="space-y-1.5 w-full lg:w-[150px]">
-            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">{{ t('settings.user.role') }}</label>
-            <TriStateSelect
-              v-model="searchRole"
-              :options="roleOptions"
-              label="label"
-              track="id"
-              :placeholder="t('settings.user.all_roles')"
-            />
-          </div>
-
-          <!-- Shift Filter -->
-          <div class="space-y-1.5 w-full lg:w-[150px]">
-            <label class="text-xs font-bold text-text/60 uppercase tracking-wide">{{ t('settings.user.shift') }}</label>
-            <TriStateSelect
-              v-model="searchShift"
-              :options="shiftOptions"
-              label="label"
-              track="id"
-              :placeholder="t('settings.user.all_shifts')"
-            />
-          </div>
-
-          <button
-            @click="handleResetFilters"
-            class="h-[41px] px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-lg border border-danger bg-danger/10 hover:bg-danger/20 hover:text-danger transition-all text-danger shadow-sm"
-            :title="t('common.action.reset_filter')"
-          >
-            <font-awesome-icon icon="fa-solid fa-undo" />
-            <span class="hidden sm:inline">{{ t('common.btn.reset') }}</span>
-          </button>
-        </div>
-      </template>
-    </BaseFilterPanel>
   </div>
 
   <div
@@ -298,9 +267,15 @@ onMounted(fetchData)
           >
             {{ t('common.auth.username') }}
           </th>
-          <th class="px-6 py-3 text-center bg-secondary border-b border-r border-secondary/10">{{ t('settings.user.nickname') }}</th>
-          <th class="px-6 py-3 text-center bg-secondary border-b border-r border-secondary/10">{{ t('settings.user.role') }}</th>
-          <th class="px-6 py-3 text-center bg-secondary border-b border-r border-secondary/10">{{ t('settings.user.shift') }}</th>
+          <th class="px-6 py-3 text-center bg-secondary border-b border-r border-secondary/10">
+            {{ t('settings.user.nickname') }}
+          </th>
+          <th class="px-6 py-3 text-center bg-secondary border-b border-r border-secondary/10">
+            {{ t('settings.user.role') }}
+          </th>
+          <th class="px-6 py-3 text-center bg-secondary border-b border-r border-secondary/10">
+            {{ t('settings.user.shift') }}
+          </th>
           <th
             class="px-6 py-3 text-center sticky right-0 z-30 bg-secondary border-b border-secondary/10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]"
           >
@@ -350,14 +325,18 @@ onMounted(fetchData)
                 : 'px-6 py-4 sticky left-0 z-20 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]'
             "
           >
-            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('common.auth.username') }}</span>
+            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{
+              t('common.auth.username')
+            }}</span>
             <span>{{ user.username }}</span>
           </td>
           <td
             class="text-text/80"
             :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
           >
-            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('settings.user.nickname') }}</span>
+            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{
+              t('settings.user.nickname')
+            }}</span>
             <span
               class="font-medium text-text outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 px-1 -mx-1 rounded inline-block min-w-[50px]"
               contenteditable="true"
@@ -367,12 +346,20 @@ onMounted(fetchData)
             >
           </td>
           <td :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'">
-            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('settings.user.role') }}</span>
+            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{
+              t('settings.user.role')
+            }}</span>
             <select
               class="bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded text-xs font-semibold outline-none focus:ring-2 focus:ring-primary focus:bg-background/80 cursor-pointer"
               :value="user.role_id || ''"
               @change="
-                handleDropdownChange(user, 'role_id', ($event.target as HTMLSelectElement).value === '' ? null : Number(($event.target as HTMLSelectElement).value))
+                handleDropdownChange(
+                  user,
+                  'role_id',
+                  ($event.target as HTMLSelectElement).value === ''
+                    ? null
+                    : Number(($event.target as HTMLSelectElement).value)
+                )
               "
             >
               <option v-for="role in allRoles" :key="role.id" :value="role.id" class="bg-background text-text">
@@ -384,7 +371,9 @@ onMounted(fetchData)
             class="text-text/80 text-sm"
             :class="isMobile ? 'flex justify-between items-center py-2 border-b border-secondary/10' : 'px-6 py-4'"
           >
-            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{ t('settings.user.shift') }}</span>
+            <span v-if="isMobile" class="text-text/60 text-xs uppercase font-semibold">{{
+              t('settings.user.shift')
+            }}</span>
             <div class="flex items-center gap-1.5 w-full md:w-auto">
               <font-awesome-icon icon="fa-solid fa-clock" class="text-text/40 text-xs" />
               <select
@@ -394,7 +383,9 @@ onMounted(fetchData)
                   handleDropdownChange(
                     user,
                     'shift_id',
-                    ($event.target as HTMLSelectElement).value === '' ? null : Number(($event.target as HTMLSelectElement).value)
+                    ($event.target as HTMLSelectElement).value === ''
+                      ? null
+                      : Number(($event.target as HTMLSelectElement).value)
                   )
                 "
               >
@@ -472,7 +463,9 @@ onMounted(fetchData)
           />
         </div>
         <div>
-          <label for="nickname" class="block text-sm font-medium text-text/80 mb-1">{{ t('settings.user.nickname_optional') }}</label>
+          <label for="nickname" class="block text-sm font-medium text-text/80 mb-1">{{
+            t('settings.user.nickname_optional')
+          }}</label>
           <input
             v-model="newUser.nickname"
             id="nickname"
@@ -481,7 +474,9 @@ onMounted(fetchData)
           />
         </div>
         <div>
-          <label for="password" class="block text-sm font-medium text-text/80 mb-1">{{ t('common.auth.password') }}</label>
+          <label for="password" class="block text-sm font-medium text-text/80 mb-1">{{
+            t('common.auth.password')
+          }}</label>
           <input
             v-model="newUser.password"
             id="password"
@@ -502,7 +497,9 @@ onMounted(fetchData)
           />
         </div>
         <div>
-          <label for="shift" class="block text-sm font-medium text-text/80 mb-1">{{ t('settings.user.shift_optional') }}</label>
+          <label for="shift" class="block text-sm font-medium text-text/80 mb-1">{{
+            t('settings.user.shift_optional')
+          }}</label>
           <BaseSelect
             v-model="newUser.shift_id"
             :options="shiftOptions"

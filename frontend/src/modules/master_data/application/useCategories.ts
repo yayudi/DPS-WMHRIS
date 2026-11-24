@@ -9,13 +9,15 @@ export function useCategories() {
   const categories = ref<Category[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  const currentStatus = ref('active')
   const { toast } = useToast()
 
-  async function fetchCategories(search: string = '') {
+  async function fetchCategories(search: string = '', status: string = currentStatus.value) {
+    currentStatus.value = status
     isLoading.value = true
     error.value = null
     try {
-      const response = await categoryApi.fetchCategories(search)
+      const response = await categoryApi.fetchCategories(search, status)
       categories.value = response.data || response || []
     } catch (err: any) {
       error.value = err?.message || t('master_data.category.fetch_error')
@@ -29,7 +31,7 @@ export function useCategories() {
     try {
       const res = await categoryApi.createCategory(payload)
       toast(res?.message || t('common.status.success'), 'success')
-      await fetchCategories()
+      await fetchCategories('', currentStatus.value)
     } catch (err: any) {
       toast(err?.response?.data?.message || t('master_data.category.create_error'), 'error')
       throw err
@@ -41,7 +43,7 @@ export function useCategories() {
       const res = await categoryApi.updateCategory(id, payload)
       toast(res?.message || t('common.status.success'), 'success')
       // Update local state without fetching all again, or just fetch
-      await fetchCategories()
+      await fetchCategories('', currentStatus.value)
     } catch (err: any) {
       toast(err?.response?.data?.message || t('master_data.category.update_error'), 'error')
       throw err
@@ -52,9 +54,20 @@ export function useCategories() {
     try {
       const res = await categoryApi.deleteCategory(id)
       toast(res?.message || t('common.status.success'), 'success')
-      await fetchCategories()
+      await fetchCategories('', currentStatus.value)
     } catch (err: any) {
       toast(err?.response?.data?.message || t('master_data.category.delete_error'), 'error')
+      throw err
+    }
+  }
+
+  async function restoreCategory(id: number | string) {
+    try {
+      const res = await categoryApi.restoreCategory(id)
+      toast(res?.message || t('common.status.success'), 'success')
+      await fetchCategories('', currentStatus.value)
+    } catch (err: any) {
+      toast(err?.response?.data?.message || t('master_data.category.update_error'), 'error')
       throw err
     }
   }
@@ -66,6 +79,7 @@ export function useCategories() {
     fetchCategories,
     createCategory,
     updateCategory,
-    deleteCategory
+    deleteCategory,
+    restoreCategory
   }
 }

@@ -12,8 +12,10 @@ import (
 type CategoryUseCase interface {
 	CreateCategory(ctx context.Context, req catalog_dto.CreateCategoryRequest) (*domain.Category, error)
 	GetActiveCategories(ctx context.Context) ([]domain.Category, error)
+	GetCategories(ctx context.Context, status string) ([]domain.Category, error)
 	UpdateCategory(ctx context.Context, id int, req catalog_dto.UpdateCategoryRequest) error
 	DeleteCategory(ctx context.Context, id int) error
+	RestoreCategory(ctx context.Context, id int) error
 }
 
 type ProductUseCase interface {

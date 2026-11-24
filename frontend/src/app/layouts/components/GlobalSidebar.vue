@@ -144,9 +144,7 @@ const menuConfig = computed(() => {
       )
     }
     if (auth.hasPermission('system.localization.manage')) {
-      settingItems.push(
-        { to: '/settings/localization', label: t('nav.localization'), icon: 'fa-language' }
-      )
+      settingItems.push({ to: '/settings/localization', label: t('nav.localization'), icon: 'fa-language' })
     }
 
     menus.push({
@@ -210,7 +208,7 @@ const menuConfig = computed(() => {
             <span v-if="!props.isCollapsed" class="font-bold text-sm tracking-wide">{{ menu.label }}</span>
             <span
               v-if="menu.badge && menu.badge > 0 && !props.isCollapsed"
-              class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-warning text-white"
+              class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-warning text-background"
             >
               {{ menu.badge }}
             </span>
@@ -233,7 +231,7 @@ const menuConfig = computed(() => {
             :key="item.to"
             :to="item.to"
             class="sub-nav-item flex items-center justify-between gap-2"
-            active-class="active"
+            exact-active-class="active"
           >
             <div class="flex items-center gap-3">
               <font-awesome-icon v-if="item.icon" :icon="`fa-solid ${item.icon}`" class="w-4 text-center opacity-70" />

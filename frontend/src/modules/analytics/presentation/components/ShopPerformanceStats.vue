@@ -11,7 +11,6 @@ import { serializeFilterParams } from '@/core/utils/filterParams'
 const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
 import { formatNumber, formatCurrency } from '@/core/utils/formatters'
 
-// const { toast } = useToast()
 const { themeColors, isDarkTheme, isThemeChanging } = useTheme()
 const { t, d } = useI18n()
 const isDataLoading = ref(false)
@@ -106,7 +105,9 @@ const getApiPayload = () => {
 }
 
 const mainFilters = computed(() => {
-  const filters = [{ type: 'segmented', key: 'reportType', label: t('analytics.shop.report_type'), options: reportTypeOptions }]
+  const filters = [
+    { type: 'segmented', key: 'reportType', label: t('analytics.shop.report_type'), options: reportTypeOptions }
+  ]
 
   if (filterValues.value.reportType === 'annual') {
     filters.push({
@@ -137,7 +138,12 @@ const mainFilters = computed(() => {
       searchable: false
     })
   } else {
-    filters.push({ type: 'daterange', keyStart: 'startDate', keyEnd: 'endDate', label: t('analytics.reports.date_range') })
+    filters.push({
+      type: 'daterange',
+      keyStart: 'startDate',
+      keyEnd: 'endDate',
+      label: t('analytics.reports.date_range')
+    })
   }
 
   filters.push(
@@ -260,7 +266,13 @@ const trendMetric = ref('omset')
 
 const trendSeries = computed(() => {
   if (trendMetric.value === 'omset') {
-    return [{ name: `${t('analytics.shop.opt_omset')} (Rp)`, type: 'area', data: dailyTrendData.value.map(d => d.totalRevenue) }]
+    return [
+      {
+        name: `${t('analytics.shop.opt_omset')} (Rp)`,
+        type: 'area',
+        data: dailyTrendData.value.map(d => d.totalRevenue)
+      }
+    ]
   } else if (trendMetric.value === 'qty') {
     return [{ name: t('analytics.shop.opt_qty'), type: 'area', data: dailyTrendData.value.map(d => d.totalItemsSold) }]
   } else {
@@ -278,7 +290,12 @@ const trendOptions = computed(() => ({
   yaxis: [
     {
       title: {
-        text: trendMetric.value === 'omset' ? `${t('analytics.shop.opt_omset')} (Rp)` : trendMetric.value === 'qty' ? 'Qty' : t('analytics.shop.opt_orders'),
+        text:
+          trendMetric.value === 'omset'
+            ? `${t('analytics.shop.opt_omset')} (Rp)`
+            : trendMetric.value === 'qty'
+              ? 'Qty'
+              : t('analytics.shop.opt_orders'),
         style: { color: labelColor.value }
       },
       labels: {
@@ -358,9 +375,11 @@ const periodLabel = computed(() => {
   const f = filterValues.value
   if (f.reportType === 'annual') return { current: `${f.year}`, previous: `${f.year - 1}` }
   if (f.reportType === 'monthly') {
-    const monthName = availableMonths.find(m => m.value === f.selectedMonth)?.label || f.selectedMonth
+    const monthName = availableMonths.value.find(m => m.value === f.selectedMonth)?.label || f.selectedMonth
     const prevDate = dayjs(`${f.year}-${f.selectedMonth}-02`).subtract(1, 'month').toDate()
-    const prevMonthName = availableMonths.find(m => m.value === ('0' + (prevDate.getMonth() + 1)).slice(-2))?.label
+    const prevMonthName = availableMonths.value.find(
+      m => m.value === ('0' + (prevDate.getMonth() + 1)).slice(-2)
+    )?.label
     return {
       current: `${monthName} ${f.year}`,
       previous: `${prevMonthName} ${prevDate.getFullYear()}`
@@ -498,7 +517,9 @@ const periodLabel = computed(() => {
             <table class="w-full text-left text-sm whitespace-nowrap">
               <thead class="bg-background border-b border-secondary sticky top-0 z-10">
                 <tr>
-                  <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_shop_name_tooltip')">{{ t('analytics.shop.col_shop_name') }}</th>
+                  <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_shop_name_tooltip')">
+                    {{ t('analytics.shop.col_shop_name') }}
+                  </th>
                   <th
                     class="px-6 py-4 font-semibold text-text/80 text-center"
                     :title="t('analytics.shop.col_channel_tooltip')"
@@ -655,11 +676,25 @@ const periodLabel = computed(() => {
             <thead class="bg-background border-b border-secondary sticky top-0 z-10">
               <tr>
                 <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_rank_tooltip')">#</th>
-                <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_product_sku_tooltip')">SKU</th>
-                <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_product_name_tooltip')">{{ t('analytics.shop.col_product') }}</th>
-                <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_product_shop_tooltip')">{{ t('analytics.shop.col_shop_name') }}</th>
-                <th class="px-6 py-4 font-semibold text-text/80 text-center" :title="t('analytics.shop.col_product_channel_tooltip')">{{ t('analytics.shop.col_channel') }}</th>
-                <th class="px-6 py-4 font-semibold text-text/80 text-right" :title="t('analytics.shop.col_product_qty_tooltip')">
+                <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_product_sku_tooltip')">
+                  SKU
+                </th>
+                <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_product_name_tooltip')">
+                  {{ t('analytics.shop.col_product') }}
+                </th>
+                <th class="px-6 py-4 font-semibold text-text/80" :title="t('analytics.shop.col_product_shop_tooltip')">
+                  {{ t('analytics.shop.col_shop_name') }}
+                </th>
+                <th
+                  class="px-6 py-4 font-semibold text-text/80 text-center"
+                  :title="t('analytics.shop.col_product_channel_tooltip')"
+                >
+                  {{ t('analytics.shop.col_channel') }}
+                </th>
+                <th
+                  class="px-6 py-4 font-semibold text-text/80 text-right"
+                  :title="t('analytics.shop.col_product_qty_tooltip')"
+                >
                   {{ t('analytics.shop.col_qty_sold') }}
                 </th>
                 <th
@@ -705,8 +740,6 @@ const periodLabel = computed(() => {
         </div>
       </div>
     </template>
-
-
 
     <!-- ====== TAB: PERBANDINGAN PERIODE ====== -->
     <template v-else-if="activeTab === 'comparison'">

@@ -13,6 +13,7 @@ import (
 type CategoryRepository interface {
 	database.BaseRepository[domain.Category]
 	FindAllActive(ctx context.Context) ([]domain.Category, error)
+	FindByStatus(ctx context.Context, status string) ([]domain.Category, error)
 	Create(ctx context.Context, category *domain.Category) error
 	Update(ctx context.Context, id int, name string) error
 	Delete(ctx context.Context, id int) error

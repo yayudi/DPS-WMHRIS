@@ -1,8 +1,8 @@
 import { http } from '@/core/infrastructure/http.client'
 
 export const categoryApi = {
-  async fetchCategories(search: string = ''): Promise<any> {
-    const response = await http.get('/categories', { params: { search } })
+  async fetchCategories(search: string = '', status: string = 'active'): Promise<any> {
+    const response = await http.get('/categories', { params: { search, status } })
     return response.data || response
   },
   async createCategory(payload: { name: string }): Promise<any> {
@@ -13,5 +13,8 @@ export const categoryApi = {
   },
   async deleteCategory(id: number | string): Promise<any> {
     return http.delete(`/categories/${id}`)
+  },
+  async restoreCategory(id: number | string): Promise<any> {
+    return http.post(`/categories/${id}/restore`)
   }
 }

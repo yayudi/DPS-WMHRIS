@@ -17,7 +17,7 @@ import ConnectionStatus from '@/modules/wms/presentation/components/shared/Conne
 import BaseFilterPanel from '@/core/presentation/components/ui/BaseFilterPanel.vue'
 import BasePagination from '@/core/presentation/components/ui/BasePagination.vue'
 import { usePagination } from '@/core/presentation/composables/usePagination'
-import BaseSelect from '@/core/presentation/components/ui/BaseSelect.vue'
+import SearchInput from '@/core/presentation/components/ui/SearchInput.vue'
 import { useInlineSave } from '@/core/presentation/composables/useInlineSave'
 import TriStateSelect from '@/core/presentation/components/ui/TriStateSelect.vue'
 import ProductTable from '@/modules/master_data/presentation/components/products/ProductTable.vue'
@@ -88,8 +88,8 @@ const filterCategory = ref({ include: [], exclude: [] })
 const showFilters = ref(false)
 
 const searchByOptions = computed(() => [
-  { id: 'name', label: t('common.label.product_name') },
-  { id: 'sku', label: t('common.label.sku') }
+  { value: 'name', label: t('common.label.name') },
+  { value: 'sku', label: t('common.label.sku') }
 ])
 
 // Product-specific Modal State
@@ -422,31 +422,18 @@ watch(Slash, pressed => {
               </div>
 
               <!-- Search Group -->
-              <div class="flex flex-col sm:flex-row flex-1 gap-2 w-full lg:w-auto lg:ml-auto">
-                <div class="shrink-0 w-full sm:w-28">
-                  <BaseSelect
-                    v-model="searchBy"
-                    :options="searchByOptions"
-                    label="label"
-                    track-by="id"
-                    placeholder="Cari"
-                    :searchable="false"
-                    emit-value
-                  />
-                </div>
-
-                <div class="relative flex-1">
-                  <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-text/40">
-                    <font-awesome-icon icon="fa-solid fa-search" />
-                  </span>
-                  <input
-                    id="global-search-input"
-                    v-model="searchQuery"
-                    type="text"
-                    :placeholder="`Cari ${searchBy === 'sku' ? 'SKU' : 'Nama'}...`"
-                    class="w-full pl-9 pr-4 py-2.5 bg-background border border-secondary/20 rounded-xl focus:outline-none focus:border-primary text-text text-sm placeholder-text/30 transition-all shadow-sm"
-                  />
-                </div>
+              <div class="flex-1 w-full lg:w-auto lg:ml-auto min-w-[240px]">
+                <SearchInput
+                  v-model="searchQuery"
+                  v-model:search-by="searchBy"
+                  :search-by-options="searchByOptions"
+                  input-id="global-search-input"
+                  :placeholder="
+                    t('wms.control.search_placeholder_by', {
+                      field: searchBy === 'sku' ? t('common.label.sku') : t('common.label.product_name')
+                    })
+                  "
+                />
               </div>
             </div>
           </template>

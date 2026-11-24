@@ -108,7 +108,8 @@ onClickOutside(
   <div class="relative inline-block" ref="containerRef">
     <!-- Trigger Button -->
     <button
-      @click.stop="toggleDropdown"
+      type="button"
+      @click="toggleDropdown"
       class="w-full flex items-center gap-2 px-4 h-[42px] bg-background border border-secondary rounded-lg hover:border-primary/50 hover:bg-secondary/5 transition-all text-sm font-medium text-text group focus:outline-none focus:ring-2 focus:ring-primary/50"
       :class="{ 'border-primary ring-1 ring-primary/20': isOpen || startDate }"
     >

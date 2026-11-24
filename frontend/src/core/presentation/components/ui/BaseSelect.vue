@@ -66,6 +66,14 @@ const props = defineProps({
   autoOpen: {
     type: Boolean,
     default: false
+  },
+  labelPrefix: {
+    type: String,
+    default: ''
+  },
+  preferPlaceholder: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -333,8 +341,9 @@ onUnmounted(() => {
       @click="toggle"
       @keydown="handleKeydown"
       :tabindex="disabled ? -1 : 0"
-      class="w-full min-h-[42px] px-2 bg-background border rounded-lg cursor-pointer flex flex-wrap gap-1 items-center transition-all shadow-sm focus:outline-none"
+      class="w-full min-h-[42px] px-2 bg-background border rounded-lg cursor-pointer flex gap-1 items-center transition-all shadow-sm focus:outline-none"
       :class="[
+        multiple ? 'flex-wrap' : 'flex-nowrap',
         isOpen ? 'border-primary ring-1 ring-primary' : 'border-secondary/50 hover:border-primary/50',
         disabled ? 'opacity-50 cursor-not-allowed bg-secondary/10' : 'focus:ring-2 focus:ring-primary/50'
       ]"
@@ -365,11 +374,18 @@ onUnmounted(() => {
       <!-- Single: Display Value / Placeholder -->
       <span
         v-else-if="!multiple"
-        class="text-sm truncate pr-2 flex-grow select-none"
+        class="text-sm truncate pr-1 flex-1 min-w-0 select-none"
         :class="isPlaceholderState ? 'text-text/40 font-normal' : 'text-text font-medium'"
+        :title="
+          isPlaceholderState && preferPlaceholder
+            ? placeholder
+            : labelPrefix && !isPlaceholderState
+              ? `${labelPrefix}: ${displayValue}`
+              : String(displayValue || placeholder)
+        "
       >
-        {{
-          isPlaceholderState && (!displayValue || displayValue === modelValue)
+        <span v-if="labelPrefix && !isPlaceholderState" class="text-text/50 font-normal mr-1">{{ labelPrefix }}:</span>{{
+          isPlaceholderState && (preferPlaceholder || !displayValue || displayValue === modelValue)
             ? placeholder
             : displayValue || placeholder
         }}
