@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package.json dan package-lock.json (jika ada)
 COPY package*.json ./
 
-# Install dependensi
-RUN npm install
+# Install dependensi secara deterministik dari package-lock.json
+RUN npm ci
 
 # Copy seluruh source code frontend
 COPY . .

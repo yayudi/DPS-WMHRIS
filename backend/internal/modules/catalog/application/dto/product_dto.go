@@ -1,28 +1,45 @@
 package catalog_dto
 
+// ProductComponentInput represents a component item submitted when creating or updating a package product.
+type ProductComponentInput struct {
+	ID                 int `json:"id"`
+	ComponentProductID int `json:"component_product_id"`
+	Quantity           int `json:"quantity"`
+}
+
+// ResolvedComponentID returns component_product_id when set, falling back to id for frontend compatibility.
+func (c ProductComponentInput) ResolvedComponentID() int {
+	if c.ComponentProductID > 0 {
+		return c.ComponentProductID
+	}
+	return c.ID
+}
+
 type CreateProductRequest struct {
-	SKU        string  `json:"sku" binding:"required"`
-	Name       string  `json:"name" binding:"required"`
-	CategoryID *int    `json:"category_id"`
-	Price      float64 `json:"price"`
-	IsPackage  bool    `json:"is_package"`
-	Weight     float64 `json:"weight"`
-	Length     float64 `json:"length"`
-	Width      float64 `json:"width"`
-	Height     float64 `json:"height"`
+	SKU        string                  `json:"sku" binding:"required"`
+	Name       string                  `json:"name" binding:"required"`
+	CategoryID *int                    `json:"category_id"`
+	Price      float64                 `json:"price"`
+	IsPackage  bool                    `json:"is_package"`
+	Weight     float64                 `json:"weight"`
+	Length     float64                 `json:"length"`
+	Width      float64                 `json:"width"`
+	Height     float64                 `json:"height"`
+	Components []ProductComponentInput `json:"components"`
 }
 
 type UpdateProductRequest struct {
-	SKU        string  `json:"sku" binding:"required"`
-	Name       string  `json:"name"`
-	CategoryID *int    `json:"category_id"`
-	Price      float64 `json:"price"`
-	IsPackage  bool    `json:"is_package"`
-	IsActive   bool    `json:"is_active"`
-	Weight     float64 `json:"weight"`
-	Length     float64 `json:"length"`
-	Width      float64 `json:"width"`
-	Height     float64 `json:"height"`
+	SKU        string                   `json:"sku" binding:"required"`
+	Name       string                   `json:"name"`
+	CategoryID *int                     `json:"category_id"`
+	Price      float64                  `json:"price"`
+	IsPackage  bool                     `json:"is_package"`
+	IsActive   *bool                    `json:"is_active"`
+	Weight     float64                  `json:"weight"`
+	Length     float64                  `json:"length"`
+	Width      float64                  `json:"width"`
+	Height     float64                  `json:"height"`
+	Components *[]ProductComponentInput `json:"components"`
 }
 
 type ProductFilterRequest struct {
@@ -59,6 +76,9 @@ type ProductDetailResponse struct {
 	CategoryID     *int                   `json:"category_id" db:"category_id"`
 	CategoryName   *string                `json:"category_name" db:"category_name"`
 	Weight         float64                `json:"weight" db:"weight"`
+	Length         float64                `json:"length" db:"length"`
+	Width          float64                `json:"width" db:"width"`
+	Height         float64                `json:"height" db:"height"`
 	TotalStock     int                    `json:"total_stock" db:"total_stock"`
 	CurrentStock   *int                   `json:"current_stock,omitempty" db:"current_stock"`
 	ThumbnailPath  *string                `json:"thumbnail_path" db:"thumbnail_path"`

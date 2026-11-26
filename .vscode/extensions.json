@@ -1,8 +1,15 @@
 {
   "recommendations": [
+    "golang.go",
     "Vue.volar",
+    "bradlc.vscode-tailwindcss",
     "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
     "EditorConfig.EditorConfig",
-    "esbenp.prettier-vscode"
+    "vitest.explorer",
+    "ms-azuretools.vscode-docker"
+  ],
+  "unwantedRecommendations": [
+    "octref.vetur"
   ]
 }

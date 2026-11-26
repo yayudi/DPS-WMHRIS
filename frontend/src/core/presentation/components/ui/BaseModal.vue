@@ -22,6 +22,10 @@ const props = defineProps({
   },
   height: {
     type: String
+  },
+  zIndexClass: {
+    type: String,
+    default: 'z-[7000]'
   }
 })
 
@@ -49,8 +53,8 @@ watch(Escape, pressed => {
     <div
       v-if="show"
       @click.self="emit('close')"
-      class="fixed inset-0 bg-text bg-opacity-60 flex justify-center z-[99999] transition-all duration-300"
-      :class="isMobile ? 'items-end p-0' : 'items-center p-4'"
+      class="fixed inset-0 bg-text bg-opacity-60 flex justify-center transition-all duration-300"
+      :class="[zIndexClass, isMobile ? 'items-end p-0' : 'items-center p-4']"
     >
       <!-- Panel Modal -->
       <div

@@ -1,5 +1,7 @@
 ---
-trigger: always_on
+trigger: glob
+description: "Golang DRY, Composition, Generics, and Error Handling Paradigms"
+globs: "backend/**/*.go"
 ---
 
 # GOLANG CODING PARADIGMS (DRY & REUSABILITY)
@@ -22,7 +24,7 @@ To maintain a clean, reusable, and DRY codebase in Golang, the Agent MUST adhere
 ## 4. HIGHER-ORDER FUNCTIONS
 * **Rule:** Do not duplicate setup/teardown logic (e.g., DB Transactions, Context Timeout setup).
 * **Practice:** Use higher-order functions (passing a function as an argument) to wrap repetitive tasks.
-* **Example:** Implement a `WithTransaction(db, func(tx) error)` wrapper that automatically handles `Begin`, `Commit`, and `Rollback` to keep the core Service logic DRY.
+* **Example:** Use `s.txManager.WithTransaction(ctx, func(ctx context.Context) error { ... })` that automatically handles `Begin`, `Commit`, and `Rollback` to keep the core UseCase logic DRY.
 
 ## 5. EXPLICIT ERROR HANDLING (EXCEPTION TO DRY)
 * **Rule:** The `if err != nil { return err }` block is **NOT** considered a violation of DRY.

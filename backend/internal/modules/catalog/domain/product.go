@@ -36,3 +36,10 @@ type ProductAuditLog struct {
 	OldValue  *string `db:"old_value" json:"old_value"`
 	NewValue  *string `db:"new_value" json:"new_value"`
 }
+
+// PackageComponent represents a child product and its required quantity within a package product.
+type PackageComponent struct {
+	PackageProductID   int `db:"package_product_id" json:"package_product_id"`
+	ComponentProductID int `db:"component_product_id" json:"component_product_id"`
+	QuantityPerPackage int `db:"quantity_per_package" json:"quantity_per_package"`
+}

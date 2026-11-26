@@ -94,6 +94,31 @@ func (r *productRepositoryImpl) Update(ctx context.Context, product *domain.Prod
 	return err
 }
 
+// ReplacePackageComponents replaces all package_components rows for a package product inside the active transaction.
+func (r *productRepositoryImpl) ReplacePackageComponents(ctx context.Context, packageProductID int, components []domain.PackageComponent) error {
+	ext := database.GetExt(ctx, r.db)
+	if _, err := ext.ExecContext(ctx, `DELETE FROM package_components WHERE package_product_id = ?`, packageProductID); err != nil {
+		return err
+	}
+	if len(components) == 0 {
+		return nil
+	}
+
+	placeholders := make([]string, 0, len(components))
+	args := make([]interface{}, 0, len(components)*3)
+	for _, comp := range components {
+		placeholders = append(placeholders, "(?, ?, ?)")
+		args = append(args, packageProductID, comp.ComponentProductID, comp.QuantityPerPackage)
+	}
+
+	insertQuery := fmt.Sprintf(
+		"INSERT INTO package_components (package_product_id, component_product_id, quantity_per_package) VALUES %s",
+		strings.Join(placeholders, ", "),
+	)
+	_, err := ext.ExecContext(ctx, insertQuery, args...)
+	return err
+}
+
 func (r *productRepositoryImpl) GetBySKUs(ctx context.Context, skus []string) ([]domain.Product, error) {
 	if len(skus) == 0 {
 		return []domain.Product{}, nil
@@ -602,6 +627,7 @@ func (r *productRepositoryImpl) GetProductDetailWithStock(ctx context.Context, i
 	query := `
 		SELECT 
 			p.id, p.sku, p.name, p.price, p.is_package, p.is_active, p.category_id, c.name as category_name, p.weight,
+			p.length, p.width, p.height,
 			(SELECT COALESCE(SUM(quantity), 0) FROM stock_locations WHERE product_id = p.id) as total_stock
 		FROM products p
 		LEFT JOIN categories c ON p.category_id = c.id

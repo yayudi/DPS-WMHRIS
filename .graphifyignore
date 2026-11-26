@@ -1,19 +1,22 @@
 # .graphifyignore
 node_modules/
 dist/
+dev-dist/
+coverage/
 *.generated.py
 .git/
 .vscode/
 .agent/*
-!.agent/context
-!.agent/context/**
-.agent/context/*.sql
+!.agent/context/
+!.agent/context/*.md
 !.agent/context/schema.sql
 .agents/
 backend/uploads/
+backend/storage/
+storage/
 backend-node/
 graphify-out/
 tests/
-scratch
+scratch/
 temp*
 tmp*

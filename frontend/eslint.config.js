@@ -1,50 +1,85 @@
-import { defineConfig, globalIgnores } from 'eslint/config'
+import { globalIgnores } from 'eslint/config'
 import globals from 'globals'
 import js from '@eslint/js'
 import pluginVue from 'eslint-plugin-vue'
 import tseslint from 'typescript-eslint'
+import { configureVueProject, defineConfigWithVueTs, vueTsConfigs } from '@vue/eslint-config-typescript'
 import skipFormatting from '@vue/eslint-config-prettier/skip-formatting'
 
-export default defineConfig([
+configureVueProject({
+  scriptLangs: ['ts', 'js'],
+  rootDir: import.meta.dirname
+})
+
+export default defineConfigWithVueTs(
   {
     name: 'app/files-to-lint',
-    files: ['**/*.{js,mjs,jsx,vue,ts,mts,tsx}'],
+    files: ['**/*.{js,mjs,jsx,vue,ts,mts,tsx}']
   },
 
-  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
+  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/dev-dist/**', '**/coverage/**']),
 
   {
+    name: 'app/browser-globals',
     languageOptions: {
       globals: {
-        ...globals.browser,
-      },
-    },
+        ...globals.browser
+      }
+    }
+  },
+
+  {
+    name: 'app/node-globals',
+    files: ['scripts/**/*.{js,mjs,cjs,ts}', '*.config.{js,mjs,cjs,ts}'],
+    languageOptions: {
+      globals: {
+        ...globals.node
+      }
+    }
   },
 
   js.configs.recommended,
-  ...tseslint.configs.recommended.map(c => ({
-    ...c,
-    files: ['**/*.ts', '**/*.mts', '**/*.tsx', '**/*.vue'],
-    rules: {
-      ...c.rules,
-      '@typescript-eslint/no-explicit-any': 'off'
-    }
-  })),
-  ...pluginVue.configs['flat/essential'],
+  pluginVue.configs['flat/essential'],
+  vueTsConfigs.recommended,
+
   {
+    name: 'app/ts-rules',
+    files: ['**/*.{ts,mts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_'
+        }
+      ]
+    }
+  },
+
+  {
+    name: 'app/vue-rules',
     files: ['**/*.vue'],
     languageOptions: {
       parserOptions: {
-        parser: tseslint.parser,
-        extraFileExtensions: ['.vue'],
-        sourceType: 'module'
+        // Pakai tseslint.parser juga untuk <script setup> JS agar @typescript-eslint/no-unused-vars
+        // tidak false-positive ("only used as a type") saat diparsing oleh espree.
+        parser: tseslint.parser
       }
     },
     rules: {
-      // Nonaktifkan rule strict dari typescript-eslint untuk file .vue JS campur TS
-      '@typescript-eslint/no-unused-vars': 'off',
-      '@typescript-eslint/no-explicit-any': 'off'
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_'
+        }
+      ]
     }
   },
-  skipFormatting,
-])
+
+  skipFormatting
+)

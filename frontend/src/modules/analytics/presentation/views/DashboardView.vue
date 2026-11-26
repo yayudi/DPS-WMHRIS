@@ -1,13 +1,14 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useI18n } from '@/core/infrastructure/localization'
+import { useI18n } from '@/core/presentation/composables/useI18n'
 import { analyticsApi } from '../../infrastructure/analytics.api'
+import type { KpiSummary } from '../../domain/analytics.entity'
 import OverviewDashboard from '@/modules/analytics/presentation/components/OverviewDashboard.vue'
 
 const { t } = useI18n()
-const kpiData = ref(null)
+const kpiData = ref<KpiSummary | null>(null)
 const isLoading = ref(true)
-const errorMessage = ref(null)
+const errorMessage = ref<string | null>(null)
 
 async function loadKpiData() {
   isLoading.value = true
@@ -17,7 +18,8 @@ async function loadKpiData() {
     kpiData.value = data
   } catch (error) {
     console.error(error)
-    errorMessage.value = error.message || t('analytics.dashboard.conn_error')
+    const msg = error instanceof Error ? error.message : ''
+    errorMessage.value = msg || t('analytics.dashboard.conn_error')
   } finally {
     isLoading.value = false
   }
@@ -29,26 +31,36 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="bg-background rounded-xl shadow-md border border-secondary/20 p-6 min-h-[calc(50vh+20rem)] relative overflow-visible animate-fade-in">
-    <div v-if="isLoading" class="flex flex-col items-center justify-center h-80">
+  <div class="shrink-0 w-full pb-6 animate-fade-in">
+    <div
+      v-if="isLoading && !kpiData"
+      class="bg-background rounded-2xl shadow-sm border border-secondary/20 p-6 flex flex-col items-center justify-center min-h-[24rem]"
+    >
       <font-awesome-icon icon="fa-solid fa-circle-notch" spin class="text-primary text-4xl mb-3" />
       <span class="text-text/50 font-medium">{{ t('common.status.loading') }}</span>
     </div>
 
-    <div v-else-if="errorMessage" class="flex flex-col items-center justify-center h-80 text-danger">
-      <div class="bg-danger/10 p-4 rounded-full mb-3">
+    <div
+      v-else-if="errorMessage && !kpiData"
+      class="bg-background rounded-2xl shadow-sm border border-secondary/20 p-6 flex flex-col items-center justify-center min-h-[24rem] text-danger gap-3"
+    >
+      <div class="bg-danger/10 p-4 rounded-full">
         <font-awesome-icon icon="fa-solid fa-triangle-exclamation" class="text-3xl" />
       </div>
-      <h3 class="font-bold text-lg">{{ t('analytics.dashboard.error_load') }}</h3>
-      <p class="text-sm opacity-80 mt-1">{{ errorMessage }}</p>
+      <div class="text-center">
+        <h3 class="font-bold text-lg">{{ t('analytics.dashboard.error_load') }}</h3>
+        <p class="text-sm opacity-80 mt-1">{{ errorMessage }}</p>
+      </div>
+      <button
+        type="button"
+        @click="loadKpiData"
+        class="px-4 py-2 rounded-lg bg-primary text-background text-sm font-semibold hover:bg-primary/90 transition-colors"
+      >
+        {{ t('analytics.overview.refresh') }}
+      </button>
     </div>
 
-    <template v-else>
-      <OverviewDashboard
-        v-if="kpiData"
-        :kpi-data="kpiData"
-      />
-    </template>
+    <OverviewDashboard v-else-if="kpiData" :kpi-data="kpiData" :is-refreshing="isLoading" @refresh="loadKpiData" />
   </div>
 </template>
 

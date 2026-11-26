@@ -5,11 +5,11 @@ description: Turn any folder of files into a navigable knowledge graph and keep 
 
 # Graphify Knowledge Graph Skill
 
-Follow the graphify workflow to query or update the repository knowledge graph (`graphify-out/graph.json`):
+Use this workflow to query or update the repository knowledge graph (`graphify-out/graph.json`):
 
-1. **Querying Architecture / Relationships:**
-   - Prefer calling the `graphify` MCP tools (`query_graph`, `get_node`, `get_neighbors`, `shortest_path`, `god_nodes`) before running broad file greps.
+1. **Querying Architecture & Relationships (Scoped Subgraph First):**
+   - **Questions / Concepts:** Run `graphify query "<question>"` / `graphify explain "<concept>"` (CLI) or `query_graph` / `get_node` / `get_neighbors` / `god_nodes` (MCP).
+   - **Path / Coupling:** Run `graphify path "<A>" "<B>"` (CLI) or `shortest_path` (MCP).
+   - **Fallback Order:** Navigate `graphify-out/wiki/index.md` if present; read `graphify-out/GRAPH_REPORT.md` only for broad architecture review when scoped queries do not surface enough context.
 2. **Updating the Graph After Code Changes:**
-   - Run `graphify update .` (AST-only, zero API cost) whenever Go, Python, or frontend source files are added or modified.
-   - If no path argument is given, use `.` (current workspace root).
-
+   - Run `graphify update .` (AST-only, zero API cost) from workspace root whenever Go, Python, or frontend source files are added or modified.

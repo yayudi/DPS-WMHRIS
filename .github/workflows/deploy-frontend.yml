@@ -51,6 +51,10 @@ jobs:
             npx vite build --mode development
           fi
 
+      - name: Audit Frontend Bundle
+        working-directory: ./frontend
+        run: npm run audit:bundle
+
       - name: Deploy Frontend to Firebase Hosting
         working-directory: ./frontend
         env:

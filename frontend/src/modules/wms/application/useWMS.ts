@@ -79,7 +79,6 @@ export function useWms() {
   const { visibleColumns, toggleColumn } = useColumnVisibility('wms-visible-columns', [
     'sku',
     'weight',
-    'dimension',
     'price',
     'location',
     'stock'

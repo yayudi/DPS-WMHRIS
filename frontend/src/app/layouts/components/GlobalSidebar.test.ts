@@ -69,4 +69,34 @@ describe('GlobalSidebar.vue', () => {
     expect(dashboardLink.classes()).toContain('active')
     expect(adjustmentLink.classes()).not.toContain('active')
   })
+
+  it('menerapkan class hover kontras dan group-hover pada ikon menu nonaktif saat isCollapsed true', async () => {
+    const router = createTestRouter()
+    await router.push('/wms')
+    await router.isReady()
+
+    const wrapper = mount(GlobalSidebar, {
+      props: { isCollapsed: true },
+      global: {
+        plugins: [router],
+        stubs: {
+          FontAwesomeIcon: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    const navButtons = wrapper.findAll('nav button')
+    expect(navButtons.length).toBeGreaterThanOrEqual(2)
+
+    const inactiveButton = navButtons[1]
+    expect(inactiveButton.classes()).toContain('group')
+    expect(inactiveButton.classes()).toContain('hover:bg-primary/10')
+    expect(inactiveButton.classes()).toContain('hover:text-primary')
+
+    const inactiveIcon = inactiveButton.find('font-awesome-icon-stub')
+    expect(inactiveIcon.exists()).toBe(true)
+    expect(inactiveIcon.classes()).toContain('group-hover:text-primary')
+  })
 })

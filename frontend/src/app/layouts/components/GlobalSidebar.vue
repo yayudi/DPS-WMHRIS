@@ -186,15 +186,15 @@ const menuConfig = computed(() => {
 
     <!-- Navigation Area -->
     <nav class="flex-1 overflow-y-auto custom-scrollbar py-4 flex flex-col gap-1">
-      <div v-for="menu in menuConfig" :key="menu.id" class="px-1 md:px-3">
+      <div v-for="menu in menuConfig" :key="menu.id" class="px-1 md:px-2">
         <!-- Accordion Header -->
         <button
           @click="toggleAccordion(menu.id)"
-          class="flex items-center w-full justify-between p-3 rounded-xl transition-all duration-200 border gap-2"
+          class="group flex items-center w-full justify-between p-3 rounded-xl transition-all duration-200 border gap-2"
           :class="[
             activeAccordion === menu.id
-              ? 'border-primary text-primary bg-primary/5'
-              : 'border-transparent hover:bg-secondary/10 hover:text-primary',
+              ? 'border-primary text-primary bg-primary/10'
+              : 'border-transparent hover:bg-primary/5 hover:text-primary',
             props.isCollapsed ? 'justify-center' : ''
           ]"
           :title="props.isCollapsed ? menu.label : ''"
@@ -202,8 +202,8 @@ const menuConfig = computed(() => {
           <div class="flex items-center gap-2">
             <font-awesome-icon
               :icon="`fa-solid ${menu.icon}`"
-              class="w-5"
-              :class="activeAccordion === menu.id ? 'text-primary' : 'text-text/60'"
+              class="w-5 transition-colors"
+              :class="activeAccordion === menu.id ? 'text-primary' : 'text-text/60 group-hover:text-primary'"
             />
             <span v-if="!props.isCollapsed" class="font-bold text-sm tracking-wide">{{ menu.label }}</span>
             <span

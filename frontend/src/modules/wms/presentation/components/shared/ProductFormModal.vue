@@ -118,23 +118,30 @@ async function _executeDuplicateCheck(field, value) {
   try {
     const data = await productApi.getProducts({ search: value, searchBy: field, limit: 20 })
     const list = Array.isArray(data) ? data : data?.data || []
+    const currentProductId = props.productData?.id
+    const targetVal = (value ?? '').toString().toLowerCase()
+
     const isDuplicate = list.some(p => {
-      if (props.mode === 'edit' && p.id === props.productData.id) return false
-      return p[field].toString().toLowerCase() === value.toString().toLowerCase()
+      if (!p) return false
+      if (props.mode === 'edit' && currentProductId != null && p.id === currentProductId) return false
+      return (p[field] ?? '').toString().toLowerCase() === targetVal
     })
 
     let similarItems = []
     if (field === 'name' && !isDuplicate) {
-        similarItems = list.filter(p => {
-            if (props.mode === 'edit' && p.id === props.productData.id) return false
-            return p[field].toString().toLowerCase() !== value.toString().toLowerCase()
-        }).slice(0, 5) // Tampilkan max 5 produk mirip
+      similarItems = list
+        .filter(p => {
+          if (!p) return false
+          if (props.mode === 'edit' && currentProductId != null && p.id === currentProductId) return false
+          return (p[field] ?? '').toString().toLowerCase() !== targetVal
+        })
+        .slice(0, 5) // Tampilkan max 5 produk mirip
     }
 
     if (field === 'name') {
-        duplicateStatus.value[field] = { checking: false, exists: isDuplicate, similar: similarItems }
+      duplicateStatus.value[field] = { checking: false, exists: isDuplicate, similar: similarItems }
     } else {
-        duplicateStatus.value[field] = { checking: false, exists: isDuplicate }
+      duplicateStatus.value[field] = { checking: false, exists: isDuplicate }
     }
   } catch (error) {
     console.error(error)
@@ -181,6 +188,12 @@ const copiedMediaIds = ref([])
 watch(
   () => props.show,
   async isOpen => {
+    if (!isOpen) {
+      debouncedDuplicateCheck.sku.cancel()
+      debouncedDuplicateCheck.name.cancel()
+      debouncedComponentSearch.cancel()
+      return
+    }
     if (isOpen) {
       // Reset state
       componentSearch.value = ''
@@ -224,13 +237,19 @@ watch(
               height: prod.height || 0,
               is_package: Boolean(prod.is_package)
             }
-            // Mapping komponen jika ada
-            components.value = data.data.components || []
+            // Mapping komponen jika ada (normalisasi component_product_id -> id)
+            components.value = (prod.components || []).map(c => ({
+              id: c.component_product_id ?? c.id,
+              component_product_id: c.component_product_id ?? c.id,
+              sku: c.sku,
+              name: c.name,
+              quantity: c.quantity ?? 1
+            }))
 
             // Set existing image if any
-            if (data.data.images && data.data.images.length > 0) {
+            if (Array.isArray(prod.images) && prod.images.length > 0) {
               if (props.mode === 'duplicate') {
-                copiedMediaIds.value = data.data.images.map(img => img.media_id).filter(id => id != null)
+                copiedMediaIds.value = prod.images.map(img => img.media_id).filter(id => id != null)
               }
             }
 
@@ -306,6 +325,7 @@ function handleSearch(e) {
 function addComponent(product) {
   components.value.push({
     id: product.id,
+    component_product_id: product.id,
     sku: product.sku,
     name: product.name,
     quantity: 1 // Default qty 1
@@ -341,7 +361,12 @@ async function handleSubmit() {
     const payload = {
       ...form.value,
       // Kirim array komponen hanya jika is_package true
-      components: form.value.is_package ? components.value : []
+      components: form.value.is_package
+        ? components.value.map(c => ({
+            component_product_id: c.component_product_id ?? c.id,
+            quantity: Number(c.quantity) || 1
+          }))
+        : []
     }
 
     // Submit Data Produk (JSON murni)
@@ -357,7 +382,7 @@ async function handleSubmit() {
 
     if (props.mode === 'create' || props.mode === 'duplicate') {
       await productApi.createProduct(finalPayload)
-    } else {
+    } else if (props.productData?.id) {
       await productApi.updateProduct(props.productData.id, finalPayload)
     }
 
@@ -692,7 +717,7 @@ watch(Alt_S, pressed => {
         </div>
 
         <!-- Integrasi Riwayat Perubahan (Audit Log) -->
-        <div v-if="mode === 'edit' && productData.id">
+        <div v-if="mode === 'edit' && productData?.id">
           <ProductHistoryList :productId="productData.id" />
         </div>
       </template>

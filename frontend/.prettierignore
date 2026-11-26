@@ -1,0 +1,6 @@
+dist/
+dev-dist/
+coverage/
+bundle-stats.html
+package-lock.json
+public/

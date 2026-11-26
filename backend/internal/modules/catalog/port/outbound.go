@@ -23,6 +23,7 @@ type ProductRepository interface {
 	database.BaseRepository[domain.Product]
 	Create(ctx context.Context, product *domain.Product) error
 	Update(ctx context.Context, product *domain.Product) error
+	ReplacePackageComponents(ctx context.Context, packageProductID int, components []domain.PackageComponent) error
 	GetBySKUs(ctx context.Context, skus []string) ([]domain.Product, error)
 	GetProductIDBySKUTx(ctx context.Context, sku string) (int, error)
 	CreateProductTx(ctx context.Context, product *domain.Product) (int, error)

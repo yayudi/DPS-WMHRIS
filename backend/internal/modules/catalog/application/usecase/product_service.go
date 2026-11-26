@@ -37,6 +37,41 @@ func NewProductUseCase(txManager database.TransactionManager, productRepo catalo
 	}
 }
 
+func buildPackageComponents(packageProductID int, inputs []catalog_dto.ProductComponentInput) ([]domain.PackageComponent, error) {
+	if len(inputs) == 0 {
+		return []domain.PackageComponent{}, nil
+	}
+
+	qtyByCompID := make(map[int]int, len(inputs))
+	order := make([]int, 0, len(inputs))
+	for _, in := range inputs {
+		compID := in.ResolvedComponentID()
+		if compID <= 0 {
+			return nil, apperror.Validation("master_data.product.err_invalid_component", "Komponen paket tidak valid")
+		}
+		if packageProductID > 0 && compID == packageProductID {
+			return nil, apperror.Validation("master_data.product.err_self_component", "Produk tidak dapat menjadi komponen dirinya sendiri")
+		}
+		if in.Quantity <= 0 {
+			return nil, apperror.Validation("master_data.product.err_invalid_component_qty", "Jumlah komponen paket harus lebih dari 0")
+		}
+		if _, exists := qtyByCompID[compID]; !exists {
+			order = append(order, compID)
+		}
+		qtyByCompID[compID] += in.Quantity
+	}
+
+	result := make([]domain.PackageComponent, 0, len(order))
+	for _, compID := range order {
+		result = append(result, domain.PackageComponent{
+			PackageProductID:   packageProductID,
+			ComponentProductID: compID,
+			QuantityPerPackage: qtyByCompID[compID],
+		})
+	}
+	return result, nil
+}
+
 func (s *productServiceImpl) CreateProduct(ctx context.Context, userID int, req catalog_dto.CreateProductRequest) (*domain.Product, error) {
 	product := &domain.Product{
 		SKU:        req.SKU,
@@ -54,6 +89,16 @@ func (s *productServiceImpl) CreateProduct(ctx context.Context, userID int, req 
 	err := s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
 		if err := s.productRepo.Create(ctx, product); err != nil {
 			return err
+		}
+
+		if req.IsPackage && len(req.Components) > 0 {
+			comps, err := buildPackageComponents(product.ID, req.Components)
+			if err != nil {
+				return err
+			}
+			if err := s.productRepo.ReplacePackageComponents(ctx, product.ID, comps); err != nil {
+				return err
+			}
 		}
 
 		log := &domain.ProductAuditLog{
@@ -74,7 +119,7 @@ func (s *productServiceImpl) CreateProduct(ctx context.Context, userID int, req 
 func (s *productServiceImpl) UpdateProduct(ctx context.Context, userID int, productID int, req catalog_dto.UpdateProductRequest) error {
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
 		// Handle Restore logic
-		if req.IsActive && req.Name == "" {
+		if req.IsActive != nil && *req.IsActive && req.Name == "" {
 			if err := s.productRepo.Restore(ctx, productID); err != nil {
 				return err
 			}
@@ -86,6 +131,26 @@ func (s *productServiceImpl) UpdateProduct(ctx context.Context, userID int, prod
 			return s.auditRepo.Create(ctx, log)
 		}
 
+		isActive := true
+		if req.IsActive != nil {
+			isActive = *req.IsActive
+		} else if existing, err := s.productRepo.FindByID(ctx, productID); err == nil && existing != nil {
+			isActive = existing.IsActive
+		}
+
+		var comps []domain.PackageComponent
+		shouldSyncComponents := false
+		if !req.IsPackage {
+			shouldSyncComponents = true
+		} else if req.Components != nil {
+			var err error
+			comps, err = buildPackageComponents(productID, *req.Components)
+			if err != nil {
+				return err
+			}
+			shouldSyncComponents = true
+		}
+
 		// Normal Update
 		product := &domain.Product{
 			BaseEntity: kernel.BaseEntity{ID: productID},
@@ -94,7 +159,7 @@ func (s *productServiceImpl) UpdateProduct(ctx context.Context, userID int, prod
 			CategoryID: req.CategoryID,
 			Price:      req.Price,
 			IsPackage:  req.IsPackage,
-			IsActive:   req.IsActive,
+			IsActive:   isActive,
 			Weight:     req.Weight,
 			Length:     req.Length,
 			Width:      req.Width,
@@ -103,6 +168,12 @@ func (s *productServiceImpl) UpdateProduct(ctx context.Context, userID int, prod
 
 		if err := s.productRepo.Update(ctx, product); err != nil {
 			return err
+		}
+
+		if shouldSyncComponents {
+			if err := s.productRepo.ReplacePackageComponents(ctx, productID, comps); err != nil {
+				return err
+			}
 		}
 
 		log := &domain.ProductAuditLog{
@@ -364,6 +435,7 @@ func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID
 			continue
 		}
 
+		isActive := dbProduct.IsActive
 		req := catalog_dto.UpdateProductRequest{
 			SKU:        dbProduct.SKU,
 			Name:       dbProduct.Name,
@@ -374,7 +446,7 @@ func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID
 			Width:      dbProduct.Width,
 			Height:     dbProduct.Height,
 			IsPackage:  expectPackage,
-			IsActive:   dbProduct.IsActive,
+			IsActive:   &isActive,
 		}
 
 		if row.Name != "" {
@@ -404,7 +476,7 @@ func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID
 			req.Height = *row.Height
 		}
 		if row.IsActive != nil {
-			req.IsActive = *row.IsActive
+			req.IsActive = row.IsActive
 		}
 
 		if !isDryRun {

@@ -20,15 +20,40 @@ func (m *mockTxManager) WithTransaction(ctx context.Context, fn func(ctx context
 }
 
 type mockProductRepo struct {
-	products map[string]*domain.Product
+	products      map[string]*domain.Product
+	productsByID  map[int]*domain.Product
+	components    map[int][]domain.PackageComponent
+	restoredIDs   []int
 }
 
-func (m *mockProductRepo) Create(ctx context.Context, product *domain.Product) error { return nil }
+func (m *mockProductRepo) Create(ctx context.Context, product *domain.Product) error {
+	if product.ID == 0 {
+		product.ID = 100
+	}
+	return nil
+}
 func (m *mockProductRepo) Update(ctx context.Context, product *domain.Product) error {
 	if p, ok := m.products[product.SKU]; ok {
 		p.Name = product.Name
 		p.Price = product.Price
+		p.IsActive = product.IsActive
+		p.IsPackage = product.IsPackage
 	}
+	if m.productsByID != nil {
+		if p, ok := m.productsByID[product.ID]; ok {
+			p.Name = product.Name
+			p.Price = product.Price
+			p.IsActive = product.IsActive
+			p.IsPackage = product.IsPackage
+		}
+	}
+	return nil
+}
+func (m *mockProductRepo) ReplacePackageComponents(ctx context.Context, packageProductID int, components []domain.PackageComponent) error {
+	if m.components == nil {
+		m.components = make(map[int][]domain.PackageComponent)
+	}
+	m.components[packageProductID] = components
 	return nil
 }
 func (m *mockProductRepo) GetBySKUs(ctx context.Context, skus []string) ([]domain.Product, error) {
@@ -58,11 +83,21 @@ func (m *mockProductRepo) GetProductTotalStock(ctx context.Context, productID in
 func (m *mockProductRepo) GetProductStockMovementsCount(ctx context.Context, productID int, buildings []string) (int, error) { return 0, nil }
 func (m *mockProductRepo) GetSumOfNewerStockMovements(ctx context.Context, productID int, offset int, buildings []string) (int, error) { return 0, nil }
 func (m *mockProductRepo) GetProductStockMovementsPaginated(ctx context.Context, productID int, limit int, offset int, buildings []string) ([]catalog_port.RawStockMovement, error) { return nil, nil }
-func (m *mockProductRepo) FindByID(ctx context.Context, id int) (*domain.Product, error) { return nil, nil }
+func (m *mockProductRepo) FindByID(ctx context.Context, id int) (*domain.Product, error) {
+	if m.productsByID != nil {
+		if p, ok := m.productsByID[id]; ok {
+			return p, nil
+		}
+	}
+	return nil, nil
+}
 func (m *mockProductRepo) FindAll(ctx context.Context) ([]domain.Product, error) { return nil, nil }
 func (m *mockProductRepo) Delete(ctx context.Context, id int) error { return nil }
 func (m *mockProductRepo) SoftDelete(ctx context.Context, id int) error { return nil }
-func (m *mockProductRepo) Restore(ctx context.Context, id int) error { return nil }
+func (m *mockProductRepo) Restore(ctx context.Context, id int) error {
+	m.restoredIDs = append(m.restoredIDs, id)
+	return nil
+}
 
 type mockAuditRepo struct{}
 func (m *mockAuditRepo) Create(ctx context.Context, log *domain.ProductAuditLog) error { return nil }
@@ -112,6 +147,98 @@ PKG-01,Paket Bundling Diubah,20000
 	summaryProd, errProd := svc.ProcessBatchUpdate(context.Background(), 1, csvPath, 1, false)
 	if errProd == nil {
 		t.Fatalf("expected error rejecting PKG-01 as package, got nil: %s", summaryProd)
+	}
+}
+
+func TestUpdateProduct_SingleToPackage_PreservesActiveAndSavesComponents(t *testing.T) {
+	prod := &domain.Product{
+		SKU:       "PP0006740",
+		Name:      "Sample Single",
+		IsActive:  true,
+		IsPackage: false,
+	}
+	prod.ID = 6740
+
+	prodRepo := &mockProductRepo{
+		products:     map[string]*domain.Product{"PP0006740": prod},
+		productsByID: map[int]*domain.Product{6740: prod},
+	}
+	svc := usecase.NewProductUseCase(&mockTxManager{}, prodRepo, &mockAuditRepo{}, &mockCategoryRepo{})
+
+	comps := []catalog_dto.ProductComponentInput{
+		{ComponentProductID: 101, Quantity: 2},
+		{ID: 102, Quantity: 3},
+	}
+	err := svc.UpdateProduct(context.Background(), 1, 6740, catalog_dto.UpdateProductRequest{
+		SKU:        "PP0006740",
+		Name:       "Sample Package",
+		Price:      15000,
+		IsPackage:  true,
+		IsActive:   nil, // omitted by ProductFormModal
+		Components: &comps,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !prod.IsActive {
+		t.Fatalf("expected product to remain active when is_active is omitted")
+	}
+	if !prod.IsPackage {
+		t.Fatalf("expected product to become package")
+	}
+	savedComps := prodRepo.components[6740]
+	if len(savedComps) != 2 {
+		t.Fatalf("expected 2 saved components, got %d", len(savedComps))
+	}
+	if savedComps[0].ComponentProductID != 101 || savedComps[0].QuantityPerPackage != 2 {
+		t.Errorf("unexpected first component: %+v", savedComps[0])
+	}
+	if savedComps[1].ComponentProductID != 102 || savedComps[1].QuantityPerPackage != 3 {
+		t.Errorf("unexpected second component: %+v", savedComps[1])
+	}
+}
+
+func TestUpdateProduct_RejectsSelfComponent(t *testing.T) {
+	prod := &domain.Product{SKU: "PP0006740", Name: "Sample", IsActive: true}
+	prod.ID = 6740
+	prodRepo := &mockProductRepo{productsByID: map[int]*domain.Product{6740: prod}}
+	svc := usecase.NewProductUseCase(&mockTxManager{}, prodRepo, &mockAuditRepo{}, &mockCategoryRepo{})
+
+	comps := []catalog_dto.ProductComponentInput{{ComponentProductID: 6740, Quantity: 1}}
+	err := svc.UpdateProduct(context.Background(), 1, 6740, catalog_dto.UpdateProductRequest{
+		SKU:        "PP0006740",
+		Name:       "Sample",
+		IsPackage:  true,
+		Components: &comps,
+	})
+	if err == nil {
+		t.Fatalf("expected validation error when product references itself as component")
+	}
+}
+
+func TestUpdateProduct_PackageToSingle_ClearsComponents(t *testing.T) {
+	prod := &domain.Product{SKU: "PP0006740", Name: "Sample Package", IsActive: true, IsPackage: true}
+	prod.ID = 6740
+	prodRepo := &mockProductRepo{
+		products:     map[string]*domain.Product{"PP0006740": prod},
+		productsByID: map[int]*domain.Product{6740: prod},
+		components: map[int][]domain.PackageComponent{
+			6740: {{PackageProductID: 6740, ComponentProductID: 101, QuantityPerPackage: 2}},
+		},
+	}
+	svc := usecase.NewProductUseCase(&mockTxManager{}, prodRepo, &mockAuditRepo{}, &mockCategoryRepo{})
+
+	err := svc.UpdateProduct(context.Background(), 1, 6740, catalog_dto.UpdateProductRequest{
+		SKU:       "PP0006740",
+		Name:      "Sample Single Again",
+		IsPackage: false,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(prodRepo.components[6740]) != 0 {
+		t.Fatalf("expected components to be cleared when converted back to single, got %+v", prodRepo.components[6740])
 	}
 }
 

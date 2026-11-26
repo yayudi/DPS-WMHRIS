@@ -1,7 +1,6 @@
-// vite.config.js
 import { fileURLToPath, URL } from 'node:url'
 import process from 'node:process'
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type ConfigEnv, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import { visualizer } from 'rollup-plugin-visualizer'
@@ -10,10 +9,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 /**
  * Inline Vite plugin: swap favicon to favicon-dev.ico in dev mode
  * so browser tabs clearly show which instance is DEV vs PROD.
- * @param {{ command: string }} env
- * @returns {import('vite').Plugin}
  */
-const faviconPlugin = ({ command }) => ({
+const faviconPlugin = ({ command }: Pick<ConfigEnv, 'command'>): Plugin => ({
   name: 'favicon-env',
   transformIndexHtml: html => {
     if (command === 'serve') {
@@ -108,13 +105,20 @@ export default defineConfig(({ command, mode }) => {
     ? env.VITE_API_BASE_URL.replace(/\/api\/?$/, '') 
     : 'http://localhost:3000'
 
+  const isTest = mode === 'test'
+  const isProdBuild = command === 'build' && mode === 'production'
+
   return {
     base: '/',
 
-    esbuild: {
-      pure: ['console.log', 'console.info', 'console.debug', 'console.warn'],
-      drop: ['debugger']
-    },
+    ...(isProdBuild
+      ? {
+          esbuild: {
+            pure: ['console.log', 'console.info', 'console.debug', 'console.warn'],
+            drop: ['debugger']
+          }
+        }
+      : {}),
 
     plugins: [
       vue({
@@ -124,17 +128,18 @@ export default defineConfig(({ command, mode }) => {
           }
         }
       }),
-      vueDevTools(),
-      visualizer({ filename: 'bundle-stats.html' }),
+      !isTest && vueDevTools(),
+      command === 'build' && !isTest && visualizer({ filename: 'bundle-stats.html' }),
       faviconPlugin({ command }),
-      VitePWA({
+      !isTest &&
+        VitePWA({
         // devOptions: {
         //   enabled: true,
         //   type: 'module'
         // },
         registerType: 'prompt',
         includeAssets: [
-          'favicon-prod.ico',
+          'favicon.ico',
           'favicon-16x16.png',
           'favicon-32x32.png',
           'apple-touch-icon.png',

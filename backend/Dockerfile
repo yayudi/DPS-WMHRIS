@@ -11,11 +11,12 @@ COPY . .
 
 # Build aplikasi (di dalam docker ini OS-nya otomatis linux)
 # Penamaan output di linux biasanya tidak memakai .exe
-RUN GOOS=linux GOARCH=amd64 go build -o bin/api ./cmd/api
-RUN GOOS=linux GOARCH=amd64 go build -o bin/worker ./cmd/worker
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/api ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/worker ./cmd/worker
 
 # (Opsional) Tahap kedua untuk image yang lebih kecil
 FROM alpine:latest
+RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /app
 COPY --from=builder /app/bin/api .
 COPY --from=builder /app/bin/worker .

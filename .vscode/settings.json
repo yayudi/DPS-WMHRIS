@@ -1,26 +1,43 @@
 {
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.patterns": {
+    "go.mod": "go.sum",
     "vite.config.*": "jsconfig*, vitest.config.*, cypress.config.*, playwright.config.*",
     "package.json": "package-lock.json, pnpm*, .yarnrc*, yarn*, .eslint*, eslint*, .oxlint*, oxlint*, .prettier*, prettier*, .editorconfig"
   },
-  "editor.codeActionsOnSave": {
-    "source.fixAll": "explicit"
-  },
+  "eslint.workingDirectories": ["frontend"],
   "editor.formatOnSave": true,
-  "typescript.validate.enable": false,
-  "todo-tree.tree.disableCompactFolders": true,
-  "workbench.colorCustomizations": {
-    "editor.wordHighlightBackground": "#1a456b90",
-    "editor.wordHighlightBorder": "#00000000",
-    "editor.wordHighlightStrongBackground": "#1a456b90",
-    "editor.wordHighlightStrongBorder": "#00000000",
-    "activityBar.background": "#42b883",
-    "statusBar.background": "#42b883",
-    "statusBar.noFolderBackground": "#42b883",
-    "activityBar.foreground": "#000000",
-    "activityBar.inactiveForeground": "#000000",
-    "statusBar.foreground": "#000000"
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
   },
-  "antigravity.enableInlineDiff": true
+  "[go]": {
+    "editor.defaultFormatter": "golang.go",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "[vue]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "search.exclude": {
+    "**/graphify-out/**": true,
+    "**/storage/**": true,
+    "**/dist/**": true,
+    "**/coverage/**": true
+  },
+  "files.watcherExclude": {
+    "**/graphify-out/**": true,
+    "**/storage/**": true,
+    "**/dist/**": true,
+    "**/coverage/**": true
+  }
 }

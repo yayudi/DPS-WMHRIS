@@ -1,51 +1,42 @@
 ---
 trigger: glob
-description: "Vue 3 WMS Architecture & Rules"
-globs: "**/*.vue"
+description: "Vue 3 & TypeScript Frontend Architecture, WMS Rules, and Semantic Theme Standards"
+globs: "frontend/src/**/*.{vue,ts}"
 ---
 
-# VUE 3 WMS ARCHITECTURE & RULES
+# VUE 3 & TYPESCRIPT FRONTEND ARCHITECTURE RULES
 
-## 1. TECH STACK ENFORCEMENT
-- **Core:** Vue 3 Composition API (`<script setup lang="ts">`).
-- **State:** Pinia (No Vuex). Use Setup Stores pattern.
-- **Styling:** Tailwind CSS. Avoid custom CSS classes unless necessary.
-- **Data Fetching:** TanStack Query (Vue Query) or native fetch wrappers.
+## 1. TECH STACK & MODERN SYNTAX (ES6+ / TS)
+- **Core:** Vue 3 Composition API (`<script setup lang="ts">`), strict TypeScript (avoid `any`).
+- **State & Fetching:** Pinia Setup Stores (no Vuex) and TanStack Query (`@tanstack/vue-query`) via `{ http }` from `@/core/infrastructure/http.client`.
+- **Syntax Discipline:**
+  - **Variables:** Forbid `var`. Use `const` by default; use `let` only when reassignment is required.
+  - **Functions & Async:** Prefer Arrow Functions (`() => {}`) for callbacks/utilities and `async/await` over `.then().catch()` chains.
+  - **Modules:** Use ES Modules (`import`/`export`) exclusively.
 
-## 2. COMPONENT STRUCTURE
-- **Naming:** PascalCase for filenames (e.g., `StockCard.vue`).
-- **Props:** Use `defineProps<{ InterfaceName }>()` with Typescript interfaces.
-- **Anti-Pattern:** DO NOT use Options API (`export default { data... }`).
-- **Composables:** Extract heavy logic into `useStockLogic.ts` or `useInventory.ts`.
+## 2. COMPONENT & COMPOSABLE STRUCTURE
+- **Naming:** `PascalCase` for component filenames (e.g., `StockCard.vue`), `camelCase` with `use` prefix for composables (e.g., `useStockLogic.ts`).
+- **Props & Emits:** Use type-based `defineProps<PropsInterface>()` and `defineEmits<{ ... }>()`.
+- **Anti-Pattern:** Never use Vue 2 Options API (`export default { data() ... }`).
+- **Separation of Concerns:** Extract complex state, filtering, and API orchestration into composables (`composables/`) or stores (`application/`).
 
-## 3. WMS BUSINESS LOGIC (CRITICAL)
-- **Stock Validation:** Inventory quantity can NEVER be negative (`< 0`). Always add validation checks.
-- **SKU Handling:** SKU must be treated as a case-insensitive unique string.
-- **Dates:** Store dates in ISO-8601 UTC strings. Display in local time using strict format.
-- **Currency:** Handle monetary values (prices) as integers/BigInt (cents) to avoid floating-point errors.
+## 3. WMS BUSINESS & UI/UX STANDARDS
+- **Stock Validation:** Inventory quantity can NEVER be negative (`< 0`). Validate inputs with Zod or explicit guards before submission.
+- **SKU Handling:** Treat SKU as a case-insensitive unique identifier (trim whitespace).
+- **Dates & Currency:** Store/transmit dates in ISO-8601 UTC and format for local display via `dayjs` / `formatters.ts`. Handle monetary values as integers to avoid floating-point drift.
+- **Data Grids:** Always use pagination or virtualization (`@tanstack/vue-table` / `@tanstack/vue-virtual`) for stock/product tables and provide toast feedback on mutations.
 
-## 4. TOKEN EFFICIENCY (PARTIAL EDITING)
-- **Script Updates:** If only logic changes, do NOT reprint the `<template>` or `<style>`. Use ``.
-- **Template Updates:** If only UI changes, do NOT reprint the `<script>`. Use `// ...script unchanged`.
-- **Imports:** Don't list all imports if adding just one. Use `import { NewFunc } from ...; // ...existing imports`.
-
-## 5. UI/UX STANDARDS
-- **Tables:** For data grids (stock lists), always implement pagination or virtualization.
-- **Forms:** Use strict validation (Zod/VeeValidate) for stock input forms.
-- **Feedback:** Show Toast/Alerts on successful stock movement (In/Out).
-
-## 6. THEME & STYLING COMPLIANCE (STRICT)
-**Context:** The application supports multiple themes (Light, Dark, Sepia, etc.). Fixed colors BREAK this feature.
+## 4. THEME & STYLING COMPLIANCE (STRICT)
+**Context:** The app supports 11 themes (`data-theme` in `main.css`: 5 light + 6 dark). Hardcoded palette colors break theme switching.
 - **PROHIBITED:**
-  - Hardcoded Hex/RGB values (e.g., `#ffffff`, `rgb(0,0,0)`).
-  - Standard Tailwind colors (e.g., `bg-secondary`, `text-gray-900`, `bg-blue-500`, `text-red-600`).
-- **MANDATORY:**
-  - Use Semantic Theme Classes defined in `tailwind.config.js`:
-    - **Backgrounds:** `bg-background`, `bg-secondary` (for cards/modals).
-    - **Text:** `text-text`, `text-muted` (if defined), `text-primary`.
-    - **Actions:** `bg-primary`, `bg-accent`.
-    - **Status:** `text-success`, `bg-danger/10` (Opacity modifiers are allowed).
-  - **Borders:** `border-secondary`, `border-primary/20`.
+  - Hardcoded Hex/RGB values (`#ffffff`, `rgb(0,0,0)`) in templates/styles.
+  - Static Tailwind neutral/brand surface classes (`bg-white`, `bg-slate-100`, `text-gray-900`, `text-black`, `border-gray-200`, `bg-blue-500`, `text-red-600`).
+- **MANDATORY (8 Semantic Tokens from `tailwind.config.js`):**
+  - **Surfaces:** `bg-background`, `bg-secondary` (or opacity variants like `bg-secondary/50` for cards/modals).
+  - **Typography:** `text-text`, `text-text/60` (for muted/secondary text via opacity modifier), `text-primary`.
+  - **Brand & Actions:** `bg-primary`, `bg-accent`, `text-accent`.
+  - **Status:** `text-success`, `bg-success/10`, `text-warning`, `bg-warning/10`, `text-danger`, `bg-danger/10`.
+  - **Borders & Focus:** `border-secondary`, `border-primary/20`, `ring-primary`.
 - **Example:**
-  - `class="bg-secondary text-black border-gray-200"` (WRONG)
+  - `class="bg-white text-black border-gray-200"` (WRONG)
   - `class="bg-background text-text border-secondary"` (CORRECT)
