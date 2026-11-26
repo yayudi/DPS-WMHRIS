@@ -14,8 +14,11 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load("../.env")
+	loadEnv()
 	dsn := strings.ReplaceAll(os.Getenv("DB_DSN"), "host.docker.internal", "127.0.0.1")
+	if dsn == "" {
+		log.Fatal("DB_DSN environment variable is not set")
+	}
 	db, err := sqlx.Connect("mysql", dsn)
 	if err != nil {
 		log.Fatalf("DB connect error: %v", err)
@@ -70,5 +73,15 @@ func main() {
 		fmt.Printf("  • [%-5s] %-10s : %d keys\n", s.LocaleCode, s.Module, s.Count)
 	}
 	fmt.Println("=====================================================")
+}
+
+func loadEnv() {
+	for _, p := range []string{".env", "../.env", "../../.env"} {
+		if _, err := os.Stat(p); err == nil {
+			if err := godotenv.Load(p); err == nil {
+				return
+			}
+		}
+	}
 }
 

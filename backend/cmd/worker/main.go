@@ -5,16 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	analytics_usecase "github.com/dps-wmhris/backend/internal/modules/analytics/application/usecase"
 	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
 	hris_port "github.com/dps-wmhris/backend/internal/modules/hris/port"
-	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/inbound/rabbitmq"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
 	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
 	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
@@ -25,6 +25,18 @@ import (
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 )
 
+const (
+	maxConcurrentJobs      = 3
+	pollInterval           = 5 * time.Second
+	outboxPollInterval     = 2 * time.Second
+	outboxTickTimeout      = 15 * time.Second
+	reconcileInterval      = 15 * time.Minute
+	reconcileWarmupDelay   = 10 * time.Second
+	reconcileTickTimeout   = 2 * time.Minute
+	jobExecutionTimeout    = 10 * time.Minute
+	jobStatusUpdateTimeout = 10 * time.Second
+)
+
 func main() {
 	config.LoadConfig()
 	config.InitFirebase()
@@ -33,20 +45,31 @@ func main() {
 	}
 
 	db := database.ConnectDB()
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Error closing database connection: %v", err)
+		}
+	}()
 
-	jobRepo := system_mysql.NewJobRepository(db)
 	container, err := InitializeWorker(db)
 	if err != nil {
-		log.Fatalf("Failed to subscribe to SalesOrderCreated: %v", err)
+		log.Fatalf("Failed to initialize worker: %v", err)
 	}
+	defer func() {
+		if container.EventBus != nil {
+			if err := container.EventBus.Close(); err != nil {
+				log.Printf("Error closing EventBus connection: %v", err)
+			}
+		}
+	}()
 
 	eventBus := container.EventBus
-	
+
 	// Register StockConsumer
-	inventoryRabbitMQ := rabbitmq.NewStockConsumer(container.StockService, db)
-	if err := inventoryRabbitMQ.RegisterHandlers(eventBus); err != nil {
-		log.Printf("Failed to register StockConsumer handlers: %v", err)
+	if container.StockConsumer != nil {
+		if err := container.StockConsumer.RegisterHandlers(eventBus); err != nil {
+			log.Printf("Failed to register StockConsumer handlers: %v", err)
+		}
 	}
 
 	// Register LogListener
@@ -56,11 +79,11 @@ func main() {
 		}
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-
+	jobRepo := container.JobRepo
 	jobService := container.JobService
-	_ = container.StatisticService
-	_ = container.StorageService
 	exportService := container.ExportService
 	attendanceService := container.AttendanceService
 	stockService := container.StockService
@@ -68,30 +91,24 @@ func main() {
 	scheduleService := container.ScheduleService
 	productService := container.ProductService
 	mediaService := container.MediaService
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Handle graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
 	stockTransactionService := container.StockTransactionService
 
+	var bgWg sync.WaitGroup
+
+	bgWg.Add(1)
 	go func() {
-		<-sigChan
-		log.Println("Shutting down worker...")
-		cancel()
-	}()
-	go func() {
+		defer bgWg.Done()
 		log.Println("Starting EventBus...")
-		if err := eventBus.Start(ctx); err != nil {
+		if err := eventBus.Start(ctx); err != nil && ctx.Err() == nil {
 			log.Printf("EventBus failed to start: %v", err)
 		}
 	}()
+
+	bgWg.Add(1)
 	go func() {
+		defer bgWg.Done()
 		log.Println("Starting Outbox Event Dispatcher...")
-		outboxTicker := time.NewTicker(2 * time.Second)
+		outboxTicker := time.NewTicker(outboxPollInterval)
 		defer outboxTicker.Stop()
 
 		for {
@@ -99,29 +116,45 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-outboxTicker.C:
-				if count, err := stockTransactionService.DispatchPendingOutboxEvents(ctx); err != nil {
-					log.Printf("[Outbox] Dispatch error: %v", err)
+				tickCtx, cancelTick := context.WithTimeout(ctx, outboxTickTimeout)
+				count, err := stockTransactionService.DispatchPendingOutboxEvents(tickCtx)
+				cancelTick()
+				if err != nil {
+					if ctx.Err() == nil {
+						log.Printf("[Outbox] Dispatch error: %v", err)
+					}
 				} else if count > 0 {
 					log.Printf("[Outbox] Dispatched %d events", count)
 				}
 			}
 		}
 	}()
+
+	bgWg.Add(1)
 	go func() {
+		defer bgWg.Done()
 		log.Println("Starting Kelja Fulfillment Reconciler (Safety Net)...")
-		reconcileTicker := time.NewTicker(15 * time.Minute)
+		reconcileTicker := time.NewTicker(reconcileInterval)
 		defer reconcileTicker.Stop()
+
+		runReconcile := func(label string) {
+			tickCtx, cancelTick := context.WithTimeout(ctx, reconcileTickTimeout)
+			defer cancelTick()
+			if count, err := stockTransactionService.ReconcileMissingFulfillments(tickCtx); err != nil {
+				if ctx.Err() == nil {
+					log.Printf("[Reconciliation] %s error: %v", label, err)
+				}
+			} else if count > 0 {
+				log.Printf("[Reconciliation] %s reconciled %d missing fulfillments", label, count)
+			}
+		}
 
 		// Initial check after startup warmup
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(10 * time.Second):
-			if count, err := stockTransactionService.ReconcileMissingFulfillments(ctx); err != nil {
-				log.Printf("[Reconciliation] Startup check error: %v", err)
-			} else if count > 0 {
-				log.Printf("[Reconciliation] Startup check reconciled %d missing fulfillments", count)
-			}
+		case <-time.After(reconcileWarmupDelay):
+			runReconcile("Startup check")
 		}
 
 		for {
@@ -129,27 +162,22 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-reconcileTicker.C:
-				if count, err := stockTransactionService.ReconcileMissingFulfillments(ctx); err != nil {
-					log.Printf("[Reconciliation] Periodic check error: %v", err)
-				} else if count > 0 {
-					log.Printf("[Reconciliation] Periodic check reconciled %d missing fulfillments", count)
-				}
+				runReconcile("Periodic check")
 			}
 		}
 	}()
 
 	log.Println("Worker started. Polling for jobs...")
 
-
-
-	pollInterval := 5 * time.Second
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Worker stopped.")
+			log.Println("Shutting down worker, waiting for background routines...")
+			bgWg.Wait()
+			log.Println("Worker stopped cleanly.")
 			return
 		case <-ticker.C:
 			if recovered, err := jobRepo.RecoverStuckImportJobs(ctx); err == nil && recovered > 0 {
@@ -163,8 +191,6 @@ func main() {
 		}
 	}
 }
-
-const maxConcurrentJobs = 3
 
 func extractLocaleFromJSON(rawJSON *string) string {
 	if rawJSON == nil || strings.TrimSpace(*rawJSON) == "" {
@@ -194,7 +220,7 @@ func processPendingImportJobs(
 	dispatchJobs(
 		ctx,
 		txManager,
-		dispatchConfig{Concurrency: maxConcurrentJobs, JobTimeout: 10 * time.Minute, Name: "import"},
+		dispatchConfig{Concurrency: maxConcurrentJobs, JobTimeout: jobExecutionTimeout, Name: "import"},
 		jobRepo.ClaimNextImportJob,
 		func(ctx context.Context, job *system_domain.ImportJob) error {
 			filePath := utils.ResolveStoragePath(job.FilePath)
@@ -209,6 +235,7 @@ func processPendingImportJobs(
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
+						log.Printf("[import] Panic recovered on job %d: %v\n%s", job.ID, r, debug.Stack())
 						processErr = fmt.Errorf("internal worker panic: %v", r)
 					}
 				}()
@@ -250,14 +277,16 @@ func processPendingImportJobs(
 				case "IMPORT_STOCK_INBOUND_DRY_RUN":
 					log.Printf("Processing %s: %s", job.JobType, filePath)
 					logSummary, processErr = stockService.ProcessImportBatchInbound(jobCtx, job.ID, filePath, job.UserID, true)
-
 				default:
 					log.Printf("Unknown job type: %s", job.JobType)
 					processErr = fmt.Errorf("unknown job type: %s", job.JobType)
 				}
 			}()
 
-			// Update job status
+			// Use a non-canceled context with short timeout so shutdown signals do not leave jobs stuck in PROCESSING.
+			statusCtx, cancelStatus := context.WithTimeout(context.WithoutCancel(ctx), jobStatusUpdateTimeout)
+			defer cancelStatus()
+
 			if processErr != nil {
 				log.Printf("Job %d failed: %v", job.ID, processErr)
 				errSummary := processErr.Error()
@@ -265,11 +294,11 @@ func processPendingImportJobs(
 					errSummary = fmt.Sprintf("%s | %s", logSummary, errSummary)
 				}
 				if job.JobType != "SYNC_API_KELJA" {
-					if errLog := jobService.UpdateImportJobStatusWithSummary(ctx, job.ID, "FAILED", errSummary); errLog != nil {
+					if errLog := jobService.UpdateImportJobStatusWithSummary(statusCtx, job.ID, "FAILED", errSummary); errLog != nil {
 						log.Printf("Failed to update job status: %v", errLog)
 					}
 				}
-				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "IMPORT_FAILED")
+				_ = firebaseService.EmitSharedTaskSignal(statusCtx, "BACKGROUND_JOBS", "IMPORT_FAILED")
 			} else {
 				if logSummary == "" {
 					logSummary = i18n.T(jobCtx, "system.jobs.completed_summary", map[string]any{"type": job.JobType})
@@ -279,13 +308,13 @@ func processPendingImportJobs(
 				}
 				log.Printf("Job %d completed with summary: %s", job.ID, logSummary)
 				if job.JobType != "SYNC_API_KELJA" {
-					if errLog := jobService.UpdateImportJobStatusWithSummary(ctx, job.ID, "COMPLETED", logSummary); errLog != nil {
+					if errLog := jobService.UpdateImportJobStatusWithSummary(statusCtx, job.ID, "COMPLETED", logSummary); errLog != nil {
 						log.Printf("Failed to update job status: %v", errLog)
 					}
 				}
-				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "IMPORT_COMPLETED")
+				_ = firebaseService.EmitSharedTaskSignal(statusCtx, "BACKGROUND_JOBS", "IMPORT_COMPLETED")
 				if job.JobType == "IMPORT_ATTENDANCE" {
-					_ = firebaseService.EmitSharedTaskSignal(ctx, "HRIS_ATTENDANCE", "REFRESH_ATTENDANCE")
+					_ = firebaseService.EmitSharedTaskSignal(statusCtx, "HRIS_ATTENDANCE", "REFRESH_ATTENDANCE")
 				}
 			}
 			return processErr
@@ -304,7 +333,7 @@ func processPendingExportJobs(
 	dispatchJobs(
 		ctx,
 		txManager,
-		dispatchConfig{Concurrency: maxConcurrentJobs, JobTimeout: 10 * time.Minute, Name: "export"},
+		dispatchConfig{Concurrency: maxConcurrentJobs, JobTimeout: jobExecutionTimeout, Name: "export"},
 		jobRepo.ClaimNextExportJob,
 		func(ctx context.Context, job *system_domain.ExportJob) error {
 			log.Printf("Found PENDING export job: %d (%s)", job.ID, job.JobType)
@@ -322,6 +351,7 @@ func processPendingExportJobs(
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
+						log.Printf("[export] Panic recovered on job %d: %v\n%s", job.ID, r, debug.Stack())
 						processErr = fmt.Errorf("internal export worker panic: %v", r)
 					}
 				}()
@@ -354,17 +384,20 @@ func processPendingExportJobs(
 				}
 			}()
 
+			statusCtx, cancelStatus := context.WithTimeout(context.WithoutCancel(ctx), jobStatusUpdateTimeout)
+			defer cancelStatus()
+
 			if processErr != nil {
 				log.Printf("Export Job %d failed: %v", job.ID, processErr)
 				errMsg := processErr.Error()
-				if errLog := jobService.UpdateExportJobStatus(ctx, job.ID, "FAILED", nil, &errMsg); errLog != nil {
+				if errLog := jobService.UpdateExportJobStatus(statusCtx, job.ID, "FAILED", nil, &errMsg); errLog != nil {
 					log.Printf("Failed to update job status: %v", errLog)
 				}
-				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "EXPORT_FAILED")
+				_ = firebaseService.EmitSharedTaskSignal(statusCtx, "BACKGROUND_JOBS", "EXPORT_FAILED")
 			} else {
 				log.Printf("Export Job %d completed successfully", job.ID)
 				// Job status is updated by the service (ProcessExportStockReport etc)
-				_ = firebaseService.EmitSharedTaskSignal(ctx, "BACKGROUND_JOBS", "EXPORT_COMPLETED")
+				_ = firebaseService.EmitSharedTaskSignal(statusCtx, "BACKGROUND_JOBS", "EXPORT_COMPLETED")
 			}
 			return processErr
 		},

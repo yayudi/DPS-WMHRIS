@@ -14,6 +14,7 @@ import (
 	"github.com/google/wire"
 )
 
+// GlobalProviderSet combines all bounded-context module providers and shared infrastructure providers.
 var GlobalProviderSet = wire.NewSet(
 	iam.ProviderSet,
 	hris.ProviderSet,
@@ -26,12 +27,20 @@ var GlobalProviderSet = wire.NewSet(
 	database.NewTransactionManager,
 )
 
-var ContainerProviderSet = wire.NewSet(NewContainer, NewWorkerContainer)
+// ContainerProviderSet wires the root API and Worker dependency containers via google/wire struct injection.
+var ContainerProviderSet = wire.NewSet(
+	wire.Struct(new(Container), "*"),
+	wire.Struct(new(WorkerContainer), "*"),
+)
 
-// ProvideEventBus wires the EventBus singleton
+// ProvideEventBus wires the RabbitMQ EventBus singleton using the configured queue name.
 func ProvideEventBus() (eventbus.EventBus, error) {
-	// We use the application name or group name as the queue name
-	return eventbus.NewRabbitMQEventBus(config.AppConfig.RabbitMQURL, "queue.wmhris.core")
+	queueName := config.AppConfig.RabbitMQQueueName
+	if queueName == "" {
+		queueName = "queue.wmhris.core"
+	}
+	return eventbus.NewRabbitMQEventBus(config.AppConfig.RabbitMQURL, queueName)
 }
 
+// EventBusProviderSet provides the application EventBus implementation.
 var EventBusProviderSet = wire.NewSet(ProvideEventBus)

@@ -34,6 +34,7 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "Simulate execution without modifying the database")
 	targetLocale := flag.String("locale", "", "Sync only specific locale (e.g. id-ID or en-US)")
 	seedFile := flag.String("file", "", "Custom path to translations JSON seed file")
+	adminRoleID := flag.Int("admin-role-id", 1, "Role ID to receive system.localization.manage permission")
 	flag.Parse()
 
 	log.Println("=====================================================")
@@ -133,6 +134,20 @@ func main() {
 	}
 	log.Println("[INFO] Successfully connected to MySQL.")
 
+	var tx *sqlx.Tx
+	fatalTx := func(format string, args ...any) {
+		if tx != nil {
+			_ = tx.Rollback()
+		}
+		log.Fatalf(format, args...)
+	}
+	if !*dryRun {
+		tx, err = db.Beginx()
+		if err != nil {
+			log.Fatalf("[FATAL] Failed to start database transaction: %v\n", err)
+		}
+	}
+
 	// 4. Ensure RBAC Permission for system.localization.manage
 	if !*dryRun {
 		permQuery := `
@@ -141,21 +156,19 @@ func main() {
 			FROM DUAL
 			WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'system.localization.manage');
 		`
-		if _, err := db.Exec(permQuery); err != nil {
-			log.Printf("[WARN] Failed to seed permission: %v\n", err)
-		} else {
-			log.Println("[INFO] Permission 'system.localization.manage' ensured in database.")
+		if _, err := tx.Exec(permQuery); err != nil {
+			fatalTx("[FATAL] Failed to seed permission: %v\n", err)
 		}
+		log.Println("[INFO] Permission 'system.localization.manage' ensured in database.")
 
 		rolePermQuery := `
 			INSERT IGNORE INTO role_permission (role_id, permission_id)
-			SELECT 1, id FROM permissions WHERE name = 'system.localization.manage';
+			SELECT ?, id FROM permissions WHERE name = 'system.localization.manage';
 		`
-		if _, err := db.Exec(rolePermQuery); err != nil {
-			log.Printf("[WARN] Failed to assign permission to role 1: %v\n", err)
-		} else {
-			log.Println("[INFO] Permission assigned to Super Admin role (role_id = 1).")
+		if _, err := tx.Exec(rolePermQuery, *adminRoleID); err != nil {
+			fatalTx("[FATAL] Failed to assign permission to role %d: %v\n", *adminRoleID, err)
 		}
+		log.Printf("[INFO] Permission assigned to role_id = %d.\n", *adminRoleID)
 	}
 
 	// 5. Validate and Execute Seed Upsert
@@ -194,8 +207,8 @@ func main() {
 						translation_value = VALUES(translation_value),
 						updated_at = CURRENT_TIMESTAMP
 				`
-				if _, err := db.Exec(query, locCode, mod, key, valTrimmed); err != nil {
-					log.Fatalf("[FATAL] Failed to upsert translation for '%s.%s' (%s): %v\n", mod, key, locCode, err)
+				if _, err := tx.Exec(query, locCode, mod, key, valTrimmed); err != nil {
+					fatalTx("[FATAL] Failed to upsert translation for '%s.%s' (%s): %v\n", mod, key, locCode, err)
 				}
 			}
 		}
@@ -217,33 +230,44 @@ func main() {
 			Key    string `db:"translation_key"`
 		}
 		var rows []dbKeyRow
-		if err := db.Select(&rows, `SELECT id, module, translation_key FROM localization_translations`); err != nil {
-			log.Printf("[WARN] Failed to query keys for pruning: %v\n", err)
+		var selectErr error
+		if !*dryRun {
+			selectErr = tx.Select(&rows, `SELECT id, module, translation_key FROM localization_translations`)
 		} else {
-			prunedCount := 0
-			for _, r := range rows {
-				full := strings.TrimSpace(r.Module) + "." + strings.TrimSpace(r.Key)
-				if !masterSet[full] {
-					prunedCount++
-					if !*dryRun {
-						_, _ = db.Exec(`DELETE FROM localization_translations WHERE id = ?`, r.ID)
+			selectErr = db.Select(&rows, `SELECT id, module, translation_key FROM localization_translations`)
+		}
+		if selectErr != nil {
+			fatalTx("[FATAL] Failed to query keys for pruning: %v\n", selectErr)
+		}
+		prunedCount := 0
+		for _, r := range rows {
+			full := strings.TrimSpace(r.Module) + "." + strings.TrimSpace(r.Key)
+			if !masterSet[full] {
+				prunedCount++
+				if !*dryRun {
+					if _, err := tx.Exec(`DELETE FROM localization_translations WHERE id = ?`, r.ID); err != nil {
+						fatalTx("[FATAL] Failed to prune translation id=%d (%s): %v\n", r.ID, full, err)
 					}
 				}
 			}
-			log.Printf("[INFO] Pruned %d obsolete translation row(s) not present in seed SSoT.\n", prunedCount)
 		}
+		log.Printf("[INFO] Pruned %d obsolete translation row(s) not present in seed SSoT.\n", prunedCount)
 	}
 
 	// 5. Bump Locale Versions for Cache Invalidation if not dry-run
 	if !*dryRun {
 		for locCode := range localeCounts {
 			updateVerQuery := `UPDATE localization_locales SET version = version + 1 WHERE code = ?`
-			if _, err := db.Exec(updateVerQuery, locCode); err != nil {
-				log.Printf("[WARN] Failed to increment version for locale '%s': %v\n", locCode, err)
-			} else {
-				log.Printf("[INFO] Incremented cache version for locale: %s\n", locCode)
+			if _, err := tx.Exec(updateVerQuery, locCode); err != nil {
+				fatalTx("[FATAL] Failed to increment version for locale '%s': %v\n", locCode, err)
 			}
+			log.Printf("[INFO] Incremented cache version for locale: %s\n", locCode)
 		}
+
+		if err := tx.Commit(); err != nil {
+			fatalTx("[FATAL] Failed to commit localization sync transaction: %v\n", err)
+		}
+		tx = nil
 	}
 
 	// 6. Print Summary Report
@@ -305,7 +329,7 @@ func resolveSeedPath(customPath string) string {
 	return filepath.Join("backend", "scripts", "data", "translations_seed.json")
 }
 
-func encodeJSONUnescaped(v interface{}) ([]byte, error) {
+func encodeJSONUnescaped(v any) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)

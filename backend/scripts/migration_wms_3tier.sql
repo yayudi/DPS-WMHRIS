@@ -3,7 +3,7 @@ ALTER TABLE `stock_locations`
 ADD COLUMN `reserved_quantity` int(11) NOT NULL DEFAULT 0 AFTER `quantity`;
 
 -- 2. Buat tabel inv_transactions (Header)
-CREATE TABLE `inv_transactions` (
+CREATE TABLE IF NOT EXISTS `inv_transactions` (
   `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
   `transaction_number` varchar(50) NOT NULL,
   `reference_type` varchar(50) NOT NULL COMMENT 'Misal: API_SHOPEE, API_OFFLINE',
@@ -19,7 +19,7 @@ CREATE TABLE `inv_transactions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- 3. Buat tabel inv_movements (Demand)
-CREATE TABLE `inv_movements` (
+CREATE TABLE IF NOT EXISTS `inv_movements` (
   `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
   `transaction_id` int(10) UNSIGNED NOT NULL,
   `product_id` int(10) UNSIGNED NOT NULL,
@@ -32,7 +32,7 @@ CREATE TABLE `inv_movements` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- 4. Buat tabel inv_movement_lines (Eksekusi Fisik)
-CREATE TABLE `inv_movement_lines` (
+CREATE TABLE IF NOT EXISTS `inv_movement_lines` (
   `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
   `movement_id` int(10) UNSIGNED NOT NULL,
   `scanned_location_id` int(10) UNSIGNED NOT NULL,

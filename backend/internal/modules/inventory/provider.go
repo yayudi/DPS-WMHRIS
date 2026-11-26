@@ -2,12 +2,14 @@ package inventory
 
 import (
 	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/inbound/http"
+	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/inbound/rabbitmq"
 	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/erp"
 	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/mysql"
 	"github.com/dps-wmhris/backend/internal/modules/inventory/application/usecase"
 	"github.com/google/wire"
 )
 
+// ProviderSet wires all inventory repositories, use cases, HTTP handlers, and RabbitMQ consumers.
 var ProviderSet = wire.NewSet(
 	http.NewSalesChannelHandler,
 	usecase.NewSalesChannelService,
@@ -30,6 +32,7 @@ var ProviderSet = wire.NewSet(
 	http.NewStockTransactionHandler,
 	http.NewStockQueryHandler,
 	http.NewSlotHandler,
+	rabbitmq.NewStockConsumer,
 	usecase.NewInvestigationUseCase,
 	usecase.NewLocationUseCase,
 	usecase.NewReturnUseCase,

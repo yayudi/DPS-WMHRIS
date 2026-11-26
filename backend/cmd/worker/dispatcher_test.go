@@ -221,3 +221,65 @@ func TestDispatchJobs_ContextCancellation(t *testing.T) {
 		t.Errorf("expected 0 process calls on canceled context, got %d", processCalls)
 	}
 }
+
+func TestDispatchJobs_PanicDoesNotStopOthers(t *testing.T) {
+	ctx := context.Background()
+	txManager := &mockTxManager{}
+	cfg := dispatchConfig{
+		Concurrency: 2,
+		JobTimeout:  time.Second,
+		Name:        "test-panic",
+	}
+
+	jobs := []*dummyJob{
+		{ID: 1, Name: "panicking-job"},
+		{ID: 2, Name: "healthy-job"},
+	}
+
+	idx := 0
+	var mu sync.Mutex
+	claim := func(ctx context.Context) (*dummyJob, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		if idx < len(jobs) {
+			j := jobs[idx]
+			idx++
+			return j, nil
+		}
+		return nil, nil
+	}
+
+	var completed int32
+	process := func(ctx context.Context, job *dummyJob) error {
+		if job.ID == 1 {
+			panic("simulated worker panic")
+		}
+		atomic.AddInt32(&completed, 1)
+		return nil
+	}
+
+	dispatchJobs(ctx, txManager, cfg, claim, process)
+
+	if got := atomic.LoadInt32(&completed); got != 1 {
+		t.Fatalf("expected 1 healthy job completed after sibling panic, got %d", got)
+	}
+}
+
+func TestExtractLocaleFromJSON(t *testing.T) {
+	valid := `{"_locale":"en-US","other":true}`
+	empty := `   `
+	invalid := `{bad-json`
+
+	if got := extractLocaleFromJSON(&valid); got != "en-US" {
+		t.Fatalf("expected en-US, got %q", got)
+	}
+	if got := extractLocaleFromJSON(&empty); got == "" {
+		t.Fatalf("expected default locale for empty string, got empty")
+	}
+	if got := extractLocaleFromJSON(&invalid); got == "" {
+		t.Fatalf("expected default locale for invalid JSON, got empty")
+	}
+	if got := extractLocaleFromJSON(nil); got == "" {
+		t.Fatalf("expected default locale for nil pointer, got empty")
+	}
+}

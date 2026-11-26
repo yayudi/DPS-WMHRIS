@@ -78,12 +78,3 @@ WHERE NOT EXISTS (SELECT 1 FROM `permissions` WHERE `name` = 'system.localizatio
 
 INSERT IGNORE INTO `role_permission` (`role_id`, `permission_id`)
 SELECT 1, `id` FROM `permissions` WHERE `name` = 'system.localization.manage';
-
--- 7. Seed Permission: system.localization.manage (RBAC)
-INSERT INTO `permissions` (`name`, `description`, `group`)
-SELECT 'system.localization.manage', 'Mengelola kamus bahasa dan terjemahan sistem', 'System'
-FROM DUAL
-WHERE NOT EXISTS (SELECT 1 FROM `permissions` WHERE `name` = 'system.localization.manage');
-
-INSERT IGNORE INTO `role_permission` (`role_id`, `permission_id`)
-SELECT 1, `id` FROM `permissions` WHERE `name` = 'system.localization.manage';

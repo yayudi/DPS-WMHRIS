@@ -101,8 +101,6 @@ graphify-out
 /backend/*.exe
 /backend/tmp_build*
 /backend/wmhris
-/backend/api
-/backend/worker
 /backend/bin/
 
 # PHP & Legacy
@@ -190,5 +188,7 @@ firebase/*.json
 *.sql.gz
 /*dump*.sql
 /*backup*.sql
+backend/scripts/*preview*.csv
+backend/scripts/migration_*.csv
 docs/
 documents/

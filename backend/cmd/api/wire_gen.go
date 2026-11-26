@@ -28,7 +28,6 @@ import (
 	mysql4 "github.com/dps-wmhris/backend/internal/modules/misc/adapter/outbound/mysql"
 	usecase4 "github.com/dps-wmhris/backend/internal/modules/misc/application/usecase"
 	"github.com/dps-wmhris/backend/internal/modules/system"
-	"github.com/dps-wmhris/backend/internal/modules/system/adapter/inbound/event"
 	"github.com/dps-wmhris/backend/internal/modules/system/adapter/inbound/http"
 	"github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
 	"github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
@@ -39,15 +38,15 @@ import (
 // Injectors from wire.go:
 
 func InitializeAPI(db *sqlx.DB) (*di.Container, error) {
+	eventBus, err := di.ProvideEventBus()
+	if err != nil {
+		return nil, err
+	}
 	systemLogRepository := mysql.NewSystemLogRepository(db)
 	systemLogService := usecase.NewSystemLogService(systemLogRepository)
 	systemLogHandler := http.NewSystemLogHandler(systemLogService)
 	transactionManager := database.NewTransactionManager(db)
 	roleRepository := mysql2.NewRoleRepository(db)
-	eventBus, err := di.ProvideEventBus()
-	if err != nil {
-		return nil, err
-	}
 	roleUseCase := usecase2.NewRoleUseCase(transactionManager, roleRepository, eventBus)
 	roleHandler := http2.NewRoleHandler(roleUseCase)
 	userRepository := mysql2.NewUserRepository(db)
@@ -85,7 +84,6 @@ func InitializeAPI(db *sqlx.DB) (*di.Container, error) {
 	categoryRepository := mysql5.NewCategoryRepository(db)
 	categoryUseCase := usecase5.NewCategoryUseCase(categoryRepository)
 	categoryHandler := http5.NewCategoryHandler(categoryUseCase)
-	logListener := event.NewLogListener(systemLogService)
 	productAuditRepository := mysql5.NewProductAuditRepository(db)
 	productUseCase := usecase5.NewProductUseCase(transactionManager, productRepository, productAuditRepository, categoryRepository)
 	productHandler := http5.NewProductHandler(productUseCase, jobService)
@@ -135,6 +133,37 @@ func InitializeAPI(db *sqlx.DB) (*di.Container, error) {
 	settingRepository := mysql.NewSettingRepository(db)
 	attendanceUseCase := usecase7.NewAttendanceUseCase(attendanceRepository, userRepository, shiftRepository, scheduleRepository, settingRepository)
 	attendanceHandler := http7.NewAttendanceHandler(attendanceUseCase, jobService)
-	container := di.NewContainer(systemLogHandler, roleHandler, userHandler, adminUserHandler, salesChannelHandler, paperSizeHandler, stickerTemplateHandler, notificationHandler, jobHandler, uploadHandler, mediaHandler, localizationHandler, categoryHandler, eventBus, logListener, productHandler, locationHandler, stockHandler, stockRequestHandler, stockTransactionHandler, stockQueryHandler, slotHandler, packageHandler, returnHandler, investigationHandler, statsHandler, reportHandler, statisticHandler, shiftHandler, scheduleHandler, attendanceHandler)
+	container := &di.Container{
+		EventBus:                eventBus,
+		SystemLogHandler:        systemLogHandler,
+		RoleHandler:             roleHandler,
+		UserHandler:             userHandler,
+		AdminUserHandler:        adminUserHandler,
+		SalesChannelHandler:     salesChannelHandler,
+		PaperSizeHandler:        paperSizeHandler,
+		StickerTemplateHandler:  stickerTemplateHandler,
+		NotificationHandler:     notificationHandler,
+		JobHandler:              jobHandler,
+		UploadHandler:           uploadHandler,
+		MediaHandler:            mediaHandler,
+		LocalizationHandler:     localizationHandler,
+		CategoryHandler:         categoryHandler,
+		ProductHandler:          productHandler,
+		LocationHandler:         locationHandler,
+		StockHandler:            stockHandler,
+		StockRequestHandler:     stockRequestHandler,
+		StockTransactionHandler: stockTransactionHandler,
+		StockQueryHandler:       stockQueryHandler,
+		SlotHandler:             slotHandler,
+		PackageHandler:          packageHandler,
+		ReturnHandler:           returnHandler,
+		InvestigationHandler:    investigationHandler,
+		StatsHandler:            statsHandler,
+		ReportHandler:           reportHandler,
+		StatisticHandler:        statisticHandler,
+		ShiftHandler:            shiftHandler,
+		ScheduleHandler:         scheduleHandler,
+		AttendanceHandler:       attendanceHandler,
+	}
 	return container, nil
 }

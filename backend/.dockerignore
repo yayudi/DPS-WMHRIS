@@ -2,15 +2,19 @@
 .git
 .gitignore
 
-# Go Build / Binaries
+# Go Build / Binaries & Security Reports
 bin/
+api
+worker
 *.exe
 *.test
 *.prof
 tmp_build*/
+gosec*
 
 # Node modules & Legacy (jika ada sisa)
 node_modules/
+coverage/
 package-lock.json
 
 # Environment variables & Secrets
@@ -19,20 +23,27 @@ package-lock.json
 *.pem
 *.key
 
-# Local Data / DB
+# Local Data / DB / Preview Dumps
 *.sqlite
 *.db
+scripts/*preview*.csv
+scripts/migration_*.csv
 
 # OS Files
 .DS_Store
 Thumbs.db
 
-# IDE & Editor
+# IDE, Agent & Scratch Files
 .vscode/
 .idea/
 .agent/
 .agents/
+graphify-out/
+scratch/
+cmd/scratch_*
 
 # Logs & Storage
 *.log
+logs/
 storage/
+uploads/

@@ -8,17 +8,17 @@ package main
 
 import (
 	"github.com/dps-wmhris/backend/internal/di"
-	mysql2 "github.com/dps-wmhris/backend/internal/modules/analytics/adapter/outbound/mysql"
-	usecase2 "github.com/dps-wmhris/backend/internal/modules/analytics/application/usecase"
-	mysql4 "github.com/dps-wmhris/backend/internal/modules/catalog/adapter/outbound/mysql"
+	mysql5 "github.com/dps-wmhris/backend/internal/modules/analytics/adapter/outbound/mysql"
+	usecase3 "github.com/dps-wmhris/backend/internal/modules/analytics/application/usecase"
+	mysql3 "github.com/dps-wmhris/backend/internal/modules/catalog/adapter/outbound/mysql"
 	usecase5 "github.com/dps-wmhris/backend/internal/modules/catalog/application/usecase"
-	mysql5 "github.com/dps-wmhris/backend/internal/modules/hris/adapter/outbound/mysql"
-	usecase3 "github.com/dps-wmhris/backend/internal/modules/hris/application/usecase"
-	mysql6 "github.com/dps-wmhris/backend/internal/modules/iam/adapter/outbound/mysql"
+	mysql6 "github.com/dps-wmhris/backend/internal/modules/hris/adapter/outbound/mysql"
+	usecase4 "github.com/dps-wmhris/backend/internal/modules/hris/application/usecase"
+	mysql4 "github.com/dps-wmhris/backend/internal/modules/iam/adapter/outbound/mysql"
+	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/inbound/rabbitmq"
 	"github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/erp"
-	mysql3 "github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/mysql"
-	usecase4 "github.com/dps-wmhris/backend/internal/modules/inventory/application/usecase"
-	"github.com/dps-wmhris/backend/internal/modules/system"
+	mysql2 "github.com/dps-wmhris/backend/internal/modules/inventory/adapter/outbound/mysql"
+	usecase2 "github.com/dps-wmhris/backend/internal/modules/inventory/application/usecase"
 	"github.com/dps-wmhris/backend/internal/modules/system/adapter/inbound/event"
 	"github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
 	"github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
@@ -30,43 +30,57 @@ import (
 
 func InitializeWorker(db *sqlx.DB) (*di.WorkerContainer, error) {
 	transactionManager := database.NewTransactionManager(db)
-	systemLogRepository := mysql.NewSystemLogRepository(db)
-	systemLogService := usecase.NewSystemLogService(systemLogRepository)
-	logListener := event.NewLogListener(systemLogService)
-	jobRepository := mysql.NewJobRepository(db)
-	jobService := usecase.NewJobService(jobRepository)
-	statisticRepository := mysql2.NewStatisticRepository(db)
-	statisticService := usecase2.NewStatisticService(statisticRepository, jobService)
-	storageService := usecase.NewStorageService()
-	stockRepository := mysql3.NewStockRepository(db)
-	reportRepository := mysql2.NewReportRepository(db)
-	productRepository := mysql4.NewProductRepository(db)
-	categoryRepository := mysql4.NewCategoryRepository(db)
-	exportService := usecase2.NewExportService(jobRepository, statisticService, storageService, stockRepository, reportRepository, productRepository, categoryRepository)
-	firebaseSignalService := usecase.NewFirebaseSignalService()
 	eventBus, err := di.ProvideEventBus()
 	if err != nil {
 		return nil, err
 	}
+	systemLogRepository := mysql.NewSystemLogRepository(db)
+	systemLogService := usecase.NewSystemLogService(systemLogRepository)
+	logListener := event.NewLogListener(systemLogService)
+	stockRepository := mysql2.NewStockRepository(db)
+	productRepository := mysql3.NewProductRepository(db)
+	locationRepository := mysql2.NewLocationRepository(db)
+	userRepository := mysql4.NewUserRepository(db)
+	stockUseCase := usecase2.NewStockUseCase(transactionManager, stockRepository, productRepository, locationRepository, userRepository, eventBus)
+	stockConsumer := rabbitmq.NewStockConsumer(stockUseCase, db)
+	jobRepository := mysql.NewJobRepository(db)
+	jobService := usecase.NewJobService(jobRepository)
+	statisticRepository := mysql5.NewStatisticRepository(db)
+	statisticService := usecase3.NewStatisticService(statisticRepository, jobService)
+	storageService := usecase.NewStorageService()
+	reportRepository := mysql5.NewReportRepository(db)
+	categoryRepository := mysql3.NewCategoryRepository(db)
+	exportService := usecase3.NewExportService(jobRepository, statisticService, storageService, stockRepository, reportRepository, productRepository, categoryRepository)
+	firebaseSignalService := usecase.NewFirebaseSignalService()
 	mediaRepository := mysql.NewMediaRepository(db)
 	mediaService := usecase.NewMediaService(transactionManager, mediaRepository, productRepository, storageService)
-	attendanceRepository := mysql5.NewAttendanceRepository(db)
-	userRepository := mysql6.NewUserRepository(db)
-	shiftRepository := mysql5.NewShiftRepository(db)
-	scheduleRepository := mysql5.NewScheduleRepository(db)
+	attendanceRepository := mysql6.NewAttendanceRepository(db)
+	shiftRepository := mysql6.NewShiftRepository(db)
+	scheduleRepository := mysql6.NewScheduleRepository(db)
 	settingRepository := mysql.NewSettingRepository(db)
-	attendanceUseCase := usecase3.NewAttendanceUseCase(attendanceRepository, userRepository, shiftRepository, scheduleRepository, settingRepository)
-	scheduleUseCase := usecase3.NewScheduleUseCase(scheduleRepository, shiftRepository, userRepository)
-	locationRepository := mysql3.NewLocationRepository(db)
-	stockUseCase := usecase4.NewStockUseCase(transactionManager, stockRepository, productRepository, locationRepository, userRepository, eventBus)
-	productAuditRepository := mysql4.NewProductAuditRepository(db)
+	attendanceUseCase := usecase4.NewAttendanceUseCase(attendanceRepository, userRepository, shiftRepository, scheduleRepository, settingRepository)
+	scheduleUseCase := usecase4.NewScheduleUseCase(scheduleRepository, shiftRepository, userRepository)
+	productAuditRepository := mysql3.NewProductAuditRepository(db)
 	productUseCase := usecase5.NewProductUseCase(transactionManager, productRepository, productAuditRepository, categoryRepository)
-	stockTransactionRepository := mysql3.NewStockTransactionRepository(db)
-	outboxRepository := mysql3.NewOutboxRepository(db)
+	stockTransactionRepository := mysql2.NewStockTransactionRepository(db)
+	outboxRepository := mysql2.NewOutboxRepository(db)
 	keljaClient := erp.NewKeljaClient()
-	stockTransactionUseCase := usecase4.NewStockTransactionService(transactionManager, stockTransactionRepository, locationRepository, outboxRepository, keljaClient, productRepository, eventBus)
-	localizationRepository := mysql.NewLocalizationRepository(db)
-	localizationUseCase := system.ProvideLocalizationUseCase(localizationRepository, transactionManager, eventBus)
-	workerContainer := di.NewWorkerContainer(transactionManager, logListener, jobService, statisticService, storageService, exportService, firebaseSignalService, eventBus, mediaService, attendanceUseCase, scheduleUseCase, stockUseCase, productUseCase, stockTransactionUseCase, localizationUseCase)
+	stockTransactionUseCase := usecase2.NewStockTransactionService(transactionManager, stockTransactionRepository, locationRepository, outboxRepository, keljaClient, productRepository, eventBus)
+	workerContainer := &di.WorkerContainer{
+		TxManager:               transactionManager,
+		EventBus:                eventBus,
+		LogListener:             logListener,
+		StockConsumer:           stockConsumer,
+		JobRepo:                 jobRepository,
+		JobService:              jobService,
+		ExportService:           exportService,
+		FirebaseService:         firebaseSignalService,
+		MediaService:            mediaService,
+		AttendanceService:       attendanceUseCase,
+		ScheduleService:         scheduleUseCase,
+		StockService:            stockUseCase,
+		ProductService:          productUseCase,
+		StockTransactionService: stockTransactionUseCase,
+	}
 	return workerContainer, nil
 }

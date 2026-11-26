@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -78,7 +79,7 @@ func dispatchJobs[J any](
 			defer func() { <-sem }()
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("[%s] CRITICAL: Unhandled panic recovered in worker goroutine: %v", cfg.Name, r)
+					log.Printf("[%s] CRITICAL: Unhandled panic recovered in worker goroutine: %v\n%s", cfg.Name, r, debug.Stack())
 				}
 			}()
 
