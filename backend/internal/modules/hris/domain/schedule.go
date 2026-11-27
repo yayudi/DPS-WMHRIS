@@ -1,6 +1,6 @@
 package domain
 
-// UserSchedule represents the user_schedules table
+// UserSchedule represents a per-date shift override row in the user_schedules table.
 type UserSchedule struct {
 	ID      int    `json:"id" db:"id"`
 	UserID  int    `json:"user_id" db:"user_id"`

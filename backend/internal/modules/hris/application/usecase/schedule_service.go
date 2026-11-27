@@ -8,118 +8,163 @@ import (
 	"time"
 
 	hris_dto "github.com/dps-wmhris/backend/internal/modules/hris/application/dto"
-
 	hris_parser "github.com/dps-wmhris/backend/internal/modules/hris/application/parser"
-
+	"github.com/dps-wmhris/backend/internal/modules/hris/domain"
 	hris_port "github.com/dps-wmhris/backend/internal/modules/hris/port"
 	iam_port "github.com/dps-wmhris/backend/internal/modules/iam/port"
-
 	"github.com/dps-wmhris/backend/internal/shared/apperror"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/xuri/excelize/v2"
 )
 
 type scheduleUseCaseImpl struct {
+	txManager    database.TransactionManager
 	scheduleRepo hris_port.ScheduleRepository
 	shiftRepo    hris_port.ShiftRepository
-	userRepo     iam_port.UserRepository // Assuming we have UserRepository available (we need to inject it)
+	userRepo     iam_port.UserRepository
 }
 
-func NewScheduleUseCase(scheduleRepo hris_port.ScheduleRepository, shiftRepo hris_port.ShiftRepository, userRepo iam_port.UserRepository) hris_port.ScheduleUseCase {
+// NewScheduleUseCase creates a ScheduleUseCase wired with transaction management and outbound ports.
+func NewScheduleUseCase(
+	txManager database.TransactionManager,
+	scheduleRepo hris_port.ScheduleRepository,
+	shiftRepo hris_port.ShiftRepository,
+	userRepo iam_port.UserRepository,
+) hris_port.ScheduleUseCase {
 	return &scheduleUseCaseImpl{
+		txManager:    txManager,
 		scheduleRepo: scheduleRepo,
 		shiftRepo:    shiftRepo,
 		userRepo:     userRepo,
 	}
 }
 
+func parsePositiveUserID(userIDStr string) (int, error) {
+	userID, err := strconv.Atoi(strings.TrimSpace(userIDStr))
+	if err != nil || userID <= 0 {
+		return 0, apperror.Validation("hris.schedule.err_invalid_user_id", "user_id tidak valid")
+	}
+	return userID, nil
+}
+
 func (s *scheduleUseCaseImpl) GetSchedules(ctx context.Context, userIDStr string, startDate string, endDate string) ([]hris_dto.ScheduleResponse, error) {
-	userID, err := strconv.Atoi(userIDStr)
+	userID, err := parsePositiveUserID(userIDStr)
 	if err != nil {
 		return nil, err
 	}
-	// Verify date formats if needed
-	_, err = time.Parse("2006-01-02", startDate)
-	if err != nil {
-		return nil, err
-	}
-	_, err = time.Parse("2006-01-02", endDate)
-	if err != nil {
+	if _, _, err := parseDateRange(startDate, endDate, 0); err != nil {
 		return nil, err
 	}
 
-	return s.scheduleRepo.GetByRange(ctx, userID, startDate, endDate)
+	schedules, err := s.scheduleRepo.GetByRange(ctx, userID, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	if schedules == nil {
+		return []hris_dto.ScheduleResponse{}, nil
+	}
+	return schedules, nil
 }
 
 func (s *scheduleUseCaseImpl) CreateSchedule(ctx context.Context, req hris_dto.CreateScheduleRequest, createdBy *int) error {
-	return s.scheduleRepo.Upsert(ctx, req.UserID, req.ShiftID, req.Date, createdBy)
+	if req.UserID <= 0 || req.ShiftID <= 0 {
+		return apperror.Validation("hris.schedule.err_invalid_payload", "userId dan shiftId wajib bernilai positif")
+	}
+	dateStr := strings.TrimSpace(req.Date)
+	if _, err := time.Parse("2006-01-02", dateStr); err != nil {
+		return domain.ErrInvalidDateRange
+	}
+
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		return s.scheduleRepo.Upsert(txCtx, req.UserID, req.ShiftID, dateStr, createdBy)
+	})
 }
 
 func (s *scheduleUseCaseImpl) DeleteSchedule(ctx context.Context, userIDStr string, date string) error {
-	userID, err := strconv.Atoi(userIDStr)
+	userID, err := parsePositiveUserID(userIDStr)
 	if err != nil {
 		return err
 	}
-	return s.scheduleRepo.Delete(ctx, userID, date)
+	dateStr := strings.TrimSpace(date)
+	if _, err := time.Parse("2006-01-02", dateStr); err != nil {
+		return domain.ErrInvalidDateRange
+	}
+
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		return s.scheduleRepo.Delete(txCtx, userID, dateStr)
+	})
 }
 
 func (s *scheduleUseCaseImpl) GenerateTemplate(ctx context.Context) (*excelize.File, error) {
+	users, err := s.userRepo.GetAll(ctx)
+	if err != nil {
+		return nil, apperror.Internal("hris.schedule.err_fetch_users_failed", "Gagal memuat data user", err)
+	}
+	shifts, err := s.shiftRepo.GetAll(ctx)
+	if err != nil {
+		return nil, apperror.Internal("hris.schedule.err_fetch_shifts_failed", "Gagal memuat data shift", err)
+	}
+
 	f := excelize.NewFile()
+	success := false
 	defer func() {
-		if err := f.Close(); err != nil {
-			// just log ideally
+		if !success {
+			_ = f.Close()
 		}
 	}()
 
 	mainSheet := "Import Schedule"
 	dataSheet := "DataList"
 
-	// Rename default sheet
-	_ = f.SetSheetName("Sheet1", mainSheet) // #nosec G104
+	if err := f.SetSheetName("Sheet1", mainSheet); err != nil {
+		return nil, apperror.Internal("hris.schedule.err_template_build", "Gagal membangun template jadwal", err)
+	}
+	if _, err := f.NewSheet(dataSheet); err != nil {
+		return nil, apperror.Internal("hris.schedule.err_template_build", "Gagal membangun sheet referensi jadwal", err)
+	}
+	_ = f.SetSheetVisible(dataSheet, false)
 
-	// Create DataList sheet for dropdowns
-	_, _ = f.NewSheet(dataSheet)            // #nosec G104
-	_ = f.SetSheetVisible(dataSheet, false) // Hide data sheet // #nosec G104
-
-	users, _ := s.userRepo.GetAll(ctx) // Assuming GetAll exists
-	shifts, _ := s.shiftRepo.GetAll(ctx)
-
-	// Fill DataList
 	for i, u := range users {
-		cell, _ := excelize.CoordinatesToCellName(1, i+1) // A1, A2, ...
-		_ = f.SetCellValue(dataSheet, cell, u.Username)   // #nosec G104
+		cell, _ := excelize.CoordinatesToCellName(1, i+1)
+		_ = f.SetCellValue(dataSheet, cell, u.Username)
 	}
 	for i, sh := range shifts {
-		cell, _ := excelize.CoordinatesToCellName(2, i+1) // B1, B2, ...
-		_ = f.SetCellValue(dataSheet, cell, sh.Name)      // #nosec G104
+		cell, _ := excelize.CoordinatesToCellName(2, i+1)
+		_ = f.SetCellValue(dataSheet, cell, sh.Name)
 	}
 
-	// Style header
 	styles := utils.InitExcelStyles(f)
-
-	// Main sheet headers
 	utils.SetHeaders(f, mainSheet, []string{"Username", "Date (YYYY-MM-DD)", "Shift Name"}, styles.Header)
 	utils.SetColWidths(f, mainSheet, map[string]float64{"A": 25, "B": 20, "C": 25})
 
-	// Example Row
-	_ = f.SetSheetRow(mainSheet, "A2", &[]interface{}{"user_demo", "2026-01-31", "Regular Pagi"}) // #nosec G104
+	_ = f.SetSheetRow(mainSheet, "A2", &[]any{"user_demo", "2026-01-31", "Regular Pagi"})
 	italicStyle, _ := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{Italic: true, Color: "#888888"},
 	})
-	_ = f.SetCellStyle(mainSheet, "A2", "C2", italicStyle) // #nosec G104
+	_ = f.SetCellStyle(mainSheet, "A2", "C2", italicStyle)
 
-	// Add data validation for 1000 rows
 	dvUsername := excelize.NewDataValidation(true)
 	dvUsername.Sqref = "A2:A1000"
-	_ = dvUsername.SetDropList([]string{}) // #nosec G104
 	dvUsername.SetSqrefDropList("DataList!$A$1:$A$1000")
+	if err := f.AddDataValidation(mainSheet, dvUsername); err != nil {
+		return nil, apperror.Internal("hris.schedule.err_template_validation", "Gagal menambahkan dropdown username", err)
+	}
+
+	dvShift := excelize.NewDataValidation(true)
+	dvShift.Sqref = "C2:C1000"
+	dvShift.SetSqrefDropList("DataList!$B$1:$B$1000")
+	if err := f.AddDataValidation(mainSheet, dvShift); err != nil {
+		return nil, apperror.Internal("hris.schedule.err_template_validation", "Gagal menambahkan dropdown shift", err)
+	}
+
+	success = true
 	return f, nil
 }
 
 func (s *scheduleUseCaseImpl) ProcessImport(ctx context.Context, jobID int, filePath string, createdBy int) (string, error) {
 	filePath = utils.ResolveStoragePath(filePath)
-	// Parse Excel
 	schedules, errorsList, err := hris_parser.ParseScheduleExcel(filePath)
 	if err != nil {
 		return "", err
@@ -133,46 +178,51 @@ func (s *scheduleUseCaseImpl) ProcessImport(ctx context.Context, jobID int, file
 		return "", apperror.Validation("hris.schedule.err_no_valid_data", "Tidak ada data valid di dalam file")
 	}
 
-	// Fetch users and shifts to build maps
 	users, err := s.userRepo.GetAll(ctx)
 	if err != nil {
 		return "", apperror.Internal("hris.schedule.err_fetch_users_failed", "Gagal memuat data user", err)
 	}
-	userMap := make(map[string]int)
+	userMap := make(map[string]int, len(users))
 	for _, u := range users {
-		userMap[strings.ToLower(u.Username)] = u.ID
+		userMap[strings.ToLower(strings.TrimSpace(u.Username))] = u.ID
 	}
 
 	shifts, err := s.shiftRepo.GetAll(ctx)
 	if err != nil {
 		return "", apperror.Internal("hris.schedule.err_fetch_shifts_failed", "Gagal memuat data shift", err)
 	}
-	shiftMap := make(map[string]int)
+	shiftMap := make(map[string]int, len(shifts))
 	for _, sh := range shifts {
-		shiftMap[strings.ToLower(sh.Name)] = sh.ID
+		shiftMap[strings.ToLower(strings.TrimSpace(sh.Name))] = sh.ID
 	}
 
-	// Validate against database
+	type resolvedSchedule struct {
+		userID    int
+		shiftID   int
+		date      string
+		rowNumber int
+	}
+
 	var finalErrors []string
-	var validSchedules []hris_parser.ScheduleRow
+	validSchedules := make([]resolvedSchedule, 0, len(schedules))
 
 	for _, sc := range schedules {
-		_, ok := userMap[strings.ToLower(sc.Username)]
+		userID, ok := userMap[strings.ToLower(strings.TrimSpace(sc.Username))]
 		if !ok {
 			finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: User '%s' tidak ditemukan.", sc.RowNumber, sc.Username))
 			continue
 		}
-		_, ok = shiftMap[strings.ToLower(sc.ShiftName)]
+		shiftID, ok := shiftMap[strings.ToLower(strings.TrimSpace(sc.ShiftName))]
 		if !ok {
 			finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: Shift '%s' tidak ditemukan.", sc.RowNumber, sc.ShiftName))
 			continue
 		}
 
-		validSchedules = append(validSchedules, hris_parser.ScheduleRow{
-			Username:  sc.Username,
-			Date:      sc.Date,
-			ShiftName: sc.ShiftName,
-			RowNumber: sc.RowNumber,
+		validSchedules = append(validSchedules, resolvedSchedule{
+			userID:    userID,
+			shiftID:   shiftID,
+			date:      sc.Date,
+			rowNumber: sc.RowNumber,
 		})
 	}
 
@@ -180,17 +230,22 @@ func (s *scheduleUseCaseImpl) ProcessImport(ctx context.Context, jobID int, file
 		return "", apperror.Validation("hris.schedule.err_validation_failed", fmt.Sprintf("Ditemukan %d error validasi: %s", len(finalErrors), strings.Join(finalErrors, " | ")), map[string]any{"count": len(finalErrors)})
 	}
 
-	// Process Upsert
 	successCount := 0
-	for _, sc := range schedules {
-		userID := userMap[strings.ToLower(sc.Username)]
-		shiftID := shiftMap[strings.ToLower(sc.ShiftName)]
-
-		err := s.scheduleRepo.Upsert(ctx, userID, shiftID, sc.Date, &createdBy)
-		if err != nil {
-			return "", apperror.Internal("hris.schedule.err_save_row_failed", fmt.Sprintf("Gagal menyimpan data baris %d: %v", sc.RowNumber, err), err, map[string]any{"row": sc.RowNumber})
+	if err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		for _, sc := range validSchedules {
+			if err := s.scheduleRepo.Upsert(txCtx, sc.userID, sc.shiftID, sc.date, &createdBy); err != nil {
+				return apperror.Internal(
+					"hris.schedule.err_save_row_failed",
+					fmt.Sprintf("Gagal menyimpan data baris %d: %v", sc.rowNumber, err),
+					err,
+					map[string]any{"row": sc.rowNumber},
+				)
+			}
+			successCount++
 		}
-		successCount++
+		return nil
+	}); err != nil {
+		return "", err
 	}
 
 	summary := i18n.T(ctx, "hris.schedule.import_summary", map[string]any{

@@ -1,48 +1,62 @@
 package mysql
 
 import (
-	database "github.com/dps-wmhris/backend/internal/shared/database"
-
 	"context"
-
-	"github.com/dps-wmhris/backend/internal/modules/hris/port"
+	"database/sql"
+	"errors"
 
 	"github.com/dps-wmhris/backend/internal/modules/hris/domain"
+	"github.com/dps-wmhris/backend/internal/modules/hris/port"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/jmoiron/sqlx"
 )
 
-// ShiftRepository defines the interface for shift data operations
+const shiftSelectColumns = `
+	id, name, start_time, end_time,
+	COALESCE(work_days, '1,2,3,4,5') AS work_days,
+	COALESCE(flexible_minutes, 0) AS flexible_minutes,
+	COALESCE(is_default, 0) AS is_default,
+	created_at, updated_at
+`
 
 type shiftRepositoryImpl struct {
-	database.BaseRepository[domain.Shift]
 	db *sqlx.DB
 }
 
-// NewShiftRepository injects the database dependency
+// NewShiftRepository creates a MySQL-backed ShiftRepository.
 func NewShiftRepository(db *sqlx.DB) port.ShiftRepository {
-	base := database.NewBaseRepository[domain.Shift](db, "shifts")
-	return &shiftRepositoryImpl{
-		BaseRepository: base,
-		db:             db,
-	}
+	return &shiftRepositoryImpl{db: db}
 }
 
 func (r *shiftRepositoryImpl) GetAll(ctx context.Context) ([]domain.Shift, error) {
-	return r.FindAll(ctx)
+	ext := database.GetExt(ctx, r.db)
+	shifts := make([]domain.Shift, 0)
+	query := `SELECT ` + shiftSelectColumns + ` FROM shifts ORDER BY id ASC`
+	if err := ext.SelectContext(ctx, &shifts, query); err != nil {
+		return nil, err
+	}
+	if shifts == nil {
+		return []domain.Shift{}, nil
+	}
+	return shifts, nil
 }
 
 func (r *shiftRepositoryImpl) GetByID(ctx context.Context, id int) (*domain.Shift, error) {
-	return r.FindByID(ctx, id)
+	ext := database.GetExt(ctx, r.db)
+	var shift domain.Shift
+	query := `SELECT ` + shiftSelectColumns + ` FROM shifts WHERE id = ?`
+	if err := ext.GetContext(ctx, &shift, query, id); err != nil {
+		return nil, err
+	}
+	return &shift, nil
 }
 
 func (r *shiftRepositoryImpl) Create(ctx context.Context, shift *domain.Shift) (int, error) {
 	ext := database.GetExt(ctx, r.db)
-	if ext == nil {
-		ext = r.db
-	}
 	query := `
-		INSERT INTO shifts (name, start_time, end_time, work_days, flexible_minutes, is_default) 
-		VALUES (?, ?, ?, ?, ?, ?)`
+		INSERT INTO shifts (name, start_time, end_time, work_days, flexible_minutes, is_default)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`
 	result, err := ext.ExecContext(ctx, query,
 		shift.Name, shift.StartTime, shift.EndTime, shift.WorkDays, shift.FlexibleMinutes, shift.IsDefault,
 	)
@@ -58,13 +72,11 @@ func (r *shiftRepositoryImpl) Create(ctx context.Context, shift *domain.Shift) (
 
 func (r *shiftRepositoryImpl) Update(ctx context.Context, shift *domain.Shift) error {
 	ext := database.GetExt(ctx, r.db)
-	if ext == nil {
-		ext = r.db
-	}
 	query := `
-		UPDATE shifts 
-		SET name = ?, start_time = ?, end_time = ?, work_days = ?, flexible_minutes = ?, is_default = ? 
-		WHERE id = ?`
+		UPDATE shifts
+		SET name = ?, start_time = ?, end_time = ?, work_days = ?, flexible_minutes = ?, is_default = ?
+		WHERE id = ?
+	`
 	_, err := ext.ExecContext(ctx, query,
 		shift.Name, shift.StartTime, shift.EndTime, shift.WorkDays, shift.FlexibleMinutes, shift.IsDefault, shift.ID,
 	)
@@ -72,41 +84,45 @@ func (r *shiftRepositoryImpl) Update(ctx context.Context, shift *domain.Shift) e
 }
 
 func (r *shiftRepositoryImpl) Delete(ctx context.Context, id int) error {
-	return r.SoftDelete(ctx, id)
+	ext := database.GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, `DELETE FROM shifts WHERE id = ?`, id)
+	return err
 }
 
-// ClearDefault resets all shifts' is_default to false. Used transactionally.
 func (r *shiftRepositoryImpl) ClearDefault(ctx context.Context) error {
 	ext := database.GetExt(ctx, r.db)
-	if ext == nil {
-		ext = r.db
-	}
-	query := `UPDATE shifts SET is_default = false`
-	_, err := ext.ExecContext(ctx, query)
+	_, err := ext.ExecContext(ctx, `UPDATE shifts SET is_default = false`)
 	return err
 }
 
 func (r *shiftRepositoryImpl) GetUserShift(ctx context.Context, username string) (*domain.Shift, error) {
 	ext := database.GetExt(ctx, r.db)
 	var shift domain.Shift
-	// Priority 1: User's assigned shift
-	queryUserShift := `
-		SELECT s.* 
-		FROM users u 
-		LEFT JOIN shifts s ON u.shift_id = s.id 
-		WHERE u.username = ?`
 
+	// Priority 1: User's explicitly assigned shift (INNER JOIN avoids scanning NULL columns when shift_id is NULL).
+	queryUserShift := `
+		SELECT
+			s.id, s.name, s.start_time, s.end_time,
+			COALESCE(s.work_days, '1,2,3,4,5') AS work_days,
+			COALESCE(s.flexible_minutes, 0) AS flexible_minutes,
+			COALESCE(s.is_default, 0) AS is_default,
+			s.created_at, s.updated_at
+		FROM users u
+		INNER JOIN shifts s ON u.shift_id = s.id
+		WHERE u.username = ?
+	`
 	err := ext.GetContext(ctx, &shift, queryUserShift, username)
-	if err == nil && shift.ID != 0 {
+	if err == nil {
 		return &shift, nil
 	}
-
-	// Priority 2: Default shift
-	queryDefault := `SELECT * FROM shifts WHERE is_default = 1 LIMIT 1`
-	err = ext.GetContext(ctx, &shift, queryDefault)
-	if err != nil {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 
+	// Priority 2: Fallback to default shift
+	queryDefault := `SELECT ` + shiftSelectColumns + ` FROM shifts WHERE is_default = 1 LIMIT 1`
+	if err := ext.GetContext(ctx, &shift, queryDefault); err != nil {
+		return nil, err
+	}
 	return &shift, nil
 }

@@ -1,3 +1,4 @@
+// Package hris wires dependency injection providers for attendance, shift, and schedule features.
 package hris
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/google/wire"
 )
 
+// ProviderSet supplies all repositories, use cases, and HTTP handlers for the HRIS module.
 var ProviderSet = wire.NewSet(
 	mysql.NewAttendanceRepository,
 	mysql.NewScheduleRepository,

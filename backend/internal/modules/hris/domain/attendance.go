@@ -2,6 +2,7 @@ package domain
 
 import "time"
 
+// AttendanceLog represents a daily employee attendance record in the attendance_logs table.
 type AttendanceLog struct {
 	ID                int     `json:"id" db:"id"`
 	Username          string  `json:"username" db:"username"`
@@ -15,6 +16,7 @@ type AttendanceLog struct {
 	Notes             *string `json:"notes" db:"notes"`
 }
 
+// AttendanceRawLog represents an individual clock-in/clock-out punch in the attendance_raw_logs table.
 type AttendanceRawLog struct {
 	ID              int    `json:"id" db:"id"`
 	AttendanceLogID int    `json:"attendance_log_id" db:"attendance_log_id"`
@@ -22,6 +24,7 @@ type AttendanceRawLog struct {
 	LogType         string `json:"log_type" db:"log_type"`
 }
 
+// Holiday represents a national/company holiday row in the holidays table.
 type Holiday struct {
 	Date time.Time `json:"date" db:"date"`
 	Name string    `json:"name" db:"name"`

@@ -2,12 +2,14 @@ package hris_parser
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/dps-wmhris/backend/internal/parser"
 	"github.com/dps-wmhris/backend/internal/shared/apperror"
 )
 
+// ScheduleRow represents a single validated shift schedule entry extracted from an Excel import file.
 type ScheduleRow struct {
 	Username  string
 	Date      string
@@ -15,6 +17,8 @@ type ScheduleRow struct {
 	RowNumber int
 }
 
+// ParseScheduleExcel reads and validates shift schedule rows from an uploaded Excel workbook.
+// Row 1 is treated as the header and row 2 as the template example row (skipped).
 func ParseScheduleExcel(filepath string) ([]ScheduleRow, []string, error) {
 	records, err := parser.ReadExcelFile(filepath)
 	if err != nil {
@@ -26,40 +30,39 @@ func ParseScheduleExcel(filepath string) ([]ScheduleRow, []string, error) {
 	}
 
 	var schedules []ScheduleRow
-	var errors []string
+	var errs []string
 
 	for i, record := range records {
 		rowNum := i + 2 // i=0 corresponds to row 2 in Excel (example row in template)
-		if rowNum <= 2 { // Skip example row
+		if rowNum <= 2 {
 			continue
 		}
 
-		username := parser.GetField(record, "Username", "username", "User", "user")
-		dateStr := parser.GetField(record, "Date (YYYY-MM-DD)", "Date", "date", "Tanggal", "tanggal")
-		shiftName := parser.GetField(record, "Shift Name", "Shift", "shift", "Nama Shift", "nama_shift")
+		username := strings.TrimSpace(parser.GetField(record, "Username", "username", "User", "user"))
+		dateStr := strings.TrimSpace(parser.GetField(record, "Date (YYYY-MM-DD)", "Date", "date", "Tanggal", "tanggal"))
+		shiftName := strings.TrimSpace(parser.GetField(record, "Shift Name", "Shift", "shift", "Nama Shift", "nama_shift"))
 
 		if username == "" && dateStr == "" && shiftName == "" {
 			continue // Skip completely empty rows
 		}
 
 		if username == "" {
-			errors = append(errors, fmt.Sprintf("Baris %d: Username wajib diisi.", rowNum))
+			errs = append(errs, fmt.Sprintf("Baris %d: Username wajib diisi.", rowNum))
 			continue
 		}
 		if dateStr == "" {
-			errors = append(errors, fmt.Sprintf("Baris %d: Format Tanggal salah (Gunakan YYYY-MM-DD).", rowNum))
+			errs = append(errs, fmt.Sprintf("Baris %d: Format Tanggal salah (Gunakan YYYY-MM-DD).", rowNum))
 			continue
 		}
 
-		// Handle different date formats or Excel serial dates
 		parsedDate, err := parseExcelDate(dateStr)
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("Baris %d: Format Tanggal salah (Gunakan YYYY-MM-DD).", rowNum))
+			errs = append(errs, fmt.Sprintf("Baris %d: Format Tanggal salah (Gunakan YYYY-MM-DD).", rowNum))
 			continue
 		}
 
 		if shiftName == "" {
-			errors = append(errors, fmt.Sprintf("Baris %d: Nama Shift wajib diisi.", rowNum))
+			errs = append(errs, fmt.Sprintf("Baris %d: Nama Shift wajib diisi.", rowNum))
 			continue
 		}
 
@@ -71,25 +74,13 @@ func ParseScheduleExcel(filepath string) ([]ScheduleRow, []string, error) {
 		})
 	}
 
-	return schedules, errors, nil
+	return schedules, errs, nil
 }
 
 func parseExcelDate(dateStr string) (string, error) {
-	// Sometimes Excelize returns the raw numeric value if the style isn't fully supported
-	// We check if it matches YYYY-MM-DD
-	_, err := time.Parse("2006-01-02", dateStr)
-	if err == nil {
-		return dateStr, nil
+	trimmed := strings.TrimSpace(dateStr)
+	if _, err := time.Parse("2006-01-02", trimmed); err != nil {
+		return "", fmt.Errorf("invalid date format %q", trimmed)
 	}
-
-	// Try parsing standard excel short dates
-	_, err = time.Parse("01-02-06", dateStr)
-	if err == nil {
-		// Just for simplicity, we require strictly YYYY-MM-DD in the template
-		return "", fmt.Errorf("invalid format")
-	}
-
-	// Excel serial date check?
-	// Excelize handles most date formats gracefully and returns YYYY-MM-DD if configured right
-	return "", fmt.Errorf("invalid format")
+	return trimmed, nil
 }

@@ -4,7 +4,7 @@ import (
 	"github.com/dps-wmhris/backend/internal/shared/kernel"
 )
 
-// Shift represents the shifts table
+// Shift represents a work shift definition row in the shifts table.
 type Shift struct {
 	kernel.BaseEntity
 	Name            string `json:"name" db:"name"`
