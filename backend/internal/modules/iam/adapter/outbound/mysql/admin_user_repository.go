@@ -17,6 +17,7 @@ type adminUserRepositoryImpl struct {
 	db *sqlx.DB
 }
 
+// NewAdminUserRepository constructs a MySQL-backed AdminUserRepository.
 func NewAdminUserRepository(db *sqlx.DB) port.AdminUserRepository {
 	base := database.NewBaseRepository[domain.User](db, "users")
 	return &adminUserRepositoryImpl{
@@ -48,7 +49,19 @@ func (r *adminUserRepositoryImpl) FindAllActiveUsers(ctx context.Context) ([]iam
 }
 
 func (r *adminUserRepositoryImpl) FindUserByID(ctx context.Context, userID int) (*domain.User, error) {
-	return r.FindByID(ctx, userID)
+	var user domain.User
+	query := `
+		SELECT id, username, COALESCE(nickname, '') AS nickname, is_active, password_hash,
+		       role_id, shift_id, created_at, updated_at, exclude_from_attendance
+		FROM users
+		WHERE id = ? AND is_active = 1
+		LIMIT 1
+	`
+	ext := database.GetExt(ctx, r.db)
+	if err := ext.GetContext(ctx, &user, query, userID); err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 func (r *adminUserRepositoryImpl) InsertUser(ctx context.Context, username, passwordHash string, roleID int, nickname *string, shiftID *int, excludeFromAttendance bool) (int, error) {
@@ -65,10 +78,39 @@ func (r *adminUserRepositoryImpl) InsertUser(ctx context.Context, username, pass
 	return int(id), err
 }
 
-func (r *adminUserRepositoryImpl) UpdateUserByID(ctx context.Context, userID int, fields []string, values []interface{}) (int, error) {
+func (r *adminUserRepositoryImpl) UpdateUserByID(ctx context.Context, userID int, params domain.UserUpdateParams) (int, error) {
+	var fields []string
+	var values []any
+
+	if params.Username != nil {
+		fields = append(fields, "username = ?")
+		values = append(values, *params.Username)
+	}
+	if params.Nickname != nil {
+		fields = append(fields, "nickname = ?")
+		values = append(values, *params.Nickname)
+	}
+	if params.RoleID != nil {
+		fields = append(fields, "role_id = ?")
+		values = append(values, *params.RoleID)
+	}
+	if params.ShiftID != nil {
+		fields = append(fields, "shift_id = ?")
+		values = append(values, *params.ShiftID)
+	}
+	if params.ExcludeFromAttendance != nil {
+		fields = append(fields, "exclude_from_attendance = ?")
+		values = append(values, *params.ExcludeFromAttendance)
+	}
+	if params.PasswordHash != nil {
+		fields = append(fields, "password_hash = ?")
+		values = append(values, *params.PasswordHash)
+	}
+
 	if len(fields) == 0 {
 		return 0, nil
 	}
+
 	query := "UPDATE users SET "
 	for i, field := range fields {
 		query += field
@@ -121,12 +163,11 @@ func (r *adminUserRepositoryImpl) DeleteUserLocations(ctx context.Context, userI
 }
 
 func (r *adminUserRepositoryImpl) InsertUserLocations(ctx context.Context, userID int, locationIDs []int) error {
-	ext := database.GetExt(ctx, r.db)
 	if len(locationIDs) == 0 {
 		return nil
 	}
 	query := "INSERT INTO user_locations (user_id, location_id) VALUES "
-	var args []interface{}
+	var args []any
 	for i, locID := range locationIDs {
 		query += "(?, ?)"
 		if i < len(locationIDs)-1 {
@@ -135,7 +176,7 @@ func (r *adminUserRepositoryImpl) InsertUserLocations(ctx context.Context, userI
 		args = append(args, userID, locID)
 	}
 
-	ext = database.GetExt(ctx, r.db)
+	ext := database.GetExt(ctx, r.db)
 	_, err := ext.ExecContext(ctx, query, args...)
 	return err
 }

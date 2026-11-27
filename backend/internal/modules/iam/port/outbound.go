@@ -4,22 +4,23 @@ import (
 	"context"
 
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
-
 	"github.com/dps-wmhris/backend/internal/modules/iam/domain"
-	database "github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 )
 
+// AdminUserRepository defines persistence operations for administrative user management.
 type AdminUserRepository interface {
 	FindAllActiveUsers(ctx context.Context) ([]iam_dto.AdminUserResponse, error)
 	FindUserByID(ctx context.Context, userID int) (*domain.User, error)
 	InsertUser(ctx context.Context, username, passwordHash string, roleID int, nickname *string, shiftID *int, excludeFromAttendance bool) (int, error)
-	UpdateUserByID(ctx context.Context, userID int, fields []string, values []interface{}) (int, error)
+	UpdateUserByID(ctx context.Context, userID int, params domain.UserUpdateParams) (int, error)
 	SoftDeleteUser(ctx context.Context, userID int) (int, error)
 	FindUserLocationIDs(ctx context.Context, userID int) ([]int, error)
 	DeleteUserLocations(ctx context.Context, userID int) error
 	InsertUserLocations(ctx context.Context, userID int, locationIDs []int) error
 }
 
+// RoleRepository defines persistence operations for roles and role-permission mappings.
 type RoleRepository interface {
 	database.BaseRepository[domain.Role]
 	GetRoles(ctx context.Context) ([]iam_dto.RoleResponse, error)
@@ -32,6 +33,7 @@ type RoleRepository interface {
 	DeleteRole(ctx context.Context, id int) (bool, error)
 }
 
+// UserRepository defines persistence operations for user authentication and profile data.
 type UserRepository interface {
 	database.BaseRepository[domain.User]
 	GetAll(ctx context.Context) ([]domain.User, error)
@@ -42,6 +44,7 @@ type UserRepository interface {
 	CheckUserLocationPermission(ctx context.Context, userID int, locationID int) (bool, error)
 }
 
+// UserPreferenceRepository defines persistence operations for per-user UI and regional preferences.
 type UserPreferenceRepository interface {
 	GetByUserID(ctx context.Context, userID int) (*domain.UserPreference, error)
 	Upsert(ctx context.Context, pref *domain.UserPreference) error

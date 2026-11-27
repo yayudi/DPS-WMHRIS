@@ -1,8 +1,10 @@
+// Package mysql implements the MySQL outbound repository adapters for the IAM module.
 package mysql
 
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
 
@@ -12,14 +14,12 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// UserRepository defines the interface for user data operations
-
 type userRepositoryImpl struct {
 	database.BaseRepository[domain.User]
 	db *sqlx.DB
 }
 
-// NewUserRepository injects the database dependency
+// NewUserRepository constructs a MySQL-backed UserRepository.
 func NewUserRepository(db *sqlx.DB) port.UserRepository {
 	base := database.NewBaseRepository[domain.User](db, "users")
 	return &userRepositoryImpl{
@@ -28,17 +28,35 @@ func NewUserRepository(db *sqlx.DB) port.UserRepository {
 	}
 }
 
+func (r *userRepositoryImpl) FindByID(ctx context.Context, id int) (*domain.User, error) {
+	var user domain.User
+	query := `
+		SELECT 
+			id, username, COALESCE(nickname, '') AS nickname, is_active, password_hash, role_id, 
+			shift_id, created_at, updated_at, exclude_from_attendance 
+		FROM users 
+		WHERE id = ? AND is_active = 1
+		LIMIT 1`
+
+	ext := database.GetExt(ctx, r.db)
+	if err := ext.GetContext(ctx, &user, query, id); err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *userRepositoryImpl) GetAll(ctx context.Context) ([]domain.User, error) {
 	var users []domain.User
 	query := `
 		SELECT 
-			id, username, nickname, is_active, password_hash, role_id, 
+			id, username, COALESCE(nickname, '') AS nickname, is_active, password_hash, role_id, 
 			shift_id, created_at, updated_at, exclude_from_attendance 
 		FROM users 
 		WHERE is_active = 1
 		ORDER BY username ASC`
 
-	err := r.db.SelectContext(ctx, &users, query)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &users, query)
 	return users, err
 }
 
@@ -46,12 +64,13 @@ func (r *userRepositoryImpl) FindByUsername(ctx context.Context, username string
 	var user domain.User
 	query := `
 		SELECT 
-			id, username, nickname, is_active, password_hash, role_id, 
+			id, username, COALESCE(nickname, '') AS nickname, is_active, password_hash, role_id, 
 			shift_id, created_at, updated_at, exclude_from_attendance 
 		FROM users 
 		WHERE username = ? LIMIT 1`
 
-	err := r.db.GetContext(ctx, &user, query, username)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.GetContext(ctx, &user, query, username)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +92,8 @@ func (r *userRepositoryImpl) GetRoleAndPermissions(ctx context.Context, roleID i
 	}
 
 	var rows []RolePerm
-	err := r.db.SelectContext(ctx, &rows, query, roleID)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &rows, query, roleID)
 	if err != nil {
 		return "", nil, err
 	}
@@ -99,7 +119,7 @@ func (r *userRepositoryImpl) GetRoleAndPermissions(ctx context.Context, roleID i
 
 func (r *userRepositoryImpl) UpdateProfile(ctx context.Context, userID int, nickname *string, hashedPassword *string) error {
 	var updateFields []string
-	var args []interface{}
+	var args []any
 
 	if nickname != nil {
 		updateFields = append(updateFields, "nickname = ?")
@@ -140,7 +160,8 @@ func (r *userRepositoryImpl) GetUserLocations(ctx context.Context, userID int) (
 	`
 
 	var locations []iam_dto.UserLocationResponse
-	err := r.db.SelectContext(ctx, &locations, query, userID)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.SelectContext(ctx, &locations, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -154,9 +175,10 @@ func (r *userRepositoryImpl) GetUserLocations(ctx context.Context, userID int) (
 func (r *userRepositoryImpl) CheckUserLocationPermission(ctx context.Context, userID int, locationID int) (bool, error) {
 	query := "SELECT 1 FROM user_locations WHERE user_id = ? AND location_id = ?"
 	var exists int
-	err := r.db.GetContext(ctx, &exists, query, userID, locationID)
+	ext := database.GetExt(ctx, r.db)
+	err := ext.GetContext(ctx, &exists, query, userID, locationID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
 		}
 		return false, err

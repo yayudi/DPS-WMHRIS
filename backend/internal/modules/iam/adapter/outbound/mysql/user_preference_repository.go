@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/dps-wmhris/backend/internal/modules/iam/domain"
 	"github.com/dps-wmhris/backend/internal/modules/iam/port"
@@ -14,6 +15,7 @@ type userPreferenceRepositoryImpl struct {
 	db *sqlx.DB
 }
 
+// NewUserPreferenceRepository constructs a MySQL-backed UserPreferenceRepository.
 func NewUserPreferenceRepository(db *sqlx.DB) port.UserPreferenceRepository {
 	return &userPreferenceRepositoryImpl{db: db}
 }
@@ -29,7 +31,7 @@ func (r *userPreferenceRepositoryImpl) GetByUserID(ctx context.Context, userID i
 	ext := database.GetExt(ctx, r.db)
 	err := ext.GetContext(ctx, &pref, query, userID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err

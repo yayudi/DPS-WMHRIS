@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"strconv"
 	"strings"
@@ -28,6 +27,7 @@ type userServiceImpl struct {
 	eventBus     eventbus.EventBus
 }
 
+// NewUserUseCase constructs a UserUseCase implementation for authentication, profile, and preferences.
 func NewUserUseCase(
 	txManager database.TransactionManager,
 	userRepo port.UserRepository,
@@ -57,6 +57,9 @@ func toPreferenceDTO(pref *domain.UserPreference) *iam_dto.UserPreferenceDTO {
 }
 
 func (s *userServiceImpl) resolveUserPreference(ctx context.Context, userID int) (*domain.UserPreference, error) {
+	if s.userPrefRepo == nil {
+		return domain.NewDefaultUserPreference(userID), nil
+	}
 	pref, err := s.userPrefRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -67,9 +70,17 @@ func (s *userServiceImpl) resolveUserPreference(ctx context.Context, userID int)
 	return pref, nil
 }
 
+func (s *userServiceImpl) resolveUserPreferenceOrDefault(ctx context.Context, userID int) *domain.UserPreference {
+	pref, err := s.resolveUserPreference(ctx, userID)
+	if err != nil || pref == nil {
+		return domain.NewDefaultUserPreference(userID)
+	}
+	return pref
+}
+
 func (s *userServiceImpl) Login(ctx context.Context, req iam_dto.LoginRequest) (*iam_dto.LoginResponse, error) {
 	user, err := s.userRepo.FindByUsername(ctx, req.Username)
-	if err != nil {
+	if err != nil || user == nil {
 		return nil, apperror.Unauthorized("auth.login.invalid_credentials", "username atau password salah")
 	}
 
@@ -77,28 +88,24 @@ func (s *userServiceImpl) Login(ctx context.Context, req iam_dto.LoginRequest) (
 		return nil, apperror.Forbidden("auth.login.account_inactive", "akun tidak aktif")
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
-	if err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
 		return nil, apperror.Unauthorized("auth.login.invalid_credentials", "username atau password salah")
 	}
 
-	// Logging login attempt
 	role, permissions, _ := s.userRepo.GetRoleAndPermissions(ctx, user.RoleID)
-	_ = permissions // we don't use it in token here based on previous code
 
-	// Fetch user preferences
-	pref, _ := s.resolveUserPreference(ctx, user.ID)
+	pref := s.resolveUserPreferenceOrDefault(ctx, user.ID)
 	prefDTO := toPreferenceDTO(pref)
 	locale := pref.Locale
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":       user.ID, // Note: standardizing to 'id' since it might be used by auth middleware
+		"id":       user.ID,
 		"user_id":  user.ID,
 		"username": user.Username,
 		"role_id":  user.RoleID,
 		"role":     role,
 		"locale":   locale,
-		"exp":      time.Now().Add(time.Hour * 24).Unix(),
+		"exp":      time.Now().Add(24 * time.Hour).Unix(),
 	})
 
 	tokenString, err := token.SignedString([]byte(config.AppConfig.JWTSecret))
@@ -121,14 +128,12 @@ func (s *userServiceImpl) Login(ctx context.Context, req iam_dto.LoginRequest) (
 
 func (s *userServiceImpl) GetProfile(ctx context.Context, userID int) (*iam_dto.UserProfile, error) {
 	user, err := s.userRepo.FindByID(ctx, userID)
-	if err != nil {
+	if err != nil || user == nil {
 		return nil, apperror.NotFound("settings.user.user_not_found", "user tidak ditemukan")
 	}
 
 	_, permissions, _ := s.userRepo.GetRoleAndPermissions(ctx, user.RoleID)
-
-	pref, _ := s.resolveUserPreference(ctx, userID)
-	prefDTO := toPreferenceDTO(pref)
+	pref := s.resolveUserPreferenceOrDefault(ctx, userID)
 
 	return &iam_dto.UserProfile{
 		ID:          user.ID,
@@ -136,18 +141,17 @@ func (s *userServiceImpl) GetProfile(ctx context.Context, userID int) (*iam_dto.
 		Nickname:    user.Nickname,
 		RoleID:      user.RoleID,
 		Permissions: permissions,
-		Preferences: prefDTO,
+		Preferences: toPreferenceDTO(pref),
 	}, nil
 }
 
 func (s *userServiceImpl) UpdateProfile(ctx context.Context, userID int, req iam_dto.UpdateProfileRequest, ip, userAgent string) (*iam_dto.UserProfile, error) {
 	user, err := s.userRepo.FindByID(ctx, userID)
-	if err != nil {
+	if err != nil || user == nil {
 		return nil, apperror.NotFound("settings.user.user_not_found", "user tidak ditemukan")
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword))
-	if err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword)); err != nil {
 		return nil, apperror.Validation("auth.profile.wrong_current_password", "password saat ini salah")
 	}
 
@@ -161,42 +165,44 @@ func (s *userServiceImpl) UpdateProfile(ctx context.Context, userID int, req iam
 		hashedNewPassword = &hashStr
 	}
 
-	err = s.userRepo.UpdateProfile(ctx, userID, req.Nickname, hashedNewPassword)
-	if err != nil {
+	if err := s.userRepo.UpdateProfile(ctx, userID, req.Nickname, hashedNewPassword); err != nil {
 		return nil, apperror.Internal("auth.profile.update_failed", "gagal memperbarui profil", err)
 	}
 
 	updatedUser, err := s.userRepo.FindByID(ctx, userID)
-	if err != nil {
+	if err != nil || updatedUser == nil {
 		return nil, apperror.Internal("auth.profile.fetch_failed", "gagal mengambil data profil terbaru", err)
 	}
 
-	// Logging
-	changes := map[string]interface{}{
+	changes := map[string]any{
 		"note": "Self Profile Update",
-		"updates": map[string]interface{}{
+		"updates": map[string]any{
 			"nickname":        req.Nickname,
 			"passwordChanged": hashedNewPassword != nil,
 		},
 	}
-	changesBytes, _ := json.Marshal(changes)
 	if errLog := eventbus.PublishAuditLog(ctx, s.eventBus, eventbus.AuditLogInput{
 		UserID:     userID,
 		Action:     "UPDATE",
 		TargetType: "USER",
 		TargetID:   strconv.Itoa(userID),
-		Changes:    changesBytes,
+		Changes:    changes,
 		IP:         ip,
 		UserAgent:  userAgent,
 	}); errLog != nil {
 		log.Printf("Failed to save system log: %v", errLog)
 	}
 
+	_, permissions, _ := s.userRepo.GetRoleAndPermissions(ctx, updatedUser.RoleID)
+	pref := s.resolveUserPreferenceOrDefault(ctx, userID)
+
 	return &iam_dto.UserProfile{
-		ID:       updatedUser.ID,
-		Username: updatedUser.Username,
-		Nickname: updatedUser.Nickname,
-		RoleID:   updatedUser.RoleID,
+		ID:          updatedUser.ID,
+		Username:    updatedUser.Username,
+		Nickname:    updatedUser.Nickname,
+		RoleID:      updatedUser.RoleID,
+		Permissions: permissions,
+		Preferences: toPreferenceDTO(pref),
 	}, nil
 }
 

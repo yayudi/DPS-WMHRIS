@@ -11,14 +11,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// RoleHandler handles HTTP endpoints for role and RBAC permission management.
 type RoleHandler struct {
 	roleUseCase port.RoleUseCase
 }
 
+// NewRoleHandler constructs a RoleHandler with the given RoleUseCase.
 func NewRoleHandler(roleUseCase port.RoleUseCase) *RoleHandler {
 	return &RoleHandler{roleUseCase: roleUseCase}
 }
 
+// GetRoles returns all defined RBAC roles.
 func (h *RoleHandler) GetRoles(c *gin.Context) {
 	roles, err := h.roleUseCase.GetRoles(c.Request.Context())
 	if err != nil {
@@ -29,6 +32,7 @@ func (h *RoleHandler) GetRoles(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, roles)
 }
 
+// GetPermissions returns all available system permissions grouped by category.
 func (h *RoleHandler) GetPermissions(c *gin.Context) {
 	permissions, err := h.roleUseCase.GetPermissions(c.Request.Context())
 	if err != nil {
@@ -39,6 +43,7 @@ func (h *RoleHandler) GetPermissions(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, permissions)
 }
 
+// GetRolePermissions returns the list of permission IDs assigned to a role.
 func (h *RoleHandler) GetRolePermissions(c *gin.Context) {
 	roleID, ok := utils.ParseIntParam(c, "id")
 	if !ok {
@@ -54,17 +59,18 @@ func (h *RoleHandler) GetRolePermissions(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, permissionIDs)
 }
 
+// AssignPermissions replaces the permission assignments for a role and invalidates its RBAC cache.
 func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 	roleID, ok := utils.ParseIntParam(c, "id")
 	if !ok {
 		return
 	}
 
-	req_ptr, ok := utils.BindAndValidate[iam_dto.AssignPermissionsRequest](c)
+	reqPtr, ok := utils.BindAndValidate[iam_dto.AssignPermissionsRequest](c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
+	req := *reqPtr
 
 	userID := middleware.GetUserID(c)
 	err := h.roleUseCase.UpdateRolePermissions(c.Request.Context(), roleID, req, userID, c.ClientIP(), c.Request.UserAgent())
@@ -76,12 +82,13 @@ func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "settings.roles.permissions_update_success", nil)
 }
 
+// CreateRole creates a new RBAC role.
 func (h *RoleHandler) CreateRole(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[iam_dto.CreateRoleRequest](c)
+	reqPtr, ok := utils.BindAndValidate[iam_dto.CreateRoleRequest](c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
+	req := *reqPtr
 
 	userID := middleware.GetUserID(c)
 	newID, err := h.roleUseCase.CreateRole(c.Request.Context(), req, userID, c.ClientIP(), c.Request.UserAgent())
@@ -95,17 +102,18 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 	})
 }
 
+// UpdateRole updates an existing RBAC role by ID.
 func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	roleID, ok := utils.ParseIntParam(c, "id")
 	if !ok {
 		return
 	}
 
-	req_ptr, ok := utils.BindAndValidate[iam_dto.CreateRoleRequest](c)
+	reqPtr, ok := utils.BindAndValidate[iam_dto.CreateRoleRequest](c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
+	req := *reqPtr
 
 	userID := middleware.GetUserID(c)
 	err := h.roleUseCase.UpdateRole(c.Request.Context(), roleID, req, userID, c.ClientIP(), c.Request.UserAgent())
@@ -117,6 +125,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "settings.roles.update_success", nil)
 }
 
+// DeleteRole deletes an RBAC role by ID if it is not the Superadmin role and not in use.
 func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	roleID, ok := utils.ParseIntParam(c, "id")
 	if !ok {

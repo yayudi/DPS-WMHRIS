@@ -1,3 +1,4 @@
+// Package port defines the inbound (use-case) and outbound (repository) interfaces for the IAM module.
 package port
 
 import (
@@ -6,6 +7,7 @@ import (
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
 )
 
+// UserUseCase defines authentication, self-service profile, and personal preference operations.
 type UserUseCase interface {
 	Login(ctx context.Context, req iam_dto.LoginRequest) (*iam_dto.LoginResponse, error)
 	GetProfile(ctx context.Context, userID int) (*iam_dto.UserProfile, error)
@@ -15,6 +17,7 @@ type UserUseCase interface {
 	UpdatePreferences(ctx context.Context, userID int, req iam_dto.UpdatePreferenceRequest) (*iam_dto.UserPreferenceDTO, error)
 }
 
+// RoleUseCase defines role and RBAC permission management operations.
 type RoleUseCase interface {
 	GetRoles(ctx context.Context) ([]iam_dto.RoleResponse, error)
 	GetPermissions(ctx context.Context) ([]iam_dto.PermissionResponse, error)
@@ -25,6 +28,7 @@ type RoleUseCase interface {
 	DeleteRole(ctx context.Context, roleID int, userID int, ip, userAgent string) error
 }
 
+// AdminUserUseCase defines administrative user management and location assignment operations.
 type AdminUserUseCase interface {
 	GetAllUsers(ctx context.Context) ([]iam_dto.AdminUserResponse, error)
 	GetRoles(ctx context.Context) ([]iam_dto.RoleResponse, error)

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	iam_dto "github.com/dps-wmhris/backend/internal/modules/iam/application/dto"
+	"github.com/dps-wmhris/backend/internal/modules/iam/domain"
 	"github.com/dps-wmhris/backend/internal/modules/iam/port"
 	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/database"
@@ -21,6 +22,7 @@ type adminUserServiceImpl struct {
 	eventBus      eventbus.EventBus
 }
 
+// NewAdminUserUseCase constructs an AdminUserUseCase implementation.
 func NewAdminUserUseCase(txManager database.TransactionManager, adminUserRepo port.AdminUserRepository, roleRepo port.RoleRepository, eventBus eventbus.EventBus) port.AdminUserUseCase {
 	return &adminUserServiceImpl{
 		txManager:     txManager,
@@ -48,7 +50,7 @@ func (s *adminUserServiceImpl) CreateUser(ctx context.Context, req iam_dto.Admin
 		ctx, req.Username, string(hash), req.RoleID, req.Nickname, req.ShiftID, req.ExcludeFromAttendance,
 	)
 	if err != nil {
-		if strings.Contains(err.Error(), "1062") || strings.Contains(err.Error(), "Duplicate entry") {
+		if database.IsDuplicateKey(err) || strings.Contains(err.Error(), "1062") || strings.Contains(err.Error(), "Duplicate entry") {
 			return nil, apperror.Conflict("settings.user.username_in_use", "username sudah digunakan")
 		}
 		return nil, err
@@ -84,59 +86,54 @@ func (s *adminUserServiceImpl) UpdateUser(ctx context.Context, targetID int, req
 		return apperror.NotFound("settings.user.user_not_found", "user tidak ditemukan")
 	}
 
-	var updateFields []string
-	var updateValues []interface{}
-	changesRecord := make(map[string]interface{})
+	var updateParams domain.UserUpdateParams
+	changesRecord := make(map[string]any)
 
 	if req.Username != nil && oldUser.Username != *req.Username {
-		updateFields = append(updateFields, "username = ?")
-		updateValues = append(updateValues, *req.Username)
-		changesRecord["username"] = map[string]interface{}{"old": oldUser.Username, "new": *req.Username}
+		updateParams.Username = req.Username
+		changesRecord["username"] = map[string]any{"old": oldUser.Username, "new": *req.Username}
 	}
 
 	if req.Nickname != nil {
 		if oldUser.Nickname != *req.Nickname {
-			updateFields = append(updateFields, "nickname = ?")
-			updateValues = append(updateValues, *req.Nickname)
-			changesRecord["nickname"] = map[string]interface{}{"old": oldUser.Nickname, "new": *req.Nickname}
+			updateParams.Nickname = req.Nickname
+			changesRecord["nickname"] = map[string]any{"old": oldUser.Nickname, "new": *req.Nickname}
 		}
 	}
 
 	if req.RoleID != nil && oldUser.RoleID != *req.RoleID {
-		updateFields = append(updateFields, "role_id = ?")
-		updateValues = append(updateValues, *req.RoleID)
-		changesRecord["role_id"] = map[string]interface{}{"old": oldUser.RoleID, "new": *req.RoleID}
+		updateParams.RoleID = req.RoleID
+		changesRecord["role_id"] = map[string]any{"old": oldUser.RoleID, "new": *req.RoleID}
 	}
 
 	if req.ShiftID != nil {
 		if oldUser.ShiftID == nil || *oldUser.ShiftID != *req.ShiftID {
-			updateFields = append(updateFields, "shift_id = ?")
-			updateValues = append(updateValues, *req.ShiftID)
-			changesRecord["shift_id"] = map[string]interface{}{"old": oldUser.ShiftID, "new": *req.ShiftID}
+			updateParams.ShiftID = req.ShiftID
+			changesRecord["shift_id"] = map[string]any{"old": oldUser.ShiftID, "new": *req.ShiftID}
 		}
 	}
 
 	if req.ExcludeFromAttendance != nil {
 		if oldUser.ExcludeFromAttendance != *req.ExcludeFromAttendance {
-			updateFields = append(updateFields, "exclude_from_attendance = ?")
-			updateValues = append(updateValues, *req.ExcludeFromAttendance)
-			changesRecord["exclude_from_attendance"] = map[string]interface{}{"old": oldUser.ExcludeFromAttendance, "new": *req.ExcludeFromAttendance}
+			updateParams.ExcludeFromAttendance = req.ExcludeFromAttendance
+			changesRecord["exclude_from_attendance"] = map[string]any{"old": oldUser.ExcludeFromAttendance, "new": *req.ExcludeFromAttendance}
 		}
 	}
 
 	if req.NewPassword != nil && *req.NewPassword != "" {
 		hash, err := bcrypt.GenerateFromPassword([]byte(*req.NewPassword), bcrypt.DefaultCost)
-		if err == nil {
-			updateFields = append(updateFields, "password_hash = ?")
-			updateValues = append(updateValues, string(hash))
-			changesRecord["password"] = map[string]interface{}{"old": "***", "new": "*** (changed)"}
+		if err != nil {
+			return apperror.Internal("settings.user.hash_password_failed", "gagal memproses password", err)
 		}
+		hashStr := string(hash)
+		updateParams.PasswordHash = &hashStr
+		changesRecord["password"] = map[string]any{"old": "***", "new": "*** (changed)"}
 	}
 
-	if len(updateFields) > 0 {
-		_, err := s.adminUserRepo.UpdateUserByID(ctx, targetID, updateFields, updateValues)
+	if updateParams.HasUpdates() {
+		_, err := s.adminUserRepo.UpdateUserByID(ctx, targetID, updateParams)
 		if err != nil {
-			if strings.Contains(err.Error(), "1062") || strings.Contains(err.Error(), "Duplicate entry") {
+			if database.IsDuplicateKey(err) || strings.Contains(err.Error(), "1062") || strings.Contains(err.Error(), "Duplicate entry") {
 				return apperror.Conflict("settings.user.username_in_use", "username sudah digunakan")
 			}
 			return err
@@ -194,19 +191,14 @@ func (s *adminUserServiceImpl) GetUserLocations(ctx context.Context, targetID in
 }
 
 func (s *adminUserServiceImpl) UpdateUserLocations(ctx context.Context, targetID int, req iam_dto.AdminUpdateUserLocationsRequest, adminID int, ip, userAgent string) error {
+	uniqueLocationIDs := deduplicatePositiveIDs(req.LocationIDs)
+
 	err := s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		err := s.adminUserRepo.DeleteUserLocations(ctx, targetID)
-		if err != nil {
+		if err := s.adminUserRepo.DeleteUserLocations(ctx, targetID); err != nil {
 			return err
 		}
-
-		err = s.adminUserRepo.InsertUserLocations(ctx, targetID, req.LocationIDs)
-		if err != nil {
-			return err
-		}
-		return nil
+		return s.adminUserRepo.InsertUserLocations(ctx, targetID, uniqueLocationIDs)
 	})
-
 	if err != nil {
 		return err
 	}
@@ -216,9 +208,9 @@ func (s *adminUserServiceImpl) UpdateUserLocations(ctx context.Context, targetID
 		Action:     "UPDATE",
 		TargetType: "USER",
 		TargetID:   strconv.Itoa(targetID),
-		Changes: map[string]interface{}{
+		Changes: map[string]any{
 			"note":        "Updated User Locations",
-			"locationIds": req.LocationIDs,
+			"locationIds": uniqueLocationIDs,
 		},
 		IP:        ip,
 		UserAgent: userAgent,

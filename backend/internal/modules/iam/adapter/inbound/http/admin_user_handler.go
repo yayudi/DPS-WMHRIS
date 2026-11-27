@@ -11,14 +11,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// AdminUserHandler handles administrative HTTP endpoints for managing user accounts and location assignments.
 type AdminUserHandler struct {
 	adminUserUseCase port.AdminUserUseCase
 }
 
+// NewAdminUserHandler constructs an AdminUserHandler with the given AdminUserUseCase.
 func NewAdminUserHandler(adminUserUseCase port.AdminUserUseCase) *AdminUserHandler {
 	return &AdminUserHandler{adminUserUseCase: adminUserUseCase}
 }
 
+// GetUsers returns all active user accounts for administrative management.
 func (h *AdminUserHandler) GetUsers(c *gin.Context) {
 	users, err := h.adminUserUseCase.GetAllUsers(c.Request.Context())
 	if err != nil {
@@ -32,7 +35,7 @@ func (h *AdminUserHandler) GetUsers(c *gin.Context) {
 	})
 }
 
-// GetRoles acts as a proxy/alias for frontend compatibility
+// GetRoles returns all available roles for the user management dropdown (frontend compatibility alias).
 func (h *AdminUserHandler) GetRoles(c *gin.Context) {
 	roles, err := h.adminUserUseCase.GetRoles(c.Request.Context())
 	if err != nil {
@@ -46,12 +49,13 @@ func (h *AdminUserHandler) GetRoles(c *gin.Context) {
 	})
 }
 
+// CreateUser creates a new user account and publishes an audit log.
 func (h *AdminUserHandler) CreateUser(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[iam_dto.AdminCreateUserRequest](c)
+	reqPtr, ok := utils.BindAndValidate[iam_dto.AdminCreateUserRequest](c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
+	req := *reqPtr
 
 	adminID := middleware.GetUserID(c)
 	newUser, err := h.adminUserUseCase.CreateUser(c.Request.Context(), req, adminID, c.ClientIP(), c.Request.UserAgent())
@@ -63,17 +67,18 @@ func (h *AdminUserHandler) CreateUser(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusCreated, "settings.user.create_success", newUser)
 }
 
+// UpdateUser updates an existing user account by ID.
 func (h *AdminUserHandler) UpdateUser(c *gin.Context) {
 	targetID, ok := utils.ParseIntParam(c, "id")
 	if !ok {
 		return
 	}
 
-	req_ptr, ok := utils.BindAndValidate[iam_dto.AdminUpdateUserRequest](c)
+	reqPtr, ok := utils.BindAndValidate[iam_dto.AdminUpdateUserRequest](c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
+	req := *reqPtr
 
 	adminID := middleware.GetUserID(c)
 	err := h.adminUserUseCase.UpdateUser(c.Request.Context(), targetID, req, adminID, c.ClientIP(), c.Request.UserAgent())
@@ -85,6 +90,7 @@ func (h *AdminUserHandler) UpdateUser(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "settings.user.update_success", nil)
 }
 
+// DeleteUser soft-deletes a user account by ID.
 func (h *AdminUserHandler) DeleteUser(c *gin.Context) {
 	targetID, ok := utils.ParseIntParam(c, "id")
 	if !ok {
@@ -101,6 +107,7 @@ func (h *AdminUserHandler) DeleteUser(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "settings.user.delete_success", nil)
 }
 
+// GetUserLocations returns the list of warehouse location IDs assigned to a user.
 func (h *AdminUserHandler) GetUserLocations(c *gin.Context) {
 	targetID, ok := utils.ParseIntParam(c, "id")
 	if !ok {
@@ -116,17 +123,18 @@ func (h *AdminUserHandler) GetUserLocations(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, locationIDs)
 }
 
+// UpdateUserLocations replaces the warehouse location assignments for a user.
 func (h *AdminUserHandler) UpdateUserLocations(c *gin.Context) {
 	targetID, ok := utils.ParseIntParam(c, "id")
 	if !ok {
 		return
 	}
 
-	req_ptr, ok := utils.BindAndValidate[iam_dto.AdminUpdateUserLocationsRequest](c)
+	reqPtr, ok := utils.BindAndValidate[iam_dto.AdminUpdateUserLocationsRequest](c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
+	req := *reqPtr
 
 	adminID := middleware.GetUserID(c)
 	err := h.adminUserUseCase.UpdateUserLocations(c.Request.Context(), targetID, req, adminID, c.ClientIP(), c.Request.UserAgent())

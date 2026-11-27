@@ -1,3 +1,4 @@
+// Package iam wires the Identity and Access Management (IAM) bounded context.
 package iam
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/google/wire"
 )
 
+// ProviderSet provides all repositories, use cases, and HTTP handlers for the IAM module.
 var ProviderSet = wire.NewSet(
 	mysql.NewAdminUserRepository,
 	mysql.NewRoleRepository,

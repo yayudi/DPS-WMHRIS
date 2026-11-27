@@ -11,14 +11,11 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// RoleRepository defines the interface for role data operations
-
 type roleRepositoryImpl struct {
 	database.BaseRepository[domain.Role]
 	db *sqlx.DB
 }
 
-// NewRoleRepository injects the database dependency
 func (r *roleRepositoryImpl) GetRoles(ctx context.Context) ([]iam_dto.RoleResponse, error) {
 	query := "SELECT id, name, description FROM roles ORDER BY name"
 	var roles []iam_dto.RoleResponse
@@ -74,7 +71,7 @@ func (r *roleRepositoryImpl) InsertRolePermissions(ctx context.Context, roleID i
 	}
 
 	query := "INSERT INTO role_permission (role_id, permission_id) VALUES "
-	var args []interface{}
+	var args []any
 	for i, pID := range permissionIDs {
 		query += "(?, ?)"
 		if i < len(permissionIDs)-1 {
@@ -124,6 +121,7 @@ func (r *roleRepositoryImpl) DeleteRole(ctx context.Context, id int) (bool, erro
 	return affected > 0, err
 }
 
+// NewRoleRepository constructs a MySQL-backed RoleRepository.
 func NewRoleRepository(db *sqlx.DB) port.RoleRepository {
 	base := database.NewBaseRepository[domain.Role](db, "roles")
 	return &roleRepositoryImpl{
