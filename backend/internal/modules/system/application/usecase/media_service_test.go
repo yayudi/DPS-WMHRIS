@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
-	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
+	"github.com/dps-wmhris/backend/internal/shared/config"
 	"github.com/dps-wmhris/backend/internal/shared/kernel"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/xuri/excelize/v2"
@@ -21,7 +22,7 @@ type mockMediaRepo struct {
 	mediaMap map[string]int
 }
 
-func (m *mockMediaRepo) GetMediaAssets(ctx context.Context, page, limit int, filter system_mysql.MediaFilter) (utils.PaginatedResult[system_dto.MediaAssetResponse], error) { return utils.PaginatedResult[system_dto.MediaAssetResponse]{}, nil }
+func (m *mockMediaRepo) GetMediaAssets(ctx context.Context, page, limit int, filter system_dto.MediaFilter) (utils.PaginatedResult[system_dto.MediaAssetResponse], error) { return utils.PaginatedResult[system_dto.MediaAssetResponse]{}, nil }
 func (m *mockMediaRepo) GetMediaDetailsWithProducts(ctx context.Context, mediaID int) (*system_dto.MediaAssetResponse, error) { return nil, nil }
 func (m *mockMediaRepo) CreateMediaAsset(ctx context.Context, payload map[string]interface{}) (int, error) { return 1, nil }
 func (m *mockMediaRepo) GetMediaAssetByHash(ctx context.Context, hash string) (*int, error) { return nil, nil }
@@ -78,6 +79,9 @@ func (m *mockMediaProductRepo) FindAll(ctx context.Context) ([]catalog_domain.Pr
 func (m *mockMediaProductRepo) Delete(ctx context.Context, id int) error { return nil }
 func (m *mockMediaProductRepo) SoftDelete(ctx context.Context, id int) error { return nil }
 func (m *mockMediaProductRepo) Restore(ctx context.Context, id int) error { return nil }
+func (m *mockMediaProductRepo) ReplacePackageComponents(ctx context.Context, packageProductID int, components []catalog_domain.PackageComponent) error {
+	return nil
+}
 
 type mockStorageService struct{}
 func (m *mockStorageService) GeneratePresignedUploadUrl(ctx context.Context, filename string, mimeType string, folder string) (string, string, string, error) { return "", "", "", nil }
@@ -113,5 +117,56 @@ func TestProcessMediaLinkImport_NoPanic(t *testing.T) {
 
 	if !productRepo.linked[100] {
 		t.Errorf("expected product 100 to be linked to media, got summary: %s", summary)
+	}
+}
+
+func TestValidateExternalImageURL_BlocksSSRF(t *testing.T) {
+	ctx := context.Background()
+	blocked := []string{
+		"http://127.0.0.1/secret.png",
+		"http://localhost:8080/admin",
+		"http://169.254.169.254/latest/meta-data/",
+		"http://10.0.0.5/internal.jpg",
+		"http://192.168.1.1/router.png",
+		"file:///etc/passwd",
+		"ftp://example.com/image.png",
+	}
+	for _, raw := range blocked {
+		if _, err := usecase.ValidateExternalImageURL(ctx, raw); err == nil {
+			t.Errorf("expected SSRF URL %q to be blocked, but it was allowed", raw)
+		}
+	}
+}
+
+func TestMediaService_SaveMediaBatch_AndTemplateNoHardcode(t *testing.T) {
+	mediaRepo := &mockMediaRepo{mediaMap: map[string]int{}}
+	productRepo := &mockMediaProductRepo{linked: make(map[int]bool)}
+	txMgr := &mockTxManager{}
+	svc := usecase.NewMediaService(txMgr, mediaRepo, productRepo, &mockStorageService{})
+
+	uploaded, err := svc.SaveMediaBatch(context.Background(), []system_dto.ConfirmUploadAsset{
+		{Title: "Photo 1", MainPath: "main/p1.webp", Hash: "abc123"},
+	}, []any{float64(101), float64(101), float64(102), float64(-5)}, 7)
+	if err != nil {
+		t.Fatalf("SaveMediaBatch failed: %v", err)
+	}
+	if !txMgr.wasCalled || len(uploaded) != 1 {
+		t.Fatalf("expected tx called and 1 uploaded item, got tx=%v len=%d", txMgr.wasCalled, len(uploaded))
+	}
+	if !productRepo.linked[101] || !productRepo.linked[102] || productRepo.linked[-5] {
+		t.Fatalf("expected products 101 & 102 linked and -5 ignored, got %+v", productRepo.linked)
+	}
+
+	prevR2 := config.AppConfig.R2PublicURL
+	config.AppConfig.R2PublicURL = "https://cdn.example.test"
+	t.Cleanup(func() { config.AppConfig.R2PublicURL = prevR2 })
+
+	f := svc.GenerateBulkLinkTemplate()
+	val, _ := f.GetCellValue("Template Tautkan Media", "B2")
+	if strings.Contains(val, "dpvindonesia.com") {
+		t.Fatalf("hardcoded domain leaked into bulk link template: %s", val)
+	}
+	if !strings.HasPrefix(val, "https://cdn.example.test/") {
+		t.Fatalf("expected template sample URL to use R2PublicURL, got %s", val)
 	}
 }

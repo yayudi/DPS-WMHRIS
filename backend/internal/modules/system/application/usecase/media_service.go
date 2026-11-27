@@ -5,49 +5,51 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
 
-	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
-	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
-
 	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
+	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
+	"github.com/dps-wmhris/backend/internal/modules/system/domain"
+	"github.com/dps-wmhris/backend/internal/modules/system/port"
 	"github.com/dps-wmhris/backend/internal/parser"
 	"github.com/dps-wmhris/backend/internal/shared/apperror"
+	"github.com/dps-wmhris/backend/internal/shared/config"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/xuri/excelize/v2"
 )
 
-type MediaService interface {
-	SaveMediaMetadata(ctx context.Context, asset system_dto.ConfirmUploadAsset, userID int) (int, error)
-	SaveMediaBatch(ctx context.Context, assets []system_dto.ConfirmUploadAsset, products interface{}, userID int) ([]map[string]interface{}, error)
-	DeleteMediaAndQueueTrash(ctx context.Context, mediaID int) error
-	GetMediaAssets(ctx context.Context, page, limit int, filter system_mysql.MediaFilter) (utils.PaginatedResult[system_dto.MediaAssetResponse], error)
-	GetMediaDetailsWithProducts(ctx context.Context, mediaID int) (*system_dto.MediaAssetResponse, error)
-	GetMediaAssetsByIDs(ctx context.Context, mediaIDs []int) ([]system_dto.MediaAssetResponse, error)
-	DeleteMediaAsset(ctx context.Context, mediaID int) (mainPath string, thumbPath string, err error)
-	InsertTrashQueue(ctx context.Context, r2Key string) error
-	UpdateMediaTags(ctx context.Context, mediaID int, tags []string) error
-	UpdateMediaTitle(ctx context.Context, mediaID int, title string) error
-	ProcessMediaLinkImport(ctx context.Context, filePath string, userID int) (string, error)
-	GenerateBulkLinkTemplate() *excelize.File
-}
+const (
+	maxExternalImageBytes     = 20 << 20 // 20 MB cap to prevent OOM on remote hotlinks
+	externalImageHTTPTimeout  = 30 * time.Second
+	storageUploadHTTPTimeout  = 60 * time.Second
+	maxExternalImageRedirects = 5
+)
+
+// MediaService aliases the hexagonal inbound port for backward compatibility.
+type MediaService = port.MediaService
+
+// DuplicateError aliases domain.DuplicateMediaError for backward compatibility.
+type DuplicateError = domain.DuplicateMediaError
 
 type mediaServiceImpl struct {
 	txManager      database.TransactionManager
-	mediaRepo      system_mysql.MediaRepository
+	mediaRepo      port.MediaRepository
 	productRepo    catalog_port.ProductRepository
-	storageService StorageService
+	storageService port.StorageService
 }
 
-func NewMediaService(txManager database.TransactionManager, mediaRepo system_mysql.MediaRepository, productRepo catalog_port.ProductRepository, storageService StorageService) MediaService {
+// NewMediaService constructs a MediaService with transaction, repository, product, and storage dependencies.
+func NewMediaService(txManager database.TransactionManager, mediaRepo port.MediaRepository, productRepo catalog_port.ProductRepository, storageService port.StorageService) port.MediaService {
 	return &mediaServiceImpl{
 		txManager:      txManager,
 		mediaRepo:      mediaRepo,
@@ -56,23 +58,16 @@ func NewMediaService(txManager database.TransactionManager, mediaRepo system_mys
 	}
 }
 
-// DuplicateError is a custom error indicating the media hash already exists
-type DuplicateError struct {
-	DuplicateOf int
-}
-
-func (e DuplicateError) Error() string {
-	return fmt.Sprintf("Duplicate media of %d", e.DuplicateOf)
-}
-
+// SaveMediaMetadata checks hash deduplication and inserts a completed media asset record.
 func (s *mediaServiceImpl) SaveMediaMetadata(ctx context.Context, asset system_dto.ConfirmUploadAsset, userID int) (int, error) {
-	// Duplicate detection
-	existingID, err := s.mediaRepo.GetMediaAssetByHash(ctx, asset.Hash)
-	if err == nil && existingID != nil {
-		return 0, DuplicateError{DuplicateOf: *existingID}
+	if asset.Hash != "" {
+		existingID, err := s.mediaRepo.GetMediaAssetByHash(ctx, asset.Hash)
+		if err == nil && existingID != nil {
+			return 0, DuplicateError{DuplicateOf: *existingID}
+		}
 	}
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"title":         asset.Title,
 		"mainPath":      asset.MainPath,
 		"thumbnailPath": asset.ThumbnailPath,
@@ -89,25 +84,29 @@ func (s *mediaServiceImpl) SaveMediaMetadata(ctx context.Context, asset system_d
 	return s.mediaRepo.CreateMediaAsset(ctx, payload)
 }
 
-func (s *mediaServiceImpl) GetMediaAssets(ctx context.Context, page, limit int, filter system_mysql.MediaFilter) (utils.PaginatedResult[system_dto.MediaAssetResponse], error) {
+// GetMediaAssets returns a paginated list of media assets matching the supplied filter.
+func (s *mediaServiceImpl) GetMediaAssets(ctx context.Context, page, limit int, filter system_dto.MediaFilter) (utils.PaginatedResult[system_dto.MediaAssetResponse], error) {
 	return s.mediaRepo.GetMediaAssets(ctx, page, limit, filter)
 }
 
+// GetMediaDetailsWithProducts returns a single media asset enriched with linked products.
 func (s *mediaServiceImpl) GetMediaDetailsWithProducts(ctx context.Context, mediaID int) (*system_dto.MediaAssetResponse, error) {
 	return s.mediaRepo.GetMediaDetailsWithProducts(ctx, mediaID)
 }
 
+// GetMediaAssetsByIDs returns media status summaries for the requested asset IDs.
 func (s *mediaServiceImpl) GetMediaAssetsByIDs(ctx context.Context, mediaIDs []int) ([]system_dto.MediaAssetResponse, error) {
 	return s.mediaRepo.GetMediaAssetsByIDs(ctx, mediaIDs)
 }
 
+// DeleteMediaAsset deletes a media asset record from the database and returns its R2 object keys.
 func (s *mediaServiceImpl) DeleteMediaAsset(ctx context.Context, mediaID int) (string, string, error) {
 	asset, err := s.mediaRepo.GetMediaAssetByID(ctx, mediaID)
 	if err != nil || asset == nil {
 		return "", "", apperror.NotFound("settings.media.asset_not_found", "aset tidak ditemukan")
 	}
 
-	// Delete from DB (will throw if FK restrict hits)
+	// Delete from DB (will fail with FK violation if referenced by product_images)
 	if err := s.mediaRepo.DeleteMediaAsset(ctx, mediaID); err != nil {
 		return "", "", err
 	}
@@ -120,6 +119,7 @@ func (s *mediaServiceImpl) DeleteMediaAsset(ctx context.Context, mediaID int) (s
 	return asset.MainPath, thumbPath, nil
 }
 
+// InsertTrashQueue records an R2 object key for deferred background deletion.
 func (s *mediaServiceImpl) InsertTrashQueue(ctx context.Context, r2Key string) error {
 	if r2Key == "" {
 		return nil
@@ -127,18 +127,21 @@ func (s *mediaServiceImpl) InsertTrashQueue(ctx context.Context, r2Key string) e
 	return s.mediaRepo.InsertTrashQueue(ctx, r2Key)
 }
 
+// UpdateMediaTags replaces the tags of a media asset inside a transaction.
 func (s *mediaServiceImpl) UpdateMediaTags(ctx context.Context, mediaID int, tags []string) error {
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
 		return s.mediaRepo.UpdateMediaTags(ctx, mediaID, tags)
 	})
 }
 
+// UpdateMediaTitle updates the display title of a media asset inside a transaction.
 func (s *mediaServiceImpl) UpdateMediaTitle(ctx context.Context, mediaID int, title string) error {
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
 		return s.mediaRepo.UpdateMediaTitle(ctx, mediaID, title)
 	})
 }
 
+// ProcessMediaLinkImport parses an uploaded Excel workbook and links SKUs to existing or remote media assets.
 func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath string, userID int) (string, error) {
 	filePath = utils.ResolveStoragePath(filePath)
 	records, err := parser.ReadExcelFile(filePath)
@@ -171,7 +174,7 @@ func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath 
 	var errorsList []string
 
 	for rowIndex, record := range records {
-		lineNum := rowIndex + 2 // row 1 was header
+		lineNum := rowIndex + 2 // row 1 is the Excel header
 
 		sku := strings.TrimSpace(record[skuKey])
 		imageRef := strings.TrimSpace(record[titleKey])
@@ -192,12 +195,13 @@ func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath 
 		var mediaID int
 		var found bool
 
-		isHotlink := strings.HasPrefix(strings.ToLower(imageRef), "http://") || strings.HasPrefix(strings.ToLower(imageRef), "https://")
+		lowerRef := strings.ToLower(imageRef)
+		isHotlink := strings.HasPrefix(lowerRef, "http://") || strings.HasPrefix(lowerRef, "https://")
 
 		if isHotlink {
 			mID, err := s.processExternalImage(ctx, imageRef, userID)
 			if err != nil {
-				errorsList = append(errorsList, fmt.Sprintf("Baris %d: Gagal proses hotlink '%s': %v", rowIndex+1, imageRef, err))
+				errorsList = append(errorsList, fmt.Sprintf("Baris %d: Gagal proses hotlink '%s': %v", lineNum, imageRef, err))
 				failCount++
 				continue
 			}
@@ -220,7 +224,7 @@ func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath 
 		}
 
 		if !found {
-			errorsList = append(errorsList, fmt.Sprintf("Baris %d: Media '%s' tidak ditemukan", rowIndex+1, imageRef))
+			errorsList = append(errorsList, fmt.Sprintf("Baris %d: Media '%s' tidak ditemukan", lineNum, imageRef))
 			failCount++
 			continue
 		}
@@ -229,7 +233,7 @@ func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath 
 		if err == nil && !linked {
 			err = s.productRepo.LinkMediaToProduct(ctx, productID, mediaID, 0)
 			if err != nil {
-				errorsList = append(errorsList, fmt.Sprintf("Baris %d: Gagal link media ke produk: %v", rowIndex+1, err))
+				errorsList = append(errorsList, fmt.Sprintf("Baris %d: Gagal link media ke produk: %v", lineNum, err))
 				failCount++
 				continue
 			}
@@ -250,12 +254,103 @@ func (s *mediaServiceImpl) ProcessMediaLinkImport(ctx context.Context, filePath 
 	return summary, nil
 }
 
+// isBlockedExternalIP rejects loopback, private RFC1918/ULA, link-local (including cloud metadata 169.254.169.254),
+// unspecified, and multicast IP addresses to prevent SSRF attacks.
+func isBlockedExternalIP(ip net.IP) bool {
+	if ip == nil {
+		return true
+	}
+	return ip.IsLoopback() ||
+		ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsMulticast() ||
+		ip.IsUnspecified()
+}
+
+// ValidateExternalImageURL checks scheme and resolved IPs before fetching a remote image URL.
+func ValidateExternalImageURL(ctx context.Context, rawURL string) (*url.URL, error) {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return nil, fmt.Errorf("URL tidak valid: %w", err)
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return nil, fmt.Errorf("skema URL '%s' tidak diizinkan", parsed.Scheme)
+	}
+	host := parsed.Hostname()
+	if host == "" {
+		return nil, errors.New("hostname URL kosong")
+	}
+	if strings.EqualFold(host, "localhost") {
+		return nil, errors.New("akses ke host internal tidak diizinkan")
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if isBlockedExternalIP(ip) {
+			return nil, fmt.Errorf("akses ke alamat IP internal %s tidak diizinkan", ip.String())
+		}
+		return parsed, nil
+	}
+
+	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil || len(ips) == 0 {
+		return nil, fmt.Errorf("gagal resolve hostname '%s'", host)
+	}
+	for _, addr := range ips {
+		if isBlockedExternalIP(addr.IP) {
+			return nil, fmt.Errorf("akses ke alamat IP internal %s tidak diizinkan", addr.IP.String())
+		}
+	}
+	return parsed, nil
+}
+
+func newSafeExternalHTTPClient() *http.Client {
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(address)
+			if err != nil {
+				return nil, err
+			}
+			ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+			if err != nil || len(ips) == 0 {
+				return nil, fmt.Errorf("gagal resolve host %s", host)
+			}
+			for _, addr := range ips {
+				if isBlockedExternalIP(addr.IP) {
+					return nil, fmt.Errorf("koneksi ke IP internal %s diblokir", addr.IP.String())
+				}
+			}
+			return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
+		},
+	}
+
+	return &http.Client{
+		Timeout:   externalImageHTTPTimeout,
+		Transport: transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= maxExternalImageRedirects {
+				return errors.New("terlalu banyak redirect")
+			}
+			_, err := ValidateExternalImageURL(req.Context(), req.URL.String())
+			return err
+		},
+	}
+}
+
 func (s *mediaServiceImpl) processExternalImage(ctx context.Context, imageURL string, userID int) (int, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", imageURL, nil)
+	parsedURL, err := ValidateExternalImageURL(ctx, imageURL)
 	if err != nil {
 		return 0, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsedURL.String(), nil)
+	if err != nil {
+		return 0, err
+	}
+
+	client := newSafeExternalHTTPClient()
+	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -265,9 +360,12 @@ func (s *mediaServiceImpl) processExternalImage(ctx context.Context, imageURL st
 		return 0, fmt.Errorf("status HTTP %d", resp.StatusCode)
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxExternalImageBytes+1))
 	if err != nil {
 		return 0, err
+	}
+	if len(data) > maxExternalImageBytes {
+		return 0, fmt.Errorf("ukuran file melebihi batas %d MB", maxExternalImageBytes/(1<<20))
 	}
 
 	hashBytes := sha256.Sum256(data)
@@ -278,31 +376,35 @@ func (s *mediaServiceImpl) processExternalImage(ctx context.Context, imageURL st
 		return *existingID, nil
 	}
 
-	parsedUrl, _ := url.Parse(imageURL)
-	filename := filepath.Base(parsedUrl.Path)
+	filename := filepath.Base(parsedURL.Path)
 	if filename == "" || filename == "." || filename == "/" {
 		filename = fmt.Sprintf("downloaded_%d.jpg", time.Now().Unix())
 	}
 	mimeType := http.DetectContentType(data)
 
-	mainUrl, mainKey, _, err := s.storageService.GeneratePresignedUploadUrl(ctx, filename, mimeType, "main")
+	mainURL, mainKey, _, err := s.storageService.GeneratePresignedUploadUrl(ctx, filename, mimeType, "main")
 	if err != nil {
 		return 0, err
 	}
 
-	putReq, _ := http.NewRequestWithContext(ctx, "PUT", mainUrl, bytes.NewReader(data))
-	putReq.Header.Set("Content-Type", mimeType)
-	putResp, err := http.DefaultClient.Do(putReq)
+	putReq, err := http.NewRequestWithContext(ctx, http.MethodPut, mainURL, bytes.NewReader(data))
 	if err != nil {
-		return 0, fmt.Errorf("gagal upload ke storage")
+		return 0, fmt.Errorf("gagal menyiapkan request upload ke storage: %w", err)
+	}
+	putReq.Header.Set("Content-Type", mimeType)
+
+	uploadClient := &http.Client{Timeout: storageUploadHTTPTimeout}
+	putResp, err := uploadClient.Do(putReq)
+	if err != nil {
+		return 0, fmt.Errorf("gagal upload ke storage: %w", err)
 	}
 	defer putResp.Body.Close()
 
-	if putResp.StatusCode != 200 {
+	if putResp.StatusCode < http.StatusOK || putResp.StatusCode >= http.StatusMultipleChoices {
 		return 0, fmt.Errorf("gagal upload ke storage (status %d)", putResp.StatusCode)
 	}
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"title":         filename,
 		"mainPath":      mainKey,
 		"thumbnailPath": nil,
@@ -319,37 +421,69 @@ func (s *mediaServiceImpl) processExternalImage(ctx context.Context, imageURL st
 	return s.mediaRepo.CreateMediaAsset(ctx, payload)
 }
 
-func (s *mediaServiceImpl) SaveMediaBatch(ctx context.Context, assets []system_dto.ConfirmUploadAsset, products interface{}, userID int) ([]map[string]interface{}, error) {
-	var uploadedAssets []map[string]interface{}
-	err := s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		ext := database.GetExt(ctx, nil)
+func parseProductIDs(products any) []int {
+	if products == nil {
+		return nil
+	}
+	var rawIDs []int
+	switch v := products.(type) {
+	case int:
+		rawIDs = append(rawIDs, v)
+	case float64:
+		rawIDs = append(rawIDs, int(v))
+	case []int:
+		rawIDs = append(rawIDs, v...)
+	case []any:
+		for _, item := range v {
+			switch n := item.(type) {
+			case float64:
+				rawIDs = append(rawIDs, int(n))
+			case int:
+				rawIDs = append(rawIDs, n)
+			}
+		}
+	}
+
+	seen := make(map[int]struct{}, len(rawIDs))
+	deduped := make([]int, 0, len(rawIDs))
+	for _, id := range rawIDs {
+		if id <= 0 {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		deduped = append(deduped, id)
+	}
+	return deduped
+}
+
+// SaveMediaBatch persists a batch of uploaded media assets and links them to any specified products atomically.
+func (s *mediaServiceImpl) SaveMediaBatch(ctx context.Context, assets []system_dto.ConfirmUploadAsset, products any, userID int) ([]map[string]any, error) {
+	prodIDs := parseProductIDs(products)
+	uploadedAssets := make([]map[string]any, 0, len(assets))
+
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		for _, asset := range assets {
-			mediaID, err := s.SaveMediaMetadata(ctx, asset, userID)
+			mediaID, err := s.SaveMediaMetadata(txCtx, asset, userID)
 			if err != nil {
 				return err
 			}
 
-			if products != nil {
-				var prodIDs []int
-				switch v := products.(type) {
-				case float64:
-					prodIDs = append(prodIDs, int(v))
-				case []interface{}:
-					for _, item := range v {
-						if f, ok := item.(float64); ok {
-							prodIDs = append(prodIDs, int(f))
-						}
-					}
+			for _, pID := range prodIDs {
+				linked, linkCheckErr := s.productRepo.IsMediaLinkedToProduct(txCtx, pID, mediaID)
+				if linkCheckErr != nil {
+					return linkCheckErr
 				}
-				for _, pID := range prodIDs {
-					_, txErr := ext.ExecContext(ctx, "INSERT IGNORE INTO product_images (product_id, media_id, is_primary) VALUES (?, ?, 0)", pID, mediaID)
-					if txErr != nil {
+				if !linked {
+					if txErr := s.productRepo.LinkMediaToProduct(txCtx, pID, mediaID, 0); txErr != nil {
 						return txErr
 					}
 				}
 			}
 
-			uploadedAssets = append(uploadedAssets, map[string]interface{}{
+			uploadedAssets = append(uploadedAssets, map[string]any{
 				"id":           mediaID,
 				"originalName": asset.Title,
 				"status":       "COMPLETED",
@@ -360,6 +494,7 @@ func (s *mediaServiceImpl) SaveMediaBatch(ctx context.Context, assets []system_d
 	return uploadedAssets, err
 }
 
+// DeleteMediaAndQueueTrash deletes a media asset and enqueues its R2 keys into r2_trash_queue atomically.
 func (s *mediaServiceImpl) DeleteMediaAndQueueTrash(ctx context.Context, mediaID int) error {
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
 		mainPath, thumbPath, err := s.DeleteMediaAsset(ctx, mediaID)
@@ -376,6 +511,7 @@ func (s *mediaServiceImpl) DeleteMediaAndQueueTrash(ctx context.Context, mediaID
 	})
 }
 
+// GenerateBulkLinkTemplate creates an Excel workbook template for bulk linking media assets to product SKUs.
 func (s *mediaServiceImpl) GenerateBulkLinkTemplate() *excelize.File {
 	f := excelize.NewFile()
 	sheetName := "Template Tautkan Media"
@@ -385,9 +521,16 @@ func (s *mediaServiceImpl) GenerateBulkLinkTemplate() *excelize.File {
 	utils.SetHeaders(f, sheetName, []string{"SKU", "Image_URL"}, styles.Header)
 	utils.SetColWidths(f, sheetName, map[string]float64{"A": 20, "B": 50})
 
-	// Add sample data
-	_ = f.SetSheetRow(sheetName, "A2", &[]interface{}{"PP000R081", "https://api.dpvindonesia.com/uploads/main/main-1783397524366-325551216.webp"})               // #nosec G104
-	_ = f.SetSheetRow(sheetName, "A3", &[]interface{}{"PP000453P", "https://api.dpvindonesia.com/uploads/main/main-dpv_indonesia_logo-white_lettermark_sm.png"}) // #nosec G104
+	baseURL := strings.TrimRight(config.AppConfig.R2PublicURL, "/")
+
+	sample1 := "main/sample-product-1.webp"
+	sample2 := "main/sample-product-2.png"
+	if baseURL != "" {
+		sample1 = baseURL + "/" + sample1
+		sample2 = baseURL + "/" + sample2
+	}
+
+	_ = f.SetSheetRow(sheetName, "A2", &[]any{"SKU-SAMPLE-001", sample1}) // #nosec G104
+	_ = f.SetSheetRow(sheetName, "A3", &[]any{"SKU-SAMPLE-002", sample2}) // #nosec G104
 	return f
 }
-

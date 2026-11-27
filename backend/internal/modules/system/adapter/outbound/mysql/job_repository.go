@@ -1,3 +1,4 @@
+// Package mysql implements MySQL outbound repository adapters for the system module.
 package mysql
 
 import (
@@ -6,37 +7,21 @@ import (
 	"errors"
 
 	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
+	"github.com/dps-wmhris/backend/internal/modules/system/port"
 	database "github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/jmoiron/sqlx"
 )
 
-type JobRepository interface {
-	// Import Jobs
-	CreateImportJob(ctx context.Context, job *system_domain.ImportJob) (int, error)
-	GetImportJobs(ctx context.Context, page int, limit int, userID *int) (utils.PaginatedResult[system_domain.ImportJob], error)
-	GetImportJobByID(ctx context.Context, id int) (*system_domain.ImportJob, error)
-	UpdateImportJobStatus(ctx context.Context, id int, status string, logSummary *string, errorLog *string) error
-	UpdateImportJobProgress(ctx context.Context, id int, processed int, total int) error
-	GetPendingImportJobs(ctx context.Context) ([]system_domain.ImportJob, error)
-	ClaimNextImportJob(ctx context.Context) (*system_domain.ImportJob, error)
-	RecoverStuckImportJobs(ctx context.Context) (int, error)
-
-	// Export Jobs
-	CreateExportJob(ctx context.Context, job *system_domain.ExportJob) (int, error)
-	GetExportJobs(ctx context.Context, page int, limit int, userID *int) (utils.PaginatedResult[system_domain.ExportJob], error)
-	GetExportJobByID(ctx context.Context, id int) (*system_domain.ExportJob, error)
-	UpdateExportJobStatus(ctx context.Context, id int, status string, filePath *string, errorMessage *string) error
-	GetPendingExportJobs(ctx context.Context) ([]system_domain.ExportJob, error)
-	ClaimNextExportJob(ctx context.Context) (*system_domain.ExportJob, error)
-	RecoverStuckExportJobs(ctx context.Context) (int, error)
-}
+// JobRepository aliases the hexagonal outbound port for backward compatibility.
+type JobRepository = port.JobRepository
 
 type jobRepositoryImpl struct {
 	db *sqlx.DB
 }
 
-func NewJobRepository(db *sqlx.DB) JobRepository {
+// NewJobRepository constructs a MySQL-backed JobRepository.
+func NewJobRepository(db *sqlx.DB) port.JobRepository {
 	return &jobRepositoryImpl{db: db}
 }
 
@@ -57,7 +42,7 @@ func (r *jobRepositoryImpl) CreateImportJob(ctx context.Context, job *system_dom
 
 func (r *jobRepositoryImpl) GetImportJobs(ctx context.Context, page int, limit int, userID *int) (utils.PaginatedResult[system_domain.ImportJob], error) {
 	query := `SELECT * FROM import_jobs`
-	var args []interface{}
+	var args []any
 	if userID != nil && *userID > 0 {
 		query += ` WHERE user_id = ?`
 		args = append(args, *userID)
@@ -120,6 +105,7 @@ func (r *jobRepositoryImpl) ClaimNextImportJob(ctx context.Context) (*system_dom
 	if err != nil {
 		return nil, err
 	}
+	job.Status = system_domain.JobStatusProcessing
 	return &job, nil
 }
 
@@ -155,7 +141,7 @@ func (r *jobRepositoryImpl) CreateExportJob(ctx context.Context, job *system_dom
 
 func (r *jobRepositoryImpl) GetExportJobs(ctx context.Context, page int, limit int, userID *int) (utils.PaginatedResult[system_domain.ExportJob], error) {
 	query := `SELECT * FROM export_jobs`
-	var args []interface{}
+	var args []any
 	if userID != nil && *userID > 0 {
 		query += ` WHERE user_id = ?`
 		args = append(args, *userID)
@@ -210,6 +196,7 @@ func (r *jobRepositoryImpl) ClaimNextExportJob(ctx context.Context) (*system_dom
 	if err != nil {
 		return nil, err
 	}
+	job.Status = system_domain.JobStatusProcessing
 	return &job, nil
 }
 

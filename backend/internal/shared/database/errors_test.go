@@ -62,6 +62,11 @@ func TestIsForeignKeyViolation(t *testing.T) {
 			expected: false,
 		},
 		{
+			name:     "MySQL 1451 FK Violation (Row Is Referenced)",
+			err:      &mysql.MySQLError{Number: 1451, Message: "Cannot delete or update a parent row"},
+			expected: true,
+		},
+		{
 			name:     "MySQL 1452 FK Violation",
 			err:      &mysql.MySQLError{Number: 1452, Message: "Cannot add or update a child row"},
 			expected: true,

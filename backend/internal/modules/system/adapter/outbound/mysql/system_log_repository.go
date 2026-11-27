@@ -1,29 +1,28 @@
 package mysql
 
 import (
-	database "github.com/dps-wmhris/backend/internal/shared/database"
-
 	"context"
 	"encoding/json"
 	"strings"
+	"time"
 
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
-
 	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
+	"github.com/dps-wmhris/backend/internal/modules/system/port"
+	database "github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/jmoiron/sqlx"
 )
 
-type SystemLogRepository interface {
-	Create(ctx context.Context, log *system_domain.SystemLog) error
-	GetLogs(ctx context.Context, req system_dto.GetSystemLogsRequest) (utils.PaginatedResult[system_dto.SystemLogResponse], error)
-}
+// SystemLogRepository aliases the hexagonal outbound port for backward compatibility.
+type SystemLogRepository = port.SystemLogRepository
 
 type systemLogRepositoryImpl struct {
 	db *sqlx.DB
 }
 
-func NewSystemLogRepository(db *sqlx.DB) SystemLogRepository {
+// NewSystemLogRepository constructs a MySQL-backed SystemLogRepository.
+func NewSystemLogRepository(db *sqlx.DB) port.SystemLogRepository {
 	return &systemLogRepositoryImpl{db: db}
 }
 
@@ -64,7 +63,21 @@ func nonEmptyTrimmed(values []string) []string {
 	return out
 }
 
-func buildTriStateWhere(column string, filterValue string, conditions *[]string, params *[]interface{}) {
+func normalizeDateBound(raw, daySuffix string) (string, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", false
+	}
+	if _, err := time.Parse("2006-01-02", trimmed); err == nil {
+		return trimmed + " " + daySuffix, true
+	}
+	if _, err := time.Parse("2006-01-02 15:04:05", trimmed); err == nil {
+		return trimmed, true
+	}
+	return "", false
+}
+
+func buildTriStateWhere(column string, filterValue string, conditions *[]string, params *[]any) {
 	filterValue = strings.TrimSpace(filterValue)
 	if filterValue == "" || filterValue == "all" || filterValue == "All" {
 		return
@@ -98,7 +111,7 @@ func buildTriStateWhere(column string, filterValue string, conditions *[]string,
 
 func (r *systemLogRepositoryImpl) GetLogs(ctx context.Context, req system_dto.GetSystemLogsRequest) (utils.PaginatedResult[system_dto.SystemLogResponse], error) {
 	conditions := []string{"1=1"}
-	var params []interface{}
+	var params []any
 
 	if search := strings.TrimSpace(req.Search); search != "" {
 		conditions = append(conditions, "(l.target_id LIKE ? OR l.changes LIKE ? OR u.username LIKE ? OR u.nickname LIKE ?)")
@@ -114,14 +127,14 @@ func (r *systemLogRepositoryImpl) GetLogs(ctx context.Context, req system_dto.Ge
 		params = append(params, req.UserID)
 	}
 
-	if req.StartDate != "" {
+	if startBound, ok := normalizeDateBound(req.StartDate, "00:00:00"); ok {
 		conditions = append(conditions, "l.created_at >= ?")
-		params = append(params, req.StartDate+" 00:00:00")
+		params = append(params, startBound)
 	}
 
-	if req.EndDate != "" {
+	if endBound, ok := normalizeDateBound(req.EndDate, "23:59:59"); ok {
 		conditions = append(conditions, "l.created_at <= ?")
-		params = append(params, req.EndDate+" 23:59:59")
+		params = append(params, endBound)
 	}
 
 	whereSql := strings.Join(conditions, " AND ")

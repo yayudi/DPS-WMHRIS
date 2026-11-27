@@ -1,30 +1,31 @@
+// Package usecase implements application use cases for the misc module.
 package usecase
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"strconv"
+	"strings"
 
-	misc_mysql "github.com/dps-wmhris/backend/internal/modules/misc/adapter/outbound/mysql"
 	misc_dto "github.com/dps-wmhris/backend/internal/modules/misc/application/dto"
+	"github.com/dps-wmhris/backend/internal/modules/misc/domain"
+	"github.com/dps-wmhris/backend/internal/modules/misc/port"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/eventbus"
 )
 
-type PaperSizeService interface {
-	GetAllPaperSizes(ctx context.Context) ([]misc_dto.PaperSizeResponse, error)
-	GetPaperSizeByID(ctx context.Context, id int) (*misc_dto.PaperSizeResponse, error)
-	CreatePaperSize(ctx context.Context, req misc_dto.CreatePaperSizeRequest, userID int, ip, userAgent string) (int, error)
-	UpdatePaperSize(ctx context.Context, id int, req misc_dto.UpdatePaperSizeRequest, userID int, ip, userAgent string) error
-	DeletePaperSize(ctx context.Context, id int, userID int, ip, userAgent string) error
-}
+// PaperSizeService aliases the hexagonal inbound port for backward compatibility.
+type PaperSizeService = port.PaperSizeUseCase
 
 type paperSizeServiceImpl struct {
 	txManager     database.TransactionManager
-	paperSizeRepo misc_mysql.PaperSizeRepository
+	paperSizeRepo port.PaperSizeRepository
 	eventBus      eventbus.EventBus
 }
 
-func NewPaperSizeService(txManager database.TransactionManager, paperSizeRepo misc_mysql.PaperSizeRepository, eventBus eventbus.EventBus) PaperSizeService {
+// NewPaperSizeService constructs a PaperSizeUseCase backed by TransactionManager, repository, and EventBus.
+func NewPaperSizeService(txManager database.TransactionManager, paperSizeRepo port.PaperSizeRepository, eventBus eventbus.EventBus) port.PaperSizeUseCase {
 	return &paperSizeServiceImpl{txManager: txManager, paperSizeRepo: paperSizeRepo, eventBus: eventBus}
 }
 
@@ -33,11 +34,31 @@ func (s *paperSizeServiceImpl) GetAllPaperSizes(ctx context.Context) ([]misc_dto
 }
 
 func (s *paperSizeServiceImpl) GetPaperSizeByID(ctx context.Context, id int) (*misc_dto.PaperSizeResponse, error) {
-	return s.paperSizeRepo.FindByID(ctx, id)
+	res, err := s.paperSizeRepo.FindByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrPaperSizeNotFound
+		}
+		return nil, err
+	}
+	return res, nil
 }
 
 func (s *paperSizeServiceImpl) CreatePaperSize(ctx context.Context, req misc_dto.CreatePaperSizeRequest, userID int, ip, userAgent string) (int, error) {
-	id, err := s.paperSizeRepo.Insert(ctx, req)
+	req.Name = strings.TrimSpace(req.Name)
+	if req.NumberAcross <= 0 {
+		req.NumberAcross = 1
+	}
+	if req.NumberDown <= 0 {
+		req.NumberDown = 1
+	}
+
+	var id int
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		var txErr error
+		id, txErr = s.paperSizeRepo.Insert(txCtx, req)
+		return txErr
+	})
 	if err != nil {
 		return 0, err
 	}
@@ -56,7 +77,29 @@ func (s *paperSizeServiceImpl) CreatePaperSize(ctx context.Context, req misc_dto
 }
 
 func (s *paperSizeServiceImpl) UpdatePaperSize(ctx context.Context, id int, req misc_dto.UpdatePaperSizeRequest, userID int, ip, userAgent string) error {
-	_, err := s.paperSizeRepo.Update(ctx, id, req)
+	req.Name = strings.TrimSpace(req.Name)
+	if req.NumberAcross <= 0 {
+		req.NumberAcross = 1
+	}
+	if req.NumberDown <= 0 {
+		req.NumberDown = 1
+	}
+
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		affected, txErr := s.paperSizeRepo.Update(txCtx, id, req)
+		if txErr != nil {
+			return txErr
+		}
+		if affected == 0 {
+			if _, findErr := s.paperSizeRepo.FindByID(txCtx, id); findErr != nil {
+				if errors.Is(findErr, sql.ErrNoRows) {
+					return domain.ErrPaperSizeNotFound
+				}
+				return findErr
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -75,7 +118,16 @@ func (s *paperSizeServiceImpl) UpdatePaperSize(ctx context.Context, id int, req 
 }
 
 func (s *paperSizeServiceImpl) DeletePaperSize(ctx context.Context, id int, userID int, ip, userAgent string) error {
-	_, err := s.paperSizeRepo.Delete(ctx, id)
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		affected, txErr := s.paperSizeRepo.Delete(txCtx, id)
+		if txErr != nil {
+			return txErr
+		}
+		if affected == 0 {
+			return domain.ErrPaperSizeNotFound
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -85,7 +137,7 @@ func (s *paperSizeServiceImpl) DeletePaperSize(ctx context.Context, id int, user
 		Action:     "DELETE",
 		TargetType: "PAPER_SIZE",
 		TargetID:   strconv.Itoa(id),
-		Changes:    `{"note": "Paper Size Deleted"}`,
+		Changes:    map[string]any{"note": "Paper Size Deleted"},
 		IP:         ip,
 		UserAgent:  userAgent,
 	})

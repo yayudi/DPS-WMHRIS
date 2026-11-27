@@ -1,11 +1,12 @@
+// Package domain defines core entities, value objects, event payloads, and custom errors for the system module.
 package domain
 
-// Event Types
+// EventSystemLog is the RabbitMQ routing key for asynchronous system audit log events.
 const (
 	EventSystemLog = "system.log.created"
 )
 
-// SystemLogPayload represents the data for a SystemLogEvent.
+// SystemLogPayload represents the JSON payload carried by a SystemLogEvent.
 type SystemLogPayload struct {
 	Action     string  `json:"action"`
 	TargetType string  `json:"target_type"`

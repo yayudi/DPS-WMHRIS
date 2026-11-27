@@ -7,36 +7,47 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dps-wmhris/backend/internal/modules/system/port"
 	"github.com/dps-wmhris/backend/internal/shared/config"
 )
 
-type FirebaseSignalService interface {
-	EmitSignal(ctx context.Context, path string, payload map[string]interface{}) error
-	EmitUserSignal(ctx context.Context, userId string, action string) error
-	EmitSharedTaskSignal(ctx context.Context, permission string, action string) error
-}
+// FirebaseSignalService aliases the hexagonal port for backward compatibility.
+type FirebaseSignalService = port.FirebaseSignalService
 
 type firebaseSignalServiceImpl struct{}
 
-func NewFirebaseSignalService() FirebaseSignalService {
+// NewFirebaseSignalService constructs a FirebaseSignalService.
+func NewFirebaseSignalService() port.FirebaseSignalService {
 	return &firebaseSignalServiceImpl{}
 }
 
-func (s *firebaseSignalServiceImpl) EmitSignal(ctx context.Context, path string, payload map[string]interface{}) error {
+// SanitizeFirebasePathSegment replaces forbidden Firebase RTDB key characters and path separators with underscores.
+func SanitizeFirebasePathSegment(raw string) string {
+	return strings.Map(func(r rune) rune {
+		switch r {
+		case '.', '#', '$', '[', ']', '/', '\\':
+			return '_'
+		default:
+			return r
+		}
+	}, strings.TrimSpace(raw))
+}
+
+// EmitSignal writes a signal payload with a millisecond timestamp to Firebase Realtime Database.
+func (s *firebaseSignalServiceImpl) EmitSignal(ctx context.Context, path string, payload map[string]any) error {
 	if !config.IsFirebaseInitialized || config.FirebaseDB == nil {
 		log.Printf("[FIREBASE_SIGNAL] Warning: Cannot emit signal because Firebase is not initialized. Path: %s\n", path)
 		return nil
 	}
 
-	dataToSet := make(map[string]interface{})
+	dataToSet := make(map[string]any, len(payload)+1)
 	for k, v := range payload {
 		dataToSet[k] = v
 	}
-	dataToSet["last_updated"] = time.Now().UnixNano() / int64(time.Millisecond)
+	dataToSet["last_updated"] = time.Now().UnixMilli()
 
 	ref := config.FirebaseDB.NewRef(path)
-	err := ref.Set(ctx, dataToSet)
-	if err != nil {
+	if err := ref.Set(ctx, dataToSet); err != nil {
 		log.Printf("[FIREBASE_SIGNAL] Error emitting signal to %s: %v\n", path, err)
 		return err
 	}
@@ -44,40 +55,28 @@ func (s *firebaseSignalServiceImpl) EmitSignal(ctx context.Context, path string,
 	return nil
 }
 
-func (s *firebaseSignalServiceImpl) EmitUserSignal(ctx context.Context, userId string, action string) error {
+// EmitUserSignal emits a refresh signal targeted at a specific user channel.
+func (s *firebaseSignalServiceImpl) EmitUserSignal(ctx context.Context, userID string, action string) error {
 	if action == "" {
 		action = "REFRESH_NOTIFICATIONS"
 	}
 
-	// Sanitize userId (replace special characters with underscore)
-	safeUserId := strings.Map(func(r rune) rune {
-		if r == '.' || r == '#' || r == '$' || r == '[' || r == ']' {
-			return '_'
-		}
-		return r
-	}, userId)
-
-	payload := map[string]interface{}{
+	safeUserID := SanitizeFirebasePathSegment(userID)
+	payload := map[string]any{
 		"action": action,
 	}
 
-	return s.EmitSignal(ctx, fmt.Sprintf("signals/users/%s", safeUserId), payload)
+	return s.EmitSignal(ctx, fmt.Sprintf("signals/users/%s", safeUserID), payload)
 }
 
+// EmitSharedTaskSignal emits a refresh signal targeted at a shared permission channel.
 func (s *firebaseSignalServiceImpl) EmitSharedTaskSignal(ctx context.Context, permission string, action string) error {
 	if action == "" {
 		action = "REFRESH_NOTIFICATIONS"
 	}
 
-	// Sanitize permission
-	safePermission := strings.Map(func(r rune) rune {
-		if r == '.' || r == '#' || r == '$' || r == '[' || r == ']' {
-			return '_'
-		}
-		return r
-	}, permission)
-
-	payload := map[string]interface{}{
+	safePermission := SanitizeFirebasePathSegment(permission)
+	payload := map[string]any{
 		"action": action,
 	}
 

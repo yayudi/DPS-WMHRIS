@@ -1,3 +1,4 @@
+// Package system wires dependency injection providers for jobs, media, notifications, audit logs, storage, and localization.
 package system
 
 import (
@@ -16,6 +17,7 @@ func ProvideLocalizationUseCase(repo port.LocalizationRepository, txManager data
 	return usecase.NewLocalizationService(repo, txManager, bus)
 }
 
+// ProviderSet supplies all repositories, use cases, HTTP handlers, and event listeners for the system module.
 var ProviderSet = wire.NewSet(
 	mysql.NewJobRepository,
 	mysql.NewMediaRepository,

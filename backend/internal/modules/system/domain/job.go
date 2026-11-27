@@ -6,7 +6,17 @@ import (
 	"github.com/dps-wmhris/backend/internal/shared/kernel"
 )
 
-// ImportJob represents the import_jobs table
+// Job lifecycle status constants shared across import_jobs and export_jobs tables.
+const (
+	JobStatusPending             = "PENDING"
+	JobStatusProcessing          = "PROCESSING"
+	JobStatusCompleted           = "COMPLETED"
+	JobStatusFailed              = "FAILED"
+	JobStatusCancelled           = "CANCELLED"
+	JobStatusCompletedWithErrors = "COMPLETED_WITH_ERRORS"
+)
+
+// ImportJob represents a row in the import_jobs table.
 type ImportJob struct {
 	kernel.BaseEntity
 	UserID              int        `json:"user_id" db:"user_id"`
@@ -24,7 +34,7 @@ type ImportJob struct {
 	RetryCount          int        `json:"retry_count" db:"retry_count"`
 }
 
-// ExportJob represents the export_jobs table (append-only)
+// ExportJob represents a row in the append-only export_jobs table.
 type ExportJob struct {
 	kernel.ImmutableEntity
 	UserID              int        `json:"user_id" db:"user_id"`

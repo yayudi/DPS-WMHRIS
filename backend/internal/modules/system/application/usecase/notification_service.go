@@ -1,3 +1,4 @@
+// Package usecase implements application use cases for the system module.
 package usecase
 
 import (
@@ -5,40 +6,50 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
+	"github.com/dps-wmhris/backend/internal/modules/system/port"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/i18n"
-
-	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
 )
 
-// NotificationService handles notification business logic.
-type NotificationService interface {
-	FetchRecentPending(ctx context.Context, userID int, limit int) ([]system_dto.NotificationResponse, error)
-	FetchAll(ctx context.Context, userID int, filterType string) ([]system_dto.NotificationResponse, error)
-	MarkNotificationAsDone(ctx context.Context, notificationID int, userID int) error
-	MarkAllNotificationsAsDone(ctx context.Context, userID int) error
-	ClaimNotification(ctx context.Context, notificationID int, userID int) (bool, error)
-	FetchPreferences(ctx context.Context, userID int) ([]system_dto.NotificationPreference, error)
-	UpdatePreferences(ctx context.Context, userID int, preferences []system_dto.NotificationPreference) error
-	NotifyUsers(ctx context.Context, userIDs []int, notifType, title, message string, actionPayload interface{}, isDone bool) error
-	NotifyUsersByPermission(ctx context.Context, permissionName, notifType, title, message string, actionPayload interface{}, excludeUserID *int, isDone bool) error
-}
+const firebaseSignalTimeout = 5 * time.Second
+
+// NotificationService aliases the hexagonal inbound port for backward compatibility.
+type NotificationService = port.NotificationService
 
 type notificationServiceImpl struct {
 	txManager        database.TransactionManager
-	notificationRepo system_mysql.NotificationRepository
-	firebaseService  FirebaseSignalService
+	notificationRepo port.NotificationRepository
+	firebaseService  port.FirebaseSignalService
 }
 
 // NewNotificationService creates a new NotificationService.
-func NewNotificationService(txManager database.TransactionManager, notificationRepo system_mysql.NotificationRepository, firebaseService FirebaseSignalService) NotificationService {
+func NewNotificationService(txManager database.TransactionManager, notificationRepo port.NotificationRepository, firebaseService port.FirebaseSignalService) port.NotificationService {
 	return &notificationServiceImpl{
 		txManager:        txManager,
 		notificationRepo: notificationRepo,
 		firebaseService:  firebaseService,
 	}
+}
+
+func (s *notificationServiceImpl) emitUserSignalDetached(ctx context.Context, userID int) {
+	if s.firebaseService == nil {
+		return
+	}
+	signalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), firebaseSignalTimeout)
+	defer cancel()
+	_ = s.firebaseService.EmitUserSignal(signalCtx, fmt.Sprintf("%d", userID), "")
+}
+
+func (s *notificationServiceImpl) emitSharedTaskSignalDetached(ctx context.Context, permissionName string) {
+	if s.firebaseService == nil {
+		return
+	}
+	signalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), firebaseSignalTimeout)
+	defer cancel()
+	_ = s.firebaseService.EmitSharedTaskSignal(signalCtx, permissionName, "")
 }
 
 // FetchRecentPending returns recent pending notifications for a user, resolving _i18n metadata based on context locale.
@@ -98,7 +109,7 @@ func (s *notificationServiceImpl) MarkNotificationAsDone(ctx context.Context, no
 	})
 
 	if err == nil && affected > 0 {
-		_ = s.firebaseService.EmitUserSignal(context.Background(), fmt.Sprintf("%d", userID), "")
+		s.emitUserSignalDetached(ctx, userID)
 	}
 
 	return err
@@ -114,7 +125,7 @@ func (s *notificationServiceImpl) MarkAllNotificationsAsDone(ctx context.Context
 	})
 
 	if err == nil && affected > 0 {
-		_ = s.firebaseService.EmitUserSignal(context.Background(), fmt.Sprintf("%d", userID), "")
+		s.emitUserSignalDetached(ctx, userID)
 	}
 
 	return err
@@ -130,7 +141,7 @@ func (s *notificationServiceImpl) ClaimNotification(ctx context.Context, notific
 	})
 
 	if err == nil && affected > 0 {
-		_ = s.firebaseService.EmitUserSignal(context.Background(), fmt.Sprintf("%d", userID), "")
+		s.emitUserSignalDetached(ctx, userID)
 	}
 
 	return affected > 0, err
@@ -143,18 +154,17 @@ func (s *notificationServiceImpl) FetchPreferences(ctx context.Context, userID i
 		return nil, err
 	}
 
+	prefByType := make(map[string]system_dto.NotificationPreference, len(prefs))
+	for _, p := range prefs {
+		prefByType[p.Type] = p
+	}
+
 	defaultTypes := []string{"WMS", "HRIS", "SYSTEM"}
 	result := make([]system_dto.NotificationPreference, 0, len(defaultTypes))
 	for _, t := range defaultTypes {
-		found := false
-		for _, p := range prefs {
-			if p.Type == t {
-				result = append(result, p)
-				found = true
-				break
-			}
-		}
-		if !found {
+		if p, ok := prefByType[t]; ok {
+			result = append(result, p)
+		} else {
 			result = append(result, system_dto.NotificationPreference{Type: t, IsEnabled: true})
 		}
 	}
@@ -174,12 +184,22 @@ func (s *notificationServiceImpl) UpdatePreferences(ctx context.Context, userID 
 	})
 }
 
-// NotifyUsers creates a personal notification for each user in the list.
-func (s *notificationServiceImpl) NotifyUsers(ctx context.Context, userIDs []int, notifType, title, message string, actionPayload interface{}, isDone bool) error {
+// NotifyUsers creates a personal notification for each distinct positive user ID in the list.
+func (s *notificationServiceImpl) NotifyUsers(ctx context.Context, userIDs []int, notifType, title, message string, actionPayload any, isDone bool) error {
 	if len(userIDs) == 0 {
 		return nil
 	}
+
+	seen := make(map[int]struct{}, len(userIDs))
 	for _, uid := range userIDs {
+		if uid <= 0 {
+			continue
+		}
+		if _, dup := seen[uid]; dup {
+			continue
+		}
+		seen[uid] = struct{}{}
+
 		prefs, err := s.notificationRepo.GetPreferences(ctx, uid)
 		if err != nil {
 			log.Printf("[NOTIFICATION] Error fetching prefs for user %d: %v", uid, err)
@@ -196,19 +216,18 @@ func (s *notificationServiceImpl) NotifyUsers(ctx context.Context, userIDs []int
 
 		if isEnabled {
 			userID := uid
-			payloadBytes, _ := json.Marshal(actionPayload)
 			_, err := s.notificationRepo.CreateNotification(ctx, system_dto.CreateNotificationPayload{
 				UserID:        &userID,
 				Type:          notifType,
 				Title:         title,
 				Message:       message,
-				ActionPayload: payloadBytes,
+				ActionPayload: actionPayload,
 				IsDone:        isDone,
 			})
 			if err != nil {
 				log.Printf("[NOTIFICATION] Error creating notification for user %d: %v", uid, err)
 			} else {
-				_ = s.firebaseService.EmitUserSignal(context.Background(), fmt.Sprintf("%d", uid), "")
+				s.emitUserSignalDetached(ctx, uid)
 			}
 		}
 	}
@@ -216,22 +235,20 @@ func (s *notificationServiceImpl) NotifyUsers(ctx context.Context, userIDs []int
 }
 
 // NotifyUsersByPermission creates a single shared-task notification visible to all users with the given permission.
-func (s *notificationServiceImpl) NotifyUsersByPermission(ctx context.Context, permissionName, notifType, title, message string, actionPayload interface{}, excludeUserID *int, isDone bool) error {
-	payloadBytes, _ := json.Marshal(actionPayload)
-
+func (s *notificationServiceImpl) NotifyUsersByPermission(ctx context.Context, permissionName, notifType, title, message string, actionPayload any, excludeUserID *int, isDone bool) error {
 	_, err := s.notificationRepo.CreateNotification(ctx, system_dto.CreateNotificationPayload{
 		UserID:           nil,
 		Type:             notifType,
 		Title:            title,
 		Message:          message,
-		ActionPayload:    payloadBytes,
+		ActionPayload:    actionPayload,
 		IsDone:           isDone,
 		TargetPermission: &permissionName,
 		ExcludeUserID:    excludeUserID,
 	})
 
 	if err == nil {
-		_ = s.firebaseService.EmitSharedTaskSignal(context.Background(), permissionName, "")
+		s.emitSharedTaskSignalDetached(ctx, permissionName)
 	}
 
 	return err

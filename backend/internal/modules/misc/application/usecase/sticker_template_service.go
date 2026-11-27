@@ -2,30 +2,29 @@ package usecase
 
 import (
 	"context"
-	"encoding/json"
+	"database/sql"
+	"errors"
 	"strconv"
+	"strings"
 
-	misc_mysql "github.com/dps-wmhris/backend/internal/modules/misc/adapter/outbound/mysql"
 	misc_dto "github.com/dps-wmhris/backend/internal/modules/misc/application/dto"
+	"github.com/dps-wmhris/backend/internal/modules/misc/domain"
+	"github.com/dps-wmhris/backend/internal/modules/misc/port"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/eventbus"
 )
 
-type StickerTemplateService interface {
-	GetAllStickerTemplates(ctx context.Context) ([]misc_dto.StickerTemplateResponse, error)
-	GetStickerTemplateByID(ctx context.Context, id int) (*misc_dto.StickerTemplateResponse, error)
-	CreateStickerTemplate(ctx context.Context, req misc_dto.CreateStickerTemplateRequest, userID int, ip, userAgent string) (int, error)
-	UpdateStickerTemplate(ctx context.Context, id int, req misc_dto.UpdateStickerTemplateRequest, userID int, ip, userAgent string) error
-	DeleteStickerTemplate(ctx context.Context, id int, userID int, ip, userAgent string) error
-}
+// StickerTemplateService aliases the hexagonal inbound port for backward compatibility.
+type StickerTemplateService = port.StickerTemplateUseCase
 
 type stickerTemplateServiceImpl struct {
 	txManager           database.TransactionManager
-	stickerTemplateRepo misc_mysql.StickerTemplateRepository
+	stickerTemplateRepo port.StickerTemplateRepository
 	eventBus            eventbus.EventBus
 }
 
-func NewStickerTemplateService(txManager database.TransactionManager, stickerTemplateRepo misc_mysql.StickerTemplateRepository, eventBus eventbus.EventBus) StickerTemplateService {
+// NewStickerTemplateService constructs a StickerTemplateUseCase backed by TransactionManager, repository, and EventBus.
+func NewStickerTemplateService(txManager database.TransactionManager, stickerTemplateRepo port.StickerTemplateRepository, eventBus eventbus.EventBus) port.StickerTemplateUseCase {
 	return &stickerTemplateServiceImpl{txManager: txManager, stickerTemplateRepo: stickerTemplateRepo, eventBus: eventBus}
 }
 
@@ -34,18 +33,29 @@ func (s *stickerTemplateServiceImpl) GetAllStickerTemplates(ctx context.Context)
 }
 
 func (s *stickerTemplateServiceImpl) GetStickerTemplateByID(ctx context.Context, id int) (*misc_dto.StickerTemplateResponse, error) {
-	return s.stickerTemplateRepo.FindByID(ctx, id)
+	res, err := s.stickerTemplateRepo.FindByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrStickerTemplateNotFound
+		}
+		return nil, err
+	}
+	return res, nil
 }
 
 func (s *stickerTemplateServiceImpl) CreateStickerTemplate(ctx context.Context, req misc_dto.CreateStickerTemplateRequest, userID int, ip, userAgent string) (int, error) {
-	var configJsonStr *string
-	if req.ConfigJSON != nil {
-		bytes, _ := json.Marshal(req.ConfigJSON)
-		str := string(bytes)
-		configJsonStr = &str
+	req.Name = strings.TrimSpace(req.Name)
+	configJSONStr, err := domain.NormalizeConfigJSON(req.ConfigJSON)
+	if err != nil {
+		return 0, err
 	}
 
-	id, err := s.stickerTemplateRepo.Insert(ctx, req, configJsonStr)
+	var id int
+	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		var txErr error
+		id, txErr = s.stickerTemplateRepo.Insert(txCtx, req, configJSONStr)
+		return txErr
+	})
 	if err != nil {
 		return 0, err
 	}
@@ -64,14 +74,27 @@ func (s *stickerTemplateServiceImpl) CreateStickerTemplate(ctx context.Context, 
 }
 
 func (s *stickerTemplateServiceImpl) UpdateStickerTemplate(ctx context.Context, id int, req misc_dto.UpdateStickerTemplateRequest, userID int, ip, userAgent string) error {
-	var configJsonStr *string
-	if req.ConfigJSON != nil {
-		bytes, _ := json.Marshal(req.ConfigJSON)
-		str := string(bytes)
-		configJsonStr = &str
+	req.Name = strings.TrimSpace(req.Name)
+	configJSONStr, err := domain.NormalizeConfigJSON(req.ConfigJSON)
+	if err != nil {
+		return err
 	}
 
-	_, err := s.stickerTemplateRepo.Update(ctx, id, req, configJsonStr)
+	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		affected, txErr := s.stickerTemplateRepo.Update(txCtx, id, req, configJSONStr)
+		if txErr != nil {
+			return txErr
+		}
+		if affected == 0 {
+			if _, findErr := s.stickerTemplateRepo.FindByID(txCtx, id); findErr != nil {
+				if errors.Is(findErr, sql.ErrNoRows) {
+					return domain.ErrStickerTemplateNotFound
+				}
+				return findErr
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -90,7 +113,16 @@ func (s *stickerTemplateServiceImpl) UpdateStickerTemplate(ctx context.Context, 
 }
 
 func (s *stickerTemplateServiceImpl) DeleteStickerTemplate(ctx context.Context, id int, userID int, ip, userAgent string) error {
-	_, err := s.stickerTemplateRepo.Delete(ctx, id)
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		affected, txErr := s.stickerTemplateRepo.Delete(txCtx, id)
+		if txErr != nil {
+			return txErr
+		}
+		if affected == 0 {
+			return domain.ErrStickerTemplateNotFound
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -100,7 +132,7 @@ func (s *stickerTemplateServiceImpl) DeleteStickerTemplate(ctx context.Context, 
 		Action:     "DELETE",
 		TargetType: "STICKER_TEMPLATE",
 		TargetID:   strconv.Itoa(id),
-		Changes:    `{"note": "Sticker Template Deleted"}`,
+		Changes:    map[string]any{"note": "Sticker Template Deleted"},
 		IP:         ip,
 		UserAgent:  userAgent,
 	})

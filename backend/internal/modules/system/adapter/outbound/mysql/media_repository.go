@@ -1,55 +1,43 @@
 package mysql
 
 import (
-	database "github.com/dps-wmhris/backend/internal/shared/database"
-
 	"context"
+	"database/sql"
 	"encoding/json"
-	"log"
+	"errors"
 	"strings"
 
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
-
+	"github.com/dps-wmhris/backend/internal/modules/system/domain"
+	"github.com/dps-wmhris/backend/internal/modules/system/port"
+	database "github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/jmoiron/sqlx"
 )
 
-type MediaFilter struct {
-	Search     string
-	LinkStatus map[string][]string // e.g. {"include": ["linked"], "exclude": ["orphaned"]} or string "linked"
-	RawStatus  string              // fallback
-}
+// MediaFilter aliases system_dto.MediaFilter for backward compatibility.
+type MediaFilter = system_dto.MediaFilter
 
-type MediaRepository interface {
-	GetMediaAssets(ctx context.Context, page, limit int, filter MediaFilter) (utils.PaginatedResult[system_dto.MediaAssetResponse], error)
-	GetMediaDetailsWithProducts(ctx context.Context, mediaID int) (*system_dto.MediaAssetResponse, error)
-	CreateMediaAsset(ctx context.Context, payload map[string]interface{}) (int, error)
-	GetMediaAssetByHash(ctx context.Context, hash string) (*int, error)
-	InsertTrashQueue(ctx context.Context, r2Key string) error
-	DeleteMediaAsset(ctx context.Context, mediaID int) error
-	GetMediaAssetByID(ctx context.Context, mediaID int) (*system_dto.MediaAssetResponse, error)
-	GetMediaAssetsByIDs(ctx context.Context, mediaIDs []int) ([]system_dto.MediaAssetResponse, error)
-	UpdateMediaTags(ctx context.Context, mediaID int, tags []string) error
-	UpdateMediaTitle(ctx context.Context, mediaID int, title string) error
-	FindMediaIDByPathLike(ctx context.Context, searchPath string) (*int, error)
-}
+// MediaRepository aliases the hexagonal outbound port for backward compatibility.
+type MediaRepository = port.MediaRepository
 
 type mediaRepositoryImpl struct {
-	database.BaseRepository[system_dto.MediaAssetResponse]
+	database.BaseRepository[domain.MediaAsset]
 	db *sqlx.DB
 }
 
-func NewMediaRepository(db *sqlx.DB) MediaRepository {
-	base := database.NewBaseRepository[system_dto.MediaAssetResponse](db, "media_assets")
+// NewMediaRepository constructs a MySQL-backed MediaRepository.
+func NewMediaRepository(db *sqlx.DB) port.MediaRepository {
+	base := database.NewBaseRepository[domain.MediaAsset](db, "media_assets")
 	return &mediaRepositoryImpl{
 		BaseRepository: base,
 		db:             db,
 	}
 }
 
-func buildFilterClause(filter MediaFilter) (string, []interface{}) {
+func buildFilterClause(filter MediaFilter) (string, []any) {
 	var conditions []string
-	var params []interface{}
+	var params []any
 
 	if filter.Search != "" {
 		keyword := "%" + filter.Search + "%"
@@ -110,7 +98,9 @@ func (r *mediaRepositoryImpl) GetMediaAssets(ctx context.Context, page, limit in
 	clause, params := buildFilterClause(filter)
 
 	query := `
-		SELECT m.*,
+		SELECT m.id, COALESCE(m.title, '') AS title, COALESCE(m.main_path, '') AS main_path, m.thumbnail_path,
+			COALESCE(m.status, 'PENDING') AS status, m.uploader_id, m.tags, COALESCE(m.hash, '') AS hash,
+			m.duplicate_of, m.size_bytes, m.width, m.height, m.created_at, m.updated_at,
 			(SELECT COUNT(p.id) FROM product_images p WHERE p.media_id = m.id) AS usage_count,
 			(SELECT GROUP_CONCAT(prod.name SEPARATOR '||') FROM product_images p JOIN products prod ON p.product_id = prod.id WHERE p.media_id = m.id) AS linked_products
 		FROM media_assets m
@@ -124,7 +114,13 @@ func (r *mediaRepositoryImpl) GetMediaAssets(ctx context.Context, page, limit in
 func (r *mediaRepositoryImpl) GetMediaDetailsWithProducts(ctx context.Context, mediaID int) (*system_dto.MediaAssetResponse, error) {
 	ext := database.GetExt(ctx, r.db)
 	var media system_dto.MediaAssetResponse
-	err := ext.GetContext(ctx, &media, "SELECT * FROM media_assets WHERE id = ?", mediaID)
+	err := ext.GetContext(ctx, &media, `
+		SELECT id, COALESCE(title, '') AS title, COALESCE(main_path, '') AS main_path, thumbnail_path,
+			COALESCE(status, 'PENDING') AS status, uploader_id, tags, COALESCE(hash, '') AS hash,
+			duplicate_of, size_bytes, width, height, created_at, updated_at
+		FROM media_assets
+		WHERE id = ?
+	`, mediaID)
 	if err != nil {
 		return nil, err
 	}
@@ -157,11 +153,14 @@ func (r *mediaRepositoryImpl) GetMediaDetailsWithProducts(ctx context.Context, m
 	return &media, nil
 }
 
-func (r *mediaRepositoryImpl) CreateMediaAsset(ctx context.Context, payload map[string]interface{}) (int, error) {
+func (r *mediaRepositoryImpl) CreateMediaAsset(ctx context.Context, payload map[string]any) (int, error) {
 	var tagsStr *string
 	if tags, ok := payload["tags"].([]string); ok && len(tags) > 0 {
-		bytes, _ := json.Marshal(tags)
-		s := string(bytes)
+		encoded, err := json.Marshal(tags)
+		if err != nil {
+			return 0, err
+		}
+		s := string(encoded)
 		tagsStr = &s
 	}
 
@@ -188,9 +187,12 @@ func (r *mediaRepositoryImpl) CreateMediaAsset(ctx context.Context, payload map[
 func (r *mediaRepositoryImpl) GetMediaAssetByHash(ctx context.Context, hash string) (*int, error) {
 	ext := database.GetExt(ctx, r.db)
 	var id int
-	err := ext.GetContext(ctx, &id, "SELECT id FROM media_assets WHERE hash = ?", hash)
+	err := ext.GetContext(ctx, &id, "SELECT id FROM media_assets WHERE hash = ? LIMIT 1", hash)
 	if err != nil {
-		return nil, nil // Return nil, nil if not found (or error)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	return &id, nil
 }
@@ -205,22 +207,36 @@ func (r *mediaRepositoryImpl) InsertTrashQueue(ctx context.Context, r2Key string
 }
 
 func (r *mediaRepositoryImpl) DeleteMediaAsset(ctx context.Context, mediaID int) error {
-	return r.SoftDelete(ctx, mediaID)
+	ext := database.GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, "DELETE FROM media_assets WHERE id = ?", mediaID)
+	return err
 }
 
 func (r *mediaRepositoryImpl) GetMediaAssetByID(ctx context.Context, mediaID int) (*system_dto.MediaAssetResponse, error) {
-	return r.FindByID(ctx, mediaID)
+	ext := database.GetExt(ctx, r.db)
+	var media system_dto.MediaAssetResponse
+	err := ext.GetContext(ctx, &media, `
+		SELECT id, COALESCE(title, '') AS title, COALESCE(main_path, '') AS main_path, thumbnail_path,
+			COALESCE(status, 'PENDING') AS status, uploader_id, tags, COALESCE(hash, '') AS hash,
+			duplicate_of, size_bytes, width, height, created_at, updated_at
+		FROM media_assets
+		WHERE id = ?
+		LIMIT 1
+	`, mediaID)
+	if err != nil {
+		return nil, err
+	}
+	return &media, nil
 }
 
 func (r *mediaRepositoryImpl) GetMediaAssetsByIDs(ctx context.Context, mediaIDs []int) ([]system_dto.MediaAssetResponse, error) {
 	if len(mediaIDs) == 0 {
 		return []system_dto.MediaAssetResponse{}, nil
 	}
-	query, args, err := sqlx.In("SELECT id, status, main_path, thumbnail_path FROM media_assets WHERE id IN (?)", mediaIDs)
+	query, args, err := sqlx.In("SELECT id, COALESCE(status, 'PENDING') AS status, COALESCE(main_path, '') AS main_path, thumbnail_path FROM media_assets WHERE id IN (?)", mediaIDs)
 	if err != nil {
 		return nil, err
 	}
-	log.Println("DEBUG queryMediaAssetsByIDs:", query, "with params:", args)
 	ext := database.GetExt(ctx, r.db)
 	query = r.db.Rebind(query)
 	var rows []system_dto.MediaAssetResponse
@@ -237,11 +253,15 @@ func (r *mediaRepositoryImpl) GetMediaAssetsByIDs(ctx context.Context, mediaIDs 
 func (r *mediaRepositoryImpl) UpdateMediaTags(ctx context.Context, mediaID int, tags []string) error {
 	var tagsStr *string
 	if len(tags) > 0 {
-		for i := range tags {
-			tags[i] = strings.ToLower(tags[i])
+		normalized := make([]string, len(tags))
+		for i, tag := range tags {
+			normalized[i] = strings.ToLower(tag)
 		}
-		bytes, _ := json.Marshal(tags)
-		s := string(bytes)
+		encoded, err := json.Marshal(normalized)
+		if err != nil {
+			return err
+		}
+		s := string(encoded)
 		tagsStr = &s
 	}
 

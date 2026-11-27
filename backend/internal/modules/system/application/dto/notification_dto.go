@@ -38,12 +38,12 @@ type NotificationI18nMeta struct {
 
 // CreateNotificationPayload is used internally by services to create a notification.
 type CreateNotificationPayload struct {
-	UserID           *int        `json:"user_id"`
-	Type             string      `json:"type"`
-	Title            string      `json:"title"`
-	Message          string      `json:"message"`
-	ActionPayload    interface{} `json:"action_payload"`
-	IsDone           bool        `json:"is_done"`
-	TargetPermission *string     `json:"target_permission"`
-	ExcludeUserID    *int        `json:"exclude_user_id"`
+	UserID           *int    `json:"user_id"`
+	Type             string  `json:"type"`
+	Title            string  `json:"title"`
+	Message          string  `json:"message"`
+	ActionPayload    any     `json:"action_payload"`
+	IsDone           bool    `json:"is_done"`
+	TargetPermission *string `json:"target_permission"`
+	ExcludeUserID    *int    `json:"exclude_user_id"`
 }

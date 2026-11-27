@@ -4,6 +4,7 @@ import (
 	"github.com/dps-wmhris/backend/internal/shared/kernel"
 )
 
+// SystemLog represents an immutable audit log entry in the system_audit_logs table.
 type SystemLog struct {
 	kernel.ImmutableEntity
 	UserID     int     `db:"user_id" json:"user_id"`

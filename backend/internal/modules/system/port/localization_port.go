@@ -1,3 +1,4 @@
+// Package port defines the hexagonal inbound and outbound port interfaces for the system module.
 package port
 
 import (

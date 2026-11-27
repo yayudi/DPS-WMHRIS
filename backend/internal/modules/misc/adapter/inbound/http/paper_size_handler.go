@@ -1,3 +1,4 @@
+// Package http implements Gin HTTP inbound adapters for the misc module.
 package http
 
 import (
@@ -5,21 +6,22 @@ import (
 	"net/http"
 
 	misc_dto "github.com/dps-wmhris/backend/internal/modules/misc/application/dto"
-
-	misc_usecase "github.com/dps-wmhris/backend/internal/modules/misc/application/usecase"
-	"github.com/dps-wmhris/backend/internal/shared/middleware"
+	"github.com/dps-wmhris/backend/internal/modules/misc/port"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
 
+// PaperSizeHandler handles HTTP endpoints for paper size preset CRUD operations.
 type PaperSizeHandler struct {
-	paperSizeService misc_usecase.PaperSizeService
+	paperSizeService port.PaperSizeUseCase
 }
 
-func NewPaperSizeHandler(paperSizeService misc_usecase.PaperSizeService) *PaperSizeHandler {
+// NewPaperSizeHandler constructs a PaperSizeHandler with the given PaperSizeUseCase.
+func NewPaperSizeHandler(paperSizeService port.PaperSizeUseCase) *PaperSizeHandler {
 	return &PaperSizeHandler{paperSizeService: paperSizeService}
 }
 
+// GetAllPaperSizes returns all active paper size presets.
 func (h *PaperSizeHandler) GetAllPaperSizes(c *gin.Context) {
 	data, err := h.paperSizeService.GetAllPaperSizes(c.Request.Context())
 	if err != nil {
@@ -31,6 +33,7 @@ func (h *PaperSizeHandler) GetAllPaperSizes(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, data)
 }
 
+// GetPaperSizeByID returns a single paper size preset by ID.
 func (h *PaperSizeHandler) GetPaperSizeByID(c *gin.Context) {
 	id, ok := utils.ParseIntParam(c, "id")
 	if !ok {
@@ -38,69 +41,76 @@ func (h *PaperSizeHandler) GetPaperSizeByID(c *gin.Context) {
 	}
 	data, err := h.paperSizeService.GetPaperSizeByID(c.Request.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusNotFound, "settings.paper_size.not_found", "NOT_FOUND")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
 	utils.SuccessDataResponse(c, http.StatusOK, data)
 }
 
+// CreatePaperSize creates a new paper size preset.
 func (h *PaperSizeHandler) CreatePaperSize(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[misc_dto.CreatePaperSizeRequest](c)
+	userID, ok := utils.RequireUserID(c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
 
-	userID := middleware.GetUserID(c)
-	ip := c.ClientIP()
-	userAgent := c.Request.UserAgent()
+	reqPtr, ok := utils.BindAndValidate[misc_dto.CreatePaperSizeRequest](c)
+	if !ok {
+		return
+	}
+	req := *reqPtr
 
-	id, err := h.paperSizeService.CreatePaperSize(c.Request.Context(), req, userID, ip, userAgent)
+	id, err := h.paperSizeService.CreatePaperSize(c.Request.Context(), req, userID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.paper_size.create_failed", "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
 	utils.SuccessResponse(c, http.StatusCreated, "settings.paper_size.create_success", gin.H{"id": id})
 }
 
+// UpdatePaperSize updates an existing paper size preset by ID.
 func (h *PaperSizeHandler) UpdatePaperSize(c *gin.Context) {
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
+		return
+	}
+
 	id, ok := utils.ParseIntParam(c, "id")
 	if !ok {
 		return
 	}
-	req_ptr, ok := utils.BindAndValidate[misc_dto.UpdatePaperSizeRequest](c)
+	reqPtr, ok := utils.BindAndValidate[misc_dto.UpdatePaperSizeRequest](c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
+	req := *reqPtr
 
-	userID := middleware.GetUserID(c)
-	ip := c.ClientIP()
-	userAgent := c.Request.UserAgent()
-
-	err := h.paperSizeService.UpdatePaperSize(c.Request.Context(), id, req, userID, ip, userAgent)
+	err := h.paperSizeService.UpdatePaperSize(c.Request.Context(), id, req, userID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.paper_size.update_failed", "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "settings.paper_size.update_success", nil)
 }
 
+// DeletePaperSize deletes a paper size preset by ID.
 func (h *PaperSizeHandler) DeletePaperSize(c *gin.Context) {
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
+		return
+	}
+
 	id, ok := utils.ParseIntParam(c, "id")
 	if !ok {
 		return
 	}
-	userID := middleware.GetUserID(c)
-	ip := c.ClientIP()
-	userAgent := c.Request.UserAgent()
 
-	err := h.paperSizeService.DeletePaperSize(c.Request.Context(), id, userID, ip, userAgent)
+	err := h.paperSizeService.DeletePaperSize(c.Request.Context(), id, userID, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "settings.paper_size.delete_failed", "INTERNAL_SERVER_ERROR")
+		utils.HandleDomainError(c, err)
 		return
 	}
 

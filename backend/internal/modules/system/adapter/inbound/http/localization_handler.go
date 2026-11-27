@@ -10,11 +10,11 @@ import (
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/system/domain"
 	"github.com/dps-wmhris/backend/internal/modules/system/port"
-	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
 
+// LocalizationHandler handles HTTP endpoints for public locale dictionaries and admin translation management.
 type LocalizationHandler struct {
 	useCase port.LocalizationUseCase
 }
@@ -80,7 +80,10 @@ func (h *LocalizationHandler) GetDictionary(c *gin.Context) {
 // GetTranslationMatrix returns unmasked raw translations for all active locales formatted as an editable matrix.
 func (h *LocalizationHandler) GetTranslationMatrix(c *gin.Context) {
 	var filter system_dto.TranslationMatrixFilter
-	_ = c.ShouldBindQuery(&filter)
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "common.invalid_query", "VALIDATION_ERROR")
+		return
+	}
 
 	matrix, err := h.useCase.GetTranslationMatrix(c.Request.Context(), filter)
 	if err != nil {
@@ -94,12 +97,16 @@ func (h *LocalizationHandler) GetTranslationMatrix(c *gin.Context) {
 
 // SaveTranslations allows admins to batch upsert translations and increment cache version.
 func (h *LocalizationHandler) SaveTranslations(c *gin.Context) {
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
+		return
+	}
+
 	reqPtr, ok := utils.BindAndValidate[system_dto.SaveTranslationsRequest](c)
 	if !ok {
 		return
 	}
 
-	userID := middleware.GetUserID(c)
 	audit := system_dto.AuditMetadata{
 		UserID:    userID,
 		IP:        c.ClientIP(),

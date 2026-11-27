@@ -2,6 +2,7 @@ package system_dto
 
 import "time"
 
+// GetSystemLogsRequest captures query parameters for filtering and paginating audit logs.
 type GetSystemLogsRequest struct {
 	Page       int    `form:"page,default=1"`
 	Limit      int    `form:"limit,default=20"`
@@ -13,6 +14,7 @@ type GetSystemLogsRequest struct {
 	EndDate    string `form:"endDate"`
 }
 
+// SystemLogResponse represents a single enriched audit log row returned to the UI.
 type SystemLogResponse struct {
 	ID         int       `json:"id" db:"id"`
 	UserID     int       `json:"user_id" db:"user_id"`
@@ -30,11 +32,13 @@ type SystemLogResponse struct {
 	TargetName *string `json:"target_name" db:"target_name"`
 }
 
+// GetSystemLogsResponse wraps a paginated list of audit logs with total row count.
 type GetSystemLogsResponse struct {
 	Data  []SystemLogResponse `json:"data"`
 	Total int                 `json:"total"`
 }
 
+// CreateLogRequest carries fields required to persist a new system audit log entry.
 type CreateLogRequest struct {
 	UserID     int     `json:"user_id"`
 	Action     string  `json:"action"`

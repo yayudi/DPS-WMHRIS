@@ -1,39 +1,47 @@
 package http
 
 import (
+	"log"
 	"net/http"
 
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
-
-	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
+	"github.com/dps-wmhris/backend/internal/modules/system/port"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
 
+// UploadHandler handles HTTP endpoints for generating single-file presigned cloud upload URLs.
 type UploadHandler struct {
-	storageService system_usecase.StorageService
+	storageService port.StorageService
 }
 
-func NewUploadHandler(storageService system_usecase.StorageService) *UploadHandler {
+// NewUploadHandler constructs an UploadHandler backed by StorageService.
+func NewUploadHandler(storageService port.StorageService) *UploadHandler {
 	return &UploadHandler{storageService: storageService}
 }
 
+// GetPresignedUrl generates a single presigned R2 PUT URL for authenticated file uploads.
 func (h *UploadHandler) GetPresignedUrl(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[system_dto.SinglePresignedUrlRequest](c)
+	if _, ok := utils.RequireUserID(c); !ok {
+		return
+	}
+
+	reqPtr, ok := utils.BindAndValidate[system_dto.SinglePresignedUrlRequest](c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
+	req := *reqPtr
 
-	url, key, publicUrl, err := h.storageService.GeneratePresignedUploadUrl(c.Request.Context(), req.FileName, req.MimeType, req.Folder)
+	uploadURL, key, publicURL, err := h.storageService.GeneratePresignedUploadUrl(c.Request.Context(), req.FileName, req.MimeType, req.Folder)
 	if err != nil {
+		log.Printf("[UPLOAD] GetPresignedUrl failed for file %s: %v", req.FileName, err)
 		utils.ErrorResponse(c, http.StatusInternalServerError, "system.upload.generate_failed", "STORAGE_ERROR")
 		return
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "system.upload.generate_success", gin.H{
-		"url":       url,
+		"url":       uploadURL,
 		"key":       key,
-		"publicUrl": publicUrl,
+		"publicUrl": publicURL,
 	})
 }

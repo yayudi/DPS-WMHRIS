@@ -1,34 +1,24 @@
 package mysql
 
 import (
-	database "github.com/dps-wmhris/backend/internal/shared/database"
-
 	"context"
 	"encoding/json"
 
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
-
+	"github.com/dps-wmhris/backend/internal/modules/system/port"
+	database "github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/jmoiron/sqlx"
 )
 
-// NotificationRepository handles all notification-related database operations.
-type NotificationRepository interface {
-	GetRecentPending(ctx context.Context, userID int, limit int) ([]system_dto.NotificationResponse, error)
-	GetAll(ctx context.Context, userID int, filterType string) ([]system_dto.NotificationResponse, error)
-	MarkAsDone(ctx context.Context, notificationID int, userID int) (int, error)
-	MarkAllAsDone(ctx context.Context, userID int) (int, error)
-	ClaimTask(ctx context.Context, notificationID int, userID int) (int, error)
-	GetPreferences(ctx context.Context, userID int) ([]system_dto.NotificationPreference, error)
-	UpsertPreference(ctx context.Context, userID int, notifType string, isEnabled bool) error
-	CreateNotification(ctx context.Context, payload system_dto.CreateNotificationPayload) (int, error)
-}
+// NotificationRepository aliases the hexagonal outbound port for backward compatibility.
+type NotificationRepository = port.NotificationRepository
 
 type notificationRepositoryImpl struct {
 	db *sqlx.DB
 }
 
 // NewNotificationRepository creates a new NotificationRepository.
-func NewNotificationRepository(db *sqlx.DB) NotificationRepository {
+func NewNotificationRepository(db *sqlx.DB) port.NotificationRepository {
 	return &notificationRepositoryImpl{db: db}
 }
 
@@ -89,7 +79,7 @@ func (r *notificationRepositoryImpl) GetAll(ctx context.Context, userID int, fil
 			)
 		)
 	`
-	args := []interface{}{userID, userID, userID}
+	args := []any{userID, userID, userID}
 
 	if filterType != "" && filterType != "ALL" {
 		query += " AND n.type = ?"
@@ -204,11 +194,9 @@ func (r *notificationRepositoryImpl) UpsertPreference(ctx context.Context, userI
 
 // CreateNotification creates a new notification row.
 func (r *notificationRepositoryImpl) CreateNotification(ctx context.Context, payload system_dto.CreateNotificationPayload) (int, error) {
-	var actionPayloadStr *string
-	if payload.ActionPayload != nil {
-		bytes, _ := json.Marshal(payload.ActionPayload)
-		str := string(bytes)
-		actionPayloadStr = &str
+	actionPayloadStr, err := serializeNotificationPayload(payload.ActionPayload)
+	if err != nil {
+		return 0, err
 	}
 
 	isDoneInt := 0
@@ -231,4 +219,44 @@ func (r *notificationRepositoryImpl) CreateNotification(ctx context.Context, pay
 	}
 	id, err := res.LastInsertId()
 	return int(id), err
+}
+
+func serializeNotificationPayload(raw any) (*string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	switch v := raw.(type) {
+	case json.RawMessage:
+		if len(v) == 0 || string(v) == "null" {
+			return nil, nil
+		}
+		if json.Valid(v) {
+			s := string(v)
+			return &s, nil
+		}
+	case []byte:
+		if len(v) == 0 || string(v) == "null" {
+			return nil, nil
+		}
+		if json.Valid(v) {
+			s := string(v)
+			return &s, nil
+		}
+	case string:
+		if v == "" || v == "null" {
+			return nil, nil
+		}
+		if json.Valid([]byte(v)) {
+			return &v, nil
+		}
+	}
+	encoded, err := json.Marshal(raw)
+	if err != nil {
+		return nil, err
+	}
+	str := string(encoded)
+	if str == "null" {
+		return nil, nil
+	}
+	return &str, nil
 }

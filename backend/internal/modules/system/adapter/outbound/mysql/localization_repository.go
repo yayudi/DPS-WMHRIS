@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -123,7 +124,7 @@ func (r *localizationRepositoryImpl) GetLocaleByCode(ctx context.Context, code s
 	ext := database.GetExt(ctx, r.db)
 	err := ext.GetContext(ctx, &loc, query, code)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -211,7 +212,7 @@ func (r *localizationRepositoryImpl) UpsertTranslations(ctx context.Context, loc
 
 		var sb strings.Builder
 		sb.WriteString("INSERT INTO localization_translations (locale_code, module, translation_key, translation_value) VALUES ")
-		args := make([]interface{}, 0, len(chunk)*4)
+		args := make([]any, 0, len(chunk)*4)
 
 		for i, item := range chunk {
 			if i > 0 {

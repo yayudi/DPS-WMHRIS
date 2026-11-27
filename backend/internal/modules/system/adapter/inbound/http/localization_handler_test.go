@@ -13,6 +13,7 @@ import (
 	system_http "github.com/dps-wmhris/backend/internal/modules/system/adapter/inbound/http"
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/system/domain"
+	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -54,11 +55,31 @@ func (m *mockLocalizationUseCase) SaveTranslations(ctx context.Context, req syst
 func setupTestRouter(handler *system_http.LocalizationHandler) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set(middleware.ContextUserIDKey, 1)
+		c.Next()
+	})
 	r.GET("/system/localization/locales", handler.GetLocales)
 	r.GET("/system/localization/dictionaries/:locale", handler.GetDictionary)
 	r.GET("/system/localization/matrix", handler.GetTranslationMatrix)
 	r.POST("/system/localization/translations", handler.SaveTranslations)
 	return r
+}
+
+func TestLocalizationHandler_SaveTranslations_UnauthorizedWithoutUserID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := system_http.NewLocalizationHandler(&mockLocalizationUseCase{})
+	r := gin.New()
+	r.POST("/system/localization/translations", handler.SaveTranslations)
+
+	req, _ := http.NewRequest(http.MethodPost, "/system/localization/translations", bytes.NewBufferString(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized without user ID, got %d", w.Code)
+	}
 }
 
 func TestLocalizationHandler_SaveTranslations_MasksInternalDBError(t *testing.T) {
