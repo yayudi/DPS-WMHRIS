@@ -82,7 +82,7 @@ func InitializeAPI(db *sqlx.DB) (*di.Container, error) {
 	localizationUseCase := system.ProvideLocalizationUseCase(localizationRepository, transactionManager, eventBus)
 	localizationHandler := http.NewLocalizationHandler(localizationUseCase)
 	categoryRepository := mysql5.NewCategoryRepository(db)
-	categoryUseCase := usecase5.NewCategoryUseCase(categoryRepository)
+	categoryUseCase := usecase5.NewCategoryUseCase(transactionManager, categoryRepository)
 	categoryHandler := http5.NewCategoryHandler(categoryUseCase)
 	productAuditRepository := mysql5.NewProductAuditRepository(db)
 	productUseCase := usecase5.NewProductUseCase(transactionManager, productRepository, productAuditRepository, categoryRepository)

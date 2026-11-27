@@ -1,15 +1,20 @@
+// Package catalog_parser parses marketplace order exports and bulk product/package update spreadsheets.
 package catalog_parser
 
 import (
-	"github.com/dps-wmhris/backend/internal/parser"
-
+	"errors"
 	"fmt"
 	"io"
+	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dps-wmhris/backend/internal/parser"
 )
 
+// Normalized marketplace order statuses produced by ParseMarketplaceFile.
 const (
 	MPStatusNew       = "NEW"
 	MPStatusShipped   = "SHIPPED"
@@ -19,6 +24,14 @@ const (
 	MPStatusIgnore    = "IGNORE"
 )
 
+var (
+	idThousandsDotPattern   = regexp.MustCompile(`^\d{1,3}(\.\d{3})+$`)
+	usThousandsCommaPattern = regexp.MustCompile(`^\d{1,3}(,\d{3})+$`)
+	errInvalidNumber        = errors.New("format angka tidak valid")
+	errNegativeNumber       = errors.New("nilai angka tidak boleh negatif")
+)
+
+// MarketplaceRow represents a single normalized order line parsed from Tokopedia, Shopee, or Offline files.
 type MarketplaceRow struct {
 	InvoiceID   string
 	SKU         string
@@ -29,6 +42,7 @@ type MarketplaceRow struct {
 	Status      string
 }
 
+// MassProductRow represents a single row parsed from a bulk product or package update CSV/Excel file.
 type MassProductRow struct {
 	SKU       string
 	Name      string
@@ -42,7 +56,7 @@ type MassProductRow struct {
 	IsActive  *bool
 }
 
-// ParseMarketplaceFile parses Tokopedia, Shopee or Offline files
+// ParseMarketplaceFile parses Tokopedia, Shopee, or Offline order exports into normalized MarketplaceRow entries.
 func ParseMarketplaceFile(r io.ReadSeeker, ext string, source string) (parser.ParseResult, []MarketplaceRow) {
 	var res parser.ParseResult
 	var parsedRows []MarketplaceRow
@@ -61,17 +75,20 @@ func ParseMarketplaceFile(r io.ReadSeeker, ext string, source string) (parser.Pa
 	} else {
 		rawRows, err = parser.ReadCSV(r, rune(delimiter))
 		if err == nil && len(rawRows) > 0 && source == "Tokopedia" {
-			// check if it actually should be semicolon
 			hasOrder := false
 			for k := range rawRows[0] {
-				if strings.Contains(strings.ToLower(k), "nomor invoice") || strings.Contains(strings.ToLower(k), "order id") {
+				kLower := strings.ToLower(k)
+				if strings.Contains(kLower, "nomor invoice") || strings.Contains(kLower, "order id") {
 					hasOrder = true
 					break
 				}
 			}
 			if !hasOrder {
-				_, _ = r.Seek(0, io.SeekStart) // #nosec G104
-				rawRows, _ = parser.ReadCSV(r, ';')
+				if _, seekErr := r.Seek(0, io.SeekStart); seekErr != nil {
+					err = seekErr
+				} else {
+					rawRows, err = parser.ReadCSV(r, ';')
+				}
 			}
 		}
 	}
@@ -97,7 +114,7 @@ func ParseMarketplaceFile(r io.ReadSeeker, ext string, source string) (parser.Pa
 		case "Offline":
 			parsed, isValid = parseOfflineRow(row)
 		default:
-			parsed, isValid = parseOfflineRow(row) // fallback
+			parsed, isValid = parseOfflineRow(row)
 		}
 
 		if isValid && parsed.Status != MPStatusIgnore {
@@ -117,6 +134,26 @@ func ParseMarketplaceFile(r io.ReadSeeker, ext string, source string) (parser.Pa
 	return res, parsedRows
 }
 
+func parsePositiveQty(raw string) (int, bool) {
+	qty, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || qty <= 0 {
+		return 0, false
+	}
+	return qty, true
+}
+
+func parseNonNegativeQty(raw string) (int, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return 0, true
+	}
+	qty, err := strconv.Atoi(trimmed)
+	if err != nil || qty < 0 {
+		return 0, false
+	}
+	return qty, true
+}
+
 func parseTokopediaRow(row map[string]string) (MarketplaceRow, bool) {
 	var res MarketplaceRow
 	res.InvoiceID = getVal(row, "order id", "nomor invoice", "no pesanan", "invoice no", "tokopedia invoice number")
@@ -125,11 +162,17 @@ func parseTokopediaRow(row map[string]string) (MarketplaceRow, bool) {
 	}
 
 	res.SKU = getVal(row, "seller sku", "nomor sku", "sku")
-	qtyStr := getVal(row, "quantity", "jumlah produk", "jumlah")
-	res.Qty, _ = strconv.Atoi(qtyStr)
+	qty, ok := parsePositiveQty(getVal(row, "quantity", "jumlah produk", "jumlah"))
+	if !ok {
+		return res, false
+	}
+	res.Qty = qty
 
-	retQtyStr := getVal(row, "sku quantity of return", "jumlah pengembalian", "return quantity", "returned quantity")
-	res.ReturnedQty, _ = strconv.Atoi(retQtyStr)
+	retQty, ok := parseNonNegativeQty(getVal(row, "sku quantity of return", "jumlah pengembalian", "return quantity", "returned quantity"))
+	if !ok {
+		return res, false
+	}
+	res.ReturnedQty = retQty
 
 	res.Customer = getVal(row, "recipient", "nama penerima", "penerima")
 	dateStr := getVal(row, "created time", "waktu pesanan", "tanggal pemesanan", "order time")
@@ -144,7 +187,6 @@ func parseTokopediaRow(row map[string]string) (MarketplaceRow, bool) {
 		return res, false
 	}
 
-	// Get Status
 	statusStr := strings.ToLower(getVal(row, "order status", "status pesanan", "status"))
 	retTypeStr := strings.ToLower(getVal(row, "cancelation/return type", "jenis pembatalan/pengembalian"))
 
@@ -175,11 +217,17 @@ func parseShopeeRow(row map[string]string) (MarketplaceRow, bool) {
 		res.SKU = getVal(row, "sku induk", "parent sku")
 	}
 
-	qtyStr := getVal(row, "jumlah", "quantity")
-	res.Qty, _ = strconv.Atoi(qtyStr)
+	qty, ok := parsePositiveQty(getVal(row, "jumlah", "quantity"))
+	if !ok {
+		return res, false
+	}
+	res.Qty = qty
 
-	retQtyStr := getVal(row, "returned quantity", "jumlah dikembalikan", "quantity returned")
-	res.ReturnedQty, _ = strconv.Atoi(retQtyStr)
+	retQty, ok := parseNonNegativeQty(getVal(row, "returned quantity", "jumlah dikembalikan", "quantity returned"))
+	if !ok {
+		return res, false
+	}
+	res.ReturnedQty = retQty
 
 	res.Customer = getVal(row, "username (pembeli)", "username pembeli", "nama penerima")
 	dateStr := getVal(row, "waktu pesanan dibuat", "order creation time")
@@ -219,11 +267,17 @@ func parseOfflineRow(row map[string]string) (MarketplaceRow, bool) {
 	res.InvoiceID = getVal(row, "*nomor tagihan", "nomor tagihan", "no tagihan")
 	res.SKU = getVal(row, "*kode produk (sku)", "kode produk (sku)", "kode produk", "sku")
 
-	qtyStr := getVal(row, "*jumlah produk", "jumlah produk", "jumlah")
-	res.Qty, _ = strconv.Atoi(qtyStr)
+	qty, ok := parsePositiveQty(getVal(row, "*jumlah produk", "jumlah produk", "jumlah"))
+	if !ok {
+		return res, false
+	}
+	res.Qty = qty
 
-	retQtyStr := getVal(row, "retur", "return", "returned quantity", "jumlah dikembalikan")
-	res.ReturnedQty, _ = strconv.Atoi(retQtyStr)
+	retQty, ok := parseNonNegativeQty(getVal(row, "retur", "return", "returned quantity", "jumlah dikembalikan"))
+	if !ok {
+		return res, false
+	}
+	res.ReturnedQty = retQty
 
 	res.Customer = getVal(row, "*nama kontak", "nama kontak", "perusahaan")
 	if res.Customer == "" {
@@ -254,6 +308,7 @@ func parseOfflineRow(row map[string]string) (MarketplaceRow, bool) {
 	return res, true
 }
 
+// ParseMassProductFile reads a CSV or Excel file for bulk product/package updates and validates each row's numeric fields.
 func ParseMassProductFile(r io.ReadSeeker, ext string) (parser.ParseResult, []MassProductRow) {
 	var res parser.ParseResult
 	var parsedRows []MassProductRow
@@ -269,14 +324,18 @@ func ParseMassProductFile(r io.ReadSeeker, ext string) (parser.ParseResult, []Ma
 		if err == nil && len(rawRows) > 0 {
 			hasSKU := false
 			for k := range rawRows[0] {
-				if strings.Contains(strings.ToLower(k), "sku") || strings.Contains(strings.ToLower(k), "kode") {
+				kLower := strings.ToLower(k)
+				if strings.Contains(kLower, "sku") || strings.Contains(kLower, "kode") {
 					hasSKU = true
 					break
 				}
 			}
 			if !hasSKU {
-				_, _ = r.Seek(0, io.SeekStart) // #nosec G104
-				rawRows, _ = parser.ReadCSV(r, ';')
+				if _, seekErr := r.Seek(0, io.SeekStart); seekErr != nil {
+					err = seekErr
+				} else {
+					rawRows, err = parser.ReadCSV(r, ';')
+				}
 			}
 		}
 	}
@@ -291,10 +350,11 @@ func ParseMassProductFile(r io.ReadSeeker, ext string) (parser.ParseResult, []Ma
 	res.Data = rawRows
 
 	for i, row := range rawRows {
+		rowNum := i + 2
 		sku := getVal(row, "sku", "kode produk", "nomor sku")
 		if sku == "" {
 			res.Errors = append(res.Errors, parser.ParserError{
-				Row:     i + 2,
+				Row:     rowNum,
 				Message: "SKU kosong",
 			})
 			continue
@@ -305,39 +365,29 @@ func ParseMassProductFile(r io.ReadSeeker, ext string) (parser.ParseResult, []Ma
 		parsed.Name = getVal(row, "name", "nama", "nama produk", "nama paket", "product name", "package name")
 		parsed.Category = getVal(row, "kategori", "category")
 
-		priceStr := cleanNumberString(getVal(row, "price", "harga", "harga jual"))
-		if priceStr != "" {
-			if val, err := strconv.ParseFloat(priceStr, 64); err == nil {
-				parsed.Price = &val
+		rowHasErr := false
+		parseField := func(label string, target **float64, keys ...string) {
+			raw := getVal(row, keys...)
+			val, parseErr := parseMassFloat(raw)
+			if parseErr != nil {
+				rowHasErr = true
+				res.Errors = append(res.Errors, parser.ParserError{
+					Row:     rowNum,
+					Message: fmt.Sprintf("%s tidak valid (%q): %v", label, raw, parseErr),
+				})
+				return
 			}
+			*target = val
 		}
 
-		weightStr := cleanNumberString(getVal(row, "weight", "berat", "bobot"))
-		if weightStr != "" {
-			if val, err := strconv.ParseFloat(weightStr, 64); err == nil {
-				parsed.Weight = &val
-			}
-		}
+		parseField("Harga", &parsed.Price, "price", "harga", "harga jual")
+		parseField("Berat", &parsed.Weight, "weight", "berat", "bobot")
+		parseField("Panjang", &parsed.Length, "length", "panjang")
+		parseField("Lebar", &parsed.Width, "width", "lebar")
+		parseField("Tinggi", &parsed.Height, "height", "tinggi")
 
-		lenStr := cleanNumberString(getVal(row, "length", "panjang"))
-		if lenStr != "" {
-			if val, err := strconv.ParseFloat(lenStr, 64); err == nil {
-				parsed.Length = &val
-			}
-		}
-
-		widStr := cleanNumberString(getVal(row, "width", "lebar"))
-		if widStr != "" {
-			if val, err := strconv.ParseFloat(widStr, 64); err == nil {
-				parsed.Width = &val
-			}
-		}
-
-		heiStr := cleanNumberString(getVal(row, "height", "tinggi"))
-		if heiStr != "" {
-			if val, err := strconv.ParseFloat(heiStr, 64); err == nil {
-				parsed.Height = &val
-			}
+		if rowHasErr {
+			continue
 		}
 
 		typeStr := strings.ToLower(getVal(row, "type", "tipe", "is_package", "paket"))
@@ -362,34 +412,90 @@ func ParseMassProductFile(r io.ReadSeeker, ext string) (parser.ParseResult, []Ma
 	return res, parsedRows
 }
 
-func cleanNumberString(s string) string {
-	s = strings.TrimSpace(s)
+func parseMassFloat(raw string) (*float64, error) {
+	cleaned, err := cleanNumberString(raw)
+	if err != nil {
+		return nil, err
+	}
+	if cleaned == "" {
+		return nil, nil
+	}
+	val, err := strconv.ParseFloat(cleaned, 64)
+	if err != nil || math.IsNaN(val) || math.IsInf(val, 0) {
+		return nil, errInvalidNumber
+	}
+	if val < 0 {
+		return nil, errNegativeNumber
+	}
+	return &val, nil
+}
+
+// cleanNumberString normalizes Indonesian ("Rp 1.250.000,50", "150.000", "12,5") and US/Excel ("1,250.50", "1.5")
+// numeric strings into standard dot-decimal notation while rejecting negative or non-numeric garbage.
+func cleanNumberString(raw string) (string, error) {
+	s := strings.TrimSpace(raw)
 	if s == "" {
-		return ""
-	}
-	s = strings.ReplaceAll(strings.ToLower(s), "rp.", "")
-	s = strings.ReplaceAll(s, "rp", "")
-	s = strings.TrimSpace(s)
-
-	if strings.Contains(s, ".") && !strings.Contains(s, ",") {
-		s = strings.ReplaceAll(s, ".", "")
-	} else if strings.Contains(s, ".") && strings.Contains(s, ",") {
-		s = strings.ReplaceAll(s, ".", "")
-		s = strings.ReplaceAll(s, ",", ".")
+		return "", nil
 	}
 
-	// strip non numeric/dot
-	var sb strings.Builder
-	for _, ch := range s {
-		if (ch >= '0' && ch <= '9') || ch == '.' {
-			sb.WriteRune(ch)
+	lower := strings.ToLower(s)
+	for _, prefix := range []string{"rp.", "rp", "idr"} {
+		if strings.HasPrefix(lower, prefix) {
+			s = strings.TrimSpace(s[len(prefix):])
+			lower = strings.ToLower(s)
+			break
 		}
 	}
-	return sb.String()
+
+	if s == "" {
+		return "", errInvalidNumber
+	}
+	if strings.HasPrefix(s, "-") {
+		return "", errNegativeNumber
+	}
+	s = strings.TrimPrefix(s, "+")
+
+	for _, ch := range s {
+		if (ch < '0' || ch > '9') && ch != '.' && ch != ',' {
+			return "", errInvalidNumber
+		}
+	}
+
+	hasDot := strings.Contains(s, ".")
+	hasComma := strings.Contains(s, ",")
+
+	switch {
+	case hasDot && hasComma:
+		lastDot := strings.LastIndex(s, ".")
+		lastComma := strings.LastIndex(s, ",")
+		if lastComma > lastDot {
+			// Indonesian format: 1.250.000,50 -> 1250000.50
+			s = strings.ReplaceAll(s, ".", "")
+			s = strings.ReplaceAll(s, ",", ".")
+		} else {
+			// US/Excel format: 1,250,000.50 -> 1250000.50
+			s = strings.ReplaceAll(s, ",", "")
+		}
+	case hasDot:
+		if idThousandsDotPattern.MatchString(s) {
+			// Indonesian thousands: 150.000 -> 150000
+			s = strings.ReplaceAll(s, ".", "")
+		}
+		// Otherwise preserve dot as decimal (e.g., 1.5, 0.75, 12.50)
+	case hasComma:
+		if usThousandsCommaPattern.MatchString(s) {
+			// US thousands: 150,000 -> 150000
+			s = strings.ReplaceAll(s, ",", "")
+		} else {
+			// Indonesian decimal: 12,5 -> 12.5
+			s = strings.ReplaceAll(s, ",", ".")
+		}
+	}
+
+	return s, nil
 }
 
 func parseMarketplaceDate(dateStr string) time.Time {
-	// Attempt DD/MM/YYYY HH:mm:ss or similar first
 	dateStr = strings.TrimSpace(dateStr)
 
 	formats := []string{
@@ -397,9 +503,14 @@ func parseMarketplaceDate(dateStr string) time.Time {
 		"02-01-2006 15:04:05",
 		"02/01/2006 15:04",
 		"02-01-2006 15:04",
+		"02/01/2006",
+		"02-01-2006",
 		"2006-01-02 15:04:05",
 		"2006-01-02 15:04",
 		"2006/01/02 15:04:05",
+		"2006/01/02 15:04",
+		"2006-01-02",
+		"2006/01/02",
 		time.RFC3339,
 	}
 

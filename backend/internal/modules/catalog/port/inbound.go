@@ -1,3 +1,4 @@
+// Package port defines the hexagonal inbound and outbound port interfaces for the catalog module.
 package port
 
 import (
@@ -5,10 +6,10 @@ import (
 	"time"
 
 	catalog_dto "github.com/dps-wmhris/backend/internal/modules/catalog/application/dto"
-
 	"github.com/dps-wmhris/backend/internal/modules/catalog/domain"
 )
 
+// CategoryUseCase defines the inbound port for product category management.
 type CategoryUseCase interface {
 	CreateCategory(ctx context.Context, req catalog_dto.CreateCategoryRequest) (*domain.Category, error)
 	GetActiveCategories(ctx context.Context) ([]domain.Category, error)
@@ -18,6 +19,7 @@ type CategoryUseCase interface {
 	RestoreCategory(ctx context.Context, id int) error
 }
 
+// ProductUseCase defines the inbound port for product, package, media linking, and mass update operations.
 type ProductUseCase interface {
 	CreateProduct(ctx context.Context, userID int, req catalog_dto.CreateProductRequest) (*domain.Product, error)
 	DeleteProduct(ctx context.Context, userID int, productID int) error
@@ -33,7 +35,7 @@ type ProductUseCase interface {
 	LinkMediaToProduct(ctx context.Context, productID int, mediaIDs []int, userID int) error
 	DeleteProductImage(ctx context.Context, imageID int, userID int) error
 	SetPrimaryImage(ctx context.Context, productID int, imageID int, userID int) error
-	GetHistoricalStockTimeline(ctx context.Context, productID int, page int, limit int, buildings []string) (map[string]interface{}, error)
+	GetHistoricalStockTimeline(ctx context.Context, productID int, page int, limit int, buildings []string) (map[string]any, error)
 	ProcessBatchUpdate(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error)
 	ProcessBatchPackageUpdate(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error)
 }

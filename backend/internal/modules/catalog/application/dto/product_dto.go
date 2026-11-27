@@ -15,33 +15,36 @@ func (c ProductComponentInput) ResolvedComponentID() int {
 	return c.ID
 }
 
+// CreateProductRequest defines the JSON payload for creating a single or package product.
 type CreateProductRequest struct {
 	SKU        string                  `json:"sku" binding:"required"`
 	Name       string                  `json:"name" binding:"required"`
 	CategoryID *int                    `json:"category_id"`
-	Price      float64                 `json:"price"`
+	Price      float64                 `json:"price" binding:"min=0"`
 	IsPackage  bool                    `json:"is_package"`
-	Weight     float64                 `json:"weight"`
-	Length     float64                 `json:"length"`
-	Width      float64                 `json:"width"`
-	Height     float64                 `json:"height"`
+	Weight     float64                 `json:"weight" binding:"min=0"`
+	Length     float64                 `json:"length" binding:"min=0"`
+	Width      float64                 `json:"width" binding:"min=0"`
+	Height     float64                 `json:"height" binding:"min=0"`
 	Components []ProductComponentInput `json:"components"`
 }
 
+// UpdateProductRequest defines the JSON payload for updating or restoring a product.
 type UpdateProductRequest struct {
 	SKU        string                   `json:"sku" binding:"required"`
 	Name       string                   `json:"name"`
 	CategoryID *int                     `json:"category_id"`
-	Price      float64                  `json:"price"`
+	Price      float64                  `json:"price" binding:"min=0"`
 	IsPackage  bool                     `json:"is_package"`
 	IsActive   *bool                    `json:"is_active"`
-	Weight     float64                  `json:"weight"`
-	Length     float64                  `json:"length"`
-	Width      float64                  `json:"width"`
-	Height     float64                  `json:"height"`
+	Weight     float64                  `json:"weight" binding:"min=0"`
+	Length     float64                  `json:"length" binding:"min=0"`
+	Width      float64                  `json:"width" binding:"min=0"`
+	Height     float64                  `json:"height" binding:"min=0"`
 	Components *[]ProductComponentInput `json:"components"`
 }
 
+// ProductFilterRequest defines query parameters for filtering, sorting, and paginating products and packages.
 type ProductFilterRequest struct {
 	Page            int      `form:"page,default=1" binding:"min=1"`
 	Limit           int      `form:"limit,default=20" binding:"min=0"`
@@ -63,9 +66,10 @@ type ProductFilterRequest struct {
 	Floor           string   `form:"floor,default=all"`
 	CategoryID      string   `form:"category_id"`
 	SortBy          string   `form:"sortBy,default=sku"`
-	SortOrder       string   `form:"sortOrder,default=asc"`
+	SortOrder       string   `form:"sortOrder,default=asc" binding:"omitempty,oneof=asc desc ASC DESC"`
 }
 
+// ProductDetailResponse represents a product enriched with category, stock locations, components, and media assets.
 type ProductDetailResponse struct {
 	ID             int                    `json:"id" db:"id"`
 	SKU            string                 `json:"sku" db:"sku"`
@@ -88,6 +92,7 @@ type ProductDetailResponse struct {
 	Images         []ProductImage         `json:"images" db:"-"`
 }
 
+// ProductImage represents a product-to-media gallery entry with resolved media paths.
 type ProductImage struct {
 	ID            int     `json:"id" db:"id"`
 	ProductID     int     `json:"product_id" db:"product_id"`
@@ -109,6 +114,7 @@ type ProductSlotSummary struct {
 	IsPrimary           bool   `json:"is_primary" db:"is_primary"`
 }
 
+// ProductStockLocation represents a product's stock balance and slotting coordinates at one warehouse location.
 type ProductStockLocation struct {
 	LocationID   int                  `json:"location_id" db:"location_id"`
 	LocationCode string               `json:"location_code" db:"location_code"`
@@ -119,6 +125,7 @@ type ProductStockLocation struct {
 	Slots        []ProductSlotSummary `json:"slots" db:"-"`
 }
 
+// ProductComponent represents a child product included in a package product along with its available stock.
 type ProductComponent struct {
 	ComponentProductID int    `json:"component_product_id" db:"component_product_id"`
 	Name               string `json:"name" db:"name"`
@@ -127,6 +134,7 @@ type ProductComponent struct {
 	StockAvailable     int    `json:"stock_available" db:"stock_available"`
 }
 
+// ProductStockDetailResponse represents detailed per-location stock and slotting metadata for a product.
 type ProductStockDetailResponse struct {
 	LocationID   int                  `json:"location_id" db:"location_id"`
 	LocationCode string               `json:"location_code" db:"location_code"`
@@ -138,6 +146,7 @@ type ProductStockDetailResponse struct {
 	Slots        []ProductSlotSummary `json:"slots" db:"-"`
 }
 
+// ProductHistoryResponse represents a single product audit history record.
 type ProductHistoryResponse struct {
 	ID        int     `json:"id" db:"id"`
 	Action    string  `json:"action" db:"action"`
@@ -145,6 +154,7 @@ type ProductHistoryResponse struct {
 	CreatedAt string  `json:"created_at" db:"created_at"`
 }
 
+// ProductStockTimelineResponse represents one entry in a product's running-balance stock timeline.
 type ProductStockTimelineResponse struct {
 	ID             int     `json:"id"`
 	CreatedAt      string  `json:"created_at"`
@@ -158,6 +168,7 @@ type ProductStockTimelineResponse struct {
 	NetChange      int     `json:"net_change"`
 }
 
+// LinkMediaRequest defines the JSON payload for linking one or more media asset IDs to a product.
 type LinkMediaRequest struct {
-	MediaIDs []int `json:"mediaIds" binding:"required"`
+	MediaIDs []int `json:"mediaIds" binding:"required,min=1,dive,min=1"`
 }

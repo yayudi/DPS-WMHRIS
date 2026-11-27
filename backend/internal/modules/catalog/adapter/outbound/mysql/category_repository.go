@@ -1,19 +1,29 @@
+// Package mysql implements MySQL persistence repositories for the catalog module.
 package mysql
 
 import (
-	"github.com/dps-wmhris/backend/internal/modules/catalog/domain"
-	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
-
 	"context"
+	"database/sql"
 
 	sq "github.com/Masterminds/squirrel"
-	database "github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/modules/catalog/domain"
+	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/jmoiron/sqlx"
 )
 
 type categoryRepositoryImpl struct {
 	database.BaseRepository[domain.Category]
 	db *sqlx.DB
+}
+
+// NewCategoryRepository creates a MySQL-backed CategoryRepository.
+func NewCategoryRepository(db *sqlx.DB) catalog_port.CategoryRepository {
+	base := database.NewBaseRepository[domain.Category](db, "categories")
+	return &categoryRepositoryImpl{
+		BaseRepository: base,
+		db:             db,
+	}
 }
 
 func (r *categoryRepositoryImpl) FindAllActive(ctx context.Context) ([]domain.Category, error) {
@@ -39,10 +49,10 @@ func (r *categoryRepositoryImpl) FindByStatus(ctx context.Context, status string
 		GroupBy("c.id", "c.name", "c.is_active", "c.created_at", "c.updated_at")
 
 	switch status {
-	case "archived":
+	case domain.CategoryStatusArchived:
 		builder = builder.Where(sq.Eq{"c.is_active": 0})
-	case "all":
-		// Tanpa filter is_active
+	case domain.CategoryStatusAll:
+		// No is_active filter
 	default:
 		builder = builder.Where(sq.Eq{"c.is_active": 1})
 	}
@@ -81,21 +91,49 @@ func (r *categoryRepositoryImpl) Create(ctx context.Context, category *domain.Ca
 	return err
 }
 
+func (r *categoryRepositoryImpl) ensureExists(ctx context.Context, ext database.ExtContext, id int) error {
+	var count int
+	if err := ext.GetContext(ctx, &count, "SELECT COUNT(*) FROM categories WHERE id = ?", id); err != nil {
+		return err
+	}
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func (r *categoryRepositoryImpl) Update(ctx context.Context, id int, name string) error {
-	query := "UPDATE categories SET name = ? WHERE id = ?"
 	ext := database.GetExt(ctx, r.db)
-	_, err := ext.ExecContext(ctx, query, name, id)
-	return err
+	res, err := ext.ExecContext(ctx, "UPDATE categories SET name = ? WHERE id = ?", name, id)
+	if err != nil {
+		return err
+	}
+	if affected, err := res.RowsAffected(); err == nil && affected == 0 {
+		return r.ensureExists(ctx, ext, id)
+	}
+	return nil
 }
 
 func (r *categoryRepositoryImpl) Delete(ctx context.Context, id int) error {
-	return r.SoftDelete(ctx, id)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, "UPDATE categories SET is_active = 0 WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	if affected, err := res.RowsAffected(); err == nil && affected == 0 {
+		return r.ensureExists(ctx, ext, id)
+	}
+	return nil
 }
 
-func NewCategoryRepository(db *sqlx.DB) catalog_port.CategoryRepository {
-	base := database.NewBaseRepository[domain.Category](db, "categories")
-	return &categoryRepositoryImpl{
-		BaseRepository: base,
-		db:             db,
+func (r *categoryRepositoryImpl) Restore(ctx context.Context, id int) error {
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, "UPDATE categories SET is_active = 1 WHERE id = ?", id)
+	if err != nil {
+		return err
 	}
+	if affected, err := res.RowsAffected(); err == nil && affected == 0 {
+		return r.ensureExists(ctx, ext, id)
+	}
+	return nil
 }

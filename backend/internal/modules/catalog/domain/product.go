@@ -4,12 +4,13 @@ import (
 	"github.com/dps-wmhris/backend/internal/shared/kernel"
 )
 
+// Product represents a single item or bundle/package row in the products table.
 type Product struct {
 	kernel.BaseEntity
 	kernel.SoftDeletable
 	SKU        string  `db:"sku" json:"sku"`
 	Name       string  `db:"name" json:"name"`
-	CategoryID *int    `db:"category_id" json:"category_id"` // Menggunakan *int karena telah diperbaiki oleh user di database
+	CategoryID *int    `db:"category_id" json:"category_id"`
 	Price      float64 `db:"price" json:"price"`
 	IsActive   bool    `db:"is_active" json:"is_active"`
 	IsPackage  bool    `db:"is_package" json:"is_package"`
@@ -19,6 +20,7 @@ type Product struct {
 	Height     float64 `db:"height" json:"height"`
 }
 
+// ProductImage represents a link between a product and a media_assets record in product_images.
 type ProductImage struct {
 	kernel.ImmutableEntity
 	ProductID int  `db:"product_id" json:"product_id"`
@@ -27,6 +29,7 @@ type ProductImage struct {
 	SortOrder int  `db:"sort_order" json:"sort_order"`
 }
 
+// ProductAuditLog records an audit trail entry in the product_audit_logs table.
 type ProductAuditLog struct {
 	kernel.ImmutableEntity
 	ProductID int     `db:"product_id" json:"product_id"`

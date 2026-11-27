@@ -5,11 +5,11 @@ import (
 	"time"
 
 	catalog_dto "github.com/dps-wmhris/backend/internal/modules/catalog/application/dto"
-
 	"github.com/dps-wmhris/backend/internal/modules/catalog/domain"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 )
 
+// CategoryRepository defines outbound persistence operations for product categories.
 type CategoryRepository interface {
 	database.BaseRepository[domain.Category]
 	FindAllActive(ctx context.Context) ([]domain.Category, error)
@@ -19,6 +19,7 @@ type CategoryRepository interface {
 	Delete(ctx context.Context, id int) error
 }
 
+// ProductRepository defines outbound persistence operations for products, package components, images, and stock reads.
 type ProductRepository interface {
 	database.BaseRepository[domain.Product]
 	Create(ctx context.Context, product *domain.Product) error
@@ -28,7 +29,7 @@ type ProductRepository interface {
 	GetProductIDBySKUTx(ctx context.Context, sku string) (int, error)
 	CreateProductTx(ctx context.Context, product *domain.Product) (int, error)
 
-	// New methods
+	// Read queries
 	GetProductsWithFilters(ctx context.Context, filters catalog_dto.ProductFilterRequest) ([]catalog_dto.ProductDetailResponse, int, error)
 	SearchProducts(ctx context.Context, keyword string, locationID string, inStockOnly bool, page int, limit int) ([]catalog_dto.ProductDetailResponse, error)
 	GetProductMapWithComponents(ctx context.Context, skus []string) (map[string]catalog_dto.ProductDetailResponse, error)
@@ -44,13 +45,14 @@ type ProductRepository interface {
 	DeleteProductImage(ctx context.Context, imageID int) error
 	SetPrimaryImage(ctx context.Context, productID int, imageID int) error
 
-	// Stock and History
+	// Stock timeline queries
 	GetProductTotalStock(ctx context.Context, productID int, buildings []string) (int, error)
 	GetProductStockMovementsCount(ctx context.Context, productID int, buildings []string) (int, error)
 	GetSumOfNewerStockMovements(ctx context.Context, productID int, offset int, buildings []string) (int, error)
 	GetProductStockMovementsPaginated(ctx context.Context, productID int, limit int, offset int, buildings []string) ([]RawStockMovement, error)
 }
 
+// RawStockMovement represents a single stock_movements row joined with user and location metadata for timeline computation.
 type RawStockMovement struct {
 	ID             int     `db:"id"`
 	Quantity       int     `db:"quantity"`
@@ -64,6 +66,7 @@ type RawStockMovement struct {
 	ToBuilding     *string `db:"to_building"`
 }
 
+// ProductAuditRepository defines outbound persistence operations for product audit trail entries.
 type ProductAuditRepository interface {
 	Create(ctx context.Context, log *domain.ProductAuditLog) error
 }

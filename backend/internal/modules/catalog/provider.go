@@ -1,3 +1,4 @@
+// Package catalog wires dependency injection providers for categories, products, packages, and catalog audit logs.
 package catalog
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/google/wire"
 )
 
+// ProviderSet supplies all repositories, use cases, and HTTP handlers for the catalog module.
 var ProviderSet = wire.NewSet(
 	http.NewPackageHandler,
 	mysql.NewCategoryRepository,

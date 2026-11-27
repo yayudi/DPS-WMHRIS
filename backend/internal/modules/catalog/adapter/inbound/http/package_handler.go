@@ -1,46 +1,46 @@
 package http
 
 import (
-	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
-
 	"encoding/json"
 	"net/http"
 	"os"
 
-	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
-
+	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
+	system_port "github.com/dps-wmhris/backend/internal/modules/system/port"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
 
+// PackageHandler exposes HTTP endpoints for asynchronous package export and bulk update jobs.
 type PackageHandler struct {
-	jobService system_usecase.JobService
+	jobService system_port.JobService
 }
 
-func NewPackageHandler(jobService system_usecase.JobService) *PackageHandler {
+// NewPackageHandler creates a new PackageHandler.
+func NewPackageHandler(jobService system_port.JobService) *PackageHandler {
 	return &PackageHandler{jobService: jobService}
 }
 
+// ExportPackages queues an asynchronous export job for package products.
 func (h *PackageHandler) ExportPackages(c *gin.Context) {
-	format := c.DefaultQuery("format", "xlsx")
-	search := c.Query("search")
-	searchBy := c.Query("searchBy")
-	status := c.Query("status")
-
 	userID, ok := utils.RequireUserID(c)
 	if !ok {
 		return
 	}
 
-	filtersMap := map[string]interface{}{
+	filtersMap := map[string]any{
 		"exportType": "EXPORT_PACKAGES",
-		"format":     format,
-		"search":     search,
-		"searchBy":   searchBy,
-		"status":     status,
+		"format":     c.DefaultQuery("format", "xlsx"),
+		"search":     c.Query("search"),
+		"searchBy":   c.Query("searchBy"),
+		"status":     c.Query("status"),
 	}
 
-	filtersBytes, _ := json.Marshal(filtersMap)
+	filtersBytes, err := json.Marshal(filtersMap)
+	if err != nil {
+		utils.HandleDomainError(c, err)
+		return
+	}
 	filtersStr := string(filtersBytes)
 
 	req := system_dto.CreateExportJobRequest{
@@ -58,6 +58,7 @@ func (h *PackageHandler) ExportPackages(c *gin.Context) {
 	utils.JobCreatedResponse(c, http.StatusOK, "master_data.package.export_job_queued", jobID)
 }
 
+// ImportPackagesBatch queues an asynchronous bulk package update or dry-run job.
 func (h *PackageHandler) ImportPackagesBatch(c *gin.Context) {
 	userID, ok := utils.RequireUserID(c)
 	if !ok {

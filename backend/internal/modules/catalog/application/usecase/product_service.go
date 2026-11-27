@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,16 +12,16 @@ import (
 
 	catalog_dto "github.com/dps-wmhris/backend/internal/modules/catalog/application/dto"
 	catalog_parser "github.com/dps-wmhris/backend/internal/modules/catalog/application/parser"
-
-	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
-
 	"github.com/dps-wmhris/backend/internal/modules/catalog/domain"
+	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
 	"github.com/dps-wmhris/backend/internal/shared/apperror"
-	database "github.com/dps-wmhris/backend/internal/shared/database"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/kernel"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 )
+
+const defaultTimelineLimit = 100
 
 type productServiceImpl struct {
 	txManager    database.TransactionManager
@@ -28,7 +30,13 @@ type productServiceImpl struct {
 	categoryRepo catalog_port.CategoryRepository
 }
 
-func NewProductUseCase(txManager database.TransactionManager, productRepo catalog_port.ProductRepository, auditRepo catalog_port.ProductAuditRepository, categoryRepo catalog_port.CategoryRepository) catalog_port.ProductUseCase {
+// NewProductUseCase creates a ProductUseCase wired with transaction management and catalog persistence ports.
+func NewProductUseCase(
+	txManager database.TransactionManager,
+	productRepo catalog_port.ProductRepository,
+	auditRepo catalog_port.ProductAuditRepository,
+	categoryRepo catalog_port.CategoryRepository,
+) catalog_port.ProductUseCase {
 	return &productServiceImpl{
 		txManager:    txManager,
 		productRepo:  productRepo,
@@ -73,9 +81,18 @@ func buildPackageComponents(packageProductID int, inputs []catalog_dto.ProductCo
 }
 
 func (s *productServiceImpl) CreateProduct(ctx context.Context, userID int, req catalog_dto.CreateProductRequest) (*domain.Product, error) {
+	sku := strings.TrimSpace(req.SKU)
+	name := strings.TrimSpace(req.Name)
+	if sku == "" || name == "" {
+		return nil, domain.ErrInvalidProductPayload
+	}
+	if err := domain.ValidateProductMetrics(req.Price, req.Weight, req.Length, req.Width, req.Height); err != nil {
+		return nil, err
+	}
+
 	product := &domain.Product{
-		SKU:        req.SKU,
-		Name:       req.Name,
+		SKU:        sku,
+		Name:       name,
 		CategoryID: req.CategoryID,
 		Price:      req.Price,
 		IsActive:   true,
@@ -86,8 +103,11 @@ func (s *productServiceImpl) CreateProduct(ctx context.Context, userID int, req 
 		Height:     req.Height,
 	}
 
-	err := s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		if err := s.productRepo.Create(ctx, product); err != nil {
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.productRepo.Create(txCtx, product); err != nil {
+			if database.IsDuplicateKey(err) {
+				return domain.ErrDuplicateSKU
+			}
 			return err
 		}
 
@@ -96,19 +116,18 @@ func (s *productServiceImpl) CreateProduct(ctx context.Context, userID int, req 
 			if err != nil {
 				return err
 			}
-			if err := s.productRepo.ReplacePackageComponents(ctx, product.ID, comps); err != nil {
+			if err := s.productRepo.ReplacePackageComponents(txCtx, product.ID, comps); err != nil {
 				return err
 			}
 		}
 
-		log := &domain.ProductAuditLog{
+		auditLog := &domain.ProductAuditLog{
 			ProductID: product.ID,
 			UserID:    &userID,
-			Action:    "CREATE",
+			Action:    domain.ProductAuditActionCreate,
 		}
-		return s.auditRepo.Create(ctx, log)
+		return s.auditRepo.Create(txCtx, auditLog)
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -117,24 +136,54 @@ func (s *productServiceImpl) CreateProduct(ctx context.Context, userID int, req 
 }
 
 func (s *productServiceImpl) UpdateProduct(ctx context.Context, userID int, productID int, req catalog_dto.UpdateProductRequest) error {
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		// Handle Restore logic
-		if req.IsActive != nil && *req.IsActive && req.Name == "" {
-			if err := s.productRepo.Restore(ctx, productID); err != nil {
+	sku := strings.TrimSpace(req.SKU)
+	name := strings.TrimSpace(req.Name)
+
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		// Handle Restore logic (PUT /products/:id with is_active=true and empty name)
+		if req.IsActive != nil && *req.IsActive && name == "" {
+			if err := s.productRepo.Restore(txCtx, productID); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return domain.ErrProductNotFound
+				}
 				return err
 			}
-			log := &domain.ProductAuditLog{
+			auditLog := &domain.ProductAuditLog{
 				ProductID: productID,
 				UserID:    &userID,
-				Action:    "RESTORE",
+				Action:    domain.ProductAuditActionRestore,
 			}
-			return s.auditRepo.Create(ctx, log)
+			return s.auditRepo.Create(txCtx, auditLog)
+		}
+
+		if sku == "" {
+			return domain.ErrInvalidProductPayload
+		}
+		if err := domain.ValidateProductMetrics(req.Price, req.Weight, req.Length, req.Width, req.Height); err != nil {
+			return err
+		}
+
+		existing, err := s.productRepo.FindByID(txCtx, productID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.ErrProductNotFound
+			}
+			return err
+		}
+
+		// Preserve existing name when omitted on non-restore updates; reject blank name if no existing record was loaded.
+		if name == "" {
+			if existing != nil && strings.TrimSpace(existing.Name) != "" {
+				name = existing.Name
+			} else {
+				return domain.ErrInvalidProductPayload
+			}
 		}
 
 		isActive := true
 		if req.IsActive != nil {
 			isActive = *req.IsActive
-		} else if existing, err := s.productRepo.FindByID(ctx, productID); err == nil && existing != nil {
+		} else if existing != nil {
 			isActive = existing.IsActive
 		}
 
@@ -143,7 +192,6 @@ func (s *productServiceImpl) UpdateProduct(ctx context.Context, userID int, prod
 		if !req.IsPackage {
 			shouldSyncComponents = true
 		} else if req.Components != nil {
-			var err error
 			comps, err = buildPackageComponents(productID, *req.Components)
 			if err != nil {
 				return err
@@ -151,11 +199,10 @@ func (s *productServiceImpl) UpdateProduct(ctx context.Context, userID int, prod
 			shouldSyncComponents = true
 		}
 
-		// Normal Update
 		product := &domain.Product{
 			BaseEntity: kernel.BaseEntity{ID: productID},
-			SKU:        req.SKU,
-			Name:       req.Name,
+			SKU:        sku,
+			Name:       name,
 			CategoryID: req.CategoryID,
 			Price:      req.Price,
 			IsPackage:  req.IsPackage,
@@ -166,134 +213,274 @@ func (s *productServiceImpl) UpdateProduct(ctx context.Context, userID int, prod
 			Height:     req.Height,
 		}
 
-		if err := s.productRepo.Update(ctx, product); err != nil {
+		if err := s.productRepo.Update(txCtx, product); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.ErrProductNotFound
+			}
+			if database.IsDuplicateKey(err) {
+				return domain.ErrDuplicateSKU
+			}
 			return err
 		}
 
 		if shouldSyncComponents {
-			if err := s.productRepo.ReplacePackageComponents(ctx, productID, comps); err != nil {
+			if err := s.productRepo.ReplacePackageComponents(txCtx, productID, comps); err != nil {
 				return err
 			}
 		}
 
-		log := &domain.ProductAuditLog{
+		auditLog := &domain.ProductAuditLog{
 			ProductID: productID,
 			UserID:    &userID,
-			Action:    "UPDATE",
+			Action:    domain.ProductAuditActionUpdate,
 		}
-		return s.auditRepo.Create(ctx, log)
+		return s.auditRepo.Create(txCtx, auditLog)
 	})
 }
 
 func (s *productServiceImpl) DeleteProduct(ctx context.Context, userID int, productID int) error {
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		if err := s.productRepo.SoftDelete(ctx, productID); err != nil {
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.productRepo.SoftDelete(txCtx, productID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.ErrProductNotFound
+			}
 			return err
 		}
 
-		log := &domain.ProductAuditLog{
+		auditLog := &domain.ProductAuditLog{
 			ProductID: productID,
 			UserID:    &userID,
-			Action:    "DELETE",
+			Action:    domain.ProductAuditActionDelete,
 		}
-		return s.auditRepo.Create(ctx, log)
+		return s.auditRepo.Create(txCtx, auditLog)
 	})
 }
 
 func (s *productServiceImpl) GetAllProducts(ctx context.Context) ([]domain.Product, error) {
-	return s.productRepo.FindAll(ctx)
+	products, err := s.productRepo.FindAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if products == nil {
+		return []domain.Product{}, nil
+	}
+	return products, nil
 }
 
 func (s *productServiceImpl) GetProductsWithFilters(ctx context.Context, filters catalog_dto.ProductFilterRequest) ([]catalog_dto.ProductDetailResponse, int, error) {
-	return s.productRepo.GetProductsWithFilters(ctx, filters)
+	results, total, err := s.productRepo.GetProductsWithFilters(ctx, filters)
+	if err != nil {
+		return nil, 0, err
+	}
+	if results == nil {
+		return []catalog_dto.ProductDetailResponse{}, total, nil
+	}
+	return results, total, nil
 }
 
 func (s *productServiceImpl) SearchProducts(ctx context.Context, keyword string, locationID string, inStockOnly bool, page int, limit int) ([]catalog_dto.ProductDetailResponse, error) {
-	return s.productRepo.SearchProducts(ctx, keyword, locationID, inStockOnly, page, limit)
+	results, err := s.productRepo.SearchProducts(ctx, keyword, locationID, inStockOnly, page, limit)
+	if err != nil {
+		return nil, err
+	}
+	if results == nil {
+		return []catalog_dto.ProductDetailResponse{}, nil
+	}
+	return results, nil
 }
 
 func (s *productServiceImpl) GetAllActiveProducts(ctx context.Context) ([]catalog_dto.ProductDetailResponse, error) {
-	return s.productRepo.GetAllActiveProducts(ctx)
+	results, err := s.productRepo.GetAllActiveProducts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if results == nil {
+		return []catalog_dto.ProductDetailResponse{}, nil
+	}
+	return results, nil
 }
 
 func (s *productServiceImpl) GetProductDetailWithStock(ctx context.Context, id int) (*catalog_dto.ProductDetailResponse, error) {
-	return s.productRepo.GetProductDetailWithStock(ctx, id)
+	product, err := s.productRepo.GetProductDetailWithStock(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrProductNotFound
+		}
+		return nil, err
+	}
+	if product == nil {
+		return nil, domain.ErrProductNotFound
+	}
+	return product, nil
 }
 
 func (s *productServiceImpl) GetProductStockDetails(ctx context.Context, id int) ([]catalog_dto.ProductStockDetailResponse, error) {
-	return s.productRepo.GetProductStockDetails(ctx, id)
+	details, err := s.productRepo.GetProductStockDetails(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if details == nil {
+		return []catalog_dto.ProductStockDetailResponse{}, nil
+	}
+	return details, nil
 }
 
 func (s *productServiceImpl) GetProductHistory(ctx context.Context, id int) ([]catalog_dto.ProductHistoryResponse, error) {
-	return s.productRepo.GetProductHistory(ctx, id)
+	history, err := s.productRepo.GetProductHistory(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if history == nil {
+		return []catalog_dto.ProductHistoryResponse{}, nil
+	}
+	return history, nil
 }
 
 func (s *productServiceImpl) GetProductLastPriceUpdate(ctx context.Context, id int) (*time.Time, error) {
 	return s.productRepo.GetProductLastPriceUpdate(ctx, id)
 }
 
-// LinkMediaToProduct links multiple media IDs to a product.
+// LinkMediaToProduct links unique positive media IDs to a product without duplicating existing links or creating multiple primary images.
 func (s *productServiceImpl) LinkMediaToProduct(ctx context.Context, productID int, mediaIDs []int, userID int) error {
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		for i, mediaID := range mediaIDs {
-			isPrimary := 0
-			if i == 0 {
-				isPrimary = 1
+	cleanIDs := make([]int, 0, len(mediaIDs))
+	seen := make(map[int]struct{}, len(mediaIDs))
+	for _, mediaID := range mediaIDs {
+		if mediaID <= 0 {
+			return domain.ErrEmptyMediaIDs
+		}
+		if _, dup := seen[mediaID]; dup {
+			continue
+		}
+		seen[mediaID] = struct{}{}
+		cleanIDs = append(cleanIDs, mediaID)
+	}
+	if len(cleanIDs) == 0 {
+		return domain.ErrEmptyMediaIDs
+	}
+
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		detail, err := s.productRepo.GetProductDetailWithStock(txCtx, productID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.ErrProductNotFound
 			}
-			if err := s.productRepo.LinkMediaToProduct(ctx, productID, mediaID, isPrimary); err != nil {
+			return err
+		}
+
+		hasPrimary := false
+		if detail != nil {
+			for _, img := range detail.Images {
+				if img.IsPrimary {
+					hasPrimary = true
+					break
+				}
+			}
+		}
+
+		linkedCount := 0
+		for _, mediaID := range cleanIDs {
+			alreadyLinked, err := s.productRepo.IsMediaLinkedToProduct(txCtx, productID, mediaID)
+			if err != nil {
 				return err
 			}
+			if alreadyLinked {
+				continue
+			}
+
+			isPrimary := 0
+			if !hasPrimary {
+				isPrimary = 1
+				hasPrimary = true
+			}
+			if err := s.productRepo.LinkMediaToProduct(txCtx, productID, mediaID, isPrimary); err != nil {
+				return err
+			}
+			linkedCount++
 		}
 
-		log := &domain.ProductAuditLog{
+		if linkedCount == 0 {
+			return nil
+		}
+
+		auditLog := &domain.ProductAuditLog{
 			ProductID: productID,
 			UserID:    &userID,
-			Action:    "LINK_MEDIA",
+			Action:    domain.ProductAuditActionLinkMedia,
 		}
-		return s.auditRepo.Create(ctx, log)
+		return s.auditRepo.Create(txCtx, auditLog)
 	})
 }
 
-// DeleteProductImage removes a product image record.
+// DeleteProductImage removes a product image record inside a transaction.
 func (s *productServiceImpl) DeleteProductImage(ctx context.Context, imageID int, userID int) error {
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		return s.productRepo.DeleteProductImage(ctx, imageID)
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.productRepo.DeleteProductImage(txCtx, imageID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.ErrProductImageNotFound
+			}
+			return err
+		}
+		return nil
 	})
 }
 
-// SetPrimaryImage sets a specific image as the primary image for a product.
+// SetPrimaryImage sets a specific image as the primary image for a product inside a transaction.
 func (s *productServiceImpl) SetPrimaryImage(ctx context.Context, productID int, imageID int, userID int) error {
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		return s.productRepo.SetPrimaryImage(ctx, productID, imageID)
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.productRepo.SetPrimaryImage(txCtx, productID, imageID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.ErrProductImageNotFound
+			}
+			return err
+		}
+		return nil
 	})
 }
 
-// GetHistoricalStockTimeline computes a paginated timeline with running balance.
-func (s *productServiceImpl) GetHistoricalStockTimeline(ctx context.Context, productID int, page int, limit int, buildings []string) (map[string]interface{}, error) {
+// GetHistoricalStockTimeline computes a paginated timeline with running stock balance.
+func (s *productServiceImpl) GetHistoricalStockTimeline(ctx context.Context, productID int, page int, limit int, buildings []string) (map[string]any, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = defaultTimelineLimit
+	}
+
+	cleanBuildings := make([]string, 0, len(buildings))
+	buildingSet := make(map[string]struct{}, len(buildings))
+	for _, b := range buildings {
+		trimmed := strings.TrimSpace(b)
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := buildingSet[trimmed]; !exists {
+			buildingSet[trimmed] = struct{}{}
+			cleanBuildings = append(cleanBuildings, trimmed)
+		}
+	}
+
 	offset := (page - 1) * limit
 
-	// Run aggregations
-	currentStock, err := s.productRepo.GetProductTotalStock(ctx, productID, buildings)
+	currentStock, err := s.productRepo.GetProductTotalStock(ctx, productID, cleanBuildings)
 	if err != nil {
 		return nil, err
 	}
-	totalCount, err := s.productRepo.GetProductStockMovementsCount(ctx, productID, buildings)
+	totalCount, err := s.productRepo.GetProductStockMovementsCount(ctx, productID, cleanBuildings)
 	if err != nil {
 		return nil, err
 	}
-	newerSum, err := s.productRepo.GetSumOfNewerStockMovements(ctx, productID, offset, buildings)
-	if err != nil {
-		return nil, err
-	}
-
-	movements, err := s.productRepo.GetProductStockMovementsPaginated(ctx, productID, limit, offset, buildings)
+	newerSum, err := s.productRepo.GetSumOfNewerStockMovements(ctx, productID, offset, cleanBuildings)
 	if err != nil {
 		return nil, err
 	}
 
-	// Balance at the very beginning of the paginated list
+	movements, err := s.productRepo.GetProductStockMovementsPaginated(ctx, productID, limit, offset, cleanBuildings)
+	if err != nil {
+		return nil, err
+	}
+
 	currentBalance := currentStock - newerSum
-	hasBuildingFilter := len(buildings) > 0
+	hasBuildingFilter := len(cleanBuildings) > 0
 
 	timeline := make([]catalog_dto.ProductStockTimelineResponse, 0, len(movements))
 	for _, mov := range movements {
@@ -301,8 +488,14 @@ func (s *productServiceImpl) GetHistoricalStockTimeline(ctx context.Context, pro
 
 		netChange := 0
 		if hasBuildingFilter {
-			fromInFilter := containsString(buildings, mov.FromBuilding)
-			toInFilter := containsString(buildings, mov.ToBuilding)
+			_, fromInFilter := buildingSet[derefString(mov.FromBuilding)]
+			_, toInFilter := buildingSet[derefString(mov.ToBuilding)]
+			if mov.FromBuilding == nil {
+				fromInFilter = false
+			}
+			if mov.ToBuilding == nil {
+				toInFilter = false
+			}
 
 			if toInFilter && !fromInFilter {
 				netChange = mov.Quantity
@@ -333,12 +526,9 @@ func (s *productServiceImpl) GetHistoricalStockTimeline(ctx context.Context, pro
 		})
 	}
 
-	totalPages := 0
-	if limit > 0 {
-		totalPages = (totalCount + limit - 1) / limit
-	}
+	totalPages := (totalCount + limit - 1) / limit
 
-	return map[string]interface{}{
+	return map[string]any{
 		"data":       timeline,
 		"total":      totalCount,
 		"page":       page,
@@ -347,17 +537,11 @@ func (s *productServiceImpl) GetHistoricalStockTimeline(ctx context.Context, pro
 	}, nil
 }
 
-// containsString checks if a nullable string is in a slice.
-func containsString(slice []string, val *string) bool {
+func derefString(val *string) string {
 	if val == nil {
-		return false
+		return ""
 	}
-	for _, s := range slice {
-		if s == *val {
-			return true
-		}
-	}
-	return false
+	return *val
 }
 
 func (s *productServiceImpl) ProcessBatchUpdate(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error) {
@@ -380,7 +564,7 @@ func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID
 
 	parseRes, parsedRows := catalog_parser.ParseMassProductFile(file, ext)
 	if !parseRes.Success {
-		var errMsgs []string
+		errMsgs := make([]string, 0, len(parseRes.Errors))
 		for _, e := range parseRes.Errors {
 			errMsgs = append(errMsgs, fmt.Sprintf("Baris %d: %s", e.Row, e.Message))
 		}
@@ -395,7 +579,7 @@ func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID
 	if err != nil {
 		return "", apperror.Internal("master_data.category.err_fetch_failed", "Gagal memuat kategori", err)
 	}
-	categoryMap := make(map[string]int)
+	categoryMap := make(map[string]int, len(categories))
 	for _, c := range categories {
 		categoryMap[strings.ToLower(strings.TrimSpace(c.Name))] = c.ID
 	}
@@ -411,27 +595,36 @@ func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID
 	if err != nil {
 		return "", apperror.Internal("master_data.product.err_fetch_failed", "Gagal memuat data produk", err)
 	}
-	productMap := make(map[string]*domain.Product)
+	productMap := make(map[string]*domain.Product, len(dbProducts))
 	for i := range dbProducts {
-		productMap[strings.ToLower(dbProducts[i].SKU)] = &dbProducts[i]
+		productMap[strings.ToLower(strings.TrimSpace(dbProducts[i].SKU))] = &dbProducts[i]
 	}
 
-	successCount := 0
+	type plannedUpdate struct {
+		productID int
+		rowNum    int
+		sku       string
+		req       catalog_dto.UpdateProductRequest
+	}
+
+	// Phase 1: Validate every row before touching the database so invalid batches never partially commit.
+	plannedUpdates := make([]plannedUpdate, 0, len(parsedRows))
 	var finalErrors []string
 
 	for i, row := range parsedRows {
-		dbProduct, exists := productMap[strings.ToLower(row.SKU)]
+		rowNum := i + 2
+		dbProduct, exists := productMap[strings.ToLower(strings.TrimSpace(row.SKU))]
 		if !exists {
-			finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: SKU '%s' tidak ditemukan. Batch edit hanya untuk update.", i+2, row.SKU))
+			finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: SKU '%s' tidak ditemukan. Batch edit hanya untuk update.", rowNum, row.SKU))
 			continue
 		}
 
 		if !expectPackage && dbProduct.IsPackage {
-			finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: SKU '%s' adalah Paket. Batch edit hanya untuk Produk.", i+2, row.SKU))
+			finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: SKU '%s' adalah Paket. Batch edit hanya untuk Produk.", rowNum, row.SKU))
 			continue
 		}
 		if expectPackage && !dbProduct.IsPackage {
-			finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: SKU '%s' adalah Produk Satuan. Menu ini khusus untuk Paket.", i+2, row.SKU))
+			finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: SKU '%s' adalah Produk Satuan. Menu ini khusus untuk Paket.", rowNum, row.SKU))
 			continue
 		}
 
@@ -455,7 +648,7 @@ func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID
 		if row.Category != "" {
 			catID, ok := categoryMap[strings.ToLower(strings.TrimSpace(row.Category))]
 			if !ok {
-				finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: Kategori '%s' tidak ditemukan.", i+2, row.Category))
+				finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: Kategori '%s' tidak ditemukan.", rowNum, row.Category))
 				continue
 			}
 			req.CategoryID = &catID
@@ -479,14 +672,17 @@ func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID
 			req.IsActive = row.IsActive
 		}
 
-		if !isDryRun {
-			err := s.UpdateProduct(ctx, userID, dbProduct.ID, req)
-			if err != nil {
-				finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: Gagal update SKU '%s': %v", i+2, row.SKU, err))
-				continue
-			}
+		if err := domain.ValidateProductMetrics(req.Price, req.Weight, req.Length, req.Width, req.Height); err != nil {
+			finalErrors = append(finalErrors, fmt.Sprintf("Baris %d: Harga atau dimensi SKU '%s' tidak valid.", rowNum, row.SKU))
+			continue
 		}
-		successCount++
+
+		plannedUpdates = append(plannedUpdates, plannedUpdate{
+			productID: dbProduct.ID,
+			rowNum:    rowNum,
+			sku:       row.SKU,
+			req:       req,
+		})
 	}
 
 	modeStr := ""
@@ -502,16 +698,40 @@ func (s *productServiceImpl) processMassCatalogUpdate(ctx context.Context, jobID
 	if len(finalErrors) > 0 {
 		summary := i18n.T(ctx, "master_data.product.summary_partial", map[string]any{
 			"mode":    modeStr,
-			"success": successCount,
+			"success": 0,
 			"entity":  entityName,
 			"failed":  len(finalErrors),
 		})
 		if summary == "master_data.product.summary_partial" {
-			summary = fmt.Sprintf("%sBerhasil: %d %s. Gagal: %d %s.", modeStr, successCount, entityName, len(finalErrors), entityName)
+			summary = fmt.Sprintf("%sBerhasil: 0 %s. Gagal: %d %s.", modeStr, entityName, len(finalErrors), entityName)
 		}
-		return summary, fmt.Errorf("Ditemukan %d error: %s", len(finalErrors), strings.Join(finalErrors, " | "))
+		return summary, apperror.Validation(
+			"master_data.product.err_batch_validation",
+			fmt.Sprintf("Ditemukan %d error: %s", len(finalErrors), strings.Join(finalErrors, " | ")),
+			map[string]any{"count": len(finalErrors)},
+		)
 	}
 
+	// Phase 2: Persist all validated updates atomically inside a single transaction.
+	if !isDryRun {
+		if err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+			for _, item := range plannedUpdates {
+				if err := s.UpdateProduct(txCtx, userID, item.productID, item.req); err != nil {
+					return apperror.Internal(
+						"master_data.product.err_batch_save_failed",
+						fmt.Sprintf("Baris %d: Gagal update SKU '%s': %v", item.rowNum, item.sku, err),
+						err,
+						map[string]any{"row": item.rowNum, "sku": item.sku},
+					)
+				}
+			}
+			return nil
+		}); err != nil {
+			return "", err
+		}
+	}
+
+	successCount := len(plannedUpdates)
 	summary := i18n.T(ctx, "master_data.product.summary_success", map[string]any{
 		"mode":    modeStr,
 		"success": successCount,

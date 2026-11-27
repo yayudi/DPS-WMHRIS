@@ -1,21 +1,19 @@
 package mysql
 
 import (
-	catalog_dto "github.com/dps-wmhris/backend/internal/modules/catalog/application/dto"
-	"github.com/dps-wmhris/backend/internal/modules/catalog/domain"
-	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
-
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
-	database "github.com/dps-wmhris/backend/internal/shared/database"
-
 	sq "github.com/Masterminds/squirrel"
+	catalog_dto "github.com/dps-wmhris/backend/internal/modules/catalog/application/dto"
+	"github.com/dps-wmhris/backend/internal/modules/catalog/domain"
+	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -24,6 +22,7 @@ type productRepositoryImpl struct {
 	db *sqlx.DB
 }
 
+// NewProductRepository creates a MySQL-backed ProductRepository.
 func NewProductRepository(db *sqlx.DB) catalog_port.ProductRepository {
 	base := database.NewBaseRepository[domain.Product](db, "products")
 	return &productRepositoryImpl{
@@ -32,10 +31,21 @@ func NewProductRepository(db *sqlx.DB) catalog_port.ProductRepository {
 	}
 }
 
+func (r *productRepositoryImpl) ensureExists(ctx context.Context, ext database.ExtContext, id int) error {
+	var count int
+	if err := ext.GetContext(ctx, &count, "SELECT COUNT(*) FROM products WHERE id = ?", id); err != nil {
+		return err
+	}
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func (r *productRepositoryImpl) Create(ctx context.Context, product *domain.Product) error {
 	query := `
 		INSERT INTO products (
-			sku, name, category_id, price, is_active, is_package, 
+			sku, name, category_id, price, is_active, is_package,
 			weight, length, width, height
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
@@ -45,7 +55,6 @@ func (r *productRepositoryImpl) Create(ctx context.Context, product *domain.Prod
 		product.IsActive, product.IsPackage, product.Weight,
 		product.Length, product.Width, product.Height,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -54,7 +63,6 @@ func (r *productRepositoryImpl) Create(ctx context.Context, product *domain.Prod
 	if err == nil {
 		product.ID = int(id)
 	}
-
 	return err
 }
 
@@ -66,11 +74,11 @@ func (r *productRepositoryImpl) CreateProductTx(ctx context.Context, product *do
 func (r *productRepositoryImpl) GetProductIDBySKUTx(ctx context.Context, sku string) (int, error) {
 	query := `SELECT id FROM products WHERE sku = ? LIMIT 1`
 	ext := database.GetExt(ctx, r.db)
-	
+
 	var id int
 	err := ext.QueryRowxContext(ctx, query, sku).Scan(&id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return 0, nil
 		}
 		return 0, err
@@ -80,18 +88,24 @@ func (r *productRepositoryImpl) GetProductIDBySKUTx(ctx context.Context, sku str
 
 func (r *productRepositoryImpl) Update(ctx context.Context, product *domain.Product) error {
 	query := `
-		UPDATE products 
+		UPDATE products
 		SET sku = ?, name = ?, category_id = ?, price = ?, is_active = ?, is_package = ?, weight = ?, length = ?, width = ?, height = ?
 		WHERE id = ?`
 
 	ext := database.GetExt(ctx, r.db)
-	_, err := ext.ExecContext(ctx, query,
+	res, err := ext.ExecContext(ctx, query,
 		product.SKU, product.Name, product.CategoryID, product.Price,
 		product.IsActive, product.IsPackage, product.Weight,
 		product.Length, product.Width, product.Height,
 		product.ID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if affected, err := res.RowsAffected(); err == nil && affected == 0 {
+		return r.ensureExists(ctx, ext, product.ID)
+	}
+	return nil
 }
 
 // ReplacePackageComponents replaces all package_components rows for a package product inside the active transaction.
@@ -105,7 +119,7 @@ func (r *productRepositoryImpl) ReplacePackageComponents(ctx context.Context, pa
 	}
 
 	placeholders := make([]string, 0, len(components))
-	args := make([]interface{}, 0, len(components)*3)
+	args := make([]any, 0, len(components)*3)
 	for _, comp := range components {
 		placeholders = append(placeholders, "(?, ?, ?)")
 		args = append(args, packageProductID, comp.ComponentProductID, comp.QuantityPerPackage)
@@ -123,36 +137,47 @@ func (r *productRepositoryImpl) GetBySKUs(ctx context.Context, skus []string) ([
 	if len(skus) == 0 {
 		return []domain.Product{}, nil
 	}
-	var products []domain.Product
+	products := make([]domain.Product, 0)
 	query, args, err := sqlx.In("SELECT id, sku, name, category_id, price, is_active, is_package, weight, length, width, height, created_at, updated_at FROM products WHERE sku IN (?)", skus)
 	if err != nil {
 		return nil, err
 	}
 	ext := database.GetExt(ctx, r.db)
 	query = ext.Rebind(query)
-	err = ext.SelectContext(ctx, &products, query, args...)
-	return products, err
+	if err := ext.SelectContext(ctx, &products, query, args...); err != nil {
+		return nil, err
+	}
+	if products == nil {
+		return []domain.Product{}, nil
+	}
+	return products, nil
 }
 
 // ============================================================================
 // READ OPERATIONS (Complex Queries)
 // ============================================================================
+
 func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, products []catalog_dto.ProductDetailResponse) error {
 	if len(products) == 0 {
 		return nil
 	}
 	productIDs := make([]int, len(products))
-	productMap := make(map[int]*catalog_dto.ProductDetailResponse)
+	productMap := make(map[int]*catalog_dto.ProductDetailResponse, len(products))
 	for i := range products {
 		productIDs[i] = products[i].ID
+		products[i].StockLocations = []catalog_dto.ProductStockLocation{}
+		products[i].Components = []catalog_dto.ProductComponent{}
+		products[i].Images = []catalog_dto.ProductImage{}
 		productMap[products[i].ID] = &products[i]
 	}
 
 	ext := database.GetExt(ctx, r.db)
 
-	// Fetch stock locations
-	query, args, err := sqlx.In(`
-		SELECT sl.product_id, l.id as location_id, l.code as location_code, COALESCE(l.purpose, '') as purpose, l.building, COALESCE(l.floor, '') as floor, sl.quantity
+	// 1. Fetch stock locations
+	locQuery, locArgs, err := sqlx.In(`
+		SELECT sl.product_id, l.id AS location_id, l.code AS location_code,
+		       COALESCE(l.purpose, '') AS purpose, COALESCE(l.building, '') AS building,
+		       COALESCE(l.floor, '') AS floor, sl.quantity
 		FROM stock_locations sl
 		JOIN locations l ON sl.location_id = l.id
 		WHERE sl.product_id IN (?)
@@ -160,108 +185,108 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 	if err != nil {
 		return err
 	}
-	query = ext.Rebind(query)
-	log.Println("query:", query)
-	log.Println("args:", args)
-
-	rows, err := ext.QueryContext(ctx, query, args...)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var pid int
-			var loc catalog_dto.ProductStockLocation
-			if err := rows.Scan(&pid, &loc.LocationID, &loc.LocationCode, &loc.Purpose, &loc.Building, &loc.Floor, &loc.Quantity); err == nil {
-				loc.Slots = []catalog_dto.ProductSlotSummary{}
-				if p, ok := productMap[pid]; ok {
-					if p.StockLocations == nil {
-						p.StockLocations = []catalog_dto.ProductStockLocation{}
-					}
-					p.StockLocations = append(p.StockLocations, loc)
-				}
-			} else {
-				log.Println("ERROR rows.Scan stock_locations:", err)
-			}
+	locRows, err := ext.QueryContext(ctx, ext.Rebind(locQuery), locArgs...)
+	if err != nil {
+		return err
+	}
+	defer locRows.Close()
+	for locRows.Next() {
+		var pid int
+		var loc catalog_dto.ProductStockLocation
+		if err := locRows.Scan(&pid, &loc.LocationID, &loc.LocationCode, &loc.Purpose, &loc.Building, &loc.Floor, &loc.Quantity); err != nil {
+			return err
+		}
+		loc.Slots = []catalog_dto.ProductSlotSummary{}
+		if p, ok := productMap[pid]; ok {
+			p.StockLocations = append(p.StockLocations, loc)
 		}
 	}
+	if err := locRows.Err(); err != nil {
+		return err
+	}
 
-	// Fetch product location slots (rack coordinates)
+	// 2. Fetch product location slots (rack coordinates)
 	type prodLocKey struct {
 		productID  int
 		locationID int
 	}
 	slotsMap := make(map[prodLocKey][]catalog_dto.ProductSlotSummary)
-	slotQuery, slotArgs, slotErr := sqlx.In(`
-		SELECT id, product_id, location_id, room, rack, COALESCE(tier, '') as tier, formatted_coordinate, is_primary
+	slotQuery, slotArgs, err := sqlx.In(`
+		SELECT id, product_id, location_id, room, rack, COALESCE(tier, '') AS tier, formatted_coordinate, is_primary
 		FROM product_location_slots
 		WHERE product_id IN (?)
 		ORDER BY is_primary DESC, id ASC
 	`, productIDs)
-	if slotErr == nil {
-		slotQuery = ext.Rebind(slotQuery)
-		slotRows, err := ext.QueryContext(ctx, slotQuery, slotArgs...)
-		if err == nil {
-			defer slotRows.Close()
-			for slotRows.Next() {
-				var s struct {
-					catalog_dto.ProductSlotSummary
-					ProductID  int `db:"product_id"`
-					LocationID int `db:"location_id"`
-				}
-				if err := slotRows.Scan(&s.ID, &s.ProductID, &s.LocationID, &s.Room, &s.Rack, &s.Tier, &s.FormattedCoordinate, &s.IsPrimary); err == nil {
-					k := prodLocKey{productID: s.ProductID, locationID: s.LocationID}
-					slotsMap[k] = append(slotsMap[k], s.ProductSlotSummary)
-				}
-			}
+	if err != nil {
+		return err
+	}
+	slotRows, err := ext.QueryContext(ctx, ext.Rebind(slotQuery), slotArgs...)
+	if err != nil {
+		return err
+	}
+	defer slotRows.Close()
+	for slotRows.Next() {
+		var s struct {
+			catalog_dto.ProductSlotSummary
+			ProductID  int `db:"product_id"`
+			LocationID int `db:"location_id"`
 		}
+		if err := slotRows.Scan(&s.ID, &s.ProductID, &s.LocationID, &s.Room, &s.Rack, &s.Tier, &s.FormattedCoordinate, &s.IsPrimary); err != nil {
+			return err
+		}
+		k := prodLocKey{productID: s.ProductID, locationID: s.LocationID}
+		slotsMap[k] = append(slotsMap[k], s.ProductSlotSummary)
+	}
+	if err := slotRows.Err(); err != nil {
+		return err
 	}
 
-	// Attach slots to corresponding stock locations
 	for pid, p := range productMap {
 		for i := range p.StockLocations {
 			k := prodLocKey{productID: pid, locationID: p.StockLocations[i].LocationID}
 			if sList, ok := slotsMap[k]; ok {
 				p.StockLocations[i].Slots = sList
-			} else {
-				p.StockLocations[i].Slots = []catalog_dto.ProductSlotSummary{}
 			}
 		}
 	}
 
-	// Fetch product images
-	query, args, err = sqlx.In(`
+	// 3. Fetch product images
+	imgQuery, imgArgs, err := sqlx.In(`
 		SELECT pi.id, pi.product_id, pi.media_id, pi.is_primary, pi.sort_order, m.main_path, m.thumbnail_path, m.title
 		FROM product_images pi
 		JOIN media_assets m ON pi.media_id = m.id
 		WHERE pi.product_id IN (?)
-		ORDER BY pi.sort_order ASC, pi.id ASC
+		ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC
 	`, productIDs)
-	if err == nil {
-		query = ext.Rebind(query)
-		rows, err = ext.QueryContext(ctx, query, args...)
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var img catalog_dto.ProductImage
-				if err := rows.Scan(&img.ID, &img.ProductID, &img.MediaID, &img.IsPrimary, &img.SortOrder, &img.MainPath, &img.ThumbnailPath, &img.Title); err == nil {
-					if p, ok := productMap[img.ProductID]; ok {
-						if p.Images == nil {
-							p.Images = []catalog_dto.ProductImage{}
-						}
-						p.Images = append(p.Images, img)
-						if img.IsPrimary {
-							p.ThumbnailPath = img.ThumbnailPath
-							p.ImagePath = img.MainPath
-						}
-					}
-				}
+	if err != nil {
+		return err
+	}
+	imgRows, err := ext.QueryContext(ctx, ext.Rebind(imgQuery), imgArgs...)
+	if err != nil {
+		return err
+	}
+	defer imgRows.Close()
+	for imgRows.Next() {
+		var img catalog_dto.ProductImage
+		if err := imgRows.Scan(&img.ID, &img.ProductID, &img.MediaID, &img.IsPrimary, &img.SortOrder, &img.MainPath, &img.ThumbnailPath, &img.Title); err != nil {
+			return err
+		}
+		if p, ok := productMap[img.ProductID]; ok {
+			p.Images = append(p.Images, img)
+			if img.IsPrimary || (p.ThumbnailPath == nil && p.ImagePath == nil) {
+				p.ThumbnailPath = img.ThumbnailPath
+				p.ImagePath = img.MainPath
 			}
 		}
 	}
+	if err := imgRows.Err(); err != nil {
+		return err
+	}
 
-	// Fetch components
-	query, args, err = sqlx.In(`
+	// 4. Fetch package components
+	compQuery, compArgs, err := sqlx.In(`
 		SELECT pp.package_product_id, pp.component_product_id, c.name, c.sku, pp.quantity_per_package,
-			COALESCE((SELECT SUM(sl.quantity) FROM stock_locations sl WHERE sl.product_id = c.id), 0) as stock_available
+		       COALESCE((SELECT SUM(sl.quantity) FROM stock_locations sl WHERE sl.product_id = c.id), 0) AS stock_available
 		FROM package_components pp
 		JOIN products c ON pp.component_product_id = c.id
 		WHERE pp.package_product_id IN (?)
@@ -269,38 +294,22 @@ func (r *productRepositoryImpl) attachProductDetails(ctx context.Context, produc
 	if err != nil {
 		return err
 	}
-	query = ext.Rebind(query)
-
-	rows, err = ext.QueryContext(ctx, query, args...)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var pid int
-			var comp catalog_dto.ProductComponent
-			if err := rows.Scan(&pid, &comp.ComponentProductID, &comp.Name, &comp.SKU, &comp.Quantity, &comp.StockAvailable); err == nil {
-				if p, ok := productMap[pid]; ok {
-					if p.Components == nil {
-						p.Components = []catalog_dto.ProductComponent{}
-					}
-					p.Components = append(p.Components, comp)
-				}
-			}
+	compRows, err := ext.QueryContext(ctx, ext.Rebind(compQuery), compArgs...)
+	if err != nil {
+		return err
+	}
+	defer compRows.Close()
+	for compRows.Next() {
+		var pid int
+		var comp catalog_dto.ProductComponent
+		if err := compRows.Scan(&pid, &comp.ComponentProductID, &comp.Name, &comp.SKU, &comp.Quantity, &comp.StockAvailable); err != nil {
+			return err
+		}
+		if p, ok := productMap[pid]; ok {
+			p.Components = append(p.Components, comp)
 		}
 	}
-
-	// Default to empty slices instead of nil
-	for _, p := range productMap {
-		if p.StockLocations == nil {
-			p.StockLocations = []catalog_dto.ProductStockLocation{}
-		}
-		if p.Components == nil {
-			p.Components = []catalog_dto.ProductComponent{}
-		}
-		if p.Images == nil {
-			p.Images = []catalog_dto.ProductImage{}
-		}
-	}
-	return nil
+	return compRows.Err()
 }
 
 // stockStatusOperator maps a stockStatus filter value to its SQL comparison operator.
@@ -358,8 +367,11 @@ func applySlottingStatusFilter(builder sq.SelectBuilder, purpose string, f catal
 			Where("sl.product_id = p.id AND sl.quantity > 0").
 			Where("NOT EXISTS (SELECT 1 FROM product_location_slots pls WHERE pls.product_id = p.id AND pls.location_id = sl.location_id)")
 		subq = applyLocationScope(subq, purpose, f)
-		subSql, subArgs, _ := subq.ToSql()
-		return builder.Where(fmt.Sprintf("EXISTS (%s)", subSql), subArgs...)
+		subSQL, subArgs, err := subq.ToSql()
+		if err != nil {
+			return builder
+		}
+		return builder.Where(fmt.Sprintf("EXISTS (%s)", subSQL), subArgs...)
 
 	case "slotted":
 		hasStockSubq := sq.Select("1").
@@ -367,8 +379,11 @@ func applySlottingStatusFilter(builder sq.SelectBuilder, purpose string, f catal
 			Join("locations l ON sl.location_id = l.id").
 			Where("sl.product_id = p.id AND sl.quantity > 0")
 		hasStockSubq = applyLocationScope(hasStockSubq, purpose, f)
-		hasStockSql, hasStockArgs, _ := hasStockSubq.ToSql()
-		builder = builder.Where(fmt.Sprintf("EXISTS (%s)", hasStockSql), hasStockArgs...)
+		hasStockSQL, hasStockArgs, err := hasStockSubq.ToSql()
+		if err != nil {
+			return builder
+		}
+		builder = builder.Where(fmt.Sprintf("EXISTS (%s)", hasStockSQL), hasStockArgs...)
 
 		missingSlotSubq := sq.Select("1").
 			From("stock_locations sl").
@@ -376,45 +391,37 @@ func applySlottingStatusFilter(builder sq.SelectBuilder, purpose string, f catal
 			Where("sl.product_id = p.id AND sl.quantity > 0").
 			Where("NOT EXISTS (SELECT 1 FROM product_location_slots pls WHERE pls.product_id = p.id AND pls.location_id = sl.location_id)")
 		missingSlotSubq = applyLocationScope(missingSlotSubq, purpose, f)
-		missingSql, missingArgs, _ := missingSlotSubq.ToSql()
-		return builder.Where(fmt.Sprintf("NOT EXISTS (%s)", missingSql), missingArgs...)
+		missingSQL, missingArgs, err := missingSlotSubq.ToSql()
+		if err != nil {
+			return builder
+		}
+		return builder.Where(fmt.Sprintf("NOT EXISTS (%s)", missingSQL), missingArgs...)
 
 	default:
 		return builder
 	}
 }
 
-func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filters catalog_dto.ProductFilterRequest) ([]catalog_dto.ProductDetailResponse, int, error) {
-	builder := sq.Select("p.id", "p.sku", "p.name", "p.price", "p.is_package", "p.is_active", "p.category_id", "c.name as category_name", "p.weight").
-		From("products p").
-		LeftJoin("categories c ON p.category_id = c.id")
-
-	cleanSlice := func(s []string) []string {
-		if len(s) == 0 {
-			return []string{}
-		}
-		if len(s) == 1 && len(s[0]) >= 2 && s[0][0] == '[' && s[0][len(s[0])-1] == ']' {
-			if s[0] == "[]" {
-				return []string{}
-			}
-			var parsed []string
-			if err := json.Unmarshal([]byte(s[0]), &parsed); err == nil {
-				return parsed
-			}
-		}
-		if len(s) == 1 && s[0] == "" {
-			return []string{}
-		}
-		return s
+func cleanFilterSlice(s []string) []string {
+	if len(s) == 0 {
+		return []string{}
 	}
+	if len(s) == 1 && len(s[0]) >= 2 && s[0][0] == '[' && s[0][len(s[0])-1] == ']' {
+		if s[0] == "[]" {
+			return []string{}
+		}
+		var parsed []string
+		if err := json.Unmarshal([]byte(s[0]), &parsed); err == nil {
+			return parsed
+		}
+	}
+	if len(s) == 1 && s[0] == "" {
+		return []string{}
+	}
+	return s
+}
 
-	filters.CategoryInclude = cleanSlice(filters.CategoryInclude)
-	filters.CategoryExclude = cleanSlice(filters.CategoryExclude)
-	filters.BuildingInclude = cleanSlice(filters.BuildingInclude)
-	filters.BuildingExclude = cleanSlice(filters.BuildingExclude)
-	filters.FloorInclude = cleanSlice(filters.FloorInclude)
-	filters.FloorExclude = cleanSlice(filters.FloorExclude)
-
+func applyProductFilters(builder sq.SelectBuilder, filters catalog_dto.ProductFilterRequest) (sq.SelectBuilder, error) {
 	// Filter Status
 	if filters.Status == "archived" {
 		builder = builder.Where("(p.is_active = 0 OR p.deleted_at IS NOT NULL)")
@@ -439,7 +446,6 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 	} else if filters.CategoryID != "" && filters.CategoryID != "all" {
 		builder = builder.Where(sq.Eq{"p.category_id": filters.CategoryID})
 	}
-
 	if len(filters.CategoryExclude) > 0 {
 		builder = builder.Where(sq.NotEq{"p.category_id": filters.CategoryExclude})
 	}
@@ -456,11 +462,16 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 	}
 
 	if filters.Location != "" && filters.Location != "all" {
-		subq := sq.Select("1").From("stock_locations sl").Join("locations l ON sl.location_id = l.id").
+		subq := sq.Select("1").
+			From("stock_locations sl").
+			Join("locations l ON sl.location_id = l.id").
 			Where("sl.product_id = p.id")
 		subq = applyLocationScope(subq, purpose, filters)
-		sql, args, _ := subq.ToSql()
-		builder = builder.Where(fmt.Sprintf("EXISTS (%s)", sql), args...)
+		subSQL, subArgs, err := subq.ToSql()
+		if err != nil {
+			return builder, err
+		}
+		builder = builder.Where(fmt.Sprintf("EXISTS (%s)", subSQL), subArgs...)
 	}
 
 	// Search
@@ -481,32 +492,67 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 
 	// Stock Status logic
 	if op, ok := stockStatusOperator(filters.StockStatus); ok {
-		subq := sq.Select("COALESCE(SUM(sl.quantity), 0)").From("stock_locations sl").Join("locations l ON sl.location_id = l.id").Where("sl.product_id = p.id")
+		subq := sq.Select("COALESCE(SUM(sl.quantity), 0)").
+			From("stock_locations sl").
+			Join("locations l ON sl.location_id = l.id").
+			Where("sl.product_id = p.id")
 		if filters.Location != "" && filters.Location != "all" {
 			subq = applyLocationScope(subq, purpose, filters)
 		}
-		subSql, subArgs, _ := subq.ToSql()
-		builder = builder.Where(fmt.Sprintf("(%s) %s 0", subSql, op), subArgs...)
+		subSQL, subArgs, err := subq.ToSql()
+		if err != nil {
+			return builder, err
+		}
+		builder = builder.Where(fmt.Sprintf("(%s) %s 0", subSQL, op), subArgs...)
 	}
 
 	// Slotting Status logic
 	builder = applySlottingStatusFilter(builder, purpose, filters)
+	return builder, nil
+}
 
-	// We can't easily clear columns in Squirrel, so we just use the raw string replacement for count
-	querySql, args, _ := builder.ToSql()
-	countSqlClean := "SELECT COUNT(DISTINCT p.id) " + querySql[strings.Index(querySql, "FROM"):]
+func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filters catalog_dto.ProductFilterRequest) ([]catalog_dto.ProductDetailResponse, int, error) {
+	filters.CategoryInclude = cleanFilterSlice(filters.CategoryInclude)
+	filters.CategoryExclude = cleanFilterSlice(filters.CategoryExclude)
+	filters.BuildingInclude = cleanFilterSlice(filters.BuildingInclude)
+	filters.BuildingExclude = cleanFilterSlice(filters.BuildingExclude)
+	filters.FloorInclude = cleanFilterSlice(filters.FloorInclude)
+	filters.FloorExclude = cleanFilterSlice(filters.FloorExclude)
 
-	var total int
-	ext := database.GetExt(ctx, r.db)
-	err := ext.GetContext(ctx, &total, countSqlClean, args...)
+	countBuilder, err := applyProductFilters(
+		sq.Select("COUNT(DISTINCT p.id)").
+			From("products p").
+			LeftJoin("categories c ON p.category_id = c.id"),
+		filters,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	countSQL, countArgs, err := countBuilder.ToSql()
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// Subquery for total stock
-	builder = builder.Column("(SELECT COALESCE(SUM(quantity), 0) FROM stock_locations WHERE product_id = p.id) as total_stock")
+	var total int
+	ext := database.GetExt(ctx, r.db)
+	if err := ext.GetContext(ctx, &total, countSQL, countArgs...); err != nil {
+		return nil, 0, err
+	}
 
-	// Sorting
+	dataBuilder, err := applyProductFilters(
+		sq.Select(
+			"p.id", "p.sku", "p.name", "p.price", "p.is_package", "p.is_active",
+			"p.category_id", "c.name AS category_name", "p.weight",
+			"(SELECT COALESCE(SUM(quantity), 0) FROM stock_locations WHERE product_id = p.id) AS total_stock",
+		).
+			From("products p").
+			LeftJoin("categories c ON p.category_id = c.id"),
+		filters,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	sortByMap := map[string]string{
 		"name": "p.name", "sku": "p.sku", "price": "p.price", "updated_at": "p.updated_at", "weight": "p.weight",
 	}
@@ -524,35 +570,37 @@ func (r *productRepositoryImpl) GetProductsWithFilters(ctx context.Context, filt
 		if filters.SearchBy == "sku" {
 			searchField = "p.sku"
 		}
-		// Exact Match (1) -> Prefix Match (2) -> Like Match (3)
-		builder = builder.OrderByClause(fmt.Sprintf("CASE WHEN %s = ? THEN 1 WHEN %s LIKE ? THEN 2 ELSE 3 END ASC", searchField, searchField), filters.Search, filters.Search+"%")
+		dataBuilder = dataBuilder.OrderByClause(
+			fmt.Sprintf("CASE WHEN %s = ? THEN 1 WHEN %s LIKE ? THEN 2 ELSE 3 END ASC", searchField, searchField),
+			filters.Search, filters.Search+"%",
+		)
 	}
+	dataBuilder = dataBuilder.OrderBy(sortCol + " " + sortOrder)
 
-	builder = builder.OrderBy(sortCol + " " + sortOrder)
-
-	// Pagination
 	safePage := max(1, filters.Page)
 	safeLimit := max(0, filters.Limit)
 	offset := uint64((safePage - 1) * safeLimit) // #nosec G115
-	builder = builder.Limit(uint64(safeLimit)).Offset(offset)
+	dataBuilder = dataBuilder.Limit(uint64(safeLimit)).Offset(offset)
 
-	finalSql, finalArgs, err := builder.ToSql()
+	finalSQL, finalArgs, err := dataBuilder.ToSql()
 	if err != nil {
 		return nil, 0, err
 	}
 
-	var results []catalog_dto.ProductDetailResponse
-	err = ext.SelectContext(ctx, &results, finalSql, finalArgs...)
-	if results == nil {
-		results = []catalog_dto.ProductDetailResponse{}
-	} else {
-		_ = r.attachProductDetails(ctx, results)
+	results := make([]catalog_dto.ProductDetailResponse, 0)
+	if err := ext.SelectContext(ctx, &results, finalSQL, finalArgs...); err != nil {
+		return nil, 0, err
 	}
-	return results, total, err
+	if len(results) > 0 {
+		if err := r.attachProductDetails(ctx, results); err != nil {
+			return nil, 0, err
+		}
+	}
+	return results, total, nil
 }
 
-func (r *productRepositoryImpl) SearchProducts(ctx context.Context, keyword string, locationID string, inStockOnly bool, page int, limit int) ([]catalog_dto.ProductDetailResponse, error) {
-	builder := sq.Select("p.id", "p.sku", "p.name", "p.price", "p.is_package", "p.is_active", "p.category_id", "c.name as category_name", "p.weight").
+func buildSearchProductsQuery(keyword string, locationID string, inStockOnly bool, page int, limit int) (string, []any, error) {
+	builder := sq.Select("p.id", "p.sku", "p.name", "p.price", "p.is_package", "p.is_active", "p.category_id", "c.name AS category_name", "p.weight").
 		From("products p").
 		LeftJoin("categories c ON p.category_id = c.id").
 		Where("(p.is_active = 1 AND p.deleted_at IS NULL)")
@@ -573,91 +621,101 @@ func (r *productRepositoryImpl) SearchProducts(ctx context.Context, keyword stri
 
 	if locationID != "" && locationID != "0" {
 		builder = builder.LeftJoin("stock_locations sl ON p.id = sl.product_id AND sl.location_id = ?", locationID)
-		builder = builder.Column("COALESCE(sl.quantity, 0) as current_stock")
-
+		builder = builder.Column("COALESCE(sl.quantity, 0) AS current_stock")
 		if inStockOnly {
 			builder = builder.Where("COALESCE(sl.quantity, 0) > 0")
 		}
-
 		builder = builder.OrderBy("(COALESCE(sl.quantity, 0) > 0) DESC")
-		// 	} else {
-		if inStockOnly {
-			builder = builder.Where("EXISTS (SELECT 1 FROM stock_locations sl WHERE sl.product_id = p.id AND sl.quantity > 0)")
-		}
+	} else if inStockOnly {
+		builder = builder.Where("EXISTS (SELECT 1 FROM stock_locations sl WHERE sl.product_id = p.id AND sl.quantity > 0)")
 	}
 
-	builder = builder.Column("(SELECT COALESCE(SUM(quantity), 0) FROM stock_locations WHERE product_id = p.id) as total_stock")
+	builder = builder.Column("(SELECT COALESCE(SUM(quantity), 0) FROM stock_locations WHERE product_id = p.id) AS total_stock")
 	safePage := max(1, page)
 	safeLimit := max(0, limit)
 	offset := uint64((safePage - 1) * safeLimit) // #nosec G115
 	builder = builder.OrderBy("p.name ASC").Limit(uint64(safeLimit)).Offset(offset)
 
-	sql, args, _ := builder.ToSql()
-	var results []catalog_dto.ProductDetailResponse
-	ext := database.GetExt(ctx, r.db)
-	err := ext.SelectContext(ctx, &results, sql, args...)
-	if results == nil {
-		results = []catalog_dto.ProductDetailResponse{}
-	} else {
-		_ = r.attachProductDetails(ctx, results)
+	return builder.ToSql()
+}
+
+func (r *productRepositoryImpl) SearchProducts(ctx context.Context, keyword string, locationID string, inStockOnly bool, page int, limit int) ([]catalog_dto.ProductDetailResponse, error) {
+	querySQL, args, err := buildSearchProductsQuery(keyword, locationID, inStockOnly, page, limit)
+	if err != nil {
+		return nil, err
 	}
-	return results, err
+
+	results := make([]catalog_dto.ProductDetailResponse, 0)
+	ext := database.GetExt(ctx, r.db)
+	if err := ext.SelectContext(ctx, &results, querySQL, args...); err != nil {
+		return nil, err
+	}
+	if len(results) > 0 {
+		if err := r.attachProductDetails(ctx, results); err != nil {
+			return nil, err
+		}
+	}
+	return results, nil
 }
 
 func (r *productRepositoryImpl) GetAllActiveProducts(ctx context.Context) ([]catalog_dto.ProductDetailResponse, error) {
 	query := `
-		SELECT p.id, p.sku, p.name, p.price, p.is_package, p.is_active, p.category_id, c.name as category_name, p.weight 
+		SELECT p.id, p.sku, p.name, p.price, p.is_package, p.is_active, p.category_id, c.name AS category_name, p.weight
 		FROM products p
 		LEFT JOIN categories c ON p.category_id = c.id
 		WHERE p.is_active = 1 AND p.deleted_at IS NULL
 		ORDER BY p.name ASC
 	`
-	var results []catalog_dto.ProductDetailResponse
+	results := make([]catalog_dto.ProductDetailResponse, 0)
 	ext := database.GetExt(ctx, r.db)
-	err := ext.SelectContext(ctx, &results, query)
-	if results == nil {
-		results = []catalog_dto.ProductDetailResponse{}
-	} else {
-		_ = r.attachProductDetails(ctx, results)
+	if err := ext.SelectContext(ctx, &results, query); err != nil {
+		return nil, err
 	}
-	return results, err
+	if len(results) > 0 {
+		if err := r.attachProductDetails(ctx, results); err != nil {
+			return nil, err
+		}
+	}
+	return results, nil
 }
 
 func (r *productRepositoryImpl) GetProductDetailWithStock(ctx context.Context, id int) (*catalog_dto.ProductDetailResponse, error) {
 	query := `
-		SELECT 
-			p.id, p.sku, p.name, p.price, p.is_package, p.is_active, p.category_id, c.name as category_name, p.weight,
+		SELECT
+			p.id, p.sku, p.name, p.price, p.is_package, p.is_active, p.category_id, c.name AS category_name, p.weight,
 			p.length, p.width, p.height,
-			(SELECT COALESCE(SUM(quantity), 0) FROM stock_locations WHERE product_id = p.id) as total_stock
+			(SELECT COALESCE(SUM(quantity), 0) FROM stock_locations WHERE product_id = p.id) AS total_stock
 		FROM products p
 		LEFT JOIN categories c ON p.category_id = c.id
 		WHERE p.id = ?
 	`
 	var result catalog_dto.ProductDetailResponse
 	ext := database.GetExt(ctx, r.db)
-	err := ext.GetContext(ctx, &result, query, id)
-	if err == nil {
-		temp := []catalog_dto.ProductDetailResponse{result}
-		_ = r.attachProductDetails(ctx, temp)
-		result = temp[0]
+	if err := ext.GetContext(ctx, &result, query, id); err != nil {
+		return nil, err
 	}
-	return &result, err
+	temp := []catalog_dto.ProductDetailResponse{result}
+	if err := r.attachProductDetails(ctx, temp); err != nil {
+		return nil, err
+	}
+	return &temp[0], nil
 }
 
 func (r *productRepositoryImpl) GetProductStockDetails(ctx context.Context, id int) ([]catalog_dto.ProductStockDetailResponse, error) {
 	query := `
-		SELECT 
-			sl.location_id, l.code as location_code, COALESCE(l.name, '') as location_name, COALESCE(l.purpose, '') as purpose, l.building, COALESCE(l.floor, '') as floor, sl.quantity
+		SELECT
+			sl.location_id, l.code AS location_code, COALESCE(l.name, '') AS location_name,
+			COALESCE(l.purpose, '') AS purpose, COALESCE(l.building, '') AS building,
+			COALESCE(l.floor, '') AS floor, sl.quantity
 		FROM stock_locations sl
 		JOIN locations l ON sl.location_id = l.id
 		WHERE sl.product_id = ?
 		ORDER BY l.purpose ASC, l.building ASC
 	`
-	var results []catalog_dto.ProductStockDetailResponse
+	results := make([]catalog_dto.ProductStockDetailResponse, 0)
 	ext := database.GetExt(ctx, r.db)
-	err := ext.SelectContext(ctx, &results, query, id)
-	if err != nil {
-		return results, err
+	if err := ext.SelectContext(ctx, &results, query, id); err != nil {
+		return nil, err
 	}
 
 	for i := range results {
@@ -665,7 +723,7 @@ func (r *productRepositoryImpl) GetProductStockDetails(ctx context.Context, id i
 	}
 
 	slotQuery := `
-		SELECT id, product_id, location_id, room, rack, COALESCE(tier, '') as tier, formatted_coordinate, is_primary
+		SELECT id, product_id, location_id, room, rack, COALESCE(tier, '') AS tier, formatted_coordinate, is_primary
 		FROM product_location_slots
 		WHERE product_id = ?
 		ORDER BY is_primary DESC, id ASC
@@ -676,15 +734,16 @@ func (r *productRepositoryImpl) GetProductStockDetails(ctx context.Context, id i
 		LocationID int `db:"location_id"`
 	}
 	var slotRows []slotRow
-	if slotErr := ext.SelectContext(ctx, &slotRows, slotQuery, id); slotErr == nil {
-		slotsByLoc := make(map[int][]catalog_dto.ProductSlotSummary)
-		for _, s := range slotRows {
-			slotsByLoc[s.LocationID] = append(slotsByLoc[s.LocationID], s.ProductSlotSummary)
-		}
-		for i := range results {
-			if sList, ok := slotsByLoc[results[i].LocationID]; ok {
-				results[i].Slots = sList
-			}
+	if err := ext.SelectContext(ctx, &slotRows, slotQuery, id); err != nil {
+		return nil, err
+	}
+	slotsByLoc := make(map[int][]catalog_dto.ProductSlotSummary, len(slotRows))
+	for _, s := range slotRows {
+		slotsByLoc[s.LocationID] = append(slotsByLoc[s.LocationID], s.ProductSlotSummary)
+	}
+	for i := range results {
+		if sList, ok := slotsByLoc[results[i].LocationID]; ok {
+			results[i].Slots = sList
 		}
 	}
 
@@ -693,31 +752,36 @@ func (r *productRepositoryImpl) GetProductStockDetails(ctx context.Context, id i
 
 func (r *productRepositoryImpl) GetProductHistory(ctx context.Context, id int) ([]catalog_dto.ProductHistoryResponse, error) {
 	query := `
-		SELECT 
-			a.id, a.action, u.nickname as user_name, a.created_at
+		SELECT
+			a.id, a.action, u.nickname AS user_name, a.created_at
 		FROM product_audit_logs a
 		LEFT JOIN users u ON a.user_id = u.id
 		WHERE a.product_id = ?
 		ORDER BY a.created_at DESC
 	`
-	var results []catalog_dto.ProductHistoryResponse
+	results := make([]catalog_dto.ProductHistoryResponse, 0)
 	ext := database.GetExt(ctx, r.db)
-	err := ext.SelectContext(ctx, &results, query, id)
-	return results, err
+	if err := ext.SelectContext(ctx, &results, query, id); err != nil {
+		return nil, err
+	}
+	if results == nil {
+		return []catalog_dto.ProductHistoryResponse{}, nil
+	}
+	return results, nil
 }
 
 func (r *productRepositoryImpl) GetProductLastPriceUpdate(ctx context.Context, id int) (*time.Time, error) {
 	query := `
-		SELECT created_at 
-		FROM product_audit_logs 
+		SELECT created_at
+		FROM product_audit_logs
 		WHERE product_id = ? AND field = 'price' AND action = 'UPDATE'
-		ORDER BY created_at DESC 
+		ORDER BY created_at DESC
 		LIMIT 1
 	`
 	var updatedAt time.Time
 	ext := database.GetExt(ctx, r.db)
 	err := ext.GetContext(ctx, &updatedAt, query, id)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -732,7 +796,7 @@ func (r *productRepositoryImpl) GetProductMapWithComponents(ctx context.Context,
 	}
 
 	query, args, err := sqlx.In(`
-		SELECT p.id, p.sku, p.name, p.price, p.is_package, p.is_active, p.category_id, c.name as category_name, p.weight 
+		SELECT p.id, p.sku, p.name, p.price, p.is_package, p.is_active, p.category_id, c.name AS category_name, p.weight
 		FROM products p
 		LEFT JOIN categories c ON p.category_id = c.id
 		WHERE p.sku IN (?) AND p.deleted_at IS NULL
@@ -754,7 +818,7 @@ func (r *productRepositoryImpl) GetProductMapWithComponents(ctx context.Context,
 		}
 	}
 
-	resultMap := make(map[string]catalog_dto.ProductDetailResponse)
+	resultMap := make(map[string]catalog_dto.ProductDetailResponse, len(products))
 	for _, p := range products {
 		resultMap[strings.ToUpper(p.SKU)] = p
 	}
@@ -783,18 +847,32 @@ func (r *productRepositoryImpl) IsMediaLinkedToProduct(ctx context.Context, prod
 func (r *productRepositoryImpl) DeleteProductImage(ctx context.Context, imageID int) error {
 	query := `DELETE FROM product_images WHERE id = ?`
 	ext := database.GetExt(ctx, r.db)
-	_, err := ext.ExecContext(ctx, query, imageID)
-	return err
+	res, err := ext.ExecContext(ctx, query, imageID)
+	if err != nil {
+		return err
+	}
+	if affected, err := res.RowsAffected(); err == nil && affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (r *productRepositoryImpl) SetPrimaryImage(ctx context.Context, productID int, imageID int) error {
-	query1 := `UPDATE product_images SET is_primary = 0 WHERE product_id = ?`
 	ext := database.GetExt(ctx, r.db)
-	if _, err := ext.ExecContext(ctx, query1, productID); err != nil {
+
+	// Verify target image belongs to this product before clearing existing primary flag.
+	var count int
+	if err := ext.GetContext(ctx, &count, `SELECT COUNT(*) FROM product_images WHERE id = ? AND product_id = ?`, imageID, productID); err != nil {
 		return err
 	}
-	query2 := `UPDATE product_images SET is_primary = 1 WHERE id = ? AND product_id = ?`
-	_, err := ext.ExecContext(ctx, query2, imageID, productID)
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+
+	if _, err := ext.ExecContext(ctx, `UPDATE product_images SET is_primary = 0 WHERE product_id = ?`, productID); err != nil {
+		return err
+	}
+	_, err := ext.ExecContext(ctx, `UPDATE product_images SET is_primary = 1 WHERE id = ? AND product_id = ?`, imageID, productID)
 	return err
 }
 
@@ -819,8 +897,7 @@ func (r *productRepositoryImpl) GetProductTotalStock(ctx context.Context, produc
 
 	var total int
 	ext := database.GetExt(ctx, r.db)
-	err = ext.GetContext(ctx, &total, sqlStr, args...)
-	if err != nil {
+	if err := ext.GetContext(ctx, &total, sqlStr, args...); err != nil {
 		return 0, err
 	}
 	return total, nil
@@ -852,13 +929,13 @@ func (r *productRepositoryImpl) GetProductStockMovementsCount(ctx context.Contex
 }
 
 func (r *productRepositoryImpl) GetSumOfNewerStockMovements(ctx context.Context, productID int, offset int, buildings []string) (int, error) {
-	if offset == 0 {
+	if offset <= 0 {
 		return 0, nil
 	}
 
 	hasBuildingFilter := len(buildings) > 0
 
-	netChangeSql := `
+	netChangeSQL := `
 		CASE
 			WHEN sm.from_location_id IS NULL AND sm.to_location_id IS NOT NULL THEN sm.quantity
 			WHEN sm.from_location_id IS NOT NULL AND sm.to_location_id IS NULL THEN -sm.quantity
@@ -867,12 +944,8 @@ func (r *productRepositoryImpl) GetSumOfNewerStockMovements(ctx context.Context,
 	`
 
 	if hasBuildingFilter {
-		bList := strings.Repeat("?,", len(buildings))
-		bList = strings.TrimSuffix(bList, ",")
-
-		// If to is in filter and from is not -> positive
-		// If from is in filter and to is not -> negative
-		netChangeSql = fmt.Sprintf(`
+		bList := strings.TrimSuffix(strings.Repeat("?,", len(buildings)), ",")
+		netChangeSQL = fmt.Sprintf(`
 			CASE
 				WHEN l_to.building IN (%s) AND (l_from.building NOT IN (%s) OR l_from.building IS NULL) THEN sm.quantity
 				WHEN l_from.building IN (%s) AND (l_to.building NOT IN (%s) OR l_to.building IS NULL) THEN -sm.quantity
@@ -881,7 +954,7 @@ func (r *productRepositoryImpl) GetSumOfNewerStockMovements(ctx context.Context,
 		`, bList, bList, bList, bList)
 	}
 
-	subQuery := sq.Select("sm.quantity", "sm.from_location_id", "sm.to_location_id", "l_from.building as from_building", "l_to.building as to_building").
+	subQuery := sq.Select("sm.quantity", "sm.from_location_id", "sm.to_location_id", "l_from.building AS from_building", "l_to.building AS to_building").
 		From("stock_movements sm").
 		LeftJoin("locations l_from ON sm.from_location_id = l_from.id").
 		LeftJoin("locations l_to ON sm.to_location_id = l_to.id").
@@ -897,14 +970,14 @@ func (r *productRepositoryImpl) GetSumOfNewerStockMovements(ctx context.Context,
 	safeOffset := max(0, offset)
 	subQuery = subQuery.OrderBy("sm.created_at DESC").Limit(uint64(safeOffset))
 
-	subSql, subArgs, err := subQuery.ToSql()
+	subSQL, subArgs, err := subQuery.ToSql()
 	if err != nil {
 		return 0, err
 	}
 
-	finalQuery := fmt.Sprintf("SELECT COALESCE(SUM(%s), 0) as total_net_change FROM (%s) as recent_movements", netChangeSql, subSql)
+	finalQuery := fmt.Sprintf("SELECT COALESCE(SUM(%s), 0) AS total_net_change FROM (%s) AS recent_movements", netChangeSQL, subSQL)
 
-	var finalArgs []interface{}
+	var finalArgs []any
 	if hasBuildingFilter {
 		for i := 0; i < 4; i++ {
 			for _, b := range buildings {
@@ -916,15 +989,18 @@ func (r *productRepositoryImpl) GetSumOfNewerStockMovements(ctx context.Context,
 
 	var totalNetChange int
 	ext := database.GetExt(ctx, r.db)
-	err = ext.GetContext(ctx, &totalNetChange, finalQuery, finalArgs...)
-	if err != nil {
+	if err := ext.GetContext(ctx, &totalNetChange, finalQuery, finalArgs...); err != nil {
 		return 0, err
 	}
 	return totalNetChange, nil
 }
 
 func (r *productRepositoryImpl) GetProductStockMovementsPaginated(ctx context.Context, productID int, limit int, offset int, buildings []string) ([]catalog_port.RawStockMovement, error) {
-	builder := sq.Select("sm.id", "sm.quantity", "sm.from_location_id", "sm.to_location_id", "sm.movement_type", "sm.notes", "sm.created_at", "u.nickname as user_name", "l_from.building as from_building", "l_to.building as to_building").
+	builder := sq.Select(
+		"sm.id", "sm.quantity", "sm.from_location_id", "sm.to_location_id",
+		"sm.movement_type", "sm.notes", "sm.created_at",
+		"u.nickname AS user_name", "l_from.building AS from_building", "l_to.building AS to_building",
+	).
 		From("stock_movements sm").
 		LeftJoin("users u ON sm.user_id = u.id").
 		LeftJoin("locations l_from ON sm.from_location_id = l_from.id").
@@ -947,11 +1023,13 @@ func (r *productRepositoryImpl) GetProductStockMovementsPaginated(ctx context.Co
 		return nil, err
 	}
 
-	var rows []catalog_port.RawStockMovement
+	rows := make([]catalog_port.RawStockMovement, 0)
 	ext := database.GetExt(ctx, r.db)
-	err = ext.SelectContext(ctx, &rows, sqlStr, args...)
-	if rows == nil {
-		rows = []catalog_port.RawStockMovement{}
+	if err := ext.SelectContext(ctx, &rows, sqlStr, args...); err != nil {
+		return nil, err
 	}
-	return rows, err
+	if rows == nil {
+		return []catalog_port.RawStockMovement{}, nil
+	}
+	return rows, nil
 }

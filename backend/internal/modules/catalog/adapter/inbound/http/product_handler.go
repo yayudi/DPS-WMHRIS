@@ -1,47 +1,45 @@
 package http
 
 import (
-	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
-
-	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
-
 	"encoding/json"
 	"net/http"
 	"os"
 	"strings"
 
 	catalog_dto "github.com/dps-wmhris/backend/internal/modules/catalog/application/dto"
-
 	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
-
-	"github.com/dps-wmhris/backend/internal/shared/middleware"
+	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
+	system_port "github.com/dps-wmhris/backend/internal/modules/system/port"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
 
+// ProductHandler exposes HTTP endpoints for product/package CRUD, search, images, stock details, and bulk jobs.
 type ProductHandler struct {
 	productService catalog_port.ProductUseCase
-	jobService     system_usecase.JobService
+	jobService     system_port.JobService
 }
 
-func NewProductHandler(productService catalog_port.ProductUseCase, jobService system_usecase.JobService) *ProductHandler {
+// NewProductHandler creates a new ProductHandler.
+func NewProductHandler(productService catalog_port.ProductUseCase, jobService system_port.JobService) *ProductHandler {
 	return &ProductHandler{
 		productService: productService,
 		jobService:     jobService,
 	}
 }
 
+// Create creates a new single or package product.
 func (h *ProductHandler) Create(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[catalog_dto.CreateProductRequest](c)
-	if !ok {
-		return
-	}
-	req := *req_ptr
-
 	userID, ok := utils.RequireUserID(c)
 	if !ok {
 		return
 	}
+
+	reqPtr, ok := utils.BindAndValidate[catalog_dto.CreateProductRequest](c)
+	if !ok {
+		return
+	}
+	req := *reqPtr
 
 	product, err := h.productService.CreateProduct(c.Request.Context(), userID, req)
 	if err != nil {
@@ -52,14 +50,15 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusCreated, "master_data.product.create_success", product)
 }
 
+// SearchProducts returns matching active products for autocomplete/dropdown pickers in raw array format.
 func (h *ProductHandler) SearchProducts(c *gin.Context) {
 	q := c.Query("q")
-	locationId := c.Query("locationId")
+	locationID := c.Query("locationId")
 	inStockOnly := c.Query("inStockOnly") == "true"
 
 	page, limit := utils.ParsePagination(c, 20)
 
-	results, err := h.productService.SearchProducts(c.Request.Context(), q, locationId, inStockOnly, page, limit)
+	results, err := h.productService.SearchProducts(c.Request.Context(), q, locationID, inStockOnly, page, limit)
 	if err != nil {
 		utils.HandleDomainError(c, err)
 		return
@@ -67,6 +66,7 @@ func (h *ProductHandler) SearchProducts(c *gin.Context) {
 	utils.RawResponse(c, http.StatusOK, results)
 }
 
+// GetAdminList returns all active products with attached stock, slots, components, and images.
 func (h *ProductHandler) GetAdminList(c *gin.Context) {
 	results, err := h.productService.GetAllActiveProducts(c.Request.Context())
 	if err != nil {
@@ -76,12 +76,13 @@ func (h *ProductHandler) GetAdminList(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, results)
 }
 
+// GetProducts returns a filtered and paginated list of products.
 func (h *ProductHandler) GetProducts(c *gin.Context) {
-	req_ptr, ok := utils.BindQueryAndValidate[catalog_dto.ProductFilterRequest](c)
+	reqPtr, ok := utils.BindQueryAndValidate[catalog_dto.ProductFilterRequest](c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
+	req := *reqPtr
 
 	results, total, err := h.productService.GetProductsWithFilters(c.Request.Context(), req)
 	if err != nil {
@@ -102,12 +103,13 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 	})
 }
 
+// GetPackages returns a filtered and paginated list restricted strictly to package products.
 func (h *ProductHandler) GetPackages(c *gin.Context) {
-	req_ptr, ok := utils.BindQueryAndValidate[catalog_dto.ProductFilterRequest](c)
+	reqPtr, ok := utils.BindQueryAndValidate[catalog_dto.ProductFilterRequest](c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
+	req := *reqPtr
 	isPackage := true
 	req.IsPackage = &isPackage
 
@@ -130,6 +132,7 @@ func (h *ProductHandler) GetPackages(c *gin.Context) {
 	})
 }
 
+// GetProductById returns a single product with stock, slotting coordinates, components, and media assets.
 func (h *ProductHandler) GetProductById(c *gin.Context) {
 	id, ok := utils.ParseIntParam(c, "id")
 	if !ok {
@@ -138,13 +141,14 @@ func (h *ProductHandler) GetProductById(c *gin.Context) {
 
 	product, err := h.productService.GetProductDetailWithStock(c.Request.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusNotFound, "master_data.product.not_found", "NOT_FOUND")
+		utils.HandleDomainError(c, err)
 		return
 	}
 
 	utils.SuccessDataResponse(c, http.StatusOK, product)
 }
 
+// GetProductStockDetails returns per-location stock balances and slotting coordinates for a product.
 func (h *ProductHandler) GetProductStockDetails(c *gin.Context) {
 	id, ok := utils.ParseIntParam(c, "id")
 	if !ok {
@@ -160,6 +164,7 @@ func (h *ProductHandler) GetProductStockDetails(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, results)
 }
 
+// GetProductHistory returns the audit history entries for a product.
 func (h *ProductHandler) GetProductHistory(c *gin.Context) {
 	id, ok := utils.ParseIntParam(c, "id")
 	if !ok {
@@ -175,6 +180,7 @@ func (h *ProductHandler) GetProductHistory(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, results)
 }
 
+// GetProductLastPriceUpdate returns the timestamp of the most recent price change for a product.
 func (h *ProductHandler) GetProductLastPriceUpdate(c *gin.Context) {
 	id, ok := utils.ParseIntParam(c, "id")
 	if !ok {
@@ -187,27 +193,28 @@ func (h *ProductHandler) GetProductLastPriceUpdate(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessDataResponse(c, http.StatusOK, map[string]interface{}{
+	utils.SuccessDataResponse(c, http.StatusOK, map[string]any{
 		"last_price_update": lastUpdate,
 	})
 }
 
+// Update modifies or restores a product by ID.
 func (h *ProductHandler) Update(c *gin.Context) {
 	id, ok := utils.ParseIntParam(c, "id")
 	if !ok {
 		return
 	}
 
-	req_ptr, ok := utils.BindAndValidate[catalog_dto.UpdateProductRequest](c)
-	if !ok {
-		return
-	}
-	req := *req_ptr
-
 	userID, ok := utils.RequireUserID(c)
 	if !ok {
 		return
 	}
+
+	reqPtr, ok := utils.BindAndValidate[catalog_dto.UpdateProductRequest](c)
+	if !ok {
+		return
+	}
+	req := *reqPtr
 
 	if err := h.productService.UpdateProduct(c.Request.Context(), userID, id, req); err != nil {
 		utils.HandleDomainError(c, err)
@@ -217,6 +224,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "master_data.product.update_success", nil)
 }
 
+// GetAll returns all non-deleted product records without pagination.
 func (h *ProductHandler) GetAll(c *gin.Context) {
 	products, err := h.productService.GetAllProducts(c.Request.Context())
 	if err != nil {
@@ -227,13 +235,18 @@ func (h *ProductHandler) GetAll(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, products)
 }
 
+// ImportBatchProductUpdate queues an asynchronous bulk product update or dry-run job.
 func (h *ProductHandler) ImportBatchProductUpdate(c *gin.Context) {
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
+		return
+	}
+
 	savedPath, origName, ok := utils.SaveImportUpload(c, "file", "product")
 	if !ok {
 		return
 	}
 
-	userID := middleware.GetUserID(c)
 	jobType, notes, _ := utils.ParseImportJobMeta(
 		c,
 		"BATCH_EDIT_PRODUCT",
@@ -259,6 +272,7 @@ func (h *ProductHandler) ImportBatchProductUpdate(c *gin.Context) {
 	utils.JobCreatedResponse(c, http.StatusOK, "master_data.product.batch_job_queued", jobID)
 }
 
+// Delete soft-deletes a product by ID.
 func (h *ProductHandler) Delete(c *gin.Context) {
 	productID, ok := utils.ParseIntParam(c, "id")
 	if !ok {
@@ -278,14 +292,14 @@ func (h *ProductHandler) Delete(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "master_data.product.delete_success", nil)
 }
 
-// ExportProducts creates an export job for products. Matches GET /api/products/export.
+// ExportProducts queues an asynchronous export job for products. Matches GET /api/products/export.
 func (h *ProductHandler) ExportProducts(c *gin.Context) {
 	userID, ok := utils.RequireUserID(c)
 	if !ok {
 		return
 	}
 
-	filters := map[string]interface{}{
+	filters := map[string]any{
 		"search":        c.Query("search"),
 		"searchBy":      c.DefaultQuery("searchBy", "name"),
 		"location":      c.DefaultQuery("location", "all"),
@@ -310,7 +324,11 @@ func (h *ProductHandler) ExportProducts(c *gin.Context) {
 		}
 	}
 
-	filterJSON, _ := json.Marshal(filters)
+	filterJSON, err := json.Marshal(filters)
+	if err != nil {
+		utils.HandleDomainError(c, err)
+		return
+	}
 	filterStr := string(filterJSON)
 
 	jobReq := system_dto.CreateExportJobRequest{
@@ -328,7 +346,7 @@ func (h *ProductHandler) ExportProducts(c *gin.Context) {
 	utils.JobCreatedResponse(c, http.StatusOK, "master_data.product.export_job_queued", jobID)
 }
 
-// GetProductStockTimeline returns the paginated stock timeline. Matches GET /api/products/:id/stock-timeline.
+// GetProductStockTimeline returns the paginated running-balance stock timeline. Matches GET /api/products/:id/stock-timeline.
 func (h *ProductHandler) GetProductStockTimeline(c *gin.Context) {
 	id, ok := utils.ParseIntParam(c, "id")
 	if !ok {
@@ -338,9 +356,12 @@ func (h *ProductHandler) GetProductStockTimeline(c *gin.Context) {
 	page, limit := utils.ParsePagination(c, 100)
 
 	var buildings []string
-	buildingParam := c.Query("building")
-	if buildingParam != "" {
-		buildings = strings.Split(buildingParam, ",")
+	if buildingParam := strings.TrimSpace(c.Query("building")); buildingParam != "" {
+		for _, part := range strings.Split(buildingParam, ",") {
+			if trimmed := strings.TrimSpace(part); trimmed != "" {
+				buildings = append(buildings, trimmed)
+			}
+		}
 	}
 
 	result, err := h.productService.GetHistoricalStockTimeline(c.Request.Context(), id, page, limit, buildings)
@@ -352,7 +373,7 @@ func (h *ProductHandler) GetProductStockTimeline(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, result)
 }
 
-// LinkMedia links media to a product. Matches POST /api/products/:id/link-media.
+// LinkMedia links media asset IDs to a product. Matches POST /api/products/:id/link-media.
 func (h *ProductHandler) LinkMedia(c *gin.Context) {
 	id, ok := utils.ParseIntParam(c, "id")
 	if !ok {
@@ -364,11 +385,11 @@ func (h *ProductHandler) LinkMedia(c *gin.Context) {
 		return
 	}
 
-	req_ptr, ok := utils.BindAndValidate[catalog_dto.LinkMediaRequest](c)
+	reqPtr, ok := utils.BindAndValidate[catalog_dto.LinkMediaRequest](c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
+	req := *reqPtr
 
 	if err := h.productService.LinkMediaToProduct(c.Request.Context(), id, req.MediaIDs, userID); err != nil {
 		utils.HandleDomainError(c, err)
@@ -378,7 +399,7 @@ func (h *ProductHandler) LinkMedia(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "master_data.product.link_media_success", nil)
 }
 
-// SetPrimaryImage sets a specific image as primary. Matches PUT /api/products/:id/images/:imageId/primary.
+// SetPrimaryImage marks a specific product image as primary. Matches PUT /api/products/:id/images/:imageId/primary.
 func (h *ProductHandler) SetPrimaryImage(c *gin.Context) {
 	productID, ok := utils.ParseIntParam(c, "id")
 	if !ok {
@@ -390,7 +411,11 @@ func (h *ProductHandler) SetPrimaryImage(c *gin.Context) {
 		return
 	}
 
-	userID := middleware.GetUserID(c)
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
+		return
+	}
+
 	if err := h.productService.SetPrimaryImage(c.Request.Context(), productID, imageID, userID); err != nil {
 		utils.HandleDomainError(c, err)
 		return
@@ -399,14 +424,18 @@ func (h *ProductHandler) SetPrimaryImage(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "master_data.product.set_primary_image_success", nil)
 }
 
-// DeleteProductImage removes a specific product image. Matches DELETE /api/products/:id/images/:imageId.
+// DeleteProductImage removes a specific product image link. Matches DELETE /api/products/:id/images/:imageId.
 func (h *ProductHandler) DeleteProductImage(c *gin.Context) {
 	imageID, ok := utils.ParseIntParam(c, "imageId")
 	if !ok {
 		return
 	}
 
-	userID := middleware.GetUserID(c)
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
+		return
+	}
+
 	if err := h.productService.DeleteProductImage(c.Request.Context(), imageID, userID); err != nil {
 		utils.HandleDomainError(c, err)
 		return
