@@ -16,7 +16,7 @@ type Event struct {
 }
 
 // NewEvent constructs an Event, serializing the payload into json.RawMessage if not already formatted.
-func NewEvent(eventType string, payload interface{}, userID int) Event {
+func NewEvent(eventType string, payload any, userID int) Event {
 	var raw json.RawMessage
 	switch p := payload.(type) {
 	case json.RawMessage:

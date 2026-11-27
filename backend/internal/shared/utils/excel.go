@@ -165,16 +165,38 @@ func GenerateTemplateWithDropdown(cfg TemplateConfig) *excelize.File {
 	return f
 }
 
-// GenerateExportFileName returns the customName with .xlsx extension if provided,
-// otherwise it generates a filename using defaultPrefix and the current timestamp.
+// GenerateExportFileName returns a sanitized .xlsx filename from customName if provided,
+// or falls back to defaultPrefix.xlsx. Characters that could corrupt Content-Disposition headers
+// or inject paths (\r, \n, quotes, slashes) are stripped.
 func GenerateExportFileName(customName, defaultPrefix string) string {
-	fileName := customName
+	fileName := sanitizeExportFileName(customName)
 	if fileName == "" {
-		fileName = fmt.Sprintf("%s.xlsx", defaultPrefix)
-	} else if !strings.HasSuffix(fileName, ".xlsx") {
+		prefix := sanitizeExportFileName(defaultPrefix)
+		if prefix == "" {
+			prefix = "Export"
+		}
+		fileName = fmt.Sprintf("%s.xlsx", prefix)
+	} else if !strings.HasSuffix(strings.ToLower(fileName), ".xlsx") {
 		fileName += ".xlsx"
 	}
 	return fileName
+}
+
+func sanitizeExportFileName(raw string) string {
+	cleaned := strings.Map(func(r rune) rune {
+		switch r {
+		case '\r', '\n', '"', '\'', '/', '\\', ';':
+			return -1
+		default:
+			if r < 32 {
+				return -1
+			}
+			return r
+		}
+	}, strings.TrimSpace(raw))
+	cleaned = strings.ReplaceAll(cleaned, "..", "")
+	cleaned = strings.TrimLeft(cleaned, ".")
+	return strings.TrimSpace(cleaned)
 }
 
 // WriteExcelResponse streams an *excelize.File to the Gin response writer with standard attachment headers

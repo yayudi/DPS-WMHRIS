@@ -126,6 +126,28 @@ func TestSaveImportUpload(t *testing.T) {
 			t.Errorf("expected status 400, got %d", w.Code)
 		}
 	})
+
+	t.Run("Rejects file exceeding MaxImportUploadSize", func(t *testing.T) {
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+		part, _ := writer.CreateFormFile("file", "huge.xlsx")
+		_, _ = part.Write(bytes.Repeat([]byte("A"), MaxImportUploadSize+1))
+		writer.Close()
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		req, _ := http.NewRequest(http.MethodPost, "/upload", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		c.Request = req
+
+		_, _, ok := SaveImportUpload(c, "file", "stock")
+		if ok {
+			t.Errorf("expected ok = false for oversized file")
+		}
+		if w.Code != http.StatusRequestEntityTooLarge {
+			t.Errorf("expected status 413, got %d", w.Code)
+		}
+	})
 }
 
 func TestParseImportJobMeta(t *testing.T) {

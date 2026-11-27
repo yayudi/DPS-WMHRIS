@@ -109,6 +109,7 @@ func TestGenerateExportFileName(t *testing.T) {
 		{"custom_export", "stock", "custom_export.xlsx"},
 		{"custom_export.xlsx", "stock", "custom_export.xlsx"},
 		{"", "stock_summary", "stock_summary.xlsx"},
+		{"evil\r\nSet-Cookie: a=b\"/../../report", "stock", "evilSet-Cookie: a=breport.xlsx"},
 	}
 
 	for _, tt := range tests {

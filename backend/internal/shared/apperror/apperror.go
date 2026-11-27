@@ -1,3 +1,4 @@
+// Package apperror defines structured domain and application errors with localization keys and HTTP status mapping.
 package apperror
 
 import (

@@ -1,3 +1,4 @@
+// Package eventbus defines the domain event abstraction and RabbitMQ adapter for asynchronous cross-module communication.
 package eventbus
 
 import "context"

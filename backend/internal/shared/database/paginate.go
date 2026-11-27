@@ -30,7 +30,7 @@ type PaginatedResult[T any] struct {
 // Secara internal otomatis menggunakan transaksi aktif dari context jika tersedia (via GetExt),
 // atau fallback ke koneksi database utama.
 // baseQuery tidak boleh mengandung klausa LIMIT/OFFSET di bagian akhir.
-func FetchPaginated[T any](ctx context.Context, db *sqlx.DB, baseQuery string, page, limit int, args ...interface{}) (PaginatedResult[T], error) {
+func FetchPaginated[T any](ctx context.Context, db *sqlx.DB, baseQuery string, page, limit int, args ...any) (PaginatedResult[T], error) {
 	if page < 1 {
 		page = 1
 	}
@@ -60,10 +60,12 @@ func FetchPaginated[T any](ctx context.Context, db *sqlx.DB, baseQuery string, p
 		}, nil
 	}
 
-	// 2. Ambil data dengan LIMIT dan OFFSET
+	// 2. Ambil data dengan LIMIT dan OFFSET (kloning slice args agar tidak memutasi backing array milik caller)
 	offset := (page - 1) * limit
 	paginatedQuery := fmt.Sprintf("%s LIMIT ? OFFSET ?", strings.TrimSpace(baseQuery))
-	fetchArgs := append(args, limit, offset)
+	fetchArgs := make([]any, 0, len(args)+2)
+	fetchArgs = append(fetchArgs, args...)
+	fetchArgs = append(fetchArgs, limit, offset)
 
 	var data []T
 	err = ext.SelectContext(ctx, &data, paginatedQuery, fetchArgs...)

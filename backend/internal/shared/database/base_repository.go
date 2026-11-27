@@ -4,10 +4,14 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"regexp"
+	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 )
+
+var validSQLIdentifier = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
 // BaseRepository mendefinisikan kontrak standar untuk operasi CRUD dasar.
 type BaseRepository[T any] interface {
@@ -25,14 +29,19 @@ type baseRepository[T any] struct {
 	hasIsActive  bool
 }
 
-// NewBaseRepository melakukan inisialisasi dan membaca tag db menggunakan reflection (satu kali).
+// NewBaseRepository melakukan inisialisasi, memvalidasi nama tabel, dan membaca tag db menggunakan reflection (satu kali).
 func NewBaseRepository[T any](db *sqlx.DB, tableName string) BaseRepository[T] {
+	cleanTable := strings.TrimSpace(tableName)
+	if !validSQLIdentifier.MatchString(cleanTable) {
+		panic(fmt.Sprintf("database.NewBaseRepository: invalid SQL table identifier %q", tableName))
+	}
+
 	var t T
 	cols, hasDeletedAt, hasIsActive := extractDBColumns(reflect.TypeOf(t))
 
 	return &baseRepository[T]{
 		db:           db,
-		tableName:    tableName,
+		tableName:    cleanTable,
 		columns:      cols,
 		hasDeletedAt: hasDeletedAt,
 		hasIsActive:  hasIsActive,
@@ -40,8 +49,14 @@ func NewBaseRepository[T any](db *sqlx.DB, tableName string) BaseRepository[T] {
 }
 
 func extractDBColumns(t reflect.Type) ([]string, bool, bool) {
+	if t == nil {
+		return nil, false, false
+	}
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return nil, false, false
 	}
 
 	var cols []string
@@ -60,7 +75,8 @@ func extractDBColumns(t reflect.Type) ([]string, bool, bool) {
 			continue
 		}
 
-		dbTag := field.Tag.Get("db")
+		rawTag := field.Tag.Get("db")
+		dbTag := strings.TrimSpace(strings.Split(rawTag, ",")[0])
 		if dbTag != "" && dbTag != "-" {
 			cols = append(cols, dbTag)
 			if dbTag == "deleted_at" {
@@ -104,6 +120,8 @@ func (r *baseRepository[T]) FindByID(ctx context.Context, id int) (*T, error) {
 
 	if r.hasDeletedAt {
 		builder = builder.Where(sq.Expr("deleted_at IS NULL"))
+	} else if r.hasIsActive {
+		builder = builder.Where(sq.Eq{"is_active": 1})
 	}
 
 	query, args, err := builder.ToSql()

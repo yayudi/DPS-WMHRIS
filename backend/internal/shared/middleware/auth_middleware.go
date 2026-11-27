@@ -13,7 +13,7 @@ import (
 
 // Gin context key constants for authenticated user data.
 const (
-	ContextUserIDKey   = "user_id"
+	ContextUserIDKey   = utils.ContextUserIDKey
 	ContextUsernameKey = "username"
 	ContextRoleIDKey   = "role_id"
 )
@@ -62,17 +62,19 @@ func GetUsername(c *gin.Context) string {
 	return ""
 }
 
+// AuthMiddleware validates the caller's JWT from the Authorization Bearer header or token cookie,
+// populates user identity claims into gin.Context, and rejects unauthenticated requests with 401.
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		var tokenString string
 
 		if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
-			tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+			tokenString = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
 		} else {
 			cookieToken, err := c.Cookie("token")
 			if err == nil && cookieToken != "" {
-				tokenString = cookieToken
+				tokenString = strings.TrimSpace(cookieToken)
 			}
 		}
 
@@ -83,7 +85,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, jwt.ErrSignatureInvalid
 			}
@@ -97,35 +99,42 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			var userID int
-			if v, ok := claims["user_id"].(float64); ok {
-				userID = int(v)
-			} else if v, ok := claims["user_id"].(int); ok {
-				userID = v
-			} else {
-				// Fallback
-				userID = 0
-			}
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			log.Printf("[AUTH] Failed to parse JWT claims")
+			utils.LocalizedError(c, http.StatusUnauthorized, "errors.unauthorized", nil, "UNAUTHORIZED")
+			c.Abort()
+			return
+		}
 
-			var roleID int
-			if v, ok := claims["role_id"].(float64); ok {
-				roleID = int(v)
-			} else if v, ok := claims["role_id"].(int); ok {
-				roleID = v
-			} else {
-				roleID = 0
-			}
+		var userID int
+		if v, ok := claims["user_id"].(float64); ok {
+			userID = int(v)
+		} else if v, ok := claims["user_id"].(int); ok {
+			userID = v
+		}
+		if userID <= 0 {
+			log.Printf("[AUTH] Rejecting token with invalid or missing user_id claim")
+			utils.LocalizedError(c, http.StatusUnauthorized, "errors.unauthorized", nil, "UNAUTHORIZED")
+			c.Abort()
+			return
+		}
 
-			c.Set(ContextUserIDKey, userID)
-			c.Set(ContextUsernameKey, claims["username"])
-			c.Set(ContextRoleIDKey, roleID)
-			if loc, ok := claims["locale"].(string); ok && loc != "" {
-				c.Set(GinJWTLocaleKey, loc)
-				ApplyResolvedLocale(c)
-			}
-		} else {
-			log.Printf("[AUTH] Failed to parse claims")
+		var roleID int
+		if v, ok := claims["role_id"].(float64); ok {
+			roleID = int(v)
+		} else if v, ok := claims["role_id"].(int); ok {
+			roleID = v
+		}
+
+		c.Set(ContextUserIDKey, userID)
+		if username, ok := claims["username"].(string); ok {
+			c.Set(ContextUsernameKey, username)
+		}
+		c.Set(ContextRoleIDKey, roleID)
+		if loc, ok := claims["locale"].(string); ok && loc != "" {
+			c.Set(GinJWTLocaleKey, loc)
+			ApplyResolvedLocale(c)
 		}
 
 		c.Next()

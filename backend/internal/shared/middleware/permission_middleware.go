@@ -1,34 +1,50 @@
 package middleware
 
 import (
+	"context"
+	"database/sql"
+	"errors"
+	"log"
 	"net/http"
 	"sync"
 
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 )
 
+// PermissionQueryer abstracts the database query method needed to verify role permissions,
+// allowing *sqlx.DB in production and mock queryers in isolated unit tests.
+type PermissionQueryer interface {
+	GetContext(ctx context.Context, dest any, query string, args ...any) error
+}
+
 var (
-	// permCache menyimpan mapping RoleID -> map[PermissionName]bool
+	// permCache stores RoleID -> map[PermissionName]bool.
 	permCache = make(map[int]map[string]bool)
 	cacheMu   sync.RWMutex
 )
 
-// ClearPermissionCache dipanggil jika ada perubahan permission di DB (dari fitur admin)
+// ClearPermissionCache invalidates the cached permissions for a specific role ID.
 func ClearPermissionCache(roleID int) {
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
 	delete(permCache, roleID)
 }
 
-// RequirePermission memverifikasi role dari JWT terhadap izin spesifik menggunakan lazy-loading in-memory cache
-func RequirePermission(db *sqlx.DB, requiredPermission string) gin.HandlerFunc {
+// ClearAllPermissionCache resets the entire in-memory permission cache.
+func ClearAllPermissionCache() {
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+	permCache = make(map[int]map[string]bool)
+}
+
+// RequirePermission verifies the JWT role against a specific permission using a lazy-loaded in-memory cache.
+func RequirePermission(db PermissionQueryer, requiredPermission string) gin.HandlerFunc {
 	return RequireAnyPermission(db, requiredPermission)
 }
 
-// RequireAnyPermission memverifikasi apakah role memiliki setidaknya satu dari beberapa permission (OR Logic)
-func RequireAnyPermission(db *sqlx.DB, permissions ...string) gin.HandlerFunc {
+// RequireAnyPermission verifies whether the role holds at least one of the given permissions (OR logic).
+func RequireAnyPermission(db PermissionQueryer, permissions ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if len(permissions) == 0 {
 			c.Next()
@@ -42,8 +58,7 @@ func RequireAnyPermission(db *sqlx.DB, permissions ...string) gin.HandlerFunc {
 			return
 		}
 
-		// 0. Superadmin Bypass (Mencegah Lockout)
-		// Jika roleID == 1 (Superadmin), berikan akses penuh tanpa cek permission
+		// 0. Superadmin Bypass (roleID == 1)
 		if roleID == 1 {
 			c.Next()
 			return
@@ -52,7 +67,7 @@ func RequireAnyPermission(db *sqlx.DB, permissions ...string) gin.HandlerFunc {
 		var isAllowed bool
 		var uncachedPerms []string
 
-		// 1. Cek di Cache (R-Lock)
+		// 1. Check in-memory cache under read lock
 		cacheMu.RLock()
 		rolePerms, roleCached := permCache[roleID]
 		if roleCached {
@@ -76,43 +91,54 @@ func RequireAnyPermission(db *sqlx.DB, permissions ...string) gin.HandlerFunc {
 			return
 		}
 
-		if len(uncachedPerms) == 0 {
-			// Semua permission telah dicek di cache dan tidak ada yang diizinkan
+		if len(uncachedPerms) == 0 || db == nil {
 			utils.LocalizedError(c, http.StatusForbidden, "errors.forbidden", nil, "FORBIDDEN")
 			c.Abort()
 			return
 		}
 
-		// 2. Cache Miss: Query DB tanpa memegang lock untuk mencegah contention
-		query := `
+		// 2. Cache miss: query DB using request context without holding cache lock.
+		// Only cache negative results when the row is genuinely absent (sql.ErrNoRows);
+		// never cache transient DB/connection errors as permanent false!
+		const query = `
 			SELECT 1 FROM role_permission rp
 			JOIN permissions perm ON rp.permission_id = perm.id
 			WHERE rp.role_id = ? AND perm.name = ?
 			LIMIT 1
 		`
 
-		queryResults := make(map[string]bool)
+		reqCtx := context.Background()
+		if c.Request != nil {
+			reqCtx = c.Request.Context()
+		}
+
+		queryResults := make(map[string]bool, len(uncachedPerms))
 		for _, p := range uncachedPerms {
 			var hasPermission int
-			err := db.QueryRow(query, roleID, p).Scan(&hasPermission)
-			allowed := (err == nil)
-			queryResults[p] = allowed
-
-			if allowed {
+			err := db.GetContext(reqCtx, &hasPermission, query, roleID, p)
+			if err == nil {
+				queryResults[p] = true
 				isAllowed = true
-				break // Stop query DB jika sudah ada 1 izin terpenuhi (OR logic)
+				break
+			}
+			if errors.Is(err, sql.ErrNoRows) {
+				queryResults[p] = false
+			} else {
+				log.Printf("[RBAC] Permission query error for role_id=%d perm=%s: %v", roleID, p, err)
 			}
 		}
 
-		// 3. Update Cache (W-Lock singkat hanya untuk assign map)
-		cacheMu.Lock()
-		if permCache[roleID] == nil {
-			permCache[roleID] = make(map[string]bool)
+		// 3. Update cache under short write lock
+		if len(queryResults) > 0 {
+			cacheMu.Lock()
+			if permCache[roleID] == nil {
+				permCache[roleID] = make(map[string]bool)
+			}
+			for p, allowed := range queryResults {
+				permCache[roleID][p] = allowed
+			}
+			cacheMu.Unlock()
 		}
-		for p, allowed := range queryResults {
-			permCache[roleID][p] = allowed
-		}
-		cacheMu.Unlock()
 
 		if !isAllowed {
 			utils.LocalizedError(c, http.StatusForbidden, "errors.forbidden", nil, "FORBIDDEN")

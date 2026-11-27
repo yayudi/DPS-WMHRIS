@@ -3,41 +3,66 @@ package middleware
 import (
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
 )
 
-var (
-	// visitors menyimpan limiter untuk masing-masing IP address
-	visitors = make(map[string]*rate.Limiter)
-	mu       sync.Mutex
+const (
+	visitorTTL            = 10 * time.Minute
+	visitorCleanupPeriod  = 5 * time.Minute
+	maxVisitorsBeforeScan = 2048
 )
 
-// getVisitor mengambil limiter dari map atau membuat baru jika belum ada
-func getVisitor(ip string, r rate.Limit, b int) *rate.Limiter {
+type visitorEntry struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
+
+var (
+	visitors    = make(map[string]*visitorEntry)
+	lastCleanup time.Time
+	mu          sync.Mutex
+)
+
+// getVisitorAt retrieves or creates a per-IP rate limiter and evicts stale entries older than visitorTTL.
+func getVisitorAt(ip string, r rate.Limit, b int, now time.Time) *rate.Limiter {
 	mu.Lock()
 	defer mu.Unlock()
 
-	limiter, exists := visitors[ip]
-	if !exists {
-		// r = jumlah request yang diizinkan per detik (refill rate)
-		// b = batas maksimal request bersamaan (burst)
-		limiter = rate.NewLimiter(r, b)
-		visitors[ip] = limiter
+	if lastCleanup.IsZero() {
+		lastCleanup = now
+	} else if now.Sub(lastCleanup) >= visitorCleanupPeriod || len(visitors) >= maxVisitorsBeforeScan {
+		for k, v := range visitors {
+			if now.Sub(v.lastSeen) > visitorTTL {
+				delete(visitors, k)
+			}
+		}
+		lastCleanup = now
 	}
 
-	return limiter
+	entry, exists := visitors[ip]
+	if !exists {
+		entry = &visitorEntry{
+			limiter:  rate.NewLimiter(r, b),
+			lastSeen: now,
+		}
+		visitors[ip] = entry
+		return entry.limiter
+	}
+
+	entry.lastSeen = now
+	return entry.limiter
 }
 
-// RateLimiter membatasi jumlah request menggunakan algoritma Token Bucket (Per-IP)
+// RateLimiter restricts request frequency per client IP using a Token Bucket algorithm with TTL eviction.
 func RateLimiter(requestsPerSecond float64, burst int) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
-		limiter := getVisitor(ip, rate.Limit(requestsPerSecond), burst)
+		limiter := getVisitorAt(ip, rate.Limit(requestsPerSecond), burst, time.Now())
 
-		// Tolak jika token habis
 		if !limiter.Allow() {
 			utils.LocalizedError(c, http.StatusTooManyRequests, "errors.rate_limit_exceeded", nil, "RATE_LIMIT_EXCEEDED")
 			c.Abort()

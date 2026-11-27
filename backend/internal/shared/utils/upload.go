@@ -13,8 +13,12 @@ import (
 	"github.com/dps-wmhris/backend/internal/shared/config"
 )
 
+// MaxImportUploadSize defines the maximum allowed file size for spreadsheet imports (20 MB).
+const MaxImportUploadSize = 20 << 20
+
 // SaveImportUpload menangani penerimaan dan penyimpanan file multipart form secara aman:
 // - Mengambil file dari nama form field yang diberikan.
+// - Memvalidasi ukuran file maksimal 20 MB (MaxImportUploadSize).
 // - Membersihkan nama file dengan filepath.Base untuk mencegah directory traversal.
 // - Memvalidasi ekstensi file hanya mendukung .xlsx, .xls, dan .csv.
 // - Menghasilkan nama unik dengan prefix timestamp UnixNano.
@@ -24,6 +28,11 @@ func SaveImportUpload(c *gin.Context, field, subdir string) (string, string, boo
 	file, err := c.FormFile(field)
 	if err != nil {
 		LocalizedError(c, http.StatusBadRequest, "errors.no_file_uploaded", nil, "VALIDATION_ERROR")
+		return "", "", false
+	}
+
+	if file.Size > MaxImportUploadSize {
+		LocalizedError(c, http.StatusRequestEntityTooLarge, "errors.file_too_large", map[string]any{"max_mb": 20}, "VALIDATION_ERROR")
 		return "", "", false
 	}
 
