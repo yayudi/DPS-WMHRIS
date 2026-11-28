@@ -1,17 +1,15 @@
 package mysql
 
 import (
-	database "github.com/dps-wmhris/backend/internal/shared/database"
-
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
-
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
-
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/jmoiron/sqlx"
 )
@@ -20,19 +18,25 @@ type stockRepositoryImpl struct {
 	db *sqlx.DB
 }
 
+// NewStockRepository creates a MySQL-backed StockRepository.
 func NewStockRepository(db *sqlx.DB) inventory_port.StockRepository {
 	return &stockRepositoryImpl{db: db}
 }
 
+// GetStockByLocation retrieves and locks (FOR UPDATE) the stock_locations row for a product and location.
+// Returns (nil, nil) when no stock row exists yet.
 func (r *stockRepositoryImpl) GetStockByLocation(ctx context.Context, productID int, locationID int) (*domain.StockLocation, error) {
 	var stock domain.StockLocation
-	query := "SELECT id, product_id, location_id, quantity, updated_at FROM stock_locations WHERE product_id = ? AND location_id = ?"
+	query := `
+		SELECT id, product_id, location_id, quantity, reserved_quantity, updated_at
+		FROM stock_locations
+		WHERE product_id = ? AND location_id = ?
+		FOR UPDATE`
 
 	ext := database.GetExt(ctx, r.db)
-	row := ext.QueryRowxContext(ctx, query, productID, locationID)
-	err := row.StructScan(&stock)
+	err := ext.QueryRowxContext(ctx, query, productID, locationID).StructScan(&stock)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -40,10 +44,11 @@ func (r *stockRepositoryImpl) GetStockByLocation(ctx context.Context, productID 
 	return &stock, nil
 }
 
+// UpsertStockLocation inserts or updates physical stock quantity for a (product_id, location_id) pair inside the active transaction.
 func (r *stockRepositoryImpl) UpsertStockLocation(ctx context.Context, stock *domain.StockLocation) error {
 	query := `
-		INSERT INTO stock_locations (product_id, location_id, quantity) 
-		VALUES (?, ?, ?) 
+		INSERT INTO stock_locations (product_id, location_id, quantity)
+		VALUES (?, ?, ?)
 		ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)`
 
 	ext := database.GetExt(ctx, r.db)
@@ -59,10 +64,11 @@ func (r *stockRepositoryImpl) UpsertStockLocation(ctx context.Context, stock *do
 	return nil
 }
 
+// RecordMovement appends an immutable stock movement audit row to stock_movements inside the active transaction.
 func (r *stockRepositoryImpl) RecordMovement(ctx context.Context, movement *domain.StockMovement) error {
 	query := `
 		INSERT INTO stock_movements (
-			product_id, quantity, from_location_id, to_location_id, 
+			product_id, quantity, from_location_id, to_location_id,
 			movement_type, user_id, notes
 		) VALUES (?, ?, ?, ?, ?, ?, ?)`
 
@@ -72,7 +78,6 @@ func (r *stockRepositoryImpl) RecordMovement(ctx context.Context, movement *doma
 		movement.ToLocationID, movement.MovementType, movement.UserID,
 		movement.Notes,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -83,49 +88,60 @@ func (r *stockRepositoryImpl) RecordMovement(ctx context.Context, movement *doma
 	return err
 }
 
-func (r *stockRepositoryImpl) GetAllStocks(ctx context.Context) ([]map[string]interface{}, error) {
+// GetAllStocks returns all current stock rows joined with non-deleted products and locations.
+func (r *stockRepositoryImpl) GetAllStocks(ctx context.Context) ([]map[string]any, error) {
 	query := `
-		SELECT 
+		SELECT
 			sl.id, sl.product_id, p.sku, p.name AS product_name,
-			sl.location_id, l.code AS location_code, l.name AS location_name,
-			sl.quantity, sl.updated_at
+			sl.location_id, l.code AS location_code, COALESCE(l.name, '') AS location_name,
+			sl.quantity, sl.reserved_quantity, sl.updated_at
 		FROM stock_locations sl
 		JOIN products p ON sl.product_id = p.id
 		JOIN locations l ON sl.location_id = l.id
+		WHERE p.deleted_at IS NULL AND l.deleted_at IS NULL
 		ORDER BY p.name ASC, l.name ASC
 	`
-	rows, err := r.db.QueryxContext(ctx, query)
+	ext := database.GetExt(ctx, r.db)
+	rows, err := ext.QueryxContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var results []map[string]interface{}
+	results := make([]map[string]any, 0)
 	for rows.Next() {
-		row := make(map[string]interface{})
+		row := make(map[string]any)
 		if err := rows.MapScan(row); err != nil {
 			return nil, err
 		}
-
-		// Convert []byte to string for string columns if needed, MapScan handles some natively but sometimes returns []byte
 		for k, v := range row {
 			if b, ok := v.([]byte); ok {
 				row[k] = string(b)
 			}
 		}
-
 		results = append(results, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return results, nil
 }
 
+// GetMovementTypes returns all distinct non-null movement types recorded in stock_movements.
 func (r *stockRepositoryImpl) GetMovementTypes(ctx context.Context) ([]string, error) {
-	var types []string
+	types := make([]string, 0)
 	query := `SELECT DISTINCT movement_type FROM stock_movements WHERE movement_type IS NOT NULL ORDER BY movement_type ASC`
-	err := r.db.SelectContext(ctx, &types, query)
-	return types, err
+	ext := database.GetExt(ctx, r.db)
+	if err := ext.SelectContext(ctx, &types, query); err != nil {
+		return nil, err
+	}
+	if types == nil {
+		return []string{}, nil
+	}
+	return types, nil
 }
 
+// GetBatchLogs returns paginated stock movement logs filtered by date range, product, locations, movement type, user, and notes.
 func (r *stockRepositoryImpl) GetBatchLogs(ctx context.Context, filter inventory_dto.BatchLogFilter) (utils.PaginatedResult[inventory_dto.BatchLogResponse], error) {
 	baseQuery := `
 		FROM stock_movements sm
@@ -135,7 +151,7 @@ func (r *stockRepositoryImpl) GetBatchLogs(ctx context.Context, filter inventory
 		LEFT JOIN locations to_loc ON sm.to_location_id = to_loc.id
 		WHERE 1=1
 	`
-	var args []interface{}
+	var args []any
 
 	if filter.StartDate != "" && filter.EndDate != "" {
 		baseQuery += " AND DATE(sm.created_at) BETWEEN ? AND ?"
@@ -183,14 +199,14 @@ func (r *stockRepositoryImpl) GetBatchLogs(ctx context.Context, filter inventory
 	selectQuery := `
 		SELECT sm.id,
 			p.sku,
-			p.name as product_name,
+			p.name AS product_name,
 			sm.quantity,
 			sm.movement_type,
-			COALESCE(sm.notes, '') as notes,
+			COALESCE(sm.notes, '') AS notes,
 			sm.created_at,
-			u.username as user,
-			COALESCE(from_loc.code, '') as from_location,
-			COALESCE(to_loc.code, '') as to_location
+			u.username AS user,
+			COALESCE(from_loc.code, '') AS from_location,
+			COALESCE(to_loc.code, '') AS to_location
 	` + baseQuery + " ORDER BY sm.created_at DESC"
 
 	selectQuery, args, err := sqlx.In(selectQuery, args...)
@@ -202,23 +218,24 @@ func (r *stockRepositoryImpl) GetBatchLogs(ctx context.Context, filter inventory
 	return database.FetchPaginated[inventory_dto.BatchLogResponse](ctx, r.db, selectQuery, filter.Page, filter.Limit, args...)
 }
 
+// GetStockHistory returns paginated stock movement history for a specific product.
 func (r *stockRepositoryImpl) GetStockHistory(ctx context.Context, filter inventory_dto.StockHistoryFilter) (utils.PaginatedResult[inventory_dto.StockHistoryResponse], error) {
 	query := `
 		SELECT sm.id,
 			sm.quantity,
 			sm.movement_type,
-			COALESCE(sm.notes, '') as notes,
+			COALESCE(sm.notes, '') AS notes,
 			sm.created_at,
-			u.username as user,
-			COALESCE(from_loc.code, '') as from_location,
-			COALESCE(to_loc.code, '') as to_location
+			u.username AS user,
+			COALESCE(from_loc.code, '') AS from_location,
+			COALESCE(to_loc.code, '') AS to_location
 		FROM stock_movements sm
 		JOIN users u ON sm.user_id = u.id
 		LEFT JOIN locations from_loc ON sm.from_location_id = from_loc.id
 		LEFT JOIN locations to_loc ON sm.to_location_id = to_loc.id
 		WHERE sm.product_id = ?
 	`
-	args := []interface{}{filter.ProductID}
+	args := []any{filter.ProductID}
 
 	if filter.MovementType != "" && filter.MovementType != "all" {
 		query += " AND sm.movement_type = ?"

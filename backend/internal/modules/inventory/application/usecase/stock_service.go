@@ -1,11 +1,6 @@
 package usecase
 
 import (
-	iam_port "github.com/dps-wmhris/backend/internal/modules/iam/port"
-	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
-
-	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
-
 	"context"
 	"database/sql"
 	"errors"
@@ -14,10 +9,12 @@ import (
 	"strconv"
 	"strings"
 
+	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
+	iam_port "github.com/dps-wmhris/backend/internal/modules/iam/port"
+	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
 	"github.com/dps-wmhris/backend/internal/parser"
-
 	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/eventbus"
@@ -35,7 +32,15 @@ type stockServiceImpl struct {
 	eventBus     eventbus.EventBus
 }
 
-func NewStockUseCase(txManager database.TransactionManager, stockRepo inventory_port.StockRepository, productRepo catalog_port.ProductRepository, locationRepo inventory_port.LocationRepository, userRepo iam_port.UserRepository, eventBus eventbus.EventBus) inventory_port.StockUseCase {
+// NewStockUseCase creates a StockUseCase wired with transactions, repositories, and event bus publishing.
+func NewStockUseCase(
+	txManager database.TransactionManager,
+	stockRepo inventory_port.StockRepository,
+	productRepo catalog_port.ProductRepository,
+	locationRepo inventory_port.LocationRepository,
+	userRepo iam_port.UserRepository,
+	eventBus eventbus.EventBus,
+) inventory_port.StockUseCase {
 	return &stockServiceImpl{
 		txManager:    txManager,
 		stockRepo:    stockRepo,
@@ -47,75 +52,96 @@ func NewStockUseCase(txManager database.TransactionManager, stockRepo inventory_
 }
 
 func (s *stockServiceImpl) MoveStock(ctx context.Context, userID int, req inventory_dto.MoveStockRequest) error {
+	if req.ProductID <= 0 || req.Quantity <= 0 {
+		return apperror.Validation("wms.stock.err_invalid_qty", "mutasi gagal: produk dan jumlah harus bernilai positif")
+	}
 	if req.FromLocationID == nil && req.ToLocationID == nil {
 		return apperror.Validation("wms.stock.err_origin_dest_empty", "mutasi gagal: lokasi asal dan tujuan tidak boleh keduanya kosong")
 	}
+	if req.FromLocationID != nil && req.ToLocationID != nil && *req.FromLocationID == *req.ToLocationID {
+		return apperror.Validation("wms.stock.err_same_location", "mutasi gagal: lokasi asal dan tujuan tidak boleh sama")
+	}
 
-	// Bungkus seluruh alur dalam satu Transaksi SQL
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		// 1. Validasi & Kurangi stok di lokasi asal (jika ada FromLocationID)
+	var pendingEvents []eventbus.Event
+
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		// 1. Validate and deduct stock at origin location (if provided)
 		if req.FromLocationID != nil {
-			stockFrom, err := s.stockRepo.GetStockByLocation(ctx, req.ProductID, *req.FromLocationID)
+			stockFrom, err := s.stockRepo.GetStockByLocation(txCtx, req.ProductID, *req.FromLocationID)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					return apperror.NotFound("wms.stock.err_not_found_at_origin", "stok barang di lokasi asal tidak ditemukan")
 				}
 				return err
 			}
+			if stockFrom == nil {
+				return apperror.NotFound("wms.stock.err_not_found_at_origin", "stok barang di lokasi asal tidak ditemukan")
+			}
 
 			if stockFrom.Quantity < req.Quantity {
-				return apperror.Validation("wms.stock.err_insufficient_origin", fmt.Sprintf("stok tidak mencukupi di lokasi asal (tersedia: %d, diminta: %d)", stockFrom.Quantity, req.Quantity), map[string]any{"available": stockFrom.Quantity, "requested": req.Quantity})
+				return apperror.Validation(
+					"wms.stock.err_insufficient_origin",
+					fmt.Sprintf("stok tidak mencukupi di lokasi asal (tersedia: %d, diminta: %d)", stockFrom.Quantity, req.Quantity),
+					map[string]any{"available": stockFrom.Quantity, "requested": req.Quantity},
+				)
 			}
 
 			stockFrom.Quantity -= req.Quantity
-			if err := s.stockRepo.UpsertStockLocation(ctx, stockFrom); err != nil {
+			if err := s.stockRepo.UpsertStockLocation(txCtx, stockFrom); err != nil {
 				return err
 			}
 		}
 
-		// 2. Tambahkan stok di lokasi tujuan (jika ada ToLocationID)
+		// 2. Add stock at destination location (if provided)
 		if req.ToLocationID != nil {
-			stockTo, err := s.stockRepo.GetStockByLocation(ctx, req.ProductID, *req.ToLocationID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					// Jika barang belum pernah ada di lokasi lantai ini, siapkan struktur baru
-					stockTo = &domain.StockLocation{
-						ProductID:  req.ProductID,
-						LocationID: *req.ToLocationID,
-						Quantity:   req.Quantity,
-					}
-				} else {
-					return err
+			stockTo, err := s.stockRepo.GetStockByLocation(txCtx, req.ProductID, *req.ToLocationID)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
+			if stockTo == nil {
+				stockTo = &domain.StockLocation{
+					ProductID:  req.ProductID,
+					LocationID: *req.ToLocationID,
+					Quantity:   req.Quantity,
 				}
 			} else {
 				stockTo.Quantity += req.Quantity
 			}
 
-			if err := s.stockRepo.UpsertStockLocation(ctx, stockTo); err != nil {
+			if err := s.stockRepo.UpsertStockLocation(txCtx, stockTo); err != nil {
 				return err
 			}
 		}
 
-		// 3. Catat riwayat pergerakan / audit log (wajib)
+		// 3. Record append-only stock movement audit entry
 		movement := &domain.StockMovement{
 			ProductID:      req.ProductID,
 			Quantity:       req.Quantity,
 			FromLocationID: req.FromLocationID,
 			ToLocationID:   req.ToLocationID,
-			MovementType:   req.MovementType,
+			MovementType:   strings.TrimSpace(req.MovementType),
 			UserID:         userID,
 			Notes:          req.Notes,
 		}
 
-		if err := s.recordMovementAndPublish(ctx, movement); err != nil {
+		if err := s.stockRepo.RecordMovement(txCtx, movement); err != nil {
 			return err
+		}
+		if evt := buildStockIncreasedEvent(movement); evt != nil {
+			pendingEvents = append(pendingEvents, *evt)
 		}
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	s.publishStockEvents(ctx, pendingEvents)
+	return nil
 }
 
-func (s *stockServiceImpl) GetAllStocks(ctx context.Context) ([]map[string]interface{}, error) {
+func (s *stockServiceImpl) GetAllStocks(ctx context.Context) ([]map[string]any, error) {
 	return s.stockRepo.GetAllStocks(ctx)
 }
 
@@ -130,15 +156,26 @@ type resolvedInventoryItem struct {
 	Notes          string
 }
 
-func (s *stockServiceImpl) resolveInventoryItems(ctx context.Context, movements []inventory_dto.BatchMovementRequest, globalFrom *int, globalTo *int, globalNotes *string) ([]resolvedInventoryItem, error) {
+func (s *stockServiceImpl) resolveInventoryItems(
+	ctx context.Context,
+	movements []inventory_dto.BatchMovementRequest,
+	globalFrom *int,
+	globalTo *int,
+	globalNotes *string,
+) ([]resolvedInventoryItem, error) {
 	var resolvedItems []resolvedInventoryItem
-	var skus []string
-	skuMap := make(map[string]bool)
+	skus := make([]string, 0, len(movements))
+	skuSet := make(map[string]bool, len(movements))
 
 	for _, m := range movements {
-		if !skuMap[m.SKU] {
-			skuMap[m.SKU] = true
-			skus = append(skus, m.SKU)
+		trimmedSKU := strings.TrimSpace(m.SKU)
+		upperSKU := strings.ToUpper(trimmedSKU)
+		if upperSKU == "" {
+			return nil, apperror.Validation("wms.stock.err_sku_required", "SKU wajib diisi")
+		}
+		if !skuSet[upperSKU] {
+			skuSet[upperSKU] = true
+			skus = append(skus, trimmedSKU)
 		}
 	}
 
@@ -148,9 +185,10 @@ func (s *stockServiceImpl) resolveInventoryItems(ctx context.Context, movements 
 	}
 
 	for _, mov := range movements {
-		product, exists := productMap[strings.ToUpper(mov.SKU)]
+		trimmedSKU := strings.TrimSpace(mov.SKU)
+		product, exists := productMap[strings.ToUpper(trimmedSKU)]
 		if !exists {
-			return nil, apperror.NotFound("wms.stock.err_sku_not_found", fmt.Sprintf("SKU '%s' tidak ditemukan di database", mov.SKU), map[string]any{"sku": mov.SKU})
+			return nil, apperror.NotFound("wms.stock.err_sku_not_found", fmt.Sprintf("SKU '%s' tidak ditemukan di database", trimmedSKU), map[string]any{"sku": trimmedSKU})
 		}
 
 		fromLoc := mov.FromLocationID
@@ -184,7 +222,7 @@ func (s *stockServiceImpl) resolveInventoryItems(ctx context.Context, movements 
 				resolvedItems = append(resolvedItems, resolvedInventoryItem{
 					ProductID:      comp.ComponentProductID,
 					SKU:            comp.SKU,
-					Quantity:       mov.Quantity * comp.Quantity, // multiply by component quantity requirement
+					Quantity:       mov.Quantity * comp.Quantity,
 					FromLocationID: fromLoc,
 					ToLocationID:   toLoc,
 					IsComponent:    true,
@@ -208,58 +246,58 @@ func (s *stockServiceImpl) resolveInventoryItems(ctx context.Context, movements 
 }
 
 func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req inventory_dto.BatchProcessRequest, userID int, userRoleID int) error {
-	// 1. Resolve Items (Unwrap packages)
+	reqType := strings.TrimSpace(req.Type)
+	if len(req.Movements) == 0 {
+		return apperror.Validation("wms.stock.err_no_valid_data", "Tidak ada data pergerakan untuk diproses")
+	}
+
+	// 1. Resolve SKUs and expand package components
 	resolvedItems, err := s.resolveInventoryItems(ctx, req.Movements, req.FromLocationID, req.ToLocationID, req.Notes)
 	if err != nil {
 		return err
 	}
 
-	// 2. Process inside a single transaction
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
+	var pendingEvents []eventbus.Event
 
-		// Verify Permissions (Transfer / Adjustment requires strict checks for non-admins)
-		if req.Type == "TRANSFER" || req.Type == "ADJUSTMENT" {
-			if userRoleID != 1 {
-				locToCheck := req.FromLocationID
-				if req.Type == "ADJUSTMENT" {
-					locToCheck = req.ToLocationID // Or from depending on UI payload structure, usually it uses fromLocationId or just checks one. Let's rely on item-level checks for TRANSFER_MULTI
-				}
-				if locToCheck != nil {
-					hasPerm, err := s.userRepo.CheckUserLocationPermission(ctx, userID, *locToCheck)
-					if err != nil {
-						return err
-					}
-					if !hasPerm {
-						return apperror.Forbidden("wms.stock.err_access_denied_loc", "Akses ditolak. Anda tidak memiliki izin untuk lokasi ini")
-					}
-				}
+	// 2. Process all movements atomically inside a single transaction
+	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		checkedLocs := make(map[int]bool)
+		requireLocationPerm := func(locID int, sku string) error {
+			if userRoleID == 1 || checkedLocs[locID] {
+				return nil
 			}
+			hasPerm, permErr := s.userRepo.CheckUserLocationPermission(txCtx, userID, locID)
+			if permErr != nil {
+				return permErr
+			}
+			if !hasPerm {
+				if sku != "" {
+					return apperror.Forbidden("wms.stock.err_origin_access_denied", fmt.Sprintf("Akses ditolak untuk lokasi SKU '%s'", sku), map[string]any{"sku": sku})
+				}
+				return apperror.Forbidden("wms.stock.err_access_denied_loc", "Akses ditolak. Anda tidak memiliki izin untuk lokasi ini")
+			}
+			checkedLocs[locID] = true
+			return nil
 		}
 
 		for _, item := range resolvedItems {
-			// Item-level permission check for TRANSFER_MULTI
-			if req.Type == "TRANSFER_MULTI" && userRoleID != 1 {
-				if item.FromLocationID == nil {
-					return apperror.Validation("wms.stock.err_origin_invalid", fmt.Sprintf("Lokasi asal tidak valid untuk %s", item.SKU), map[string]any{"sku": item.SKU})
-				}
-				hasPerm, err := s.userRepo.CheckUserLocationPermission(ctx, userID, *item.FromLocationID)
-				if err != nil {
-					return err
-				}
-				if !hasPerm {
-					return apperror.Forbidden("wms.stock.err_origin_access_denied", fmt.Sprintf("Akses ditolak untuk lokasi asal SKU '%s'", item.SKU), map[string]any{"sku": item.SKU})
-				}
-			}
-
-			switch req.Type {
+			switch reqType {
 			case "TRANSFER", "TRANSFER_MULTI":
+				if item.Quantity <= 0 {
+					return apperror.Validation("wms.stock.err_invalid_qty", fmt.Sprintf("Jumlah transfer untuk SKU '%s' harus bernilai positif", item.SKU), map[string]any{"sku": item.SKU})
+				}
 				if item.FromLocationID == nil || item.ToLocationID == nil {
 					return apperror.Validation("wms.stock.err_origin_dest_empty", fmt.Sprintf("Lokasi asal/tujuan tidak valid untuk %s", item.SKU), map[string]any{"sku": item.SKU})
 				}
+				if *item.FromLocationID == *item.ToLocationID {
+					return apperror.Validation("wms.stock.err_same_location", fmt.Sprintf("Lokasi asal dan tujuan tidak boleh sama untuk %s", item.SKU), map[string]any{"sku": item.SKU})
+				}
+				if err := requireLocationPerm(*item.FromLocationID, item.SKU); err != nil {
+					return err
+				}
 
-				// Check sufficient stock at source
-				stockFrom, err := s.stockRepo.GetStockByLocation(ctx, item.ProductID, *item.FromLocationID)
-				if err != nil {
+				stockFrom, err := s.stockRepo.GetStockByLocation(txCtx, item.ProductID, *item.FromLocationID)
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
 					return err
 				}
 				if stockFrom == nil || stockFrom.Quantity < item.Quantity {
@@ -270,15 +308,13 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 					return apperror.Validation("wms.stock.err_insufficient_stock", fmt.Sprintf("Stok SKU '%s' kurang. Ada: %d, Butuh: %d.", item.SKU, currStock, item.Quantity), map[string]any{"sku": item.SKU, "available": currStock, "requested": item.Quantity})
 				}
 
-				// Deduct from Source
 				stockFrom.Quantity -= item.Quantity
-				if err := s.stockRepo.UpsertStockLocation(ctx, stockFrom); err != nil {
+				if err := s.stockRepo.UpsertStockLocation(txCtx, stockFrom); err != nil {
 					return err
 				}
 
-				// Add to Destination
-				stockTo, err := s.stockRepo.GetStockByLocation(ctx, item.ProductID, *item.ToLocationID)
-				if err != nil {
+				stockTo, err := s.stockRepo.GetStockByLocation(txCtx, item.ProductID, *item.ToLocationID)
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
 					return err
 				}
 				if stockTo == nil {
@@ -290,11 +326,10 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 				} else {
 					stockTo.Quantity += item.Quantity
 				}
-				if err := s.stockRepo.UpsertStockLocation(ctx, stockTo); err != nil {
+				if err := s.stockRepo.UpsertStockLocation(txCtx, stockTo); err != nil {
 					return err
 				}
 
-				// Record Movement
 				mov := &domain.StockMovement{
 					ProductID:      item.ProductID,
 					Quantity:       item.Quantity,
@@ -304,18 +339,23 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 					UserID:         userID,
 					Notes:          item.Notes,
 				}
-				if err := s.recordMovementAndPublish(ctx, mov); err != nil {
+				if err := s.stockRepo.RecordMovement(txCtx, mov); err != nil {
 					return err
 				}
+				if evt := buildStockIncreasedEvent(mov); evt != nil {
+					pendingEvents = append(pendingEvents, *evt)
+				}
 
-			case "INBOUND", "RETURN":
+			case "INBOUND", "RETURN", "TRANSFER_IN":
+				if item.Quantity <= 0 {
+					return apperror.Validation("wms.stock.err_invalid_qty", fmt.Sprintf("Jumlah masuk untuk SKU '%s' harus bernilai positif", item.SKU), map[string]any{"sku": item.SKU})
+				}
 				if item.ToLocationID == nil {
 					return apperror.Validation("wms.stock.err_dest_required", fmt.Sprintf("Lokasi tujuan wajib diisi untuk %s", item.SKU), map[string]any{"sku": item.SKU})
 				}
 
-				// Add to Destination
-				stockTo, err := s.stockRepo.GetStockByLocation(ctx, item.ProductID, *item.ToLocationID)
-				if err != nil {
+				stockTo, err := s.stockRepo.GetStockByLocation(txCtx, item.ProductID, *item.ToLocationID)
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
 					return err
 				}
 				if stockTo == nil {
@@ -327,32 +367,36 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 				} else {
 					stockTo.Quantity += item.Quantity
 				}
-				if err := s.stockRepo.UpsertStockLocation(ctx, stockTo); err != nil {
+				if err := s.stockRepo.UpsertStockLocation(txCtx, stockTo); err != nil {
 					return err
 				}
 
-				// Record Movement
 				mov := &domain.StockMovement{
 					ProductID:      item.ProductID,
 					Quantity:       item.Quantity,
 					FromLocationID: nil,
 					ToLocationID:   item.ToLocationID,
-					MovementType:   req.Type,
+					MovementType:   reqType,
 					UserID:         userID,
 					Notes:          item.Notes,
 				}
-				if err := s.recordMovementAndPublish(ctx, mov); err != nil {
+				if err := s.stockRepo.RecordMovement(txCtx, mov); err != nil {
 					return err
+				}
+				if evt := buildStockIncreasedEvent(mov); evt != nil {
+					pendingEvents = append(pendingEvents, *evt)
 				}
 
 			case "TRANSFER_OUT":
+				if item.Quantity <= 0 {
+					return apperror.Validation("wms.stock.err_invalid_qty", fmt.Sprintf("Jumlah keluar untuk SKU '%s' harus bernilai positif", item.SKU), map[string]any{"sku": item.SKU})
+				}
 				if item.FromLocationID == nil {
 					return apperror.Validation("wms.stock.err_origin_required", fmt.Sprintf("Lokasi asal wajib diisi untuk %s", item.SKU), map[string]any{"sku": item.SKU})
 				}
 
-				// Deduct from Source
-				stockFrom, err := s.stockRepo.GetStockByLocation(ctx, item.ProductID, *item.FromLocationID)
-				if err != nil {
+				stockFrom, err := s.stockRepo.GetStockByLocation(txCtx, item.ProductID, *item.FromLocationID)
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
 					return err
 				}
 				if stockFrom == nil || stockFrom.Quantity < item.Quantity {
@@ -364,26 +408,27 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 				}
 
 				stockFrom.Quantity -= item.Quantity
-				if err := s.stockRepo.UpsertStockLocation(ctx, stockFrom); err != nil {
+				if err := s.stockRepo.UpsertStockLocation(txCtx, stockFrom); err != nil {
 					return err
 				}
 
-				// Record Movement
 				mov := &domain.StockMovement{
 					ProductID:      item.ProductID,
 					Quantity:       item.Quantity,
 					FromLocationID: item.FromLocationID,
 					ToLocationID:   nil,
-					MovementType:   req.Type,
+					MovementType:   reqType,
 					UserID:         userID,
 					Notes:          item.Notes,
 				}
-				if err := s.recordMovementAndPublish(ctx, mov); err != nil {
+				if err := s.stockRepo.RecordMovement(txCtx, mov); err != nil {
 					return err
 				}
 
 			case "ADJUSTMENT":
-				// Depending on from/to location ID payload for adjustment in frontend
+				if item.Quantity == 0 {
+					return apperror.Validation("wms.stock.err_qty_not_zero", fmt.Sprintf("Jumlah penyesuaian untuk SKU '%s' tidak boleh nol", item.SKU), map[string]any{"sku": item.SKU})
+				}
 				loc := item.ToLocationID
 				if loc == nil {
 					loc = item.FromLocationID
@@ -391,9 +436,12 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 				if loc == nil {
 					return apperror.Validation("wms.stock.err_adjustment_loc_required", fmt.Sprintf("Lokasi wajib diisi untuk penyesuaian %s", item.SKU), map[string]any{"sku": item.SKU})
 				}
+				if err := requireLocationPerm(*loc, item.SKU); err != nil {
+					return err
+				}
 
-				stock, err := s.stockRepo.GetStockByLocation(ctx, item.ProductID, *loc)
-				if err != nil {
+				stock, err := s.stockRepo.GetStockByLocation(txCtx, item.ProductID, *loc)
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
 					return err
 				}
 
@@ -420,20 +468,14 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 					stock.Quantity += item.Quantity
 				}
 
-				if err := s.stockRepo.UpsertStockLocation(ctx, stock); err != nil {
+				if err := s.stockRepo.UpsertStockLocation(txCtx, stock); err != nil {
 					return err
 				}
 
-				// Determine Movement Type
-				mType := "ADJUSTMENT"
-				if isNegative {
-					mType = "ADJUST_MINUS"
-				} else {
-					mType = "ADJUST_PLUS"
-				}
-
+				mType := "ADJUST_PLUS"
 				var fromLoc, toLoc *int
 				if isNegative {
+					mType = "ADJUST_MINUS"
 					fromLoc = loc
 				} else {
 					toLoc = loc
@@ -448,17 +490,26 @@ func (s *stockServiceImpl) ProcessBatchMovements(ctx context.Context, req invent
 					UserID:         userID,
 					Notes:          item.Notes,
 				}
-				if err := s.recordMovementAndPublish(ctx, mov); err != nil {
+				if err := s.stockRepo.RecordMovement(txCtx, mov); err != nil {
 					return err
+				}
+				if evt := buildStockIncreasedEvent(mov); evt != nil {
+					pendingEvents = append(pendingEvents, *evt)
 				}
 
 			default:
-				return apperror.Validation("wms.stock.err_movement_type_unknown", fmt.Sprintf("Tipe pergerakan tidak dikenali: %s", req.Type), map[string]any{"type": req.Type})
-			} // end switch
-		} // end for
+				return apperror.Validation("wms.stock.err_movement_type_unknown", fmt.Sprintf("Tipe pergerakan tidak dikenali: %s", reqType), map[string]any{"type": reqType})
+			}
+		}
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	s.publishStockEvents(ctx, pendingEvents)
+	return nil
 }
 
 func (s *stockServiceImpl) GetMovementTypes(ctx context.Context) ([]string, error) {
@@ -517,13 +568,13 @@ func (s *stockServiceImpl) GenerateInboundTemplate(ctx context.Context) (*exceli
 	}), nil
 }
 
-func (s *stockServiceImpl) ValidateReturn(ctx context.Context, req inventory_dto.ValidateReturnRequest, userID int) error {
+func (s *stockServiceImpl) ValidateReturn(_ context.Context, _ inventory_dto.ValidateReturnRequest, _ int) error {
 	return apperror.Validation("wms.return.err_feature_disabled", "Fitur ValidateReturn sudah dinonaktifkan (Fulfilment Teardown)")
 }
 
 func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error) {
 	filePath = utils.ResolveStoragePath(filePath)
-	log.Printf("[ProcessStockImport] Memulai Job %d. File: %s, DryRun: %v", jobID, filePath, isDryRun)
+	log.Printf("[ProcessStockImport] Starting Job %d. File: %s, DryRun: %v", jobID, filePath, isDryRun)
 	records, err := parser.ReadExcelFile(filePath)
 	if err != nil {
 		return "", err
@@ -545,11 +596,10 @@ func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, fi
 	var movements []inventory_dto.StockOpnameItem
 	var uniqueSKUs []string
 	skuSet := make(map[string]bool)
-
 	var validationErrors []string
 
 	for i, row := range records {
-		lineNum := i + 2 // row 1 was header
+		lineNum := i + 2 // row 1 is header
 
 		sku := parser.GetField(row, "SKU", "sku")
 		locCode := parser.GetField(row, "LT (Lokasi)", "LT", "Lokasi", "Location", "location")
@@ -577,8 +627,9 @@ func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, fi
 			continue
 		}
 
-		if !skuSet[sku] {
-			skuSet[sku] = true
+		upperSKU := strings.ToUpper(sku)
+		if !skuSet[upperSKU] {
+			skuSet[upperSKU] = true
 			uniqueSKUs = append(uniqueSKUs, sku)
 		}
 
@@ -621,31 +672,36 @@ func (s *stockServiceImpl) ProcessStockImport(ctx context.Context, jobID int, fi
 	}
 
 	var processedTotal int
-	err = s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		count, err := s.ProcessBatchOpname(ctx, movements, userID)
+	var pendingEvents []eventbus.Event
+	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		count, evts, err := s.processBatchOpnameTx(txCtx, movements, userID)
 		if err != nil {
 			return err
 		}
 		processedTotal = count
-		log.Printf("[ProcessStockImport] Selesai. Memproses %d pergerakan.", count)
+		pendingEvents = evts
+		log.Printf("[ProcessStockImport] Completed. Processed %d movements.", count)
 		return nil
 	})
-
 	if err != nil {
 		return "", err
 	}
+
+	s.publishStockEvents(ctx, pendingEvents)
 	return i18n.T(ctx, "wms.stock.summary_movement_success", map[string]any{
 		"mode":    "",
 		"success": processedTotal,
 	}), nil
 }
 
-func (s *stockServiceImpl) ProcessBatchOpname(ctx context.Context, movements []inventory_dto.StockOpnameItem, userID int) (int, error) {
+func (s *stockServiceImpl) processBatchOpnameTx(ctx context.Context, movements []inventory_dto.StockOpnameItem, userID int) (int, []eventbus.Event, error) {
 	processedCount := 0
+	var pendingEvents []eventbus.Event
+
 	for _, m := range movements {
 		stockTo, err := s.stockRepo.GetStockByLocation(ctx, m.ProductID, m.ToLocationID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return 0, err
+			return 0, nil, err
 		}
 
 		currentQty := 0
@@ -670,7 +726,7 @@ func (s *stockServiceImpl) ProcessBatchOpname(ctx context.Context, movements []i
 		}
 
 		if err := s.stockRepo.UpsertStockLocation(ctx, stockTo); err != nil {
-			return 0, err
+			return 0, nil, err
 		}
 
 		historyNote := m.Notes
@@ -678,27 +734,43 @@ func (s *stockServiceImpl) ProcessBatchOpname(ctx context.Context, movements []i
 			historyNote = "Stock Opname (Excel)"
 		}
 
-		history := &domain.StockMovement{
-			ProductID:    m.ProductID,
-			ToLocationID: &m.ToLocationID,
-			Quantity:     diff,
-			MovementType: "ADJUSTMENT",
-			Notes:        historyNote,
-			UserID:       userID,
+		locID := m.ToLocationID
+		absDiff := diff
+		mType := "ADJUST_PLUS"
+		var fromLoc, toLoc *int
+		if diff < 0 {
+			absDiff = -diff
+			mType = "ADJUST_MINUS"
+			fromLoc = &locID
+		} else {
+			toLoc = &locID
 		}
 
-		if err := s.recordMovementAndPublish(ctx, history); err != nil {
-			return 0, err
+		history := &domain.StockMovement{
+			ProductID:      m.ProductID,
+			FromLocationID: fromLoc,
+			ToLocationID:   toLoc,
+			Quantity:       absDiff,
+			MovementType:   mType,
+			Notes:          historyNote,
+			UserID:         userID,
+		}
+
+		if err := s.stockRepo.RecordMovement(ctx, history); err != nil {
+			return 0, nil, err
+		}
+		if evt := buildStockIncreasedEvent(history); evt != nil {
+			pendingEvents = append(pendingEvents, *evt)
 		}
 		processedCount++
 	}
 
-	return processedCount, nil
+	return processedCount, pendingEvents, nil
 }
 
 func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error) {
 	filePath = utils.ResolveStoragePath(filePath)
-	log.Printf("[ProcessImportBatchInbound] Memulai Job %d. File: %s, DryRun: %v", jobID, filePath, isDryRun)
+	log.Printf("[ProcessImportBatchInbound] Starting Job %d. File: %s, DryRun: %v", jobID, filePath, isDryRun)
 	records, err := parser.ReadExcelFile(filePath)
 	if err != nil {
 		return "", err
@@ -726,7 +798,7 @@ func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID 
 	var uniqueSKUs []string
 
 	for i, row := range records {
-		lineNum := i + 2 // row 1 was header
+		lineNum := i + 2 // row 1 is header
 
 		sku := parser.GetField(row, "SKU", "sku")
 		locCode := parser.GetField(row, "LT (Lokasi)", "LT", "Lokasi", "Location", "location")
@@ -741,8 +813,9 @@ func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID 
 			return "", apperror.Validation("wms.stock.err_row_sku_required", fmt.Sprintf("Baris %d: SKU wajib diisi", lineNum), map[string]any{"line": lineNum})
 		}
 
-		if !skuSet[sku] {
-			skuSet[sku] = true
+		upperSKU := strings.ToUpper(sku)
+		if !skuSet[upperSKU] {
+			skuSet[upperSKU] = true
 			uniqueSKUs = append(uniqueSKUs, sku)
 		}
 
@@ -778,7 +851,7 @@ func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID 
 		return "", apperror.Internal("wms.stock.err_validate_sku_failed", "gagal memvalidasi SKU", err)
 	}
 
-	productMap := make(map[string]bool)
+	productMap := make(map[string]bool, len(dbProducts))
 	for _, p := range dbProducts {
 		productMap[strings.ToUpper(p.SKU)] = true
 	}
@@ -796,8 +869,11 @@ func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID 
 		}), nil
 	}
 
-	err = s.ProcessBatchMovements(ctx, batchReq, userID, 1)
-	if err != nil {
+	if err := s.ProcessBatchMovements(ctx, batchReq, userID, 1); err != nil {
+		var appErr *apperror.AppError
+		if errors.As(err, &appErr) {
+			return "", err
+		}
 		return "", apperror.Internal("wms.stock.err_batch_inbound_failed", "gagal memproses inbound batch", err)
 	}
 
@@ -805,25 +881,27 @@ func (s *stockServiceImpl) ProcessImportBatchInbound(ctx context.Context, jobID 
 		"mode":    "",
 		"success": len(batchReq.Movements),
 	})
-	log.Printf("[ProcessImportBatchInbound] Selesai. %s", summary)
+	log.Printf("[ProcessImportBatchInbound] Completed. %s", summary)
 	return summary, nil
 }
 
-func (s *stockServiceImpl) recordMovementAndPublish(ctx context.Context, mov *domain.StockMovement) error {
-	if err := s.stockRepo.RecordMovement(ctx, mov); err != nil {
-		return err
+func buildStockIncreasedEvent(mov *domain.StockMovement) *eventbus.Event {
+	if mov == nil || mov.ToLocationID == nil || mov.Quantity <= 0 {
+		return nil
 	}
-	
-	if mov.ToLocationID != nil && mov.Quantity > 0 {
-		event := eventbus.NewEvent("inventory.stock.increased", map[string]interface{}{
-			"product_id": mov.ProductID,
-		}, mov.UserID)
-		
-		go func() { // #nosec G118
-			if err := s.eventBus.Publish(context.Background(), event); err != nil {
-				log.Printf("[EventBus] Failed to publish inventory.stock.increased: %v", err)
-			}
-		}()
+	evt := eventbus.NewEvent("inventory.stock.increased", map[string]any{
+		"product_id": mov.ProductID,
+	}, mov.UserID)
+	return &evt
+}
+
+func (s *stockServiceImpl) publishStockEvents(ctx context.Context, events []eventbus.Event) {
+	if s.eventBus == nil || len(events) == 0 {
+		return
 	}
-	return nil
+	for _, evt := range events {
+		if err := s.eventBus.Publish(ctx, evt); err != nil {
+			log.Printf("[EventBus] Failed to publish %s: %v", evt.Type, err)
+		}
+	}
 }

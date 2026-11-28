@@ -3,6 +3,7 @@ package http
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
@@ -20,18 +21,18 @@ func NewSlotHandler(slotService inventory_port.SlotUseCase) *SlotHandler {
 	return &SlotHandler{slotService: slotService}
 }
 
-// AddSlot handles adding a new slotting coordinate for a product.
+// AddSlot handles adding a new slotting coordinate for a product at a location.
 func (h *SlotHandler) AddSlot(c *gin.Context) {
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
+		return
+	}
+
 	reqPtr, ok := utils.BindAndValidate[inventory_dto.UpsertSlotRequest](c)
 	if !ok {
 		return
 	}
 	req := *reqPtr
-
-	userID, ok := utils.RequireUserID(c)
-	if !ok {
-		return
-	}
 
 	slot, err := h.slotService.AddSlot(c.Request.Context(), userID, req)
 	if err != nil {
@@ -65,11 +66,10 @@ func (h *SlotHandler) GetSlots(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, slots)
 }
 
-// DeleteSlot handles removing a specific slot coordinate.
+// DeleteSlot handles removing a specific slot coordinate by ID.
 func (h *SlotHandler) DeleteSlot(c *gin.Context) {
-	slotID, err := strconv.Atoi(c.Param("id"))
-	if err != nil || slotID <= 0 {
-		utils.ErrorResponse(c, http.StatusBadRequest, "errors.validation_error", "INVALID_SLOT_ID")
+	slotID, ok := utils.ParseIntParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -89,11 +89,15 @@ func (h *SlotHandler) DeleteSlot(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "wms.slotting.delete_success", nil)
 }
 
-// SetPrimarySlot sets a slot as the primary coordinate for picking.
+// SetPrimarySlot designates a specific slot as the primary picking coordinate.
 func (h *SlotHandler) SetPrimarySlot(c *gin.Context) {
-	slotID, err := strconv.Atoi(c.Param("id"))
-	if err != nil || slotID <= 0 {
-		utils.ErrorResponse(c, http.StatusBadRequest, "errors.validation_error", "INVALID_SLOT_ID")
+	slotID, ok := utils.ParseIntParam(c, "id")
+	if !ok {
+		return
+	}
+
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
 		return
 	}
 
@@ -109,11 +113,6 @@ func (h *SlotHandler) SetPrimarySlot(c *gin.Context) {
 		return
 	}
 
-	userID, ok := utils.RequireUserID(c)
-	if !ok {
-		return
-	}
-
 	if err := h.slotService.SetPrimarySlot(c.Request.Context(), userID, productID, locationID, slotID); err != nil {
 		utils.HandleDomainError(c, err)
 		return
@@ -122,7 +121,7 @@ func (h *SlotHandler) SetPrimarySlot(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "wms.slotting.set_primary_success", nil)
 }
 
-// GetSlotLogs retrieves paginated audit logs for slotting movements.
+// GetSlotLogs retrieves paginated audit logs for slotting coordinate changes.
 func (h *SlotHandler) GetSlotLogs(c *gin.Context) {
 	productID, err := strconv.Atoi(c.Query("product_id"))
 	if err != nil || productID <= 0 {
@@ -136,8 +135,7 @@ func (h *SlotHandler) GetSlotLogs(c *gin.Context) {
 		return
 	}
 
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	page, limit := utils.ParsePagination(c, 20)
 
 	logs, err := h.slotService.GetSlotLogs(c.Request.Context(), productID, locationID, page, limit)
 	if err != nil {
@@ -150,7 +148,7 @@ func (h *SlotHandler) GetSlotLogs(c *gin.Context) {
 
 // GetPickingLocationsForKelja resolves order picking guidance locations and slots for Kelja ERP.
 func (h *SlotHandler) GetPickingLocationsForKelja(c *gin.Context) {
-	referenceID := c.Param("reference_id")
+	referenceID := strings.TrimSpace(c.Param("reference_id"))
 	if referenceID == "" {
 		utils.ErrorResponse(c, http.StatusBadRequest, "wms.slotting.err_ref_required", "INVALID_REFERENCE_ID")
 		return

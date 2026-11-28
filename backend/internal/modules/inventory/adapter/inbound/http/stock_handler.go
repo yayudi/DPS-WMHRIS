@@ -1,41 +1,45 @@
 package http
 
 import (
-	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
-
-	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
-
 	"encoding/json"
 	"net/http"
 	"os"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
-
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
+	system_port "github.com/dps-wmhris/backend/internal/modules/system/port"
 	"github.com/dps-wmhris/backend/internal/shared/middleware"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
 
+// StockHandler exposes HTTP endpoints for stock transfers, adjustments, batch operations, logs, templates, and async imports/exports.
 type StockHandler struct {
 	stockService inventory_port.StockUseCase
-	jobService   system_usecase.JobService
+	jobService   system_port.JobService
 }
 
-func NewStockHandler(stockService inventory_port.StockUseCase, jobService system_usecase.JobService) *StockHandler {
+// NewStockHandler creates a new StockHandler.
+func NewStockHandler(stockService inventory_port.StockUseCase, jobService system_port.JobService) *StockHandler {
 	return &StockHandler{
 		stockService: stockService,
 		jobService:   jobService,
 	}
 }
 
+// ImportBatchInbound queues an asynchronous batch stock inbound Excel import job.
 func (h *StockHandler) ImportBatchInbound(c *gin.Context) {
+	userID, ok := utils.RequireUserID(c)
+	if !ok {
+		return
+	}
+
 	savedPath, origName, ok := utils.SaveImportUpload(c, "file", "stock")
 	if !ok {
 		return
 	}
 
-	userID := middleware.GetUserID(c)
 	jobType, finalNotes, isDryRun := utils.ParseImportJobMeta(
 		c,
 		"IMPORT_STOCK_INBOUND",
@@ -65,6 +69,7 @@ func (h *StockHandler) ImportBatchInbound(c *gin.Context) {
 	utils.JobCreatedResponse(c, http.StatusOK, msg, jobID)
 }
 
+// GetAllStocks returns all current stock rows across non-deleted products and locations.
 func (h *StockHandler) GetAllStocks(c *gin.Context) {
 	stocks, err := h.stockService.GetAllStocks(c.Request.Context())
 	if err != nil {
@@ -74,19 +79,19 @@ func (h *StockHandler) GetAllStocks(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, stocks)
 }
 
+// TransferStock transfers stock quantity for one product from an origin location to a destination location.
 func (h *StockHandler) TransferStock(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[inventory_dto.TransferStockRequest](c)
-	if !ok {
-		return
-	}
-	req := *req_ptr
-
 	userID, ok := utils.RequireUserID(c)
 	if !ok {
 		return
 	}
 
-	// Membungkus panggilan ke MoveStock
+	reqPtr, ok := utils.BindAndValidate[inventory_dto.TransferStockRequest](c)
+	if !ok {
+		return
+	}
+	req := *reqPtr
+
 	moveReq := inventory_dto.MoveStockRequest{
 		ProductID:      req.ProductID,
 		Quantity:       req.Quantity,
@@ -104,19 +109,19 @@ func (h *StockHandler) TransferStock(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "wms.stock.transfer_success", nil)
 }
 
+// AdjustStock applies a positive or negative stock adjustment at a single location.
 func (h *StockHandler) AdjustStock(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[inventory_dto.AdjustStockRequest](c)
-	if !ok {
-		return
-	}
-	req := *req_ptr
-
 	userID, ok := utils.RequireUserID(c)
 	if !ok {
 		return
 	}
 
-	// Konversi input logic berdasarkan type
+	reqPtr, ok := utils.BindAndValidate[inventory_dto.AdjustStockRequest](c)
+	if !ok {
+		return
+	}
+	req := *reqPtr
+
 	movementType := "ADJUST_PLUS"
 	qty := req.Quantity
 	var fromLocationID, toLocationID *int
@@ -138,12 +143,12 @@ func (h *StockHandler) AdjustStock(c *gin.Context) {
 		toLocationID = &req.LocationID
 	} else if qty < 0 {
 		fromLocationID = &req.LocationID
+		movementType = "ADJUST_MINUS"
 	} else {
 		utils.ErrorResponse(c, http.StatusBadRequest, "wms.stock.err_qty_not_zero", "VALIDATION_ERROR")
 		return
 	}
 
-	// abs the quantity for moveReq because MoveStock expects positive quantity
 	absQty := qty
 	if absQty < 0 {
 		absQty = -absQty
@@ -166,18 +171,21 @@ func (h *StockHandler) AdjustStock(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "wms.stock.adjustment_success", nil)
 }
 
+// BatchProcess executes a batch of stock movements atomically.
 func (h *StockHandler) BatchProcess(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[inventory_dto.BatchProcessRequest](c)
+	userID, ok := utils.RequireUserID(c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
 
-	userID := middleware.GetUserID(c)
+	reqPtr, ok := utils.BindAndValidate[inventory_dto.BatchProcessRequest](c)
+	if !ok {
+		return
+	}
+	req := *reqPtr
 	userRoleID := middleware.GetRoleID(c)
 
-	err := h.stockService.ProcessBatchMovements(c.Request.Context(), req, userID, userRoleID)
-	if err != nil {
+	if err := h.stockService.ProcessBatchMovements(c.Request.Context(), req, userID, userRoleID); err != nil {
 		utils.HandleDomainError(c, err)
 		return
 	}
@@ -185,6 +193,7 @@ func (h *StockHandler) BatchProcess(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "wms.stock.batch_transfer_success", nil)
 }
 
+// GetMovementTypes returns distinct movement types available for log filtering.
 func (h *StockHandler) GetMovementTypes(c *gin.Context) {
 	types, err := h.stockService.GetMovementTypes(c.Request.Context())
 	if err != nil {
@@ -194,14 +203,14 @@ func (h *StockHandler) GetMovementTypes(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, types)
 }
 
+// GetBatchLogs returns paginated stock movement logs within a required date range.
 func (h *StockHandler) GetBatchLogs(c *gin.Context) {
-	filter_ptr, ok := utils.BindQueryAndValidate[inventory_dto.BatchLogFilter](c)
+	filterPtr, ok := utils.BindQueryAndValidate[inventory_dto.BatchLogFilter](c)
 	if !ok {
 		return
 	}
-	filter := *filter_ptr
+	filter := *filterPtr
 
-	// Set default start/end dates if not provided
 	if filter.StartDate == "" || filter.EndDate == "" {
 		utils.ErrorResponse(c, http.StatusBadRequest, "wms.investigation.err_date_range", "VALIDATION_ERROR")
 		return
@@ -216,6 +225,7 @@ func (h *StockHandler) GetBatchLogs(c *gin.Context) {
 	utils.PaginatedResponse(c, http.StatusOK, result.Data, result.Page, result.Limit, result.Total, result.TotalPages)
 }
 
+// GetStockHistory returns paginated movement history for one product.
 func (h *StockHandler) GetStockHistory(c *gin.Context) {
 	var filter inventory_dto.StockHistoryFilter
 	if err := c.ShouldBindUri(&filter); err != nil {
@@ -236,16 +246,18 @@ func (h *StockHandler) GetStockHistory(c *gin.Context) {
 	utils.PaginatedResponse(c, http.StatusOK, result.Data, result.Page, result.Limit, result.Total, result.TotalPages)
 }
 
+// BatchTransfer transfers multiple SKUs between a single origin and destination location atomically.
 func (h *StockHandler) BatchTransfer(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[inventory_dto.BatchTransferRequest](c)
-	if !ok {
-		return
-	}
-	req := *req_ptr
 	userID, ok := utils.RequireUserID(c)
 	if !ok {
 		return
 	}
+
+	reqPtr, ok := utils.BindAndValidate[inventory_dto.BatchTransferRequest](c)
+	if !ok {
+		return
+	}
+	req := *reqPtr
 	roleID := middleware.GetRoleID(c)
 
 	processReq := inventory_dto.BatchProcessRequest{
@@ -255,26 +267,27 @@ func (h *StockHandler) BatchTransfer(c *gin.Context) {
 		Movements:      req.Movements,
 	}
 
-	err := h.stockService.ProcessBatchMovements(c.Request.Context(), processReq, userID, roleID)
-	if err != nil {
+	if err := h.stockService.ProcessBatchMovements(c.Request.Context(), processReq, userID, roleID); err != nil {
 		utils.HandleDomainError(c, err)
 		return
 	}
 	utils.SuccessResponse(c, http.StatusOK, "wms.stock.batch_transfer_success", nil)
 }
 
+// RequestBatchLogExport queues an asynchronous stock movement batch log export job.
 func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[inventory_dto.BatchLogExportRequest](c)
-	if !ok {
-		return
-	}
-	req := *req_ptr
 	userID, ok := utils.RequireUserID(c)
 	if !ok {
 		return
 	}
 
-	filterMap := map[string]interface{}{
+	reqPtr, ok := utils.BindAndValidate[inventory_dto.BatchLogExportRequest](c)
+	if !ok {
+		return
+	}
+	req := *reqPtr
+
+	filterMap := map[string]any{
 		"startDate":           req.StartDate,
 		"endDate":             req.EndDate,
 		"productName":         req.ProductName,
@@ -286,8 +299,15 @@ func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {
 		"exportName":          req.ExportName,
 		"exportType":          "BATCH_LOG_EXPORT",
 	}
+	if req.UserID > 0 {
+		filterMap["userId"] = req.UserID
+	}
 
-	filterJSON, _ := json.Marshal(filterMap)
+	filterJSON, err := json.Marshal(filterMap)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "errors.internal_error", "INTERNAL_ERROR")
+		return
+	}
 	filterStr := string(filterJSON)
 
 	jobReq := system_dto.CreateExportJobRequest{
@@ -305,26 +325,31 @@ func (h *StockHandler) RequestBatchLogExport(c *gin.Context) {
 	utils.JobCreatedResponse(c, http.StatusAccepted, "wms.stock.batch_log_export_queued", jobID)
 }
 
+// GetInboundTemplate downloads the Excel template for batch stock inbound imports.
 func (h *StockHandler) GetInboundTemplate(c *gin.Context) {
 	f, err := h.stockService.GenerateInboundTemplate(c.Request.Context())
 	if err != nil {
 		utils.HandleDomainError(c, err)
 		return
 	}
+	defer func() { _ = f.Close() }()
 
 	utils.WriteExcelResponse(c, f, "Template_Inbound_Stok.xlsx")
 }
 
+// DownloadAdjustmentTemplate downloads the Excel template for stock opname/adjustment imports.
 func (h *StockHandler) DownloadAdjustmentTemplate(c *gin.Context) {
 	f, err := h.stockService.GenerateAdjustmentTemplate(c.Request.Context())
 	if err != nil {
 		utils.HandleDomainError(c, err)
 		return
 	}
+	defer func() { _ = f.Close() }()
 
 	utils.WriteExcelResponse(c, f, "Template_Adjustment_Stok.xlsx")
 }
 
+// RequestAdjustmentUpload queues an asynchronous stock opname/adjustment Excel import job.
 func (h *StockHandler) RequestAdjustmentUpload(c *gin.Context) {
 	userID, ok := utils.RequireUserID(c)
 	if !ok {

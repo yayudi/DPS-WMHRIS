@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
@@ -32,10 +33,12 @@ func (r *slotRepositoryImpl) GetSlots(ctx context.Context, productID int, locati
 		WHERE product_id = ? AND location_id = ?
 		ORDER BY is_primary DESC, id ASC`
 
-	var slots []domain.ProductLocationSlot
-	err := ext.SelectContext(ctx, &slots, query, productID, locationID)
-	if err != nil {
+	slots := make([]domain.ProductLocationSlot, 0)
+	if err := ext.SelectContext(ctx, &slots, query, productID, locationID); err != nil {
 		return nil, err
+	}
+	if slots == nil {
+		return []domain.ProductLocationSlot{}, nil
 	}
 	return slots, nil
 }
@@ -45,7 +48,7 @@ func (r *slotRepositoryImpl) GetSlotByID(ctx context.Context, id int) (*domain.P
 	return r.FindByID(ctx, id)
 }
 
-// CreateSlot inserts a new slotting record.
+// CreateSlot inserts a new slotting record inside the active transaction.
 func (r *slotRepositoryImpl) CreateSlot(ctx context.Context, slot *domain.ProductLocationSlot) error {
 	ext := database.GetExt(ctx, r.db)
 	query := `
@@ -73,7 +76,7 @@ func (r *slotRepositoryImpl) CreateSlot(ctx context.Context, slot *domain.Produc
 	return nil
 }
 
-// UpdateSlot updates an existing slotting record.
+// UpdateSlot updates an existing slotting record inside the active transaction.
 func (r *slotRepositoryImpl) UpdateSlot(ctx context.Context, slot *domain.ProductLocationSlot) error {
 	ext := database.GetExt(ctx, r.db)
 	query := `
@@ -93,36 +96,58 @@ func (r *slotRepositoryImpl) UpdateSlot(ctx context.Context, slot *domain.Produc
 	return err
 }
 
-// DeleteSlot deletes a slot record by ID.
+// DeleteSlot permanently removes a slot coordinate row by ID and returns sql.ErrNoRows if absent.
 func (r *slotRepositoryImpl) DeleteSlot(ctx context.Context, id int) error {
-	return r.SoftDelete(ctx, id)
+	ext := database.GetExt(ctx, r.db)
+	res, err := ext.ExecContext(ctx, `DELETE FROM product_location_slots WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+	if affected, err := res.RowsAffected(); err == nil && affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
-// SetPrimarySlot unsets existing primary and sets the given slot as primary for the product and location.
+// SetPrimarySlot clears existing primary flags for (productID, locationID) and, when slotID > 0,
+// verifies slot ownership before marking slotID as primary.
 func (r *slotRepositoryImpl) SetPrimarySlot(ctx context.Context, productID int, locationID int, slotID int) error {
 	ext := database.GetExt(ctx, r.db)
+	if slotID > 0 {
+		var count int
+		if err := ext.GetContext(ctx, &count, `SELECT COUNT(*) FROM product_location_slots WHERE id = ? AND product_id = ? AND location_id = ?`, slotID, productID, locationID); err != nil {
+			return err
+		}
+		if count == 0 {
+			return sql.ErrNoRows
+		}
+	}
+
 	if _, err := ext.ExecContext(ctx, `UPDATE product_location_slots SET is_primary = 0 WHERE product_id = ? AND location_id = ?`, productID, locationID); err != nil {
 		return err
+	}
+	if slotID <= 0 {
+		return nil
 	}
 	_, err := ext.ExecContext(ctx, `UPDATE product_location_slots SET is_primary = 1 WHERE id = ? AND product_id = ? AND location_id = ?`, slotID, productID, locationID)
 	return err
 }
 
-// CreateSlotLog records a historical audit log entry when slotting coordinates are assigned, moved, or cleared.
-func (r *slotRepositoryImpl) CreateSlotLog(ctx context.Context, log *domain.ProductLocationSlotLog) error {
+// CreateSlotLog records a historical audit log entry when slotting coordinates are assigned, moved, or removed.
+func (r *slotRepositoryImpl) CreateSlotLog(ctx context.Context, logEntry *domain.ProductLocationSlotLog) error {
 	ext := database.GetExt(ctx, r.db)
 	query := `
 		INSERT INTO product_location_slot_logs (product_id, location_id, action, from_coordinate, to_coordinate, notes, user_id, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`
 
 	res, err := ext.ExecContext(ctx, query,
-		log.ProductID,
-		log.LocationID,
-		log.Action,
-		log.FromCoordinate,
-		log.ToCoordinate,
-		log.Notes,
-		log.UserID,
+		logEntry.ProductID,
+		logEntry.LocationID,
+		logEntry.Action,
+		logEntry.FromCoordinate,
+		logEntry.ToCoordinate,
+		logEntry.Notes,
+		logEntry.UserID,
 	)
 	if err != nil {
 		return err
@@ -130,7 +155,7 @@ func (r *slotRepositoryImpl) CreateSlotLog(ctx context.Context, log *domain.Prod
 
 	id, err := res.LastInsertId()
 	if err == nil && id > 0 {
-		log.ID = int(id)
+		logEntry.ID = int(id)
 	}
 	return nil
 }
@@ -158,7 +183,7 @@ func (r *slotRepositoryImpl) GetSlotLogs(ctx context.Context, productID int, loc
 	return paginated.Data, paginated.Total, nil
 }
 
-// GetSlotsByProductAndLocations retrieves slotting information for multiple locations of a product in a single query.
+// GetSlotsByProductAndLocations retrieves slotting coordinates for multiple locations of a product in a single query.
 func (r *slotRepositoryImpl) GetSlotsByProductAndLocations(ctx context.Context, productID int, locationIDs []int) (map[int][]domain.ProductLocationSlot, error) {
 	result := make(map[int][]domain.ProductLocationSlot)
 	if len(locationIDs) == 0 {

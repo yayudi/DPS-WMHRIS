@@ -2,11 +2,17 @@ package usecase
 
 import (
 	"context"
+	"crypto/rand"
+	"database/sql"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
+	catalog_domain "github.com/dps-wmhris/backend/internal/modules/catalog/domain"
 	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
@@ -26,6 +32,7 @@ type stockTransactionService struct {
 	eventBus    eventbus.EventBus
 }
 
+// NewStockTransactionService creates a StockTransactionUseCase for Kelja fulfillment reservations, picking, reconciliation, and outbox dispatch.
 func NewStockTransactionService(
 	txManager database.TransactionManager,
 	trxRepo port.StockTransactionRepository,
@@ -46,24 +53,87 @@ func NewStockTransactionService(
 	}
 }
 
+type locationAllocation struct {
+	locID int
+	qty   int
+}
+
 type itemAllocation struct {
 	productID int
-	allocs    []struct {
-		locID int
-		qty   int
+	allocs    []locationAllocation
+}
+
+type productLocKey struct {
+	productID  int
+	locationID int
+}
+
+func generateTransactionNo() string {
+	var randBytes [4]byte
+	if _, err := rand.Read(randBytes[:]); err != nil {
+		return fmt.Sprintf("TRX-%d", time.Now().UnixNano())
 	}
+	return fmt.Sprintf("TRX-%s-%s", time.Now().Format("20060102150405"), hex.EncodeToString(randBytes[:]))
+}
+
+// planGreedyAllocations computes greedy fulfillment reservations across displayLocs while deducting
+// quantities already claimed earlier within the same batch to prevent intra-order over-reservation.
+func planGreedyAllocations(
+	productID int,
+	targetQty int,
+	displayLocs []domain.AvailableLocationStock,
+	reservedInBatch map[productLocKey]int,
+) (itemAllocation, int, bool) {
+	totalAvail := 0
+	effective := make([]domain.AvailableLocationStock, 0, len(displayLocs))
+	for _, loc := range displayLocs {
+		avail := loc.AvailableQuantity - reservedInBatch[productLocKey{productID: productID, locationID: loc.LocationID}]
+		if avail <= 0 {
+			continue
+		}
+		totalAvail += avail
+		effective = append(effective, domain.AvailableLocationStock{
+			LocationID:        loc.LocationID,
+			AvailableQuantity: avail,
+		})
+	}
+
+	if totalAvail < targetQty {
+		return itemAllocation{}, totalAvail, false
+	}
+
+	alloc := itemAllocation{productID: productID}
+	remaining := targetQty
+	for _, loc := range effective {
+		if remaining <= 0 {
+			break
+		}
+		allocQty := loc.AvailableQuantity
+		if allocQty > remaining {
+			allocQty = remaining
+		}
+		alloc.allocs = append(alloc.allocs, locationAllocation{
+			locID: loc.LocationID,
+			qty:   allocQty,
+		})
+		reservedInBatch[productLocKey{productID: productID, locationID: loc.LocationID}] += allocQty
+		remaining -= allocQty
+	}
+
+	return alloc, totalAvail, true
 }
 
 func (s *stockTransactionService) CreateTransaction(ctx context.Context, req inventory_dto.CreateTransactionRequest) (*domain.StockTransaction, error) {
+	now := time.Now()
 	trx := &domain.StockTransaction{
-		TransactionNo:    fmt.Sprintf("TRX-%d", time.Now().UnixNano()),
-		ReferenceType:    req.ReferenceType,
-		ReferenceID:      req.ReferenceID,
-		AssignedBuilding: req.AssignedBuilding,
+		TransactionNo:    generateTransactionNo(),
+		ReferenceType:    strings.TrimSpace(req.ReferenceType),
+		ReferenceID:      strings.TrimSpace(req.ReferenceID),
+		AssignedBuilding: strings.TrimSpace(req.AssignedBuilding),
 		Status:           domain.TransactionStatusPending,
 		Notes:            req.Notes,
-		CreatedAt:        time.Now(),
-		UpdatedAt:        time.Now(),
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}
 
 	for _, item := range req.Items {
@@ -72,42 +142,43 @@ func (s *stockTransactionService) CreateTransaction(ctx context.Context, req inv
 		}
 	}
 
-	err := s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		var deficits []domain.ReplenishmentDeficit
 		isOutOfStock := false
 		var readyAllocations []itemAllocation
+		reservedInBatch := make(map[productLocKey]int)
+		locCache := make(map[int]*domain.Location)
+		prodCache := make(map[int]*catalog_domain.Product)
 
 		for _, item := range req.Items {
-			// 1. Check fulfillment source availability (across all buildings)
-			displayLocs, err := s.locRepo.FindFulfillmentSourceStock(ctx, int(item.ProductID))
+			// 1. Check fulfillment source availability across all active fulfillment locations
+			displayLocs, err := s.locRepo.FindFulfillmentSourceStock(txCtx, int(item.ProductID))
 			if err != nil {
 				return err
 			}
 
-			totalDisplayAvail := 0
-			for _, loc := range displayLocs {
-				totalDisplayAvail += loc.AvailableQuantity
-			}
-
-			if totalDisplayAvail < item.TargetQuantity {
-				// Deficit in fulfillment sources! Query candidate replenishment stock across warehouses
+			alloc, totalDisplayAvail, sufficient := planGreedyAllocations(
+				int(item.ProductID), item.TargetQuantity, displayLocs, reservedInBatch,
+			)
+			if !sufficient {
 				deficitQty := item.TargetQuantity - totalDisplayAvail
-				storageLocs, err := s.locRepo.FindReplenishmentCandidateStock(ctx, int(item.ProductID))
+				storageLocs, err := s.locRepo.FindReplenishmentCandidateStock(txCtx, int(item.ProductID))
 				if err != nil {
 					return err
 				}
 
 				totalStorageAvail := 0
-				var suggestedSources []domain.SuggestedReplenishmentSource
+				suggestedSources := make([]domain.SuggestedReplenishmentSource, 0, len(storageLocs))
 				for _, sloc := range storageLocs {
 					totalStorageAvail += sloc.AvailableQuantity
 					source := domain.SuggestedReplenishmentSource{
 						LocationID:        sloc.LocationID,
 						AvailableQuantity: sloc.AvailableQuantity,
 						Purpose:           "STORAGE",
-						Building:          req.AssignedBuilding,
+						Building:          trx.AssignedBuilding,
 					}
-					if locDetail, err := s.locRepo.FindByID(ctx, sloc.LocationID); err == nil && locDetail != nil {
+					locDetail := s.lookupLocationCached(txCtx, sloc.LocationID, locCache)
+					if locDetail != nil {
 						source.LocationCode = locDetail.Code
 						source.Building = locDetail.Building
 						source.Purpose = locDetail.Purpose
@@ -119,15 +190,7 @@ func (s *stockTransactionService) CreateTransaction(ctx context.Context, req inv
 					isOutOfStock = true
 				}
 
-				sku := ""
-				productName := ""
-				if s.productRepo != nil {
-					if prod, err := s.productRepo.FindByID(ctx, int(item.ProductID)); err == nil && prod != nil {
-						sku = prod.SKU
-						productName = prod.Name
-					}
-				}
-
+				sku, productName := s.lookupProductSummaryCached(txCtx, int(item.ProductID), prodCache)
 				deficits = append(deficits, domain.ReplenishmentDeficit{
 					ProductID:                item.ProductID,
 					SKU:                      sku,
@@ -137,51 +200,39 @@ func (s *stockTransactionService) CreateTransaction(ctx context.Context, req inv
 					DeficitQuantity:          deficitQty,
 					SuggestedSources:         suggestedSources,
 				})
-			} else {
-				// Plan greedy allocation for DISPLAY
-				alloc := itemAllocation{productID: int(item.ProductID)}
-				remainingNeeded := item.TargetQuantity
-				for _, loc := range displayLocs {
-					if remainingNeeded <= 0 {
-						break
-					}
-					allocQty := loc.AvailableQuantity
-					if allocQty > remainingNeeded {
-						allocQty = remainingNeeded
-					}
-					alloc.allocs = append(alloc.allocs, struct {
-						locID int
-						qty   int
-					}{locID: loc.LocationID, qty: allocQty})
-					remainingNeeded -= allocQty
-				}
-				readyAllocations = append(readyAllocations, alloc)
+				continue
 			}
+
+			readyAllocations = append(readyAllocations, alloc)
 		}
 
-		// 2. Evaluate state
+		// 2. Zero partial reservation: if any item has a deficit, hold the entire order
 		if isOutOfStock {
-			_ = trx.MarkOnHoldForReplenishment(deficits)
+			if err := trx.MarkOnHoldForReplenishment(deficits); err != nil {
+				return err
+			}
 			trx.Status = domain.TransactionStatusOutOfStock
-			return s.trxRepo.CreateTx(ctx, trx)
+			return s.trxRepo.CreateTx(txCtx, trx)
 		}
 
 		if len(deficits) > 0 {
-			_ = trx.MarkOnHoldForReplenishment(deficits)
-			return s.trxRepo.CreateTx(ctx, trx)
+			if err := trx.MarkOnHoldForReplenishment(deficits); err != nil {
+				return err
+			}
+			return s.trxRepo.CreateTx(txCtx, trx)
 		}
 
-		// 3. Fully available in DISPLAY: execute reservations
+		// 3. Fully available in fulfillment locations: execute reservations atomically
 		trx.Status = domain.TransactionStatusReadyToPick
 		for _, alloc := range readyAllocations {
 			for _, al := range alloc.allocs {
-				if err := s.locRepo.ReserveStock(ctx, alloc.productID, al.locID, al.qty); err != nil {
+				if err := s.locRepo.ReserveStock(txCtx, alloc.productID, al.locID, al.qty); err != nil {
 					return err
 				}
 			}
 		}
 
-		return s.trxRepo.CreateTx(ctx, trx)
+		return s.trxRepo.CreateTx(txCtx, trx)
 	})
 
 	if err != nil {
@@ -192,28 +243,36 @@ func (s *stockTransactionService) CreateTransaction(ctx context.Context, req inv
 }
 
 func (s *stockTransactionService) ExecuteTransaction(ctx context.Context, req inventory_dto.ExecuteTransactionRequest, userID uint) error {
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		// 1. Muat (Load) Aggregate Root
-		trx, err := s.trxRepo.GetByID(ctx, req.TransactionID)
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		// 1. Load aggregate root
+		trx, err := s.trxRepo.GetByID(txCtx, req.TransactionID)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return apperror.NotFound("wms.transaction.err_not_found", "Transaksi tidak ditemukan")
+			}
 			return err
 		}
 		if trx == nil {
 			return apperror.NotFound("wms.transaction.err_not_found", "Transaksi tidak ditemukan")
 		}
 
-		// Load location
-		loc, err := s.locRepo.FindByID(ctx, int(req.LocationID))
+		// 2. Load scanned fulfillment location
+		loc, err := s.locRepo.FindByID(txCtx, int(req.LocationID))
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.ErrLocationNotFound
+			}
 			return err
 		}
+		if loc == nil {
+			return domain.ErrLocationNotFound
+		}
 
-		// 2. Lakukan validasi ProcessLine (termasuk Guard Clauses)
+		// 3. Validate domain guards (pickable status, fulfillment source, movement exists & incomplete)
 		if err := trx.ProcessLine(req.MovementID, loc, req.QtyDone, userID); err != nil {
 			return err
 		}
 
-		// Find the product ID from movement to release reserved and deduct actual
 		var productID uint
 		for _, m := range trx.Movements {
 			if m.ID == req.MovementID {
@@ -222,22 +281,35 @@ func (s *stockTransactionService) ExecuteTransaction(ctx context.Context, req in
 			}
 		}
 
-		// 3. Kurangi reserved_quantity dan potong quantity fisik secara atomik
-		if err := s.locRepo.ReleaseStock(ctx, int(productID), int(req.LocationID), req.QtyDone); err != nil {
+		// 4. Lock stock_locations row FOR UPDATE and verify physical stock >= QtyDone
+		physicalQty, err := s.locRepo.GetStockAtLocation(txCtx, int(productID), int(req.LocationID), true)
+		if err != nil {
 			return err
 		}
-		if err := s.locRepo.DeductStock(ctx, int(productID), int(req.LocationID), req.QtyDone); err != nil {
+		if physicalQty < req.QtyDone {
+			return apperror.Validation(
+				"wms.stock.err_insufficient_stock",
+				fmt.Sprintf("Stok fisik tidak mencukupi di lokasi %s (tersedia: %d, dibutuhkan: %d)", loc.Code, physicalQty, req.QtyDone),
+				map[string]any{"available": physicalQty, "requested": req.QtyDone},
+			)
+		}
+
+		// 5. Atomically release reserved quantity and deduct physical stock
+		if err := s.locRepo.ReleaseStock(txCtx, int(productID), int(req.LocationID), req.QtyDone); err != nil {
+			return err
+		}
+		if err := s.locRepo.DeductStock(txCtx, int(productID), int(req.LocationID), req.QtyDone); err != nil {
 			return err
 		}
 
-		// 4. Simpan log inv_movement_lines
-		if err := s.trxRepo.SaveFulfillmentTx(ctx, trx); err != nil {
+		// 6. Persist scanned movement line and updated movement/transaction statuses
+		if err := s.trxRepo.SaveFulfillmentTx(txCtx, trx); err != nil {
 			return err
 		}
-		
-		// 5. Check if fully fulfilled and write outbox event atomically
-		if trx.Status == "COMPLETED" && s.outboxRepo != nil {
-			payload := map[string]interface{}{
+
+		// 7. When fully fulfilled, write InventoryFulfilled outbox event inside the same transaction
+		if trx.Status == domain.TransactionStatusCompleted && s.outboxRepo != nil {
+			payload := map[string]any{
 				"transaction_no": trx.TransactionNo,
 				"reference_id":   trx.ReferenceID,
 				"reference_type": trx.ReferenceType,
@@ -253,10 +325,10 @@ func (s *stockTransactionService) ExecuteTransaction(ctx context.Context, req in
 				AggregateID:   trx.TransactionNo,
 				EventType:     "InventoryFulfilled",
 				Payload:       string(payloadBytes),
-				Status:        "PENDING",
+				Status:        domain.OutboxStatusPending,
 				CreatedAt:     time.Now(),
 			}
-			if err := s.outboxRepo.SaveTx(ctx, outboxEvent); err != nil {
+			if err := s.outboxRepo.SaveTx(txCtx, outboxEvent); err != nil {
 				return fmt.Errorf("failed to save outbox event: %w", err)
 			}
 		}
@@ -294,29 +366,37 @@ func (s *stockTransactionService) DispatchPendingOutboxEvents(ctx context.Contex
 	}
 
 	dispatched := 0
+	var lastErr error
 	for _, outboxEvt := range events {
 		if !json.Valid([]byte(outboxEvt.Payload)) {
-			_ = s.outboxRepo.IncrementRetry(ctx, outboxEvt.ID)
+			if retryErr := s.outboxRepo.IncrementRetry(ctx, outboxEvt.ID); retryErr != nil {
+				log.Printf("[Outbox] Failed to increment retry for malformed event %d: %v", outboxEvt.ID, retryErr)
+			}
 			continue
 		}
 
-		err := s.eventBus.Publish(ctx, eventbus.NewEvent(
+		if err := s.eventBus.Publish(ctx, eventbus.NewEvent(
 			outboxEvt.EventType,
 			json.RawMessage(outboxEvt.Payload),
 			0,
-		))
-		if err != nil {
-			_ = s.outboxRepo.IncrementRetry(ctx, outboxEvt.ID)
-			return dispatched, err
+		)); err != nil {
+			log.Printf("[Outbox] Failed to publish event %d (%s): %v", outboxEvt.ID, outboxEvt.EventType, err)
+			if retryErr := s.outboxRepo.IncrementRetry(ctx, outboxEvt.ID); retryErr != nil {
+				log.Printf("[Outbox] Failed to increment retry for event %d: %v", outboxEvt.ID, retryErr)
+			}
+			lastErr = err
+			continue
 		}
 
 		if err := s.outboxRepo.MarkAsPublished(ctx, outboxEvt.ID); err != nil {
-			return dispatched, err
+			log.Printf("[Outbox] Failed to mark event %d as published: %v", outboxEvt.ID, err)
+			lastErr = err
+			continue
 		}
 		dispatched++
 	}
 
-	return dispatched, nil
+	return dispatched, lastErr
 }
 
 func (s *stockTransactionService) ReconcileMissingFulfillments(ctx context.Context) (int, error) {
@@ -324,7 +404,6 @@ func (s *stockTransactionService) ReconcileMissingFulfillments(ctx context.Conte
 		return 0, nil
 	}
 
-	// 1. Fetch recent fulfillments from Kelja
 	list, err := s.keljaClient.FetchRecentFulfillments(ctx, 1, 50)
 	if err != nil {
 		return 0, err
@@ -335,12 +414,11 @@ func (s *stockTransactionService) ReconcileMissingFulfillments(ctx context.Conte
 
 	reconciledCount := 0
 	for _, order := range list {
-		// Only reconcile active pending orders
-		if order.Status == "CANCELLED" || order.Status == "FINISHED" || order.Status == "VOID" {
+		status := strings.ToUpper(strings.TrimSpace(order.Status))
+		if status == "CANCELLED" || status == "FINISHED" || status == "VOID" {
 			continue
 		}
 
-		// 2. Check if already exists in WMS by reference
 		existing, err := s.trxRepo.GetByReference(ctx, "KELJA_FULFILLMENT", order.Code)
 		if err != nil {
 			log.Printf("[Reconciliation] Error checking reference %s: %v", order.Code, err)
@@ -350,24 +428,28 @@ func (s *stockTransactionService) ReconcileMissingFulfillments(ctx context.Conte
 			continue
 		}
 
-		// 3. Not in WMS! Fetch detail from Kelja
 		detail, err := s.keljaClient.FetchFulfillmentDetail(ctx, order.ID)
 		if err != nil {
 			log.Printf("[Reconciliation] Failed to fetch detail for Kelja ID %d: %v", order.ID, err)
 			continue
 		}
-
-		if len(detail.Items) == 0 {
+		if detail == nil || len(detail.Items) == 0 {
 			continue
 		}
 
-		// 4. Map ProductCode (SKU) to ProductID
-		var items []inventory_dto.TransactionItemRequest
+		items := make([]inventory_dto.TransactionItemRequest, 0, len(detail.Items))
+		hasInvalidItem := false
 		for _, itm := range detail.Items {
-			prodID, err := s.productRepo.GetProductIDBySKUTx(ctx, itm.ProductCode)
-			if err != nil || prodID == 0 {
-				log.Printf("[Reconciliation] Product SKU %s not found in WMS catalog", itm.ProductCode)
-				continue
+			if itm.Quantity <= 0 || strings.TrimSpace(itm.ProductCode) == "" {
+				log.Printf("[Reconciliation] Skipping order %s: invalid line item (sku=%q qty=%d)", order.Code, itm.ProductCode, itm.Quantity)
+				hasInvalidItem = true
+				break
+			}
+			prodID, err := s.productRepo.GetProductIDBySKUTx(ctx, strings.TrimSpace(itm.ProductCode))
+			if err != nil || prodID <= 0 {
+				log.Printf("[Reconciliation] Skipping order %s: product SKU %q not found in WMS catalog (err=%v)", order.Code, itm.ProductCode, err)
+				hasInvalidItem = true
+				break
 			}
 			items = append(items, inventory_dto.TransactionItemRequest{
 				ProductID:      uint(prodID),
@@ -375,11 +457,10 @@ func (s *stockTransactionService) ReconcileMissingFulfillments(ctx context.Conte
 			})
 		}
 
-		if len(items) == 0 {
+		if hasInvalidItem || len(items) == 0 {
 			continue
 		}
 
-		// 5. Create transaction in WMS with Greedy Multi-Location Split in DISPLAY
 		createReq := inventory_dto.CreateTransactionRequest{
 			ReferenceType:    "KELJA_FULFILLMENT",
 			ReferenceID:      order.Code,
@@ -387,8 +468,7 @@ func (s *stockTransactionService) ReconcileMissingFulfillments(ctx context.Conte
 			Items:            items,
 		}
 
-		_, err = s.CreateTransaction(ctx, createReq)
-		if err != nil {
+		if _, err := s.CreateTransaction(ctx, createReq); err != nil {
 			log.Printf("[Reconciliation] Failed to auto-create transaction for %s: %v", order.Code, err)
 			continue
 		}
@@ -401,12 +481,15 @@ func (s *stockTransactionService) ReconcileMissingFulfillments(ctx context.Conte
 }
 
 func (s *stockTransactionService) GetOnHoldFulfillments(ctx context.Context, building string) ([]domain.OnHoldFulfillmentSummary, error) {
-	transactions, err := s.trxRepo.GetHeldTransactions(ctx, building)
+	transactions, err := s.trxRepo.GetHeldTransactions(ctx, strings.TrimSpace(building))
 	if err != nil {
 		return nil, err
 	}
 
 	summaries := make([]domain.OnHoldFulfillmentSummary, 0, len(transactions))
+	locCache := make(map[int]*domain.Location)
+	prodCache := make(map[int]*catalog_domain.Product)
+
 	for _, trx := range transactions {
 		summary := domain.OnHoldFulfillmentSummary{
 			TransactionID:    trx.ID,
@@ -427,17 +510,23 @@ func (s *stockTransactionService) GetOnHoldFulfillments(ctx context.Context, bui
 			}
 		}
 
-		// Fallback for orders created before deficit serialization or plain text notes
-		if len(summary.Deficits) == 0 && len(trx.Movements) > 0 {
+		// Fallback for legacy held orders without serialized deficit notes
+		if len(summary.Deficits) == 0 && len(trx.Movements) > 0 && s.locRepo != nil {
 			for _, m := range trx.Movements {
-				displayLocs, _ := s.locRepo.FindFulfillmentSourceStock(ctx, int(m.ProductID))
+				displayLocs, err := s.locRepo.FindFulfillmentSourceStock(ctx, int(m.ProductID))
+				if err != nil {
+					return nil, err
+				}
 				totalDisplayAvail := 0
 				for _, loc := range displayLocs {
 					totalDisplayAvail += loc.AvailableQuantity
 				}
 
-				storageLocs, _ := s.locRepo.FindReplenishmentCandidateStock(ctx, int(m.ProductID))
-				var suggestedSources []domain.SuggestedReplenishmentSource
+				storageLocs, err := s.locRepo.FindReplenishmentCandidateStock(ctx, int(m.ProductID))
+				if err != nil {
+					return nil, err
+				}
+				suggestedSources := make([]domain.SuggestedReplenishmentSource, 0, len(storageLocs))
 				for _, sloc := range storageLocs {
 					source := domain.SuggestedReplenishmentSource{
 						LocationID:        sloc.LocationID,
@@ -445,7 +534,7 @@ func (s *stockTransactionService) GetOnHoldFulfillments(ctx context.Context, bui
 						Purpose:           "STORAGE",
 						Building:          trx.AssignedBuilding,
 					}
-					if locDetail, err := s.locRepo.FindByID(ctx, sloc.LocationID); err == nil && locDetail != nil {
+					if locDetail := s.lookupLocationCached(ctx, sloc.LocationID, locCache); locDetail != nil {
 						source.LocationCode = locDetail.Code
 						source.Building = locDetail.Building
 						source.Purpose = locDetail.Purpose
@@ -453,15 +542,7 @@ func (s *stockTransactionService) GetOnHoldFulfillments(ctx context.Context, bui
 					suggestedSources = append(suggestedSources, source)
 				}
 
-				sku := ""
-				productName := ""
-				if s.productRepo != nil {
-					if prod, err := s.productRepo.FindByID(ctx, int(m.ProductID)); err == nil && prod != nil {
-						sku = prod.SKU
-						productName = prod.Name
-					}
-				}
-
+				sku, productName := s.lookupProductSummaryCached(ctx, int(m.ProductID), prodCache)
 				deficitQty := m.TargetQuantity - totalDisplayAvail
 				if deficitQty < 0 {
 					deficitQty = 0
@@ -488,9 +569,12 @@ func (s *stockTransactionService) GetOnHoldFulfillments(ctx context.Context, bui
 func (s *stockTransactionService) ReleaseHeldFulfillment(ctx context.Context, transactionID uint) (*domain.StockTransaction, error) {
 	var releasedTrx *domain.StockTransaction
 
-	err := s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		trx, err := s.trxRepo.GetByID(ctx, transactionID)
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		trx, err := s.trxRepo.GetByID(txCtx, transactionID)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return apperror.NotFound("wms.transaction.err_not_found", "Transaksi tidak ditemukan")
+			}
 			return err
 		}
 		if trx == nil {
@@ -502,44 +586,31 @@ func (s *stockTransactionService) ReleaseHeldFulfillment(ctx context.Context, tr
 		}
 
 		var readyAllocations []itemAllocation
+		reservedInBatch := make(map[productLocKey]int)
 		for _, m := range trx.Movements {
-			displayLocs, err := s.locRepo.FindFulfillmentSourceStock(ctx, int(m.ProductID))
+			displayLocs, err := s.locRepo.FindFulfillmentSourceStock(txCtx, int(m.ProductID))
 			if err != nil {
 				return err
 			}
 
-			totalDisplayAvail := 0
-			for _, loc := range displayLocs {
-				totalDisplayAvail += loc.AvailableQuantity
+			alloc, totalDisplayAvail, sufficient := planGreedyAllocations(
+				int(m.ProductID), m.TargetQuantity, displayLocs, reservedInBatch,
+			)
+			if !sufficient {
+				return apperror.Validation(
+					"wms.transaction.err_insufficient_display",
+					fmt.Sprintf("insufficient display stock for product %d: needed %d, available %d", m.ProductID, m.TargetQuantity, totalDisplayAvail),
+					map[string]any{"product": m.ProductID, "needed": m.TargetQuantity, "available": totalDisplayAvail},
+				)
 			}
 
-			if totalDisplayAvail < m.TargetQuantity {
-				return apperror.Validation("wms.transaction.err_insufficient_display", fmt.Sprintf("insufficient display stock for product %d: needed %d, available %d", m.ProductID, m.TargetQuantity, totalDisplayAvail), map[string]any{"product": m.ProductID, "needed": m.TargetQuantity, "available": totalDisplayAvail})
-			}
-
-			alloc := itemAllocation{productID: int(m.ProductID)}
-			remainingNeeded := m.TargetQuantity
-			for _, loc := range displayLocs {
-				if remainingNeeded <= 0 {
-					break
-				}
-				allocQty := loc.AvailableQuantity
-				if allocQty > remainingNeeded {
-					allocQty = remainingNeeded
-				}
-				alloc.allocs = append(alloc.allocs, struct {
-					locID int
-					qty   int
-				}{locID: loc.LocationID, qty: allocQty})
-				remainingNeeded -= allocQty
-			}
 			readyAllocations = append(readyAllocations, alloc)
 		}
 
-		// All movements have sufficient DISPLAY stock: execute reservations
+		// All movements have sufficient fulfillment stock: execute reservations atomically
 		for _, alloc := range readyAllocations {
 			for _, al := range alloc.allocs {
-				if err := s.locRepo.ReserveStock(ctx, alloc.productID, al.locID, al.qty); err != nil {
+				if err := s.locRepo.ReserveStock(txCtx, alloc.productID, al.locID, al.qty); err != nil {
 					return err
 				}
 			}
@@ -549,7 +620,7 @@ func (s *stockTransactionService) ReleaseHeldFulfillment(ctx context.Context, tr
 		notes := "Released from hold; stock successfully reserved in DISPLAY"
 		trx.Notes = &notes
 
-		if err := s.trxRepo.UpdateTransactionTx(ctx, trx); err != nil {
+		if err := s.trxRepo.UpdateTransactionTx(txCtx, trx); err != nil {
 			return err
 		}
 
@@ -562,4 +633,37 @@ func (s *stockTransactionService) ReleaseHeldFulfillment(ctx context.Context, tr
 	}
 
 	return releasedTrx, nil
+}
+
+func (s *stockTransactionService) lookupLocationCached(ctx context.Context, locationID int, cache map[int]*domain.Location) *domain.Location {
+	if loc, ok := cache[locationID]; ok {
+		return loc
+	}
+	loc, err := s.locRepo.FindByID(ctx, locationID)
+	if err != nil {
+		cache[locationID] = nil
+		return nil
+	}
+	cache[locationID] = loc
+	return loc
+}
+
+func (s *stockTransactionService) lookupProductSummaryCached(ctx context.Context, productID int, cache map[int]*catalog_domain.Product) (string, string) {
+	if s.productRepo == nil {
+		return "", ""
+	}
+	prod, ok := cache[productID]
+	if !ok {
+		var err error
+		prod, err = s.productRepo.FindByID(ctx, productID)
+		if err != nil {
+			cache[productID] = nil
+			return "", ""
+		}
+		cache[productID] = prod
+	}
+	if prod == nil {
+		return "", ""
+	}
+	return prod.SKU, prod.Name
 }

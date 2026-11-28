@@ -42,7 +42,7 @@ func InitializeWorker(db *sqlx.DB) (*di.WorkerContainer, error) {
 	locationRepository := mysql2.NewLocationRepository(db)
 	userRepository := mysql4.NewUserRepository(db)
 	stockUseCase := usecase2.NewStockUseCase(transactionManager, stockRepository, productRepository, locationRepository, userRepository, eventBus)
-	stockConsumer := rabbitmq.NewStockConsumer(stockUseCase, db)
+	stockConsumer := rabbitmq.NewStockConsumer(transactionManager, stockUseCase, db)
 	jobRepository := mysql.NewJobRepository(db)
 	jobService := usecase.NewJobService(jobRepository)
 	statisticRepository := mysql5.NewStatisticRepository(db)

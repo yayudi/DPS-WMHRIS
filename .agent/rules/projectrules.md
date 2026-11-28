@@ -50,7 +50,8 @@ Consult these authoritative sources and active MCP tools before generating code 
 ## 4. CODE STYLE & CONVENTIONS
 
 * **Language:** Golang (Go 1.25+).
-* **Output & Documentation Language (STRICT ENGLISH ONLY):** ALWAYS write all chat responses, Markdown docs/plans (`docs/*.md`), commit messages, Godoc, and code comments strictly in **English**, regardless of the user's input language (except explicit Indonesian i18n dictionary strings or domain literals).
+* **Output & Documentation Language (Reinforcement):** Enforce English-only output for chat responses, `docs/*.md`, commit messages, Godoc, and code comments regardless of prompt language.
+  * *Exceptions:* Preserve Indonesian for i18n dictionary strings, user-facing UI/API validation messages, and local domain literals (e.g., `Ruang - Rak - Tingkat`).
 * **Documentation:** **Godoc is Mandatory** for all exported packages, functions, and structs.
 * **Guard Clauses:** Use early returns (`if err != nil`) to avoid deep nesting.
 * **Naming Conventions:**

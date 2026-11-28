@@ -42,16 +42,70 @@ func TestStockTransaction_ProcessLine(t *testing.T) {
 	})
 
 	t.Run("Fail Not Fulfillment Source", func(t *testing.T) {
+		fresh := &domain.StockTransaction{AssignedBuilding: "BLD-A", Status: domain.TransactionStatusReadyToPick}
+		if err := fresh.AddDemand(1, 10); err != nil {
+			t.Fatalf("AddDemand failed: %v", err)
+		}
 		loc := &domain.Location{
 			Building:            "BLD-A",
 			Purpose:             "WAREHOUSE",
 			IsFulfillmentSource: false,
 		}
-		err := st.ProcessLine(movementID, loc, 5, 99)
+		err := fresh.ProcessLine(fresh.Movements[0].ID, loc, 5, 99)
 		if err != domain.ErrInvalidLocationPurpose {
 			t.Errorf("expected ErrInvalidLocationPurpose, got %v", err)
 		}
 	})
+
+	t.Run("Fail Nil Scanned Location", func(t *testing.T) {
+		fresh := &domain.StockTransaction{Status: domain.TransactionStatusReadyToPick}
+		_ = fresh.AddDemand(1, 5)
+		if err := fresh.ProcessLine(fresh.Movements[0].ID, nil, 1, 99); err != domain.ErrInvalidLocationPurpose {
+			t.Errorf("expected ErrInvalidLocationPurpose for nil location, got %v", err)
+		}
+	})
+
+	t.Run("Fail Completed Or Held Transaction", func(t *testing.T) {
+		loc := &domain.Location{Building: "BLD-A", Purpose: "DISPLAY", IsFulfillmentSource: true}
+		// st was completed by the previous two subtests (5 + 5 = 10)
+		if err := st.ProcessLine(movementID, loc, 1, 99); err != domain.ErrTransactionNotPickable {
+			t.Errorf("expected ErrTransactionNotPickable on completed trx, got %v", err)
+		}
+
+		held := &domain.StockTransaction{Status: domain.TransactionStatusHoldReplenishment}
+		_ = held.AddDemand(1, 5)
+		if err := held.ProcessLine(held.Movements[0].ID, loc, 1, 99); err != domain.ErrTransactionNotPickable {
+			t.Errorf("expected ErrTransactionNotPickable on held trx, got %v", err)
+		}
+	})
+
+	t.Run("Fail Already Completed Movement And Zero ProductID", func(t *testing.T) {
+		loc := &domain.Location{Building: "BLD-A", Purpose: "DISPLAY", IsFulfillmentSource: true}
+		multi := &domain.StockTransaction{Status: domain.TransactionStatusReadyToPick}
+		if err := multi.AddDemand(0, 5); err != domain.ErrInvalidProductID {
+			t.Fatalf("expected ErrInvalidProductID, got %v", err)
+		}
+		_ = multi.AddDemand(1, 5)
+		_ = multi.AddDemand(2, 5)
+		multi.Movements[0].ID = 10
+		multi.Movements[1].ID = 20
+
+		if err := multi.ProcessLine(10, loc, 5, 99); err != nil {
+			t.Fatalf("first movement completion failed: %v", err)
+		}
+		if err := multi.ProcessLine(10, loc, 1, 99); err != domain.ErrMovementAlreadyCompleted {
+			t.Errorf("expected ErrMovementAlreadyCompleted, got %v", err)
+		}
+	})
+}
+
+func TestStockLocation_AvailableQuantity(t *testing.T) {
+	if got := (domain.StockLocation{Quantity: 10, ReservedQuantity: 4}).AvailableQuantity(); got != 6 {
+		t.Fatalf("expected 6, got %d", got)
+	}
+	if got := (domain.StockLocation{Quantity: 2, ReservedQuantity: 5}).AvailableQuantity(); got != 0 {
+		t.Fatalf("expected 0 when reserved exceeds quantity, got %d", got)
+	}
 }
 
 func TestStockTransaction_HoldAndRelease(t *testing.T) {

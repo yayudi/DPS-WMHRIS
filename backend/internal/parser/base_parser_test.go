@@ -168,5 +168,35 @@ func TestReadCSV(t *testing.T) {
 	if records[0]["SKU"] != "PROD-A" || records[1]["QTY"] != "20" {
 		t.Errorf("unexpected CSV parsed data: %+v", records)
 	}
+
+	t.Run("StripsUTF8BOM_SkipsEmptyHeaders_HandlesRaggedRows", func(t *testing.T) {
+		bomCSV := "\uFEFFSKU, ,QTY\nSKU-BOM,ignored,7\nSKU-SHORT,ignored\n"
+		rows, err := parser.ReadCSV(strings.NewReader(bomCSV), ',')
+		if err != nil {
+			t.Fatalf("unexpected error on BOM/ragged CSV: %v", err)
+		}
+		if len(rows) != 2 {
+			t.Fatalf("expected 2 rows, got %d", len(rows))
+		}
+		if rows[0]["SKU"] != "SKU-BOM" || rows[0]["QTY"] != "7" {
+			t.Errorf("unexpected BOM row: %+v", rows[0])
+		}
+		if _, hasEmpty := rows[0][""]; hasEmpty {
+			t.Errorf("empty header column must be skipped, got %+v", rows[0])
+		}
+		if rows[1]["SKU"] != "SKU-SHORT" {
+			t.Errorf("unexpected ragged row: %+v", rows[1])
+		}
+	})
+
+	t.Run("HeaderOnlyReturnsNonNilEmptySlice", func(t *testing.T) {
+		rows, err := parser.ReadCSV(strings.NewReader("SKU,QTY\n"), ',')
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if rows == nil || len(rows) != 0 {
+			t.Fatalf("expected non-nil empty slice, got %#v", rows)
+		}
+	})
 }
 

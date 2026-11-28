@@ -1,20 +1,22 @@
+// Package port defines hexagonal inbound and outbound port interfaces for the inventory module.
 package port
 
 import (
 	"context"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
-
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/xuri/excelize/v2"
 )
 
+// InvestigationUseCase defines inbound operations for detecting and reverting duplicate inventory transactions.
 type InvestigationUseCase interface {
-	GetDuplicateTransactions(ctx context.Context, req inventory_dto.GetDuplicateTransactionsRequest) (interface{}, error)
+	GetDuplicateTransactions(ctx context.Context, req inventory_dto.GetDuplicateTransactionsRequest) (any, error)
 	RevertTransaction(ctx context.Context, transactionID int, userID int) error
 }
 
+// LocationUseCase defines inbound operations for managing warehouse locations and fulfillment source flags.
 type LocationUseCase interface {
 	CreateLocation(ctx context.Context, userID int, req inventory_dto.CreateLocationRequest) (*domain.Location, error)
 	GetAllLocations(ctx context.Context) ([]domain.Location, error)
@@ -24,14 +26,25 @@ type LocationUseCase interface {
 	ToggleFulfillmentSource(ctx context.Context, userID int, locationID int, isFulfillmentSource bool) error
 }
 
+// ReturnUseCase defines inbound operations for marketplace and manual return workflows.
 type ReturnUseCase interface {
-	GetPendingReturns(ctx context.Context, params map[string]interface{}) ([]map[string]interface{}, int, error)
+	GetPendingReturns(ctx context.Context, params map[string]any) ([]map[string]any, int, error)
 	GetMarketplaceReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[domain.MarketplaceReturnItem], error)
 	GetManualReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[domain.ManualReturnItem], error)
 	ApproveReturn(ctx context.Context, userID int, req inventory_dto.ApproveReturnRequest) error
 	CreateManualReturn(ctx context.Context, userID int, req inventory_dto.CreateManualReturnRequest) error
 }
 
+// SalesChannelUseCase defines inbound operations for managing sales channels.
+type SalesChannelUseCase interface {
+	GetAllChannels(ctx context.Context, activeOnly bool) ([]inventory_dto.SalesChannelResponse, error)
+	GetChannelByID(ctx context.Context, id int) (*inventory_dto.SalesChannelResponse, error)
+	CreateChannel(ctx context.Context, req inventory_dto.CreateSalesChannelRequest, userID int, ip, userAgent string) (int, error)
+	UpdateChannel(ctx context.Context, id int, req inventory_dto.UpdateSalesChannelRequest, userID int, ip, userAgent string) error
+	DeleteChannel(ctx context.Context, id int, userID int, ip, userAgent string) error
+}
+
+// StockRequestUseCase defines inbound operations for transfer and stock opname requests.
 type StockRequestUseCase interface {
 	CreateStockRequest(ctx context.Context, userID int, req inventory_dto.CreateStockRequest) (*domain.StockRequest, error)
 	GetAllStockRequests(ctx context.Context) ([]domain.StockRequest, error)
@@ -39,12 +52,13 @@ type StockRequestUseCase interface {
 	RejectStockRequest(ctx context.Context, id int, userID int, roleID int) error
 	DispatchStockRequest(ctx context.Context, id int, userID int, roleID int) error
 	CompleteStockRequest(ctx context.Context, id int, req inventory_dto.CompleteStockRequest, userID int, roleID int) error
-	BulkActionStockRequest(ctx context.Context, req inventory_dto.BulkActionStockRequest, userID int, roleID int) (map[string]interface{}, error)
+	BulkActionStockRequest(ctx context.Context, req inventory_dto.BulkActionStockRequest, userID int, roleID int) (map[string]any, error)
 }
 
+// StockUseCase defines inbound operations for direct stock movements, batch processing, templates, and imports.
 type StockUseCase interface {
 	MoveStock(ctx context.Context, userID int, req inventory_dto.MoveStockRequest) error
-	GetAllStocks(ctx context.Context) ([]map[string]interface{}, error)
+	GetAllStocks(ctx context.Context) ([]map[string]any, error)
 	ProcessBatchMovements(ctx context.Context, req inventory_dto.BatchProcessRequest, userID int, userRoleID int) error
 	GetMovementTypes(ctx context.Context) ([]string, error)
 	GetBatchLogs(ctx context.Context, filter inventory_dto.BatchLogFilter) (utils.PaginatedResult[inventory_dto.BatchLogResponse], error)
@@ -56,6 +70,7 @@ type StockUseCase interface {
 	ProcessImportBatchInbound(ctx context.Context, jobID int, filePath string, userID int, isDryRun bool) (string, error)
 }
 
+// StockTransactionUseCase defines inbound operations for transactional fulfillment, reservations, holds, and outbox dispatch.
 type StockTransactionUseCase interface {
 	CreateTransaction(ctx context.Context, req inventory_dto.CreateTransactionRequest) (*domain.StockTransaction, error)
 	ExecuteTransaction(ctx context.Context, req inventory_dto.ExecuteTransactionRequest, userID uint) error
@@ -66,11 +81,12 @@ type StockTransactionUseCase interface {
 	ReleaseHeldFulfillment(ctx context.Context, transactionID uint) (*domain.StockTransaction, error)
 }
 
+// StockQueryUseCase defines inbound read operations for stock balances.
 type StockQueryUseCase interface {
 	GetStockBalances(ctx context.Context, locationID *int, productID *int) ([]inventory_dto.StockBalanceResponse, error)
 }
 
-// SlotUseCase defines application use case operations for locational metadata slots and Kelja picking.
+// SlotUseCase defines application use case operations for locational metadata slots and Kelja picking resolution.
 type SlotUseCase interface {
 	AddSlot(ctx context.Context, userID int, req inventory_dto.UpsertSlotRequest) (*inventory_dto.SlotResponse, error)
 	DeleteSlot(ctx context.Context, userID int, slotID int, notes *string) error

@@ -3,16 +3,19 @@ package usecase
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
+	"strings"
 	"time"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
-	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
+	system_port "github.com/dps-wmhris/backend/internal/modules/system/port"
 	"github.com/dps-wmhris/backend/internal/shared/apperror"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 )
@@ -21,14 +24,15 @@ type stockRequestServiceImpl struct {
 	txManager           database.TransactionManager
 	stockRequestRepo    inventory_port.StockRequestRepository
 	stockService        inventory_port.StockUseCase
-	notificationService system_usecase.NotificationService
+	notificationService system_port.NotificationService
 }
 
+// NewStockRequestUseCase creates a StockRequestUseCase wired with transactions, stock movements, and notifications.
 func NewStockRequestUseCase(
 	txManager database.TransactionManager,
 	stockRequestRepo inventory_port.StockRequestRepository,
 	stockService inventory_port.StockUseCase,
-	notificationService system_usecase.NotificationService,
+	notificationService system_port.NotificationService,
 ) inventory_port.StockRequestUseCase {
 	return &stockRequestServiceImpl{
 		txManager:           txManager,
@@ -38,45 +42,79 @@ func NewStockRequestUseCase(
 	}
 }
 
+func (s *stockRequestServiceImpl) loadRequestWithItems(ctx context.Context, id int) (*domain.StockRequest, error) {
+	request, err := s.stockRequestRepo.FindByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrStockRequestNotFound
+		}
+		return nil, err
+	}
+	if request == nil {
+		return nil, domain.ErrStockRequestNotFound
+	}
+
+	items, err := s.stockRequestRepo.FindItemsByRequestID(ctx, request.ID)
+	if err != nil {
+		return nil, err
+	}
+	if items == nil {
+		items = []domain.StockRequestItem{}
+	}
+	request.Items = items
+	return request, nil
+}
+
 func (s *stockRequestServiceImpl) CreateStockRequest(ctx context.Context, userID int, req inventory_dto.CreateStockRequest) (*domain.StockRequest, error) {
-	switch req.Type {
-	case "TRANSFER":
-		if req.FromLocationID == nil || req.ToLocationID == nil {
+	reqType := strings.TrimSpace(req.Type)
+	if err := domain.ValidateStockRequestType(reqType); err != nil {
+		return nil, err
+	}
+
+	switch reqType {
+	case domain.StockRequestTypeTransfer:
+		if req.FromLocationID == nil || req.ToLocationID == nil || *req.FromLocationID <= 0 || *req.ToLocationID <= 0 {
 			return nil, apperror.Validation("wms.stock_request.err_from_to_location_required", "Lokasi asal dan tujuan harus diisi untuk transfer.", nil)
 		}
 		if *req.FromLocationID == *req.ToLocationID {
 			return nil, apperror.Validation("wms.stock_request.err_same_locations", "Lokasi asal dan tujuan tidak boleh sama.", nil)
 		}
-	case "STOCK_OPNAME":
-		if req.ToLocationID == nil {
+	case domain.StockRequestTypeStockOpname:
+		if req.ToLocationID == nil || *req.ToLocationID <= 0 {
 			return nil, apperror.Validation("wms.stock_request.err_opname_location_required", "Lokasi opname harus diisi.", nil)
 		}
 	}
 
 	if len(req.Items) == 0 {
-		return nil, apperror.Validation("wms.stock_request.err_min_items", "Minimal harus ada satu produk yang diminta.", nil)
+		return nil, domain.ErrStockRequestEmptyItems
+	}
+	for _, item := range req.Items {
+		if item.ProductID <= 0 || item.Quantity <= 0 {
+			return nil, apperror.Validation("wms.stock_request.err_invalid_item", "Produk dan jumlah permintaan harus bernilai positif.", nil)
+		}
 	}
 
 	dateStr := time.Now().Format("060102")
 	n, err := rand.Int(rand.Reader, big.NewInt(9000))
 	if err != nil {
-		return nil, apperror.Internal("wms.stock_request.err_rand_failed", "Gagal memproses nomor request (rand error)", nil)
+		return nil, apperror.Internal("wms.stock_request.err_rand_failed", "Gagal memproses nomor request (rand error)", err)
 	}
 	randStr := fmt.Sprintf("%04d", 1000+n.Int64())
 	requestNumber := fmt.Sprintf("SR-%s-%s", dateStr, randStr)
 
 	request := &domain.StockRequest{
 		RequestNumber:  requestNumber,
-		Type:           req.Type,
+		Type:           reqType,
 		RequesterID:    userID,
 		FromLocationID: req.FromLocationID,
 		ToLocationID:   req.ToLocationID,
-		Status:         "PENDING",
-		Notes:          req.Notes,
+		Status:         domain.StockRequestStatusPending,
+		Notes:          strings.TrimSpace(req.Notes),
+		Items:          make([]domain.StockRequestItem, 0, len(req.Items)),
 	}
 
-	err = s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		if err := s.stockRequestRepo.CreateTx(ctx, request); err != nil {
+	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.stockRequestRepo.CreateTx(txCtx, request); err != nil {
 			return err
 		}
 
@@ -87,7 +125,7 @@ func (s *stockRequestServiceImpl) CreateStockRequest(ctx context.Context, userID
 				Quantity:         item.Quantity,
 				ReceivedQuantity: 0,
 			}
-			if err := s.stockRequestRepo.CreateItemTx(ctx, reqItem); err != nil {
+			if err := s.stockRequestRepo.CreateItemTx(txCtx, reqItem); err != nil {
 				return err
 			}
 			request.Items = append(request.Items, *reqItem)
@@ -95,27 +133,30 @@ func (s *stockRequestServiceImpl) CreateStockRequest(ctx context.Context, userID
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
 
-	// Notifikasi read-time i18n
-	notifPayload := map[string]interface{}{
-		"requestId": request.ID,
-		"type":      request.Type,
-		"_i18n": system_dto.NotificationI18nMeta{
-			TitleKey:   "wms.notification.stock_request_new_title",
-			MessageKey: "wms.notification.stock_request_new_msg",
-			Params: map[string]any{
-				"type": request.Type,
+	// Send read-time i18n notification to approvers
+	if s.notificationService != nil {
+		notifPayload := map[string]any{
+			"requestId": request.ID,
+			"type":      request.Type,
+			"_i18n": system_dto.NotificationI18nMeta{
+				TitleKey:   "wms.notification.stock_request_new_title",
+				MessageKey: "wms.notification.stock_request_new_msg",
+				Params: map[string]any{
+					"type": request.Type,
+				},
 			},
-		},
-	}
-	if err := s.notificationService.NotifyUsersByPermission(ctx, "approve-stock-requests", "WMS", "Permintaan Stok Baru",
-		fmt.Sprintf("Permintaan stok baru (%s) telah dibuat dan menunggu persetujuan.", request.Type),
-		notifPayload, &userID, true); err != nil {
-		log.Printf("Failed to send notification: %v", err)
+		}
+		if err := s.notificationService.NotifyUsersByPermission(
+			ctx, "approve-stock-requests", "WMS", "Permintaan Stok Baru",
+			fmt.Sprintf("Permintaan stok baru (%s) telah dibuat dan menunggu persetujuan.", request.Type),
+			notifPayload, &userID, true,
+		); err != nil {
+			log.Printf("Failed to send stock request notification: %v", err)
+		}
 	}
 
 	return request, nil
@@ -126,10 +167,22 @@ func (s *stockRequestServiceImpl) GetAllStockRequests(ctx context.Context) ([]do
 	if err != nil {
 		return nil, err
 	}
+	if len(requests) == 0 {
+		return []domain.StockRequest{}, nil
+	}
+
+	reqIDs := make([]int, len(requests))
+	for i := range requests {
+		reqIDs[i] = requests[i].ID
+	}
+
+	itemsByReqID, err := s.stockRequestRepo.FindItemsByRequestIDs(ctx, reqIDs)
+	if err != nil {
+		return nil, err
+	}
 
 	for i := range requests {
-		items, err := s.stockRequestRepo.FindItemsByRequestID(ctx, requests[i].ID)
-		if err == nil {
+		if items, ok := itemsByReqID[requests[i].ID]; ok && items != nil {
 			requests[i].Items = items
 		} else {
 			requests[i].Items = []domain.StockRequestItem{}
@@ -140,22 +193,25 @@ func (s *stockRequestServiceImpl) GetAllStockRequests(ctx context.Context) ([]do
 }
 
 func (s *stockRequestServiceImpl) ApproveStockRequest(ctx context.Context, id int, userID int, roleID int) error {
-	request, err := s.stockRequestRepo.FindByID(ctx, id)
-	if err != nil {
-		return apperror.NotFound("wms.stock_request.err_not_found", "Permintaan stok tidak ditemukan.", nil)
-	}
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		request, err := s.loadRequestWithItems(txCtx, id)
+		if err != nil {
+			return err
+		}
 
-	if request.Status != "PENDING" {
-		return apperror.Conflict("wms.stock_request.err_status_must_pending", "Hanya permintaan berstatus PENDING yang dapat disetujui.", nil)
-	}
+		if request.Status != domain.StockRequestStatusPending {
+			return apperror.Conflict("wms.stock_request.err_status_must_pending", "Hanya permintaan berstatus PENDING yang dapat disetujui.", nil)
+		}
+		if request.RequesterID == userID {
+			return apperror.Forbidden("wms.stock_request.err_self_approval", "Anda tidak dapat menyetujui permintaan Anda sendiri.", nil)
+		}
 
-	if request.RequesterID == userID {
-		return apperror.Forbidden("wms.stock_request.err_self_approval", "Anda tidak dapat menyetujui permintaan Anda sendiri.", nil)
-	}
+		if request.Type == domain.StockRequestTypeStockOpname {
+			if len(request.Items) == 0 {
+				return domain.ErrStockRequestEmptyItems
+			}
 
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		if request.Type == "STOCK_OPNAME" {
-			var movements []inventory_dto.BatchMovementRequest
+			movements := make([]inventory_dto.BatchMovementRequest, 0, len(request.Items))
 			for _, item := range request.Items {
 				notes := fmt.Sprintf("Stock Request Opname %s", request.RequestNumber)
 				movements = append(movements, inventory_dto.BatchMovementRequest{
@@ -166,65 +222,67 @@ func (s *stockRequestServiceImpl) ApproveStockRequest(ctx context.Context, id in
 				})
 			}
 
-			err = s.stockService.ProcessBatchMovements(ctx, inventory_dto.BatchProcessRequest{
+			if err := s.stockService.ProcessBatchMovements(txCtx, inventory_dto.BatchProcessRequest{
 				Type:         "ADJUSTMENT",
 				ToLocationID: request.ToLocationID,
 				Notes:        &request.RequestNumber,
 				Movements:    movements,
-			}, userID, roleID)
-
-			if err != nil {
+			}, userID, roleID); err != nil {
 				return err
 			}
 
 			for _, item := range request.Items {
-				if err := s.stockRequestRepo.UpdateItemReceivedQtyTx(ctx, item.ID, item.Quantity); err != nil {
+				if err := s.stockRequestRepo.UpdateItemReceivedQtyTx(txCtx, item.ID, item.Quantity); err != nil {
 					return err
 				}
 			}
 
-			if err := s.stockRequestRepo.UpdateStatusTx(ctx, request.ID, "COMPLETED"); err != nil {
-				return err
-			}
-		} else {
-			if err := s.stockRequestRepo.UpdateStatusTx(ctx, request.ID, "APPROVED"); err != nil {
-				return err
-			}
+			return s.stockRequestRepo.UpdateStatusTx(txCtx, request.ID, domain.StockRequestStatusCompleted)
 		}
-		return nil
+
+		return s.stockRequestRepo.UpdateStatusTx(txCtx, request.ID, domain.StockRequestStatusApproved)
 	})
 }
 
 func (s *stockRequestServiceImpl) RejectStockRequest(ctx context.Context, id int, userID int, roleID int) error {
-	request, err := s.stockRequestRepo.FindByID(ctx, id)
-	if err != nil {
-		return apperror.NotFound("wms.stock_request.err_not_found", "Permintaan stok tidak ditemukan.", nil)
-	}
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		request, err := s.stockRequestRepo.FindByID(txCtx, id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.ErrStockRequestNotFound
+			}
+			return err
+		}
+		if request == nil {
+			return domain.ErrStockRequestNotFound
+		}
 
-	if request.Status != "PENDING" {
-		return apperror.Conflict("wms.stock_request.err_status_must_pending", "Hanya permintaan berstatus PENDING yang dapat ditolak.", nil)
-	}
+		if request.Status != domain.StockRequestStatusPending {
+			return apperror.Conflict("wms.stock_request.err_status_must_pending", "Hanya permintaan berstatus PENDING yang dapat ditolak.", nil)
+		}
 
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		return s.stockRequestRepo.UpdateStatusTx(ctx, request.ID, "REJECTED")
+		return s.stockRequestRepo.UpdateStatusTx(txCtx, request.ID, domain.StockRequestStatusRejected)
 	})
 }
 
 func (s *stockRequestServiceImpl) DispatchStockRequest(ctx context.Context, id int, userID int, roleID int) error {
-	request, err := s.stockRequestRepo.FindByID(ctx, id)
-	if err != nil {
-		return apperror.NotFound("wms.stock_request.err_not_found", "Permintaan stok tidak ditemukan.", nil)
-	}
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		request, err := s.loadRequestWithItems(txCtx, id)
+		if err != nil {
+			return err
+		}
 
-	if request.Status != "APPROVED" {
-		return apperror.Conflict("wms.stock_request.err_status_must_approved", "Hanya permintaan berstatus APPROVED yang dapat dikirim.", nil)
-	}
-	if request.Type == "STOCK_OPNAME" {
-		return apperror.Validation("wms.stock_request.err_opname_no_dispatch", "Permintaan Stock Opname tidak memerlukan pengiriman.", nil)
-	}
+		if request.Status != domain.StockRequestStatusApproved {
+			return apperror.Conflict("wms.stock_request.err_status_must_approved", "Hanya permintaan berstatus APPROVED yang dapat dikirim.", nil)
+		}
+		if request.Type == domain.StockRequestTypeStockOpname {
+			return apperror.Validation("wms.stock_request.err_opname_no_dispatch", "Permintaan Stock Opname tidak memerlukan pengiriman.", nil)
+		}
+		if len(request.Items) == 0 {
+			return domain.ErrStockRequestEmptyItems
+		}
 
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		var movements []inventory_dto.BatchMovementRequest
+		movements := make([]inventory_dto.BatchMovementRequest, 0, len(request.Items))
 		for _, item := range request.Items {
 			notes := fmt.Sprintf("Pengiriman Permintaan Stok %s", request.RequestNumber)
 			movements = append(movements, inventory_dto.BatchMovementRequest{
@@ -235,43 +293,49 @@ func (s *stockRequestServiceImpl) DispatchStockRequest(ctx context.Context, id i
 			})
 		}
 
-		err = s.stockService.ProcessBatchMovements(ctx, inventory_dto.BatchProcessRequest{
+		if err := s.stockService.ProcessBatchMovements(txCtx, inventory_dto.BatchProcessRequest{
 			Type:           "TRANSFER_OUT",
 			FromLocationID: request.FromLocationID,
 			Notes:          &request.RequestNumber,
 			Movements:      movements,
-		}, userID, 1)
-
-		if err != nil {
+		}, userID, roleID); err != nil {
 			return err
 		}
 
-		return s.stockRequestRepo.UpdateStatusTx(ctx, request.ID, "SHIPPED")
+		return s.stockRequestRepo.UpdateStatusTx(txCtx, request.ID, domain.StockRequestStatusShipped)
 	})
 }
 
 func (s *stockRequestServiceImpl) CompleteStockRequest(ctx context.Context, id int, req inventory_dto.CompleteStockRequest, userID int, roleID int) error {
-	request, err := s.stockRequestRepo.FindByID(ctx, id)
-	if err != nil {
-		return apperror.NotFound("wms.stock_request.err_not_found", "Permintaan stok tidak ditemukan.", nil)
+	receivedByProductID := make(map[int]int, len(req.ReceivedItems))
+	for _, rItem := range req.ReceivedItems {
+		if rItem.ReceivedQuantity < 0 {
+			return apperror.Validation("wms.stock_request.err_invalid_received_qty", "Jumlah diterima tidak boleh negatif.", nil)
+		}
+		receivedByProductID[rItem.ProductID] = rItem.ReceivedQuantity
 	}
 
-	if request.Status != "SHIPPED" {
-		return apperror.Conflict("wms.stock_request.err_status_must_shipped", "Hanya permintaan berstatus SHIPPED yang dapat diselesaikan.", nil)
-	}
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		request, err := s.loadRequestWithItems(txCtx, id)
+		if err != nil {
+			return err
+		}
 
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		var movements []inventory_dto.BatchMovementRequest
+		if request.Status != domain.StockRequestStatusShipped {
+			return apperror.Conflict("wms.stock_request.err_status_must_shipped", "Hanya permintaan berstatus SHIPPED yang dapat diselesaikan.", nil)
+		}
+		if len(request.Items) == 0 {
+			return domain.ErrStockRequestEmptyItems
+		}
+
+		movements := make([]inventory_dto.BatchMovementRequest, 0, len(request.Items))
 		for _, item := range request.Items {
 			rQty := item.Quantity
-			for _, rItem := range req.ReceivedItems {
-				if rItem.ProductID == item.ProductID {
-					rQty = rItem.ReceivedQuantity
-					break
-				}
+			if overrideQty, ok := receivedByProductID[item.ProductID]; ok {
+				rQty = overrideQty
 			}
 
-			if err := s.stockRequestRepo.UpdateItemReceivedQtyTx(ctx, item.ID, rQty); err != nil {
+			if err := s.stockRequestRepo.UpdateItemReceivedQtyTx(txCtx, item.ID, rQty); err != nil {
 				return err
 			}
 
@@ -287,26 +351,24 @@ func (s *stockRequestServiceImpl) CompleteStockRequest(ctx context.Context, id i
 		}
 
 		if len(movements) > 0 {
-			err = s.stockService.ProcessBatchMovements(ctx, inventory_dto.BatchProcessRequest{
+			if err := s.stockService.ProcessBatchMovements(txCtx, inventory_dto.BatchProcessRequest{
 				Type:         "TRANSFER_IN",
 				ToLocationID: request.ToLocationID,
 				Notes:        &request.RequestNumber,
 				Movements:    movements,
-			}, userID, 1)
-
-			if err != nil {
+			}, userID, roleID); err != nil {
 				return err
 			}
 		}
 
-		return s.stockRequestRepo.UpdateStatusTx(ctx, request.ID, "COMPLETED")
+		return s.stockRequestRepo.UpdateStatusTx(txCtx, request.ID, domain.StockRequestStatusCompleted)
 	})
 }
 
-func (s *stockRequestServiceImpl) BulkActionStockRequest(ctx context.Context, req inventory_dto.BulkActionStockRequest, userID int, roleID int) (map[string]interface{}, error) {
+func (s *stockRequestServiceImpl) BulkActionStockRequest(ctx context.Context, req inventory_dto.BulkActionStockRequest, userID int, roleID int) (map[string]any, error) {
 	successCount := 0
 	failedCount := 0
-	details := []map[string]interface{}{}
+	details := make([]map[string]any, 0, len(req.RequestIds))
 
 	for _, id := range req.RequestIds {
 		var err error
@@ -319,14 +381,14 @@ func (s *stockRequestServiceImpl) BulkActionStockRequest(ctx context.Context, re
 
 		if err == nil {
 			successCount++
-			details = append(details, map[string]interface{}{"id": id, "status": "success"})
+			details = append(details, map[string]any{"id": id, "status": "success"})
 		} else {
 			failedCount++
-			details = append(details, map[string]interface{}{"id": id, "status": "failed", "reason": err.Error()})
+			details = append(details, map[string]any{"id": id, "status": "failed", "reason": err.Error()})
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"successCount": successCount,
 		"failedCount":  failedCount,
 		"details":      details,

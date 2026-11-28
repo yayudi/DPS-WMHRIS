@@ -1,5 +1,6 @@
 package inventory_dto
 
+// StockBalanceResponse represents physical, reserved, and net available stock at a location for one product.
 type StockBalanceResponse struct {
 	LocationID        int    `json:"location_id" db:"location_id"`
 	LocationName      string `json:"location_name" db:"location_name"`

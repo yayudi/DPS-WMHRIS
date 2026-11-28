@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -41,23 +43,37 @@ func NewSlotUseCase(
 	}
 }
 
+func normalizeOptionalTier(raw *string) *string {
+	if raw == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*raw)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
 // AddSlot adds a new slotting coordinate to the product at the location.
 func (s *slotServiceImpl) AddSlot(ctx context.Context, userID int, req inventory_dto.UpsertSlotRequest) (*inventory_dto.SlotResponse, error) {
-	if strings.TrimSpace(req.Room) == "" {
+	room := strings.TrimSpace(req.Room)
+	rack := strings.TrimSpace(req.Rack)
+	if room == "" {
 		return nil, domain.ErrSlotRoomRequired
 	}
-	if strings.TrimSpace(req.Rack) == "" {
+	if rack == "" {
 		return nil, domain.ErrSlotRackRequired
 	}
+	tier := normalizeOptionalTier(req.Tier)
 
 	var result *inventory_dto.SlotResponse
-	err := s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		existingSlots, err := s.slotRepo.GetSlots(ctx, req.ProductID, req.LocationID)
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		existingSlots, err := s.slotRepo.GetSlots(txCtx, req.ProductID, req.LocationID)
 		if err != nil {
 			return err
 		}
 
-		newFormatted := domain.FormatCoordinate(req.Room, req.Rack, req.Tier)
+		newFormatted := domain.FormatCoordinate(room, rack, tier)
 
 		for _, es := range existingSlots {
 			if es.FormattedCoordinate == newFormatted {
@@ -82,21 +98,23 @@ func (s *slotServiceImpl) AddSlot(ctx context.Context, userID int, req inventory
 			isPrimary = true
 			action = domain.SlotActionInitialAssign
 		} else if isPrimary {
-			_ = s.slotRepo.SetPrimarySlot(ctx, req.ProductID, req.LocationID, 0)
+			if err := s.slotRepo.SetPrimarySlot(txCtx, req.ProductID, req.LocationID, 0); err != nil {
+				return err
+			}
 		}
 
 		slot := &domain.ProductLocationSlot{
 			ProductID:           req.ProductID,
 			LocationID:          req.LocationID,
-			Room:                strings.TrimSpace(req.Room),
-			Rack:                strings.TrimSpace(req.Rack),
-			Tier:                req.Tier,
+			Room:                room,
+			Rack:                rack,
+			Tier:                tier,
 			FormattedCoordinate: newFormatted,
 			IsPrimary:           isPrimary,
 			UpdatedBy:           &userID,
 		}
 
-		if err := s.slotRepo.CreateSlot(ctx, slot); err != nil {
+		if err := s.slotRepo.CreateSlot(txCtx, slot); err != nil {
 			return err
 		}
 
@@ -108,7 +126,7 @@ func (s *slotServiceImpl) AddSlot(ctx context.Context, userID int, req inventory
 			Notes:        req.Notes,
 			UserID:       &userID,
 		}
-		if err := s.slotRepo.CreateSlotLog(ctx, logEntry); err != nil {
+		if err := s.slotRepo.CreateSlotLog(txCtx, logEntry); err != nil {
 			return err
 		}
 
@@ -125,25 +143,30 @@ func (s *slotServiceImpl) AddSlot(ctx context.Context, userID int, req inventory
 		}
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-// DeleteSlot removes a slot coordinate and records a REMOVED log.
+// DeleteSlot removes a slot coordinate, records a REMOVED audit log, and promotes a remaining slot if primary was deleted.
 func (s *slotServiceImpl) DeleteSlot(ctx context.Context, userID int, slotID int, notes *string) error {
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		slot, err := s.slotRepo.GetSlotByID(ctx, slotID)
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		slot, err := s.slotRepo.GetSlotByID(txCtx, slotID)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.ErrSlotNotFound
+			}
 			return err
 		}
 		if slot == nil {
 			return domain.ErrSlotNotFound
 		}
 
-		if err := s.slotRepo.DeleteSlot(ctx, slotID); err != nil {
+		if err := s.slotRepo.DeleteSlot(txCtx, slotID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.ErrSlotNotFound
+			}
 			return err
 		}
 
@@ -155,14 +178,19 @@ func (s *slotServiceImpl) DeleteSlot(ctx context.Context, userID int, slotID int
 			Notes:          notes,
 			UserID:         &userID,
 		}
-		if err := s.slotRepo.CreateSlotLog(ctx, logEntry); err != nil {
+		if err := s.slotRepo.CreateSlotLog(txCtx, logEntry); err != nil {
 			return err
 		}
 
 		if slot.IsPrimary {
-			remaining, err := s.slotRepo.GetSlots(ctx, slot.ProductID, slot.LocationID)
-			if err == nil && len(remaining) > 0 {
-				_ = s.slotRepo.SetPrimarySlot(ctx, slot.ProductID, slot.LocationID, remaining[0].ID)
+			remaining, err := s.slotRepo.GetSlots(txCtx, slot.ProductID, slot.LocationID)
+			if err != nil {
+				return err
+			}
+			if len(remaining) > 0 {
+				if err := s.slotRepo.SetPrimarySlot(txCtx, slot.ProductID, slot.LocationID, remaining[0].ID); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -172,16 +200,22 @@ func (s *slotServiceImpl) DeleteSlot(ctx context.Context, userID int, slotID int
 
 // SetPrimarySlot sets a specific slot coordinate as the primary picking slot.
 func (s *slotServiceImpl) SetPrimarySlot(ctx context.Context, userID int, productID int, locationID int, slotID int) error {
-	return s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
-		slot, err := s.slotRepo.GetSlotByID(ctx, slotID)
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		slot, err := s.slotRepo.GetSlotByID(txCtx, slotID)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.ErrSlotNotFound
+			}
 			return err
 		}
 		if slot == nil || slot.ProductID != productID || slot.LocationID != locationID {
 			return domain.ErrSlotNotFound
 		}
 
-		if err := s.slotRepo.SetPrimarySlot(ctx, productID, locationID, slotID); err != nil {
+		if err := s.slotRepo.SetPrimarySlot(txCtx, productID, locationID, slotID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.ErrSlotNotFound
+			}
 			return err
 		}
 
@@ -194,7 +228,7 @@ func (s *slotServiceImpl) SetPrimarySlot(ctx context.Context, userID int, produc
 			Notes:        &note,
 			UserID:       &userID,
 		}
-		return s.slotRepo.CreateSlotLog(ctx, logEntry)
+		return s.slotRepo.CreateSlotLog(txCtx, logEntry)
 	})
 }
 
@@ -222,7 +256,6 @@ func (s *slotServiceImpl) GetSlots(ctx context.Context, productID int, locationI
 	return res, nil
 }
 
-
 // GetSlotLogs retrieves paginated audit trail logs for slotting movements.
 func (s *slotServiceImpl) GetSlotLogs(ctx context.Context, productID int, locationID int, page int, limit int) (utils.PaginatedResult[domain.ProductLocationSlotLog], error) {
 	if page <= 0 {
@@ -236,6 +269,9 @@ func (s *slotServiceImpl) GetSlotLogs(ctx context.Context, productID int, locati
 	logs, total, err := s.slotRepo.GetSlotLogs(ctx, productID, locationID, limit, offset)
 	if err != nil {
 		return utils.PaginatedResult[domain.ProductLocationSlotLog]{}, err
+	}
+	if logs == nil {
+		logs = []domain.ProductLocationSlotLog{}
 	}
 
 	totalPages := 0
@@ -252,22 +288,29 @@ func (s *slotServiceImpl) GetSlotLogs(ctx context.Context, productID int, locati
 	}, nil
 }
 
-// GetPickingLocationsForKelja resolves detailed physical locations and ambalan coordinates for an order reference.
+// GetPickingLocationsForKelja resolves detailed physical locations and rack coordinates for an order reference.
 func (s *slotServiceImpl) GetPickingLocationsForKelja(ctx context.Context, referenceID string) (*inventory_dto.KeljaPickingLocationsResponse, error) {
-	if referenceID == "" {
+	ref := strings.TrimSpace(referenceID)
+	if ref == "" {
 		return nil, apperror.Validation("wms.slotting.err_ref_required", "Parameter reference_id wajib diisi")
 	}
 
-	trx, err := s.trxRepo.GetByReference(ctx, "KELJA_FULFILLMENT", referenceID)
+	trx, err := s.trxRepo.GetByReference(ctx, "KELJA_FULFILLMENT", ref)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperror.NotFound("wms.slotting.err_fulfillment_not_found", fmt.Sprintf("fulfillment with reference %s not found", ref), map[string]any{"reference": ref})
+		}
 		return nil, err
 	}
 	if trx == nil {
-		return nil, apperror.NotFound("wms.slotting.err_fulfillment_not_found", fmt.Sprintf("fulfillment with reference %s not found", referenceID), map[string]any{"reference": referenceID})
+		return nil, apperror.NotFound("wms.slotting.err_fulfillment_not_found", fmt.Sprintf("fulfillment with reference %s not found", ref), map[string]any{"reference": ref})
 	}
 
 	fullTrx, err := s.trxRepo.GetByID(ctx, trx.ID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperror.NotFound("wms.slotting.err_fulfillment_trx_not_found", fmt.Sprintf("fulfillment transaction %d not found", trx.ID), map[string]any{"id": trx.ID})
+		}
 		return nil, err
 	}
 	if fullTrx == nil {
@@ -291,7 +334,7 @@ func (s *slotServiceImpl) GetPickingLocationsForKelja(ctx context.Context, refer
 			}
 		}
 
-		availableLocs, err := s.locRepo.FindAvailableStockLocations(ctx, int(mov.ProductID), "DISPLAY", fullTrx.AssignedBuilding)
+		availableLocs, err := s.locRepo.FindAvailableStockLocations(ctx, int(mov.ProductID), domain.LocationPurposeDisplay, fullTrx.AssignedBuilding)
 		if err != nil || len(availableLocs) == 0 {
 			availableLocs, _ = s.locRepo.FindFulfillmentSourceStock(ctx, int(mov.ProductID))
 		}

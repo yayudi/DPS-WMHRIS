@@ -2,6 +2,14 @@ package domain
 
 import "time"
 
+// Outbox event lifecycle statuses and retry ceiling.
+const (
+	OutboxStatusPending   = "PENDING"
+	OutboxStatusPublished = "PUBLISHED"
+	OutboxStatusFailed    = "FAILED"
+	OutboxMaxRetries      = 5
+)
+
 // OutboxEvent represents an event to be published atomically via the Transactional Outbox Pattern.
 // keep: ID uses int64 for high-throughput outbox event table (bigint).
 type OutboxEvent struct {

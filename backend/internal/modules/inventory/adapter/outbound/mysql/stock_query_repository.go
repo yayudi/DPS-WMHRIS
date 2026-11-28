@@ -14,45 +14,49 @@ type stockQueryRepository struct {
 	db *sqlx.DB
 }
 
+// NewStockQueryRepository creates a MySQL-backed StockQueryRepository.
 func NewStockQueryRepository(db *sqlx.DB) port.StockQueryRepository {
 	return &stockQueryRepository{db: db}
 }
 
+// GetBalances returns physical, reserved, and net available stock balances for non-deleted products and locations.
 func (r *stockQueryRepository) GetBalances(ctx context.Context, locationID *int, productID *int) ([]inventory_dto.StockBalanceResponse, error) {
-	var balances []inventory_dto.StockBalanceResponse
+	balances := make([]inventory_dto.StockBalanceResponse, 0)
 
 	query := `
-		SELECT 
+		SELECT
 			sl.location_id,
-			l.name as location_name,
+			COALESCE(l.name, '') AS location_name,
 			sl.product_id,
-			p.name as product_name,
+			p.name AS product_name,
 			sl.quantity,
 			sl.reserved_quantity,
-			(sl.quantity - sl.reserved_quantity) as available_quantity
+			(sl.quantity - sl.reserved_quantity) AS available_quantity
 		FROM stock_locations sl
 		JOIN locations l ON sl.location_id = l.id
 		JOIN products p ON sl.product_id = p.id
-		WHERE 1=1
+		WHERE l.deleted_at IS NULL AND p.deleted_at IS NULL
 	`
-	var args []interface{}
-	
+	var args []any
+
 	if locationID != nil {
 		query += " AND sl.location_id = ?"
 		args = append(args, *locationID)
 	}
-	
+
 	if productID != nil {
 		query += " AND sl.product_id = ?"
 		args = append(args, *productID)
 	}
 
-	query += " ORDER BY l.name ASC, p.name ASC"
+	query += " ORDER BY location_name ASC, p.name ASC"
 
 	ext := database.GetExt(ctx, r.db)
-	err := ext.SelectContext(ctx, &balances, query, args...)
-	if err != nil {
+	if err := ext.SelectContext(ctx, &balances, query, args...); err != nil {
 		return nil, fmt.Errorf("failed to get stock balances: %w", err)
+	}
+	if balances == nil {
+		return []inventory_dto.StockBalanceResponse{}, nil
 	}
 
 	return balances, nil

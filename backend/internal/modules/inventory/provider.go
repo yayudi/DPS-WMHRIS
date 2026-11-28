@@ -1,3 +1,4 @@
+// Package inventory wires dependency injection providers for locations, slotting, stock requests, stock mutations, fulfillment, returns, investigations, and sales channels.
 package inventory
 
 import (
@@ -9,7 +10,7 @@ import (
 	"github.com/google/wire"
 )
 
-// ProviderSet wires all inventory repositories, use cases, HTTP handlers, and RabbitMQ consumers.
+// ProviderSet wires all inventory repositories, use cases, HTTP handlers, ERP clients, and RabbitMQ consumers.
 var ProviderSet = wire.NewSet(
 	http.NewSalesChannelHandler,
 	usecase.NewSalesChannelService,

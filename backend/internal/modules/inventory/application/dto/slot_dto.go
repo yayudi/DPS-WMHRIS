@@ -6,8 +6,8 @@ import (
 
 // UpsertSlotRequest represents the payload to add or update a product's slotting coordinate at a location.
 type UpsertSlotRequest struct {
-	ProductID  int     `json:"product_id" binding:"required"`
-	LocationID int     `json:"location_id" binding:"required"`
+	ProductID  int     `json:"product_id" binding:"required,min=1"`
+	LocationID int     `json:"location_id" binding:"required,min=1"`
 	Room       string  `json:"room" binding:"required"`
 	Rack       string  `json:"rack" binding:"required"`
 	Tier       *string `json:"tier"`
@@ -17,7 +17,7 @@ type UpsertSlotRequest struct {
 
 // SetPrimarySlotRequest represents payload to designate a slot as primary.
 type SetPrimarySlotRequest struct {
-	SlotID int `json:"slot_id" binding:"required"`
+	SlotID int `json:"slot_id" binding:"required,min=1"`
 }
 
 // DeleteSlotRequest represents optional payload when removing a slot coordinate.
@@ -48,7 +48,7 @@ type KeljaItemPickingLocation struct {
 	Slotting          KeljaSlottingSummary `json:"slotting"`
 }
 
-// KeljaLocationSummary represents coarse floor/building location.
+// KeljaLocationSummary represents coarse floor/building location metadata.
 type KeljaLocationSummary struct {
 	ID       int    `json:"id"`
 	Code     string `json:"code"`

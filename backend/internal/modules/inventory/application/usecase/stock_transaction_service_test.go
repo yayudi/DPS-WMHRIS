@@ -2,6 +2,8 @@ package usecase_test
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -75,13 +77,16 @@ func (m *mockTrxRepo) UpdateTransactionTx(ctx context.Context, trx *domain.Stock
 
 type mockLocRepo struct {
 	inventory_port.LocationRepository
-	availLocs        []domain.AvailableLocationStock
-	availLocsFn      func(productID int, purpose string, building string) ([]domain.AvailableLocationStock, error)
+	availLocs              []domain.AvailableLocationStock
+	availLocsFn            func(productID int, purpose string, building string) ([]domain.AvailableLocationStock, error)
 	capturedPurpose        string
 	capturedBuilding       string
 	fulfillmentStockCalled bool
 	findByIDLoc            *domain.Location
-	reservedCalls    []struct {
+	findByIDErr            error
+	stockAtLocFn           func(productID int, locationID int, lockForUpdate bool) (int, error)
+	lockForUpdateCalled    bool
+	reservedCalls          []struct {
 		productID  int
 		locationID int
 		qty        int
@@ -99,7 +104,20 @@ type mockLocRepo struct {
 }
 
 func (m *mockLocRepo) FindByID(ctx context.Context, id int) (*domain.Location, error) {
+	if m.findByIDErr != nil {
+		return nil, m.findByIDErr
+	}
 	return m.findByIDLoc, nil
+}
+
+func (m *mockLocRepo) GetStockAtLocation(ctx context.Context, productID int, locationID int, lockForUpdate bool) (int, error) {
+	if lockForUpdate {
+		m.lockForUpdateCalled = true
+	}
+	if m.stockAtLocFn != nil {
+		return m.stockAtLocFn(productID, locationID, lockForUpdate)
+	}
+	return 1000, nil
 }
 
 func (m *mockLocRepo) FindAvailableStockLocations(ctx context.Context, productID int, purpose string, building string) ([]domain.AvailableLocationStock, error) {
@@ -185,9 +203,15 @@ func (m *mockOutboxRepo) IncrementRetry(ctx context.Context, id int64) error {
 
 type mockEventBus struct {
 	publishedEvents []eventbus.Event
+	publishFn       func(ctx context.Context, event eventbus.Event) error
 }
 
 func (m *mockEventBus) Publish(ctx context.Context, event eventbus.Event) error {
+	if m.publishFn != nil {
+		if err := m.publishFn(ctx, event); err != nil {
+			return err
+		}
+	}
 	m.publishedEvents = append(m.publishedEvents, event)
 	return nil
 }
@@ -978,6 +1002,127 @@ func TestStockTransactionService_EndToEnd_ManualReplenishmentFlow(t *testing.T) 
 		}
 		if outboxRepo.savedEvents[0].EventType != "InventoryFulfilled" {
 			t.Errorf("expected event type InventoryFulfilled, got %s", outboxRepo.savedEvents[0].EventType)
+		}
+	})
+}
+
+func TestStockTransactionService_Hardening7B2(t *testing.T) {
+	txManager := &mockTxManager{}
+	ctx := context.Background()
+
+	t.Run("Duplicate ProductID items do not over-reserve same DISPLAY stock", func(t *testing.T) {
+		trxRepo := &mockTrxRepo{}
+		locRepo := &mockLocRepo{
+			availLocsFn: func(_ int, purpose string, _ string) ([]domain.AvailableLocationStock, error) {
+				if purpose == "DISPLAY" {
+					return []domain.AvailableLocationStock{{LocationID: 101, AvailableQuantity: 10}}, nil
+				}
+				return []domain.AvailableLocationStock{{LocationID: 201, AvailableQuantity: 10}}, nil
+			},
+		}
+		svc := usecase.NewStockTransactionService(txManager, trxRepo, locRepo, nil, nil, nil, nil)
+
+		trx, err := svc.CreateTransaction(ctx, inventory_dto.CreateTransactionRequest{
+			ReferenceType: "ORDER",
+			ReferenceID:   "ORD-DUP-PROD",
+			Items: []inventory_dto.TransactionItemRequest{
+				{ProductID: 1, TargetQuantity: 6},
+				{ProductID: 1, TargetQuantity: 6}, // Needs 12 total, DISPLAY only has 10
+			},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if trx.Status != domain.TransactionStatusHoldReplenishment {
+			t.Fatalf("expected HOLD_REPLENISHMENT when duplicate SKU demand exceeds DISPLAY, got %s", trx.Status)
+		}
+		if len(locRepo.reservedCalls) != 0 {
+			t.Fatalf("expected 0 reservations on hold, got %d", len(locRepo.reservedCalls))
+		}
+	})
+
+	t.Run("ExecuteTransaction maps missing location and rejects insufficient locked physical stock", func(t *testing.T) {
+		existingTrx := &domain.StockTransaction{
+			ID:     1,
+			Status: domain.TransactionStatusReadyToPick,
+			Movements: []*domain.TransactionMovement{
+				{ID: 10, TransactionID: 1, ProductID: 5, TargetQuantity: 5, Status: domain.TransactionStatusPending},
+			},
+		}
+		trxRepo := &mockTrxRepo{getByIDTrx: existingTrx}
+		locRepo := &mockLocRepo{findByIDErr: sql.ErrNoRows}
+		svc := usecase.NewStockTransactionService(txManager, trxRepo, locRepo, nil, nil, nil, nil)
+
+		if err := svc.ExecuteTransaction(ctx, inventory_dto.ExecuteTransactionRequest{
+			TransactionID: 1, MovementID: 10, LocationID: 99, QtyDone: 5,
+		}, 1); !errors.Is(err, domain.ErrLocationNotFound) {
+			t.Fatalf("expected ErrLocationNotFound, got %v", err)
+		}
+
+		locRepo.findByIDErr = nil
+		locRepo.findByIDLoc = &domain.Location{ImmutableEntity: kernel.ImmutableEntity{ID: 50}, Code: "D-01", IsFulfillmentSource: true}
+		locRepo.stockAtLocFn = func(_ int, _ int, _ bool) (int, error) { return 2, nil }
+
+		err := svc.ExecuteTransaction(ctx, inventory_dto.ExecuteTransactionRequest{
+			TransactionID: 1, MovementID: 10, LocationID: 50, QtyDone: 5,
+		}, 1)
+		if err == nil || !locRepo.lockForUpdateCalled || len(locRepo.deductedCalls) != 0 || len(locRepo.releasedCalls) != 0 {
+			t.Fatalf("expected locked physical stock validation failure with 0 deductions, got err=%v locked=%v", err, locRepo.lockForUpdateCalled)
+		}
+	})
+
+	t.Run("DispatchPendingOutboxEvents continues past failing event without head-of-line blocking", func(t *testing.T) {
+		outboxRepo := &mockOutboxRepo{
+			pendingEvents: []domain.OutboxEvent{
+				{ID: 1, EventType: "InventoryFulfilled", Payload: `{"transaction_no":"TRX-FAIL"}`},
+				{ID: 2, EventType: "InventoryFulfilled", Payload: `{"transaction_no":"TRX-OK"}`},
+			},
+		}
+		attempts := 0
+		eb := &mockEventBus{
+			publishFn: func(_ context.Context, _ eventbus.Event) error {
+				attempts++
+				if attempts == 1 {
+					return errors.New("broker blip")
+				}
+				return nil
+			},
+		}
+		svc := usecase.NewStockTransactionService(txManager, &mockTrxRepo{}, &mockLocRepo{}, outboxRepo, nil, nil, eb)
+
+		dispatched, err := svc.DispatchPendingOutboxEvents(ctx)
+		if err == nil || dispatched != 1 {
+			t.Fatalf("expected dispatched=1 with lastErr non-nil, got dispatched=%d err=%v", dispatched, err)
+		}
+		if len(outboxRepo.incrementedIDs) != 1 || outboxRepo.incrementedIDs[0] != 1 {
+			t.Fatalf("expected event 1 retry incremented, got %+v", outboxRepo.incrementedIDs)
+		}
+		if len(outboxRepo.publishedIDs) != 1 || outboxRepo.publishedIDs[0] != 2 {
+			t.Fatalf("expected event 2 published despite event 1 failure, got %+v", outboxRepo.publishedIDs)
+		}
+	})
+
+	t.Run("ReconcileMissingFulfillments skips entire order when any SKU is unknown", func(t *testing.T) {
+		trxRepo := &mockTrxRepo{}
+		locRepo := &mockLocRepo{availLocs: []domain.AvailableLocationStock{{LocationID: 101, AvailableQuantity: 100}}}
+		keljaClient := &mockKeljaClient{
+			summaries: []domain.KeljaFulfillmentSummary{{ID: 601, Code: "KLJ-PARTIAL", Status: "PENDING"}},
+			details: map[int]*domain.KeljaFulfillmentDetail{
+				601: {
+					ID: 601, Code: "KLJ-PARTIAL",
+					Items: []domain.KeljaFulfillmentItem{
+						{ProductCode: "SKU-KNOWN", Quantity: 2},
+						{ProductCode: "SKU-UNKNOWN", Quantity: 1},
+					},
+				},
+			},
+		}
+		productRepo := &mockProductRepo{skuMap: map[string]int{"SKU-KNOWN": 42}}
+		svc := usecase.NewStockTransactionService(txManager, trxRepo, locRepo, nil, keljaClient, productRepo, nil)
+
+		count, err := svc.ReconcileMissingFulfillments(ctx)
+		if err != nil || count != 0 || trxRepo.createdTrx != nil {
+			t.Fatalf("expected partial order skipped cleanly (0 created), got count=%d trx=%v err=%v", count, trxRepo.createdTrx, err)
 		}
 	})
 }
