@@ -153,9 +153,13 @@ func (r *stockRepositoryImpl) GetBatchLogs(ctx context.Context, filter inventory
 	`
 	var args []any
 
-	if filter.StartDate != "" && filter.EndDate != "" {
-		baseQuery += " AND DATE(sm.created_at) BETWEEN ? AND ?"
-		args = append(args, filter.StartDate, filter.EndDate)
+	if filter.StartDate != "" {
+		baseQuery += " AND sm.created_at >= ?"
+		args = append(args, filter.StartDate)
+	}
+	if filter.EndDate != "" {
+		baseQuery += " AND sm.created_at <= CONCAT(?, ' 23:59:59')"
+		args = append(args, filter.EndDate)
 	}
 
 	if filter.ProductName != "" {
@@ -195,8 +199,12 @@ func (r *stockRepositoryImpl) GetBatchLogs(ctx context.Context, filter inventory
 		baseQuery += " AND sm.notes LIKE ?"
 		args = append(args, "%"+filter.Notes+"%")
 	}
+	if filter.BeforeID > 0 {
+		baseQuery += " AND sm.id < ?"
+		args = append(args, filter.BeforeID)
+	}
 
-	selectQuery := `
+	selectCols := `
 		SELECT sm.id,
 			p.sku,
 			p.name AS product_name,
@@ -207,7 +215,38 @@ func (r *stockRepositoryImpl) GetBatchLogs(ctx context.Context, filter inventory
 			u.username AS user,
 			COALESCE(from_loc.code, '') AS from_location,
 			COALESCE(to_loc.code, '') AS to_location
-	` + baseQuery + " ORDER BY sm.created_at DESC"
+	`
+
+	if filter.SkipCount {
+		ext := database.GetExt(ctx, r.db)
+		limit := filter.Limit
+		if limit <= 0 {
+			limit = 5000
+		}
+		selectQuery := selectCols + baseQuery + " ORDER BY sm.id DESC LIMIT ?"
+		args = append(args, limit)
+
+		selectQuery, args, err := sqlx.In(selectQuery, args...)
+		if err != nil {
+			return utils.PaginatedResult[inventory_dto.BatchLogResponse]{}, err
+		}
+		selectQuery = ext.Rebind(selectQuery)
+
+		var rows []inventory_dto.BatchLogResponse
+		if err := ext.SelectContext(ctx, &rows, selectQuery, args...); err != nil {
+			return utils.PaginatedResult[inventory_dto.BatchLogResponse]{}, err
+		}
+		if rows == nil {
+			rows = []inventory_dto.BatchLogResponse{}
+		}
+		return utils.PaginatedResult[inventory_dto.BatchLogResponse]{
+			Data:  rows,
+			Page:  1,
+			Limit: limit,
+		}, nil
+	}
+
+	selectQuery := selectCols + baseQuery + " ORDER BY sm.created_at DESC, sm.id DESC"
 
 	selectQuery, args, err := sqlx.In(selectQuery, args...)
 	if err != nil {
@@ -242,14 +281,12 @@ func (r *stockRepositoryImpl) GetStockHistory(ctx context.Context, filter invent
 		args = append(args, filter.MovementType)
 	}
 
-	if filter.StartDate != "" && filter.EndDate != "" {
-		query += " AND DATE(sm.created_at) BETWEEN ? AND ?"
-		args = append(args, filter.StartDate, filter.EndDate)
-	} else if filter.StartDate != "" {
-		query += " AND DATE(sm.created_at) >= ?"
+	if filter.StartDate != "" {
+		query += " AND sm.created_at >= ?"
 		args = append(args, filter.StartDate)
-	} else if filter.EndDate != "" {
-		query += " AND DATE(sm.created_at) <= ?"
+	}
+	if filter.EndDate != "" {
+		query += " AND sm.created_at <= CONCAT(?, ' 23:59:59')"
 		args = append(args, filter.EndDate)
 	}
 

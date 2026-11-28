@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	analytics_dto "github.com/dps-wmhris/backend/internal/modules/analytics/application/dto"
 	analytics_port "github.com/dps-wmhris/backend/internal/modules/analytics/port"
@@ -139,12 +140,7 @@ func (s *exportServiceImpl) ProcessExportStockTimeline(ctx context.Context, jobI
 		}
 	}
 
-	if req.StartDate == "" {
-		req.StartDate = "2020-01-01"
-	}
-	if req.EndDate == "" {
-		req.EndDate = "2030-01-01"
-	}
+	req.StartDate, req.EndDate = resolveRollingDateRange(req.StartDate, req.EndDate, defaultTimelineExportLookbackDays, time.Now())
 
 	data, err := s.statisticService.GetStockTimelineStatistics(ctx, req)
 	if err != nil {
@@ -186,21 +182,16 @@ func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int
 		}
 	}
 
+	filter.StartDate, filter.EndDate = resolveRollingDateRange(filter.StartDate, filter.EndDate, defaultBatchLogExportLookbackDays, time.Now())
+
+	chunkSize := batchLogExportChunkSize
+	if chunkSize <= 0 {
+		chunkSize = 5000
+	}
 	filter.Page = 1
-	filter.Limit = 999999
-
-	if filter.StartDate == "" {
-		filter.StartDate = "2020-01-01"
-	}
-	if filter.EndDate == "" {
-		filter.EndDate = "2030-01-01"
-	}
-
-	result, err := s.stockRepo.GetBatchLogs(ctx, filter)
-	if err != nil {
-		return err
-	}
-	logs := result.Data
+	filter.Limit = chunkSize
+	filter.BeforeID = 0
+	filter.SkipCount = true
 
 	f := excelize.NewFile()
 	defer closeWorkbook(f)
@@ -208,7 +199,19 @@ func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int
 	sheetName := sanitizeExcelSheetName(i18n.T(ctx, "analytics.export.sheet_batch_log"), "Batch Log")
 	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
-	utils.SetLocalizedHeaders(ctx, f, sheetName, []string{
+	sw, err := f.NewStreamWriter(sheetName)
+	if err != nil {
+		return fmt.Errorf("failed to initialize batch log stream writer: %w", err)
+	}
+
+	colWidths := []float64{5, 20, 15, 35, 30, 15, 15, 15, 35, 25}
+	for i, width := range colWidths {
+		if err := sw.SetColWidth(i+1, i+1, width); err != nil {
+			return fmt.Errorf("failed to configure batch log column %d width: %w", i+1, err)
+		}
+	}
+
+	headerKeys := []string{
 		"analytics.export.col_no",
 		"common.label.date",
 		"common.label.sku",
@@ -219,22 +222,74 @@ func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int
 		"common.label.to_location",
 		"analytics.export.col_notes",
 		"common.label.user",
-	}, styles.Header)
-
-	for i, logItem := range logs {
-		row := i + 2
-		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", row), &[]any{ // #nosec G104
-			i + 1, logItem.CreatedAt, logItem.SKU, logItem.ProductName, logItem.MovementType, logItem.Quantity, logItem.FromLocation, logItem.ToLocation, logItem.Notes, logItem.User,
-		})
+	}
+	headerRow := make([]any, len(headerKeys))
+	for i, key := range headerKeys {
+		label := key
+		if i18n.IsKeyFormat(key) {
+			label = i18n.T(ctx, key)
+		}
+		headerRow[i] = excelize.Cell{StyleID: styles.Header, Value: label}
+	}
+	if err := sw.SetRow("A1", headerRow); err != nil {
+		return fmt.Errorf("failed to write batch log header row: %w", err)
 	}
 
-	utils.SetColStyles(f, sheetName, map[string]int{"F": styles.NumInt})
-	_ = f.SetCellStyle(sheetName, "A1", "J1", styles.Header) // #nosec G104
+	rowIdx := 0
+	for rowIdx < excelMaxDataRows {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 
-	utils.SetColWidths(f, sheetName, map[string]float64{
-		"A": 5, "B": 20, "C": 15, "D": 35, "E": 30,
-		"F": 15, "G": 15, "H": 15, "I": 35, "J": 25,
-	})
+		remaining := excelMaxDataRows - rowIdx
+		if filter.Limit > remaining {
+			filter.Limit = remaining
+		}
+
+		result, err := s.stockRepo.GetBatchLogs(ctx, filter)
+		if err != nil {
+			return err
+		}
+		if len(result.Data) == 0 {
+			break
+		}
+
+		lastID := 0
+		for _, logItem := range result.Data {
+			rowIdx++
+			cell, err := excelize.CoordinatesToCellName(1, rowIdx+1)
+			if err != nil {
+				return fmt.Errorf("failed to build cell coordinate for row %d: %w", rowIdx+1, err)
+			}
+			if err := sw.SetRow(cell, []any{
+				rowIdx,
+				logItem.CreatedAt,
+				logItem.SKU,
+				logItem.ProductName,
+				logItem.MovementType,
+				excelize.Cell{StyleID: styles.NumInt, Value: logItem.Quantity},
+				logItem.FromLocation,
+				logItem.ToLocation,
+				logItem.Notes,
+				logItem.User,
+			}); err != nil {
+				return fmt.Errorf("failed to stream batch log row %d: %w", rowIdx, err)
+			}
+			lastID = logItem.ID
+		}
+
+		if len(result.Data) < filter.Limit || lastID <= 0 {
+			break
+		}
+		if filter.BeforeID > 0 && lastID >= filter.BeforeID {
+			return fmt.Errorf("batch log keyset cursor did not advance (lastID=%d, beforeID=%d)", lastID, filter.BeforeID)
+		}
+		filter.BeforeID = lastID
+	}
+
+	if err := sw.Flush(); err != nil {
+		return fmt.Errorf("failed to flush batch log stream writer: %w", err)
+	}
 
 	fileName := utils.GenerateExportFileName(filter.ExportName, "batch_log_export")
 	return finalizeExportJob(ctx, f, jobID, fileName, "exports", s.jobRepo, s.storageService)

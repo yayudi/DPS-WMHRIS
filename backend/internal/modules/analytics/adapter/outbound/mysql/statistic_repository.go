@@ -161,6 +161,24 @@ func buildMovementBuildingFilter(building string, params *[]any) string {
 	return clause.String()
 }
 
+// buildCreatedAtRangeWhere constructs optional SARGable timestamp bounds so MySQL can use idx_sm_created_at
+// without requiring hardcoded sentinel dates when callers omit startDate or endDate.
+func buildCreatedAtRangeWhere(column, startDate, endDate string, params *[]any) string {
+	var clauses []string
+	if start := strings.TrimSpace(startDate); start != "" {
+		clauses = append(clauses, fmt.Sprintf("%s >= ?", column))
+		*params = append(*params, start)
+	}
+	if end := strings.TrimSpace(endDate); end != "" {
+		clauses = append(clauses, fmt.Sprintf("%s <= CONCAT(?, ' 23:59:59')", column))
+		*params = append(*params, end)
+	}
+	if len(clauses) == 0 {
+		return "1=1"
+	}
+	return strings.Join(clauses, " AND ")
+}
+
 // GetStockMovementStats returns per-SKU current stock, outbound volume, and inbound volume within the requested date window.
 func (r *statisticRepositoryImpl) GetStockMovementStats(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.StockMovementSummaryResponse, error) {
 	ext := database.GetExt(ctx, r.db)
@@ -180,7 +198,8 @@ func (r *statisticRepositoryImpl) GetStockMovementStats(ctx context.Context, fil
 		GROUP BY sl.product_id
 	`, strings.Join(locWhere, " AND "))
 
-	movParams := []any{filters.StartDate, filters.EndDate}
+	movParams := []any{}
+	dateWhere := buildCreatedAtRangeWhere("sm.created_at", filters.StartDate, filters.EndDate, &movParams)
 	movFilter := buildMovementBuildingFilter(filters.Building, &movParams)
 
 	query := fmt.Sprintf(`
@@ -204,12 +223,12 @@ func (r *statisticRepositoryImpl) GetStockMovementStats(ctx context.Context, fil
 			FROM stock_movements sm
 			LEFT JOIN locations fl ON sm.from_location_id = fl.id
 			LEFT JOIN locations tl ON sm.to_location_id = tl.id
-			WHERE sm.created_at >= ? AND sm.created_at <= CONCAT(?, ' 23:59:59')
+			WHERE %s
 			%s
 			GROUP BY sm.product_id
 		) s_mov ON p.id = s_mov.product_id
 		WHERE p.is_package = 0 AND p.deleted_at IS NULL
-	`, locSubquery, movFilter)
+	`, locSubquery, dateWhere, movFilter)
 
 	queryParams = append(queryParams, movParams...)
 
@@ -239,7 +258,8 @@ func (r *statisticRepositoryImpl) GetStockMovementStats(ctx context.Context, fil
 // GetMovementTimelineStats aggregates inbound and outbound volumes grouped by daily, monthly, or annual buckets.
 func (r *statisticRepositoryImpl) GetMovementTimelineStats(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.StockMovementTimelineResponse, error) {
 	ext := database.GetExt(ctx, r.db)
-	queryParams := []any{filters.StartDate, filters.EndDate}
+	queryParams := []any{}
+	dateWhere := buildCreatedAtRangeWhere("sm.created_at", filters.StartDate, filters.EndDate, &queryParams)
 	buildingFilter := buildMovementBuildingFilter(filters.Building, &queryParams)
 
 	searchJoin := ""
@@ -275,12 +295,12 @@ func (r *statisticRepositoryImpl) GetMovementTimelineStats(ctx context.Context, 
 		LEFT JOIN locations fl ON sm.from_location_id = fl.id
 		LEFT JOIN locations tl ON sm.to_location_id = tl.id
 		%s
-		WHERE sm.created_at >= ? AND sm.created_at <= CONCAT(?, ' 23:59:59')
+		WHERE %s
 		%s
 		%s
 		GROUP BY %s
 		ORDER BY date ASC
-	`, dateSelect, searchJoin, buildingFilter, searchFilter, dateSelect)
+	`, dateSelect, searchJoin, dateWhere, buildingFilter, searchFilter, dateSelect)
 
 	var rows []analytics_dto.StockMovementTimelineResponse
 	if err := ext.SelectContext(ctx, &rows, query, queryParams...); err != nil {

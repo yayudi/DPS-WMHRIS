@@ -9,9 +9,12 @@ import (
 
 	analytics_dto "github.com/dps-wmhris/backend/internal/modules/analytics/application/dto"
 	analytics_port "github.com/dps-wmhris/backend/internal/modules/analytics/port"
+	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
+	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
 	system_domain "github.com/dps-wmhris/backend/internal/modules/system/domain"
 	system_port "github.com/dps-wmhris/backend/internal/modules/system/port"
 	"github.com/dps-wmhris/backend/internal/shared/kernel"
+	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -218,5 +221,98 @@ func TestExportService_PivotSKUPopulatedAndErrorPropagation(t *testing.T) {
 	// 4. Detailed location capacity export propagates GetLocationCapacityDetails DB error
 	if err := exportSvc.ProcessExportLocationCapacity(ctx, 3, `{"exportFormat":"detailed"}`); err == nil {
 		t.Fatal("expected error propagation when GetLocationCapacityDetails fails")
+	}
+}
+
+type mockStockRepoBatchStream struct {
+	inventory_port.StockRepository
+	allLogs     []inventory_dto.BatchLogResponse
+	calls       []inventory_dto.BatchLogFilter
+	ignoreRange bool
+}
+
+func (m *mockStockRepoBatchStream) GetBatchLogs(_ context.Context, filter inventory_dto.BatchLogFilter) (utils.PaginatedResult[inventory_dto.BatchLogResponse], error) {
+	m.calls = append(m.calls, filter)
+	var out []inventory_dto.BatchLogResponse
+	for _, item := range m.allLogs {
+		if !m.ignoreRange && filter.BeforeID > 0 && item.ID >= filter.BeforeID {
+			continue
+		}
+		out = append(out, item)
+		if filter.Limit > 0 && len(out) >= filter.Limit {
+			break
+		}
+	}
+	return utils.PaginatedResult[inventory_dto.BatchLogResponse]{Data: out, Page: 1, Limit: filter.Limit}, nil
+}
+
+func TestExportService_ProcessExportBatchLogStreamingChunks(t *testing.T) {
+	origChunk := batchLogExportChunkSize
+	batchLogExportChunkSize = 2
+	t.Cleanup(func() { batchLogExportChunkSize = origChunk })
+
+	ctx := context.Background()
+	stockRepo := &mockStockRepoBatchStream{
+		allLogs: []inventory_dto.BatchLogResponse{
+			{ID: 30, SKU: "SKU-30", ProductName: "Prod 30", MovementType: "INBOUND", Quantity: 100, CreatedAt: "2026-11-28 09:00:00", User: "alice"},
+			{ID: 20, SKU: "SKU-20", ProductName: "Prod 20", MovementType: "SALE", Quantity: 50, CreatedAt: "2026-11-28 08:00:00", User: "bob"},
+			{ID: 10, SKU: "SKU-10", ProductName: "Prod 10", MovementType: "TRANSFER", Quantity: 25, CreatedAt: "2026-11-28 07:00:00", User: "carol"},
+		},
+	}
+	jobRepo := &mockJobRepo7C{}
+	storageSvc := &mockStorageSvc7C{}
+	exportSvc := NewExportService(jobRepo, nil, storageSvc, stockRepo, nil, nil, nil)
+
+	if err := exportSvc.ProcessExportBatchLog(ctx, 42, `{}`); err != nil {
+		t.Fatalf("ProcessExportBatchLog failed: %v", err)
+	}
+	if len(stockRepo.calls) != 2 {
+		t.Fatalf("expected 2 chunk queries (2 rows + 1 row), got %d", len(stockRepo.calls))
+	}
+	if !stockRepo.calls[0].SkipCount || stockRepo.calls[0].BeforeID != 0 || stockRepo.calls[0].Limit != 2 {
+		t.Fatalf("unexpected first chunk filter: %+v", stockRepo.calls[0])
+	}
+	if !stockRepo.calls[1].SkipCount || stockRepo.calls[1].BeforeID != 20 || stockRepo.calls[1].Limit != 2 {
+		t.Fatalf("unexpected second chunk filter: %+v", stockRepo.calls[1])
+	}
+	if jobRepo.updatedState != "COMPLETED" {
+		t.Fatalf("expected job status COMPLETED, got %q", jobRepo.updatedState)
+	}
+
+	wb, err := excelize.OpenReader(bytes.NewReader(storageSvc.uploadedBytes))
+	if err != nil {
+		t.Fatalf("failed to open streamed batch log xlsx: %v", err)
+	}
+	defer wb.Close()
+
+	sheet := wb.GetSheetName(wb.GetActiveSheetIndex())
+	wantRows := []struct {
+		row string
+		no  string
+		sku string
+		qty string
+	}{
+		{row: "2", no: "1", sku: "SKU-30", qty: "100"},
+		{row: "3", no: "2", sku: "SKU-20", qty: "50"},
+		{row: "4", no: "3", sku: "SKU-10", qty: "25"},
+	}
+	for _, want := range wantRows {
+		noVal, _ := wb.GetCellValue(sheet, "A"+want.row)
+		skuVal, _ := wb.GetCellValue(sheet, "C"+want.row)
+		qtyVal, _ := wb.GetCellValue(sheet, "F"+want.row)
+		if noVal != want.no || skuVal != want.sku || qtyVal != want.qty {
+			t.Fatalf("row %s mismatch: got (no=%q, sku=%q, qty=%q), want (%q, %q, %q)",
+				want.row, noVal, skuVal, qtyVal, want.no, want.sku, want.qty)
+		}
+	}
+
+	// Non-advancing keyset cursor must abort instead of looping infinitely
+	stuckRepo := &mockStockRepoBatchStream{
+		allLogs:     stockRepo.allLogs,
+		ignoreRange: true,
+	}
+	stuckSvc := NewExportService(jobRepo, nil, storageSvc, stuckRepo, nil, nil, nil)
+	if err := stuckSvc.ProcessExportBatchLog(ctx, 43, `{}`); err == nil {
+		t.Fatal("expected error when keyset cursor does not advance")
 	}
 }

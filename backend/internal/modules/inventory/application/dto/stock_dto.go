@@ -64,6 +64,8 @@ type BatchLogFilter struct {
 	Page                int    `form:"page,default=1" json:"page"`
 	Limit               int    `form:"limit,default=50" json:"limit"`
 	ExportName          string `form:"exportName" json:"exportName"`
+	BeforeID            int    `form:"-" json:"-"` // Internal keyset cursor (sm.id < BeforeID) for O(1) chunked exports
+	SkipCount           bool   `form:"-" json:"-"` // Internal flag to bypass COUNT(*) and OFFSET for streaming exports
 }
 
 // StockHistoryResponse represents a single movement entry in a product's stock history.

@@ -6,11 +6,47 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	catalog_dto "github.com/dps-wmhris/backend/internal/modules/catalog/application/dto"
 	system_port "github.com/dps-wmhris/backend/internal/modules/system/port"
 	"github.com/xuri/excelize/v2"
 )
+
+const (
+	exportDateLayout                  = "2006-01-02"
+	defaultTimelineExportLookbackDays = 365
+	defaultBatchLogExportLookbackDays = 90
+	excelMaxDataRows                  = 1048575 // Excel worksheet hard limit is 1,048,576 rows (1 header + 1,048,575 data rows)
+)
+
+var batchLogExportChunkSize = 5000
+
+// resolveRollingDateRange fills missing startDate/endDate bounds using a dynamic rolling window
+// anchored to now (or endDate when only endDate is supplied), avoiding hardcoded calendar sentinels.
+func resolveRollingDateRange(startDate, endDate string, defaultLookbackDays int, now time.Time) (string, string) {
+	start := strings.TrimSpace(startDate)
+	end := strings.TrimSpace(endDate)
+
+	if start != "" && end != "" {
+		return start, end
+	}
+	if defaultLookbackDays <= 0 {
+		defaultLookbackDays = defaultBatchLogExportLookbackDays
+	}
+
+	if end == "" {
+		end = now.Format(exportDateLayout)
+	}
+	if start == "" {
+		anchor := now
+		if parsedEnd, err := time.Parse(exportDateLayout, end); err == nil {
+			anchor = parsedEnd
+		}
+		start = anchor.AddDate(0, 0, -defaultLookbackDays).Format(exportDateLayout)
+	}
+	return start, end
+}
 
 var excelSheetReplacer = strings.NewReplacer(
 	":", " ", "\\", " ", "/", " ", "?", " ", "*", " ", "[", " ", "]", " ",

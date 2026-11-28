@@ -67,10 +67,13 @@ func (s *statisticServiceImpl) GetStockMovementStatistics(ctx context.Context, f
 
 	start := parseDate(filters.StartDate)
 	end := parseDate(filters.EndDate)
-	diffTime := end.Sub(start).Hours() / 24
-	days := math.Floor(math.Abs(diffTime)) + 1
-	if days <= 0 {
-		days = 1
+	days := 1.0
+	if !start.IsZero() && !end.IsZero() {
+		diffTime := end.Sub(start).Hours() / 24
+		days = math.Floor(math.Abs(diffTime)) + 1
+		if days <= 0 {
+			days = 1
+		}
 	}
 
 	formattedSummary := make([]analytics_dto.StockMovementSummaryResponse, 0, len(summaryRows))
@@ -228,6 +231,8 @@ func (s *statisticServiceImpl) RequestStockTimelineExport(ctx context.Context, u
 	}
 
 	filtersJSON, err := json.Marshal(map[string]any{
+		"startDate":   req.StartDate,
+		"endDate":     req.EndDate,
 		"searchQuery": req.SearchQuery,
 		"status":      status,
 		"movement":    movement,

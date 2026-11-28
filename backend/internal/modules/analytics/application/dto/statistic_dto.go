@@ -42,6 +42,8 @@ type ExportStatisticRequest struct {
 
 // ExportTimelineRequest defines the HTTP payload to queue a stock timeline export job.
 type ExportTimelineRequest struct {
+	StartDate   string `json:"startDate"`
+	EndDate     string `json:"endDate"`
 	SearchQuery string `json:"searchQuery"`
 	Status      any    `json:"status"`
 	ExportName  string `json:"exportName"`

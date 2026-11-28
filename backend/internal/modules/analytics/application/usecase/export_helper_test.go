@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"testing"
+	"time"
 )
 
 func TestParseCatalogExportFilter(t *testing.T) {
@@ -67,6 +68,58 @@ func TestParseCatalogExportFilter(t *testing.T) {
 			isPkg := res.FilterReq.PackageOnly != nil && *res.FilterReq.PackageOnly
 			if isPkg != tt.wantPkgOnly {
 				t.Errorf("PackageOnly = %v, want %v", isPkg, tt.wantPkgOnly)
+			}
+		})
+	}
+}
+
+func TestResolveRollingDateRange(t *testing.T) {
+	now := time.Date(2026, 11, 28, 10, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name      string
+		start     string
+		end       string
+		lookback  int
+		wantStart string
+		wantEnd   string
+	}{
+		{
+			name:      "both omitted uses rolling window ending today",
+			lookback:  90,
+			wantStart: "2026-08-30",
+			wantEnd:   "2026-11-28",
+		},
+		{
+			name:      "only startDate provided defaults endDate to today",
+			start:     "2026-10-01",
+			lookback:  90,
+			wantStart: "2026-10-01",
+			wantEnd:   "2026-11-28",
+		},
+		{
+			name:      "only endDate provided anchors lookback to endDate",
+			end:       "2025-12-31",
+			lookback:  365,
+			wantStart: "2024-12-31",
+			wantEnd:   "2025-12-31",
+		},
+		{
+			name:      "both provided preserved verbatim",
+			start:     "2026-01-01",
+			end:       "2026-06-30",
+			lookback:  90,
+			wantStart: "2026-01-01",
+			wantEnd:   "2026-06-30",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotStart, gotEnd := resolveRollingDateRange(tc.start, tc.end, tc.lookback, now)
+			if gotStart != tc.wantStart || gotEnd != tc.wantEnd {
+				t.Fatalf("resolveRollingDateRange(%q, %q, %d) = (%q, %q), want (%q, %q)",
+					tc.start, tc.end, tc.lookback, gotStart, gotEnd, tc.wantStart, tc.wantEnd)
 			}
 		})
 	}

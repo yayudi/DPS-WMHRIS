@@ -267,6 +267,43 @@ func TestStatisticRepository_NullSafetySoftDeleteAndStockStatus(t *testing.T) {
 	}
 }
 
+func TestStatisticRepository_OptionalSargableDateFilters(t *testing.T) {
+	db, state := openAnalyticsStubDB(t, func(query string, _ []driver.NamedValue) (analyticsStubRowsSpec, error) {
+		if strings.Contains(query, "GROUP BY DATE_FORMAT") {
+			return analyticsStubRowsSpec{columns: []string{"date", "total_out", "total_in"}}, nil
+		}
+		return analyticsStubRowsSpec{columns: []string{"product_id", "sku", "name", "is_active", "current_stock", "total_sold", "total_inbound"}}, nil
+	})
+	repo := NewStatisticRepository(db)
+	ctx := context.Background()
+
+	// 1. Omitted dates emit WHERE 1=1 with zero date params (no CONCAT('', ' 23:59:59'))
+	if _, err := repo.GetMovementTimelineStats(ctx, analytics_dto.StatisticFilterRequest{}); err != nil {
+		t.Fatalf("GetMovementTimelineStats empty dates failed: %v", err)
+	}
+	q0 := state.queries[0]
+	if !strings.Contains(q0.query, "WHERE 1=1") || strings.Contains(q0.query, "sm.created_at >=") || strings.Contains(q0.query, "sm.created_at <=") || len(q0.args) != 0 {
+		t.Fatalf("expected WHERE 1=1 with no sm.created_at range predicate or args for empty dates, got query=%s args=%+v", q0.query, q0.args)
+	}
+
+	// 2. StartDate-only emits SARGable >= predicate
+	if _, err := repo.GetMovementTimelineStats(ctx, analytics_dto.StatisticFilterRequest{StartDate: "2026-01-01"}); err != nil {
+		t.Fatalf("GetMovementTimelineStats start-only failed: %v", err)
+	}
+	if !strings.Contains(state.queries[1].query, "sm.created_at >= ?") || strings.Contains(state.queries[1].query, "sm.created_at <=") || len(state.queries[1].args) != 1 {
+		t.Fatalf("expected start-only SARGable predicate, got query=%s args=%+v", state.queries[1].query, state.queries[1].args)
+	}
+
+	// 3. Both dates in GetStockMovementStats emit SARGable >= and <= range predicates
+	if _, err := repo.GetStockMovementStats(ctx, analytics_dto.StatisticFilterRequest{StartDate: "2026-01-01", EndDate: "2026-01-31"}); err != nil {
+		t.Fatalf("GetStockMovementStats date range failed: %v", err)
+	}
+	q := state.queries[2]
+	if !strings.Contains(q.query, "sm.created_at >= ? AND sm.created_at <= CONCAT(?, ' 23:59:59')") || len(q.args) != 2 {
+		t.Fatalf("expected SARGable date range predicates with 2 args, got query=%s args=%+v", q.query, q.args)
+	}
+}
+
 func TestStatsRepository_SoftDeleteAndGetExt(t *testing.T) {
 	db, state := openAnalyticsStubDB(t, func(query string, _ []driver.NamedValue) (analyticsStubRowsSpec, error) {
 		if strings.Contains(query, "totalInventoryValue") {

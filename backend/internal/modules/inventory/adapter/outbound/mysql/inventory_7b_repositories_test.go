@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	"github.com/dps-wmhris/backend/internal/shared/database"
 )
@@ -198,5 +199,70 @@ func TestOutboxRepository_RetryCeilingAndFailedTransition(t *testing.T) {
 	incQ := st.recorded[1].query
 	if !strings.Contains(incQ, "CASE WHEN retry_count + 1 >= ? THEN ? ELSE status END") {
 		t.Fatalf("IncrementRetry must transition exhausted events to FAILED: %s", incQ)
+	}
+}
+
+func TestStockRepository_SargableDateFilters(t *testing.T) {
+	st := &invStubState{
+		queryFn: func(query string, _ []driver.NamedValue) (driver.Rows, error) {
+			if strings.Contains(query, "SELECT COUNT(*)") {
+				return &invStubRows{cols: []string{"count"}, data: [][]driver.Value{{int64(0)}}}, nil
+			}
+			return &invStubRows{cols: []string{"id"}, data: [][]driver.Value{}}, nil
+		},
+	}
+
+	db := openInventoryStubDB(t, st)
+	repo := NewStockRepository(db)
+	ctx := context.Background()
+
+	if _, err := repo.GetBatchLogs(ctx, inventory_dto.BatchLogFilter{StartDate: "2026-09-01", Page: 1, Limit: 20}); err != nil {
+		t.Fatalf("GetBatchLogs failed: %v", err)
+	}
+	if _, err := repo.GetStockHistory(ctx, inventory_dto.StockHistoryFilter{ProductID: 10, StartDate: "2026-09-01", EndDate: "2026-09-30", Page: 1, Limit: 20}); err != nil {
+		t.Fatalf("GetStockHistory failed: %v", err)
+	}
+
+	for _, rec := range st.recorded {
+		if strings.Contains(rec.query, "DATE(sm.created_at)") {
+			t.Fatalf("expected SARGable sm.created_at predicate instead of DATE(sm.created_at): %s", rec.query)
+		}
+	}
+	if !strings.Contains(st.recorded[0].query, "sm.created_at >= ?") {
+		t.Fatalf("GetBatchLogs missing SARGable startDate predicate: %s", st.recorded[0].query)
+	}
+	lastQ := st.recorded[len(st.recorded)-1].query
+	if !strings.Contains(lastQ, "sm.created_at >= ?") || !strings.Contains(lastQ, "sm.created_at <= CONCAT(?, ' 23:59:59')") {
+		t.Fatalf("GetStockHistory missing SARGable date range predicates: %s", lastQ)
+	}
+
+	// Keyset streaming mode (SkipCount=true) bypasses COUNT(*), filters sm.id < ?, orders by sm.id DESC, and uses active tx
+	st.recorded = nil
+	txMgr := database.NewTransactionManager(db)
+	err := txMgr.WithTransaction(ctx, func(txCtx context.Context) error {
+		res, err := repo.GetBatchLogs(txCtx, inventory_dto.BatchLogFilter{
+			StartDate: "2026-09-01",
+			EndDate:   "2026-09-30",
+			BeforeID:  500,
+			Limit:     5000,
+			SkipCount: true,
+		})
+		if err != nil {
+			return err
+		}
+		if res.Data == nil {
+			t.Fatalf("expected non-nil empty Data slice in SkipCount mode")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("keyset GetBatchLogs failed: %v", err)
+	}
+	if len(st.recorded) != 1 {
+		t.Fatalf("SkipCount mode must execute exactly 1 query without COUNT(*), got %d", len(st.recorded))
+	}
+	keysetQ := st.recorded[0]
+	if !keysetQ.inTx || !strings.Contains(keysetQ.query, "AND sm.id < ?") || !strings.Contains(keysetQ.query, "ORDER BY sm.id DESC LIMIT ?") {
+		t.Fatalf("unexpected keyset query: %+v", keysetQ)
 	}
 }
