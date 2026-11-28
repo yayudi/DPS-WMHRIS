@@ -1,25 +1,26 @@
 package analytics_dto
 
-// Advanced Filter Request
+// TriStateFilter represents an include/exclude tri-state filter parsed from query JSON or body payloads.
 type TriStateFilter struct {
 	Include []string `json:"include"`
 	Exclude []string `json:"exclude"`
 }
 
+// StatisticFilterRequest defines shared query and filter parameters across analytics statistics endpoints.
 type StatisticFilterRequest struct {
 	StartDate         string `json:"startDate" form:"startDate"`
 	EndDate           string `json:"endDate" form:"endDate"`
 	SearchQuery       string `json:"searchQuery" form:"searchQuery"`
-	Status            string `json:"status" form:"status"` // Can be string "all" or TriStateFilter (JSON string from query)
+	Status            string `json:"status" form:"status"` // "all", status literal, or TriStateFilter JSON
 	Movement          string `json:"movement" form:"movement"`
-	Building          string `json:"building" form:"building"` // Can be string, slice of strings, or TriStateFilter (JSON string)
+	Building          string `json:"building" form:"building"` // string, comma-separated list, or TriStateFilter JSON
 	TimeResolution    string `json:"timeResolution" form:"timeResolution"`
 	CategoryId        string `json:"categoryId" form:"categoryId"` // string or JSON string
 	Purpose           string `json:"purpose" form:"purpose"`       // string or JSON string
 	IsPackage         *int   `json:"isPackage" form:"isPackage"`
 	StockStatus       string `json:"stockStatus" form:"stockStatus"`
-	Source            string `json:"source" form:"source"`     // TriState
-	ShopName          string `json:"shopName" form:"shopName"` // TriState
+	Source            string `json:"source" form:"source"`     // TriState JSON
+	ShopName          string `json:"shopName" form:"shopName"` // TriState JSON
 	PrevStartDate     string `json:"prevStartDate" form:"prevStartDate"`
 	PrevEndDate       string `json:"prevEndDate" form:"prevEndDate"`
 	PackageCategoryId string `json:"packageCategoryId" form:"packageCategoryId"` // JSON string
@@ -27,37 +28,39 @@ type StatisticFilterRequest struct {
 	ExportName        string `json:"exportName" form:"exportName"`
 }
 
-// Export Request
+// ExportStatisticRequest defines the HTTP payload to queue a stock movement statistics export job.
 type ExportStatisticRequest struct {
-	StartDate   string      `json:"startDate"`
-	EndDate     string      `json:"endDate"`
-	SearchQuery string      `json:"searchQuery"`
-	Status      interface{} `json:"status"`
-	Movement    string      `json:"movement"`
-	Building    interface{} `json:"building"`
-	CategoryId  interface{} `json:"categoryId"`
-	ExportName  string      `json:"exportName"`
+	StartDate   string `json:"startDate"`
+	EndDate     string `json:"endDate"`
+	SearchQuery string `json:"searchQuery"`
+	Status      any    `json:"status"`
+	Movement    string `json:"movement"`
+	Building    any    `json:"building"`
+	CategoryId  any    `json:"categoryId"`
+	ExportName  string `json:"exportName"`
 }
 
+// ExportTimelineRequest defines the HTTP payload to queue a stock timeline export job.
 type ExportTimelineRequest struct {
-	SearchQuery string      `json:"searchQuery"`
-	Status      interface{} `json:"status"`
-	ExportName  string      `json:"exportName"`
-	Movement    string      `json:"movement"`
-	Building    interface{} `json:"building"`
+	SearchQuery string `json:"searchQuery"`
+	Status      any    `json:"status"`
+	ExportName  string `json:"exportName"`
+	Movement    string `json:"movement"`
+	Building    any    `json:"building"`
 }
 
+// ExportLocationCapacityRequest defines the HTTP payload to queue a location capacity export job.
 type ExportLocationCapacityRequest struct {
-	SearchQuery  string      `json:"searchQuery"`
-	CategoryId   interface{} `json:"categoryId"`
-	Purpose      interface{} `json:"purpose"`
-	Building     interface{} `json:"building"`
-	Floor        interface{} `json:"floor"`
-	ExportName   string      `json:"exportName"`
-	ExportFormat string      `json:"exportFormat"` // "summary" or "detailed"
+	SearchQuery  string `json:"searchQuery"`
+	CategoryId   any    `json:"categoryId"`
+	Purpose      any    `json:"purpose"`
+	Building     any    `json:"building"`
+	Floor        any    `json:"floor"`
+	ExportName   string `json:"exportName"`
+	ExportFormat string `json:"exportFormat"` // "summary" or "detailed"
 }
 
-// Response Structures
+// StockMovementSummaryResponse summarizes movement velocity, days of inventory, and health status per SKU.
 type StockMovementSummaryResponse struct {
 	ProductID       int      `json:"product_id" db:"product_id"`
 	SKU             string   `json:"sku" db:"sku"`
@@ -71,12 +74,14 @@ type StockMovementSummaryResponse struct {
 	Status          string   `json:"status"`
 }
 
+// StockMovementTimelineResponse represents inbound and outbound stock volume for a single time bucket.
 type StockMovementTimelineResponse struct {
 	Date     string  `json:"date" db:"date"`
 	TotalOut float64 `json:"total_out" db:"total_out"`
 	TotalIn  float64 `json:"total_in" db:"total_in"`
 }
 
+// StockMovementResponse combines per-SKU summaries with the aggregated timeline series.
 type StockMovementResponse struct {
 	Summary  []StockMovementSummaryResponse  `json:"summary"`
 	Timeline []StockMovementTimelineResponse `json:"timeline"`
@@ -90,6 +95,7 @@ type StockBuildingBreakdownResponse struct {
 	TotalInbound float64 `json:"total_inbound" db:"total_inbound"`
 }
 
+// StockTimelineResponse represents inbound, outbound, and net stock change per time bucket.
 type StockTimelineResponse struct {
 	Date      string  `json:"date" db:"date"`
 	TotalIn   float64 `json:"totalIn" db:"total_in"`
@@ -97,6 +103,7 @@ type StockTimelineResponse struct {
 	NetChange float64 `json:"netChange"`
 }
 
+// InventoryValueResponse summarizes quantity, total valuation, portfolio share, and stock status per SKU.
 type InventoryValueResponse struct {
 	ProductID     int     `json:"product_id" db:"product_id"`
 	SKU           string  `json:"sku" db:"sku"`
@@ -110,6 +117,7 @@ type InventoryValueResponse struct {
 	Status        string  `json:"status"`
 }
 
+// ShopPerformanceSummary summarizes order, item, and revenue metrics per sales channel shop.
 type ShopPerformanceSummary struct {
 	Source         *string `json:"source" db:"source"`
 	ShopName       string  `json:"shop_name" db:"shop_name"`
@@ -118,6 +126,7 @@ type ShopPerformanceSummary struct {
 	TotalRevenue   float64 `json:"total_revenue" db:"total_revenue"`
 }
 
+// DailySalesTrend represents daily aggregated order count, item count, and revenue.
 type DailySalesTrend struct {
 	Date           string  `json:"date" db:"date"`
 	TotalOrders    float64 `json:"totalOrders" db:"total_orders"`
@@ -125,6 +134,7 @@ type DailySalesTrend struct {
 	TotalRevenue   float64 `json:"totalRevenue" db:"total_revenue"`
 }
 
+// TopSellingProduct represents a top-performing SKU ranked by sales volume and revenue.
 type TopSellingProduct struct {
 	Source      *string `json:"source" db:"source"`
 	ShopName    string  `json:"shopName" db:"shop_name"`
@@ -134,6 +144,7 @@ type TopSellingProduct struct {
 	Revenue     float64 `json:"revenue" db:"revenue"`
 }
 
+// FulfillmentHealth summarizes order completion, cancellation, and return rates per shop.
 type FulfillmentHealth struct {
 	Source           *string `json:"source" db:"source"`
 	ShopName         string  `json:"shopName" db:"shop_name"`
@@ -147,18 +158,21 @@ type FulfillmentHealth struct {
 	ReturnRate       float64 `json:"returnRate"`
 }
 
+// PeriodMetrics aggregates orders, items sold, and revenue over a date range.
 type PeriodMetrics struct {
 	TotalOrders    float64 `json:"totalOrders"`
 	TotalItemsSold float64 `json:"totalItemsSold"`
 	TotalRevenue   float64 `json:"totalRevenue"`
 }
 
+// PeriodComparison compares current period metrics against a previous period with percentage deltas.
 type PeriodComparison struct {
 	Current  PeriodMetrics `json:"current"`
 	Previous PeriodMetrics `json:"previous"`
 	Delta    PeriodMetrics `json:"delta"`
 }
 
+// ShopPerformanceResponse combines shop summaries, daily trends, top products, fulfillment health, and period comparison.
 type ShopPerformanceResponse struct {
 	Summary     []ShopPerformanceSummary `json:"summary"`
 	DailyTrend  []DailySalesTrend        `json:"dailyTrend"`
@@ -167,6 +181,7 @@ type ShopPerformanceResponse struct {
 	Comparison  *PeriodComparison        `json:"comparison,omitempty"`
 }
 
+// PackageComponentPackageInfo describes one parent package's demand contribution for a component SKU.
 type PackageComponentPackageInfo struct {
 	PackageSKU        string  `json:"package_sku"`
 	PackageName       string  `json:"package_name"`
@@ -176,6 +191,7 @@ type PackageComponentPackageInfo struct {
 	SubtotalNeeded    float64 `json:"subtotal_needed"`
 }
 
+// PackageComponentAnalysisResponse aggregates component demand across all packages and computes deficit status.
 type PackageComponentAnalysisResponse struct {
 	ComponentProductID int                           `json:"component_product_id"`
 	SKU                string                        `json:"sku"`
@@ -188,6 +204,7 @@ type PackageComponentAnalysisResponse struct {
 	Status             string                        `json:"status"`
 }
 
+// LocationLoad summarizes product count, stock quantity, weight, and CBM volume per active location.
 type LocationLoad struct {
 	LocationID    int     `json:"location_id" db:"location_id"`
 	Code          string  `json:"code" db:"code"`
@@ -201,6 +218,7 @@ type LocationLoad struct {
 	TotalCBM      float64 `json:"total_cbm" db:"total_cbm"`
 }
 
+// DuplicateProductLocation identifies a product stored across multiple locations sharing the same purpose.
 type DuplicateProductLocation struct {
 	ProductID     int     `json:"product_id" db:"product_id"`
 	SKU           string  `json:"sku" db:"sku"`
@@ -210,11 +228,13 @@ type DuplicateProductLocation struct {
 	Locations     string  `json:"locations" db:"location_codes"`
 }
 
+// LocationAnalysisResponse combines per-location loads and multi-location duplicate SKU warnings.
 type LocationAnalysisResponse struct {
 	LocationLoads     []LocationLoad             `json:"locationLoads"`
 	DuplicateProducts []DuplicateProductLocation `json:"duplicateProducts"`
 }
 
+// LocationCapacityDetailResponse describes per-SKU quantity, weight, and CBM stored at a specific location.
 type LocationCapacityDetailResponse struct {
 	ProductID    int     `json:"product_id" db:"product_id"`
 	SKU          string  `json:"sku" db:"sku"`
@@ -226,7 +246,7 @@ type LocationCapacityDetailResponse struct {
 	TotalCBM     float64 `json:"total_cbm" db:"total_cbm"`
 }
 
-// Package Component Query DTO from DB
+// PackageComponentDBRow is the database projection row used to aggregate package component demand.
 type PackageComponentDBRow struct {
 	ComponentProductID  int     `db:"component_product_id"`
 	ComponentSKU        string  `db:"component_sku"`

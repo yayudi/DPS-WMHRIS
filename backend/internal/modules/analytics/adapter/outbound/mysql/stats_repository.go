@@ -5,20 +5,14 @@ import (
 	"context"
 
 	analytics_dto "github.com/dps-wmhris/backend/internal/modules/analytics/application/dto"
+	analytics_port "github.com/dps-wmhris/backend/internal/modules/analytics/port"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 
 	"github.com/jmoiron/sqlx"
 )
 
-// StatsRepository defines data access methods for the analytics command center dashboard.
-type StatsRepository interface {
-	GetOperationalPulseKpi(ctx context.Context) (analytics_dto.OperationalPulseDTO, error)
-	GetInventoryValueKpi(ctx context.Context) (float64, error)
-	GetSkuHealthRows(ctx context.Context) ([]analytics_dto.SkuHealthInputRow, error)
-	GetDuplicateLocationWatchlist(ctx context.Context, limit int) ([]analytics_dto.DuplicateProductLocation, error)
-	GetTopLoadedLocationWatchlist(ctx context.Context, limit int) ([]analytics_dto.TopLocationWatchItem, error)
-	GetDailyMovementTrend(ctx context.Context, days int) ([]analytics_dto.DailyMovementPointDTO, error)
-	GetBuildingDistribution(ctx context.Context) ([]analytics_dto.BuildingStockSummaryDTO, error)
-}
+// StatsRepository is a compatibility alias for analytics/port.StatsRepository.
+type StatsRepository = analytics_port.StatsRepository
 
 type statsRepositoryImpl struct {
 	db *sqlx.DB
@@ -31,6 +25,7 @@ func NewStatsRepository(db *sqlx.DB) StatsRepository {
 
 // GetOperationalPulseKpi retrieves today vs yesterday movement pulses, active users, pending stock requests, and active SKU counts.
 func (r *statsRepositoryImpl) GetOperationalPulseKpi(ctx context.Context) (analytics_dto.OperationalPulseDTO, error) {
+	ext := database.GetExt(ctx, r.db)
 	movementQuery := `
 		SELECT
 			COALESCE(SUM(CASE WHEN DATE(created_at) = CURDATE() AND movement_type IN ('SALE', 'OUT') THEN quantity ELSE 0 END), 0) AS outbound_today,
@@ -56,20 +51,20 @@ func (r *statsRepositoryImpl) GetOperationalPulseKpi(ctx context.Context) (analy
 		UsersActiveToday        int     `db:"users_active_today"`
 	}
 
-	if err := r.db.GetContext(ctx, &row, movementQuery); err != nil {
+	if err := ext.GetContext(ctx, &row, movementQuery); err != nil {
 		return analytics_dto.OperationalPulseDTO{}, err
 	}
 
 	var pendingStockRequests int
-	if err := r.db.GetContext(ctx, &pendingStockRequests, `
+	if err := ext.GetContext(ctx, &pendingStockRequests, `
 		SELECT COUNT(*) FROM stock_requests WHERE status IN ('PENDING', 'APPROVED', 'SHIPPED')
 	`); err != nil {
 		return analytics_dto.OperationalPulseDTO{}, err
 	}
 
 	var totalActiveSkus int
-	if err := r.db.GetContext(ctx, &totalActiveSkus, `
-		SELECT COUNT(*) FROM products WHERE is_active = 1 AND is_package = 0
+	if err := ext.GetContext(ctx, &totalActiveSkus, `
+		SELECT COUNT(*) FROM products WHERE is_active = 1 AND deleted_at IS NULL AND is_package = 0
 	`); err != nil {
 		return analytics_dto.OperationalPulseDTO{}, err
 	}
@@ -88,23 +83,26 @@ func (r *statsRepositoryImpl) GetOperationalPulseKpi(ctx context.Context) (analy
 	}, nil
 }
 
-// GetInventoryValueKpi calculates total valuation across active products in stock locations.
+// GetInventoryValueKpi calculates total valuation across active, non-deleted products and stock locations.
 func (r *statsRepositoryImpl) GetInventoryValueKpi(ctx context.Context) (float64, error) {
+	ext := database.GetExt(ctx, r.db)
 	query := `
 		SELECT
 			COALESCE(SUM(sl.quantity * p.price), 0) AS totalInventoryValue
 		FROM stock_locations sl
 		JOIN products p ON sl.product_id = p.id
-		WHERE p.is_active = 1 AND sl.quantity > 0
+		JOIN locations l ON sl.location_id = l.id
+		WHERE p.is_active = 1 AND p.deleted_at IS NULL AND l.deleted_at IS NULL AND sl.quantity > 0
 	`
 
 	var total float64
-	err := r.db.GetContext(ctx, &total, query)
+	err := ext.GetContext(ctx, &total, query)
 	return total, err
 }
 
-// GetSkuHealthRows retrieves current physical stock and 30-day outbound velocity for active non-package SKUs.
+// GetSkuHealthRows retrieves current physical stock and 30-day outbound velocity for active, non-deleted non-package SKUs.
 func (r *statsRepositoryImpl) GetSkuHealthRows(ctx context.Context) ([]analytics_dto.SkuHealthInputRow, error) {
+	ext := database.GetExt(ctx, r.db)
 	query := `
 		SELECT
 			p.id AS product_id,
@@ -114,9 +112,11 @@ func (r *statsRepositoryImpl) GetSkuHealthRows(ctx context.Context) ([]analytics
 			COALESCE(s_mov.sold_30d, 0) AS sold_30d
 		FROM products p
 		LEFT JOIN (
-			SELECT product_id, SUM(quantity) AS current_stock
-			FROM stock_locations
-			GROUP BY product_id
+			SELECT sl.product_id, SUM(sl.quantity) AS current_stock
+			FROM stock_locations sl
+			JOIN locations l ON sl.location_id = l.id
+			WHERE l.deleted_at IS NULL
+			GROUP BY sl.product_id
 		) s_loc ON p.id = s_loc.product_id
 		LEFT JOIN (
 			SELECT product_id, SUM(quantity) AS sold_30d
@@ -125,18 +125,22 @@ func (r *statsRepositoryImpl) GetSkuHealthRows(ctx context.Context) ([]analytics
 				AND created_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
 			GROUP BY product_id
 		) s_mov ON p.id = s_mov.product_id
-		WHERE p.is_active = 1 AND p.is_package = 0
+		WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.is_package = 0
 	`
 
 	var rows []analytics_dto.SkuHealthInputRow
-	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
+	if err := ext.SelectContext(ctx, &rows, query); err != nil {
 		return nil, err
+	}
+	if rows == nil {
+		rows = []analytics_dto.SkuHealthInputRow{}
 	}
 	return rows, nil
 }
 
-// GetDuplicateLocationWatchlist returns top active SKUs scattered across multiple locations with the same purpose.
+// GetDuplicateLocationWatchlist returns top active, non-deleted SKUs scattered across multiple locations with the same purpose.
 func (r *statsRepositoryImpl) GetDuplicateLocationWatchlist(ctx context.Context, limit int) ([]analytics_dto.DuplicateProductLocation, error) {
+	ext := database.GetExt(ctx, r.db)
 	query := `
 		SELECT
 			p.id AS product_id,
@@ -148,7 +152,7 @@ func (r *statsRepositoryImpl) GetDuplicateLocationWatchlist(ctx context.Context,
 		FROM products p
 		JOIN stock_locations sl ON p.id = sl.product_id
 		JOIN locations l ON sl.location_id = l.id
-		WHERE p.is_active = 1 AND l.is_active = 1 AND sl.quantity > 0
+		WHERE p.is_active = 1 AND p.deleted_at IS NULL AND l.is_active = 1 AND l.deleted_at IS NULL AND sl.quantity > 0
 		GROUP BY p.id, p.sku, p.name, l.purpose
 		HAVING location_count > 1
 		ORDER BY CASE WHEN l.purpose = 'DISPLAY' THEN 0 ELSE 1 END, location_count DESC, p.sku ASC
@@ -156,14 +160,18 @@ func (r *statsRepositoryImpl) GetDuplicateLocationWatchlist(ctx context.Context,
 	`
 
 	var rows []analytics_dto.DuplicateProductLocation
-	if err := r.db.SelectContext(ctx, &rows, query, limit); err != nil {
+	if err := ext.SelectContext(ctx, &rows, query, limit); err != nil {
 		return nil, err
+	}
+	if rows == nil {
+		rows = []analytics_dto.DuplicateProductLocation{}
 	}
 	return rows, nil
 }
 
-// GetTopLoadedLocationWatchlist returns the top warehouse locations ranked by stock quantity and weight.
+// GetTopLoadedLocationWatchlist returns the top active, non-deleted warehouse locations ranked by stock quantity and weight.
 func (r *statsRepositoryImpl) GetTopLoadedLocationWatchlist(ctx context.Context, limit int) ([]analytics_dto.TopLocationWatchItem, error) {
+	ext := database.GetExt(ctx, r.db)
 	query := `
 		SELECT
 			l.id AS location_id,
@@ -176,21 +184,25 @@ func (r *statsRepositoryImpl) GetTopLoadedLocationWatchlist(ctx context.Context,
 		FROM locations l
 		JOIN stock_locations sl ON l.id = sl.location_id
 		JOIN products p ON sl.product_id = p.id
-		WHERE l.is_active = 1 AND sl.quantity > 0
+		WHERE l.is_active = 1 AND l.deleted_at IS NULL AND p.deleted_at IS NULL AND sl.quantity > 0
 		GROUP BY l.id, l.code, l.building, l.purpose
 		ORDER BY total_quantity DESC, total_weight_kg DESC
 		LIMIT ?
 	`
 
 	var rows []analytics_dto.TopLocationWatchItem
-	if err := r.db.SelectContext(ctx, &rows, query, limit); err != nil {
+	if err := ext.SelectContext(ctx, &rows, query, limit); err != nil {
 		return nil, err
+	}
+	if rows == nil {
+		rows = []analytics_dto.TopLocationWatchItem{}
 	}
 	return rows, nil
 }
 
 // GetDailyMovementTrend aggregates daily inbound, outbound, and transfer volumes for the past N days.
 func (r *statsRepositoryImpl) GetDailyMovementTrend(ctx context.Context, days int) ([]analytics_dto.DailyMovementPointDTO, error) {
+	ext := database.GetExt(ctx, r.db)
 	if days <= 0 {
 		days = 14
 	}
@@ -208,30 +220,38 @@ func (r *statsRepositoryImpl) GetDailyMovementTrend(ctx context.Context, days in
 	`
 
 	var rows []analytics_dto.DailyMovementPointDTO
-	if err := r.db.SelectContext(ctx, &rows, query, lookbackDays); err != nil {
+	if err := ext.SelectContext(ctx, &rows, query, lookbackDays); err != nil {
 		return nil, err
+	}
+	if rows == nil {
+		rows = []analytics_dto.DailyMovementPointDTO{}
 	}
 	return rows, nil
 }
 
-// GetBuildingDistribution summarizes location counts, SKU counts, and quantities per active building.
+// GetBuildingDistribution summarizes location counts, active SKU counts, and quantities per active, non-deleted building.
 func (r *statsRepositoryImpl) GetBuildingDistribution(ctx context.Context) ([]analytics_dto.BuildingStockSummaryDTO, error) {
+	ext := database.GetExt(ctx, r.db)
 	query := `
 		SELECT
 			l.building,
 			COUNT(DISTINCT l.id) AS total_locations,
-			COUNT(DISTINCT CASE WHEN sl.quantity > 0 THEN sl.product_id END) AS total_skus,
-			COALESCE(SUM(CASE WHEN sl.quantity > 0 THEN sl.quantity ELSE 0 END), 0) AS total_quantity
+			COUNT(DISTINCT CASE WHEN p.id IS NOT NULL AND sl.quantity > 0 THEN sl.product_id END) AS total_skus,
+			COALESCE(SUM(CASE WHEN p.id IS NOT NULL AND sl.quantity > 0 THEN sl.quantity ELSE 0 END), 0) AS total_quantity
 		FROM locations l
 		LEFT JOIN stock_locations sl ON l.id = sl.location_id AND sl.quantity > 0
-		WHERE l.is_active = 1 AND l.building != ''
+		LEFT JOIN products p ON sl.product_id = p.id AND p.deleted_at IS NULL
+		WHERE l.is_active = 1 AND l.deleted_at IS NULL AND l.building != ''
 		GROUP BY l.building
 		ORDER BY total_quantity DESC, l.building ASC
 	`
 
 	var rows []analytics_dto.BuildingStockSummaryDTO
-	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
+	if err := ext.SelectContext(ctx, &rows, query); err != nil {
 		return nil, err
+	}
+	if rows == nil {
+		rows = []analytics_dto.BuildingStockSummaryDTO{}
 	}
 	return rows, nil
 }

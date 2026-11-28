@@ -1,31 +1,32 @@
 package http
 
 import (
-	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
-	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
-
 	"log"
 	"net/http"
 
+	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
+	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
 
+// ReturnHandler exposes HTTP endpoints for viewing return history and recording manual returns.
 type ReturnHandler struct {
 	returnService inventory_port.ReturnUseCase
 }
 
+// NewReturnHandler creates a new ReturnHandler.
 func NewReturnHandler(returnService inventory_port.ReturnUseCase) *ReturnHandler {
 	return &ReturnHandler{returnService: returnService}
 }
 
+// GetPendingReturns lists pending return items with pagination.
 func (h *ReturnHandler) GetPendingReturns(c *gin.Context) {
 	page, limit := utils.ParsePagination(c, 10)
 	search := c.Query("search")
 
 	offset := (page - 1) * limit
-
-	params := map[string]interface{}{
+	params := map[string]any{
 		"limit":  limit,
 		"offset": offset,
 		"search": search,
@@ -37,12 +38,15 @@ func (h *ReturnHandler) GetPendingReturns(c *gin.Context) {
 		return
 	}
 
-	totalPages := (total + limit - 1) / limit
+	totalPages := 0
+	if limit > 0 {
+		totalPages = (total + limit - 1) / limit
+	}
 
 	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
 		"data":    rows,
-		"pagination": map[string]interface{}{
+		"pagination": map[string]any{
 			"page":       page,
 			"limit":      limit,
 			"total":      total,
@@ -51,6 +55,7 @@ func (h *ReturnHandler) GetPendingReturns(c *gin.Context) {
 	})
 }
 
+// GetReturnHistory returns paginated marketplace and manual return histories.
 func (h *ReturnHandler) GetReturnHistory(c *gin.Context) {
 	page, limit := utils.ParsePagination(c, 10)
 	search := c.Query("search")
@@ -71,11 +76,11 @@ func (h *ReturnHandler) GetReturnHistory(c *gin.Context) {
 
 	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"marketplace_returns": marketplaceResult.Data,
 			"manual_returns":      manualResult.Data,
 		},
-		"pagination": map[string]interface{}{
+		"pagination": map[string]any{
 			"marketplace_total": marketplaceResult.Total,
 			"manual_total":      manualResult.Total,
 			"page":              page,
@@ -84,20 +89,20 @@ func (h *ReturnHandler) GetReturnHistory(c *gin.Context) {
 	})
 }
 
+// ApproveReturn handles legacy marketplace return approval requests.
 func (h *ReturnHandler) ApproveReturn(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[inventory_dto.ApproveReturnRequest](c)
-	if !ok {
-		return
-	}
-	req := *req_ptr
-
 	userID, ok := utils.RequireUserID(c)
 	if !ok {
 		return
 	}
 
-	err := h.returnService.ApproveReturn(c.Request.Context(), userID, req)
-	if err != nil {
+	reqPtr, ok := utils.BindAndValidate[inventory_dto.ApproveReturnRequest](c)
+	if !ok {
+		return
+	}
+	req := *reqPtr
+
+	if err := h.returnService.ApproveReturn(c.Request.Context(), userID, req); err != nil {
 		utils.HandleDomainError(c, err)
 		return
 	}
@@ -105,20 +110,20 @@ func (h *ReturnHandler) ApproveReturn(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "wms.return.process_success", nil)
 }
 
+// CreateManualReturn records a manual customer return and increments destination stock atomically.
 func (h *ReturnHandler) CreateManualReturn(c *gin.Context) {
-	req_ptr, ok := utils.BindAndValidate[inventory_dto.CreateManualReturnRequest](c)
-	if !ok {
-		return
-	}
-	req := *req_ptr
-
 	userID, ok := utils.RequireUserID(c)
 	if !ok {
 		return
 	}
 
-	err := h.returnService.CreateManualReturn(c.Request.Context(), userID, req)
-	if err != nil {
+	reqPtr, ok := utils.BindAndValidate[inventory_dto.CreateManualReturnRequest](c)
+	if !ok {
+		return
+	}
+	req := *reqPtr
+
+	if err := h.returnService.CreateManualReturn(c.Request.Context(), userID, req); err != nil {
 		log.Printf("[CreateManualReturn] error: %v", err)
 		utils.HandleDomainError(c, err)
 		return

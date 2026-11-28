@@ -7,230 +7,185 @@ import (
 	"strings"
 
 	analytics_dto "github.com/dps-wmhris/backend/internal/modules/analytics/application/dto"
+	analytics_port "github.com/dps-wmhris/backend/internal/modules/analytics/port"
+	"github.com/dps-wmhris/backend/internal/shared/database"
 
 	"github.com/jmoiron/sqlx"
 )
 
-type StatisticRepository interface {
-	GetStockMovementStats(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.StockMovementSummaryResponse, error)
-	GetMovementTimelineStats(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.StockMovementTimelineResponse, error)
-	GetInventoryValueStats(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.InventoryValueResponse, error)
-	GetShopPerformanceStats(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.ShopPerformanceSummary, error)
-	GetDailySalesTrend(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.DailySalesTrend, error)
-	GetTopSellingProducts(ctx context.Context, filters analytics_dto.StatisticFilterRequest, limit int) ([]analytics_dto.TopSellingProduct, error)
-	GetFulfillmentHealth(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.FulfillmentHealth, error)
-	GetPeriodComparison(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.PeriodComparison, error) // Returns rows that we aggregate
-	GetPackageComponentAnalysis(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.PackageComponentDBRow, error)
-	GetLocationLoads(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.LocationLoad, error)
-	GetLocationCapacityDetails(ctx context.Context, locationId int, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.LocationCapacityDetailResponse, error)
-	GetDuplicateLocations(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.DuplicateProductLocation, error)
-	GetStockBuildingBreakdown(ctx context.Context, productID int, startDate, endDate string) ([]analytics_dto.StockBuildingBreakdownResponse, error)
-}
+// StatisticRepository is a compatibility alias for analytics/port.StatisticRepository.
+type StatisticRepository = analytics_port.StatisticRepository
 
 type statisticRepositoryImpl struct {
 	db *sqlx.DB
 }
 
+// NewStatisticRepository constructs a MySQL-backed StatisticRepository.
 func NewStatisticRepository(db *sqlx.DB) StatisticRepository {
 	return &statisticRepositoryImpl{db: db}
 }
 
-// buildStatisticTriStateWhere is a Go port of the Node.js helper to parse complex {"include": [], "exclude": []} queries
-func buildStatisticTriStateWhere(field string, filter interface{}, queryParams *[]interface{}) []string {
+// buildStatisticTriStateWhere parses tri-state {"include": [], "exclude": []}, slice, or scalar filters into parameterized SQL clauses.
+func buildStatisticTriStateWhere(field string, filter any, queryParams *[]any) []string {
 	var clauses []string
 
 	if filter == nil {
 		return clauses
 	}
 
-	// Try to handle based on type
+	appendInClause := func(op string, values []string) {
+		if len(values) == 0 {
+			return
+		}
+		qMarks := make([]string, len(values))
+		for i, s := range values {
+			qMarks[i] = "?"
+			*queryParams = append(*queryParams, s)
+		}
+		clauses = append(clauses, fmt.Sprintf("%s %s (%s)", field, op, strings.Join(qMarks, ",")))
+	}
+
 	switch v := filter.(type) {
 	case string:
 		if v == "" || v == "all" {
 			return clauses
 		}
-		// Try to parse as JSON first
-		var parsed map[string]interface{}
-		err := json.Unmarshal([]byte(v), &parsed)
-		if err == nil {
-			// It is a JSON object {"include": [], "exclude": []}
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(v), &parsed); err == nil {
 			if inc, ok := parsed["include"]; ok {
-				incSlice := toSliceOfStrings(inc)
-				if len(incSlice) > 0 {
-					qMarks := make([]string, len(incSlice))
-					for i, s := range incSlice {
-						qMarks[i] = "?"
-						*queryParams = append(*queryParams, s)
-					}
-					clauses = append(clauses, fmt.Sprintf("%s IN (%s)", field, strings.Join(qMarks, ",")))
-				}
+				appendInClause("IN", toSliceOfStrings(inc))
 			}
 			if exc, ok := parsed["exclude"]; ok {
-				excSlice := toSliceOfStrings(exc)
-				if len(excSlice) > 0 {
-					qMarks := make([]string, len(excSlice))
-					for i, s := range excSlice {
-						qMarks[i] = "?"
-						*queryParams = append(*queryParams, s)
-					}
-					clauses = append(clauses, fmt.Sprintf("%s NOT IN (%s)", field, strings.Join(qMarks, ",")))
-				}
+				appendInClause("NOT IN", toSliceOfStrings(exc))
 			}
 		} else {
-			// Fallback: normal string equal
 			clauses = append(clauses, fmt.Sprintf("%s = ?", field))
 			*queryParams = append(*queryParams, v)
 		}
-	case []interface{}: // Can be direct slice
-		sSlice := toSliceOfStrings(v)
-		if len(sSlice) > 0 {
-			qMarks := make([]string, len(sSlice))
-			for i, s := range sSlice {
-				qMarks[i] = "?"
-				*queryParams = append(*queryParams, s)
-			}
-			clauses = append(clauses, fmt.Sprintf("%s IN (%s)", field, strings.Join(qMarks, ",")))
-		}
-	case map[string]interface{}: // If it was parsed dynamically already
+	case []any:
+		appendInClause("IN", toSliceOfStrings(v))
+	case []string:
+		appendInClause("IN", v)
+	case map[string]any:
 		if inc, ok := v["include"]; ok {
-			incSlice := toSliceOfStrings(inc)
-			if len(incSlice) > 0 {
-				qMarks := make([]string, len(incSlice))
-				for i, s := range incSlice {
-					qMarks[i] = "?"
-					*queryParams = append(*queryParams, s)
-				}
-				clauses = append(clauses, fmt.Sprintf("%s IN (%s)", field, strings.Join(qMarks, ",")))
-			}
+			appendInClause("IN", toSliceOfStrings(inc))
 		}
 		if exc, ok := v["exclude"]; ok {
-			excSlice := toSliceOfStrings(exc)
-			if len(excSlice) > 0 {
-				qMarks := make([]string, len(excSlice))
-				for i, s := range excSlice {
-					qMarks[i] = "?"
-					*queryParams = append(*queryParams, s)
-				}
-				clauses = append(clauses, fmt.Sprintf("%s NOT IN (%s)", field, strings.Join(qMarks, ",")))
-			}
+			appendInClause("NOT IN", toSliceOfStrings(exc))
 		}
 	}
 
 	return clauses
 }
 
-// toSliceOfStrings safely converts various interface{} slice or string forms to []string
-func toSliceOfStrings(val interface{}) []string {
+// toSliceOfStrings safely converts dynamic slice or comma-separated string inputs into []string.
+func toSliceOfStrings(val any) []string {
 	var result []string
 	switch v := val.(type) {
 	case string:
-		// Sometime comma separated
 		parts := strings.Split(v, ",")
 		for _, p := range parts {
-			if p != "" {
-				result = append(result, p)
+			if trimmed := strings.TrimSpace(p); trimmed != "" {
+				result = append(result, trimmed)
 			}
 		}
-	case []interface{}:
+	case []any:
 		for _, item := range v {
-			result = append(result, fmt.Sprintf("%v", item))
+			if s := strings.TrimSpace(fmt.Sprintf("%v", item)); s != "" {
+				result = append(result, s)
+			}
 		}
 	case []string:
-		result = v
+		for _, s := range v {
+			if trimmed := strings.TrimSpace(s); trimmed != "" {
+				result = append(result, trimmed)
+			}
+		}
 	}
 	return result
 }
 
-func (r *statisticRepositoryImpl) GetStockMovementStats(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.StockMovementSummaryResponse, error) {
-	queryParams := []interface{}{}
-	locSubquery := `
-		SELECT product_id, SUM(quantity) as current_stock
-		FROM stock_locations
-		GROUP BY product_id
-	`
-
-	bClauses := buildStatisticTriStateWhere("l.building", filters.Building, &queryParams)
-	if len(bClauses) > 0 {
-		locSubquery = fmt.Sprintf(`
-			SELECT sl.product_id, SUM(sl.quantity) as current_stock
-			FROM stock_locations sl
-			JOIN locations l ON sl.location_id = l.id
-			WHERE %s
-			GROUP BY sl.product_id
-		`, strings.Join(bClauses, " AND "))
+func buildMovementBuildingFilter(building string, params *[]any) string {
+	if building == "" || building == "all" {
+		return ""
 	}
 
-	movFilter := ""
-	movParams := []interface{}{filters.StartDate, filters.EndDate}
-
-	// Custom movement filter for buildings (both IN and OUT conditions)
-	if filters.Building != "" && filters.Building != "all" {
-		v := filters.Building
-		// Parse as TriState
-		var parsed map[string]interface{}
-		if err := json.Unmarshal([]byte(v), &parsed); err == nil {
-			incSlice := toSliceOfStrings(parsed["include"])
-			if len(incSlice) > 0 {
-				qMarks := strings.Repeat("?,", len(incSlice))
-				qMarks = qMarks[:len(qMarks)-1]
-				movFilter += fmt.Sprintf(`
+	var clause strings.Builder
+	appendInclude := func(values []string) {
+		if len(values) == 0 {
+			return
+		}
+		qMarks := strings.TrimSuffix(strings.Repeat("?,", len(values)), ",")
+		clause.WriteString(fmt.Sprintf(`
 					AND (
 						(sm.movement_type = 'INBOUND' AND tl.building IN (%s))
 						OR
 						(sm.movement_type IN ('SALE', 'OUT') AND fl.building IN (%s))
 					)
-				`, qMarks, qMarks)
-				for _, s := range incSlice {
-					movParams = append(movParams, s)
-				}
-				for _, s := range incSlice {
-					movParams = append(movParams, s)
-				}
-			}
-			excSlice := toSliceOfStrings(parsed["exclude"])
-			if len(excSlice) > 0 {
-				qMarks := strings.Repeat("?,", len(excSlice))
-				qMarks = qMarks[:len(qMarks)-1]
-				movFilter += fmt.Sprintf(`
+				`, qMarks, qMarks))
+		for _, s := range values {
+			*params = append(*params, s)
+		}
+		for _, s := range values {
+			*params = append(*params, s)
+		}
+	}
+	appendExclude := func(values []string) {
+		if len(values) == 0 {
+			return
+		}
+		qMarks := strings.TrimSuffix(strings.Repeat("?,", len(values)), ",")
+		clause.WriteString(fmt.Sprintf(`
 					AND (
 						(sm.movement_type = 'INBOUND' AND (tl.building IS NULL OR tl.building NOT IN (%s)))
 						OR
 						(sm.movement_type IN ('SALE', 'OUT') AND (fl.building IS NULL OR fl.building NOT IN (%s)))
 					)
-				`, qMarks, qMarks)
-				for _, s := range excSlice {
-					movParams = append(movParams, s)
-				}
-				for _, s := range excSlice {
-					movParams = append(movParams, s)
-				}
-			}
-		} else {
-			// Comma-separated or simple string
-			incSlice := toSliceOfStrings(v)
-			if len(incSlice) > 0 {
-				qMarks := strings.Repeat("?,", len(incSlice))
-				qMarks = qMarks[:len(qMarks)-1]
-				movFilter += fmt.Sprintf(`
-					AND (
-						(sm.movement_type = 'INBOUND' AND tl.building IN (%s))
-						OR
-						(sm.movement_type IN ('SALE', 'OUT') AND fl.building IN (%s))
-					)
-				`, qMarks, qMarks)
-				for _, s := range incSlice {
-					movParams = append(movParams, s)
-				}
-				for _, s := range incSlice {
-					movParams = append(movParams, s)
-				}
-			}
+				`, qMarks, qMarks))
+		for _, s := range values {
+			*params = append(*params, s)
+		}
+		for _, s := range values {
+			*params = append(*params, s)
 		}
 	}
 
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(building), &parsed); err == nil {
+		appendInclude(toSliceOfStrings(parsed["include"]))
+		appendExclude(toSliceOfStrings(parsed["exclude"]))
+	} else {
+		appendInclude(toSliceOfStrings(building))
+	}
+
+	return clause.String()
+}
+
+// GetStockMovementStats returns per-SKU current stock, outbound volume, and inbound volume within the requested date window.
+func (r *statisticRepositoryImpl) GetStockMovementStats(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.StockMovementSummaryResponse, error) {
+	ext := database.GetExt(ctx, r.db)
+	queryParams := []any{}
+	locWhere := []string{"l.deleted_at IS NULL"}
+
+	bClauses := buildStatisticTriStateWhere("l.building", filters.Building, &queryParams)
+	if len(bClauses) > 0 {
+		locWhere = append(locWhere, bClauses...)
+	}
+
+	locSubquery := fmt.Sprintf(`
+		SELECT sl.product_id, SUM(sl.quantity) AS current_stock
+		FROM stock_locations sl
+		JOIN locations l ON sl.location_id = l.id
+		WHERE %s
+		GROUP BY sl.product_id
+	`, strings.Join(locWhere, " AND "))
+
+	movParams := []any{filters.StartDate, filters.EndDate}
+	movFilter := buildMovementBuildingFilter(filters.Building, &movParams)
+
 	query := fmt.Sprintf(`
 		SELECT
-			p.id as product_id,
+			p.id AS product_id,
 			p.sku,
 			p.name,
 			p.is_active,
@@ -253,7 +208,7 @@ func (r *statisticRepositoryImpl) GetStockMovementStats(ctx context.Context, fil
 			%s
 			GROUP BY sm.product_id
 		) s_mov ON p.id = s_mov.product_id
-		WHERE p.is_package = 0
+		WHERE p.is_package = 0 AND p.deleted_at IS NULL
 	`, locSubquery, movFilter)
 
 	queryParams = append(queryParams, movParams...)
@@ -272,81 +227,26 @@ func (r *statisticRepositoryImpl) GetStockMovementStats(ctx context.Context, fil
 	query += ` ORDER BY total_sold DESC`
 
 	var rows []analytics_dto.StockMovementSummaryResponse
-	err := r.db.SelectContext(ctx, &rows, query, queryParams...)
-	return rows, err
+	if err := ext.SelectContext(ctx, &rows, query, queryParams...); err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []analytics_dto.StockMovementSummaryResponse{}
+	}
+	return rows, nil
 }
 
+// GetMovementTimelineStats aggregates inbound and outbound volumes grouped by daily, monthly, or annual buckets.
 func (r *statisticRepositoryImpl) GetMovementTimelineStats(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.StockMovementTimelineResponse, error) {
-	queryParams := []interface{}{filters.StartDate, filters.EndDate}
-
-	buildingFilter := ""
-	if filters.Building != "" && filters.Building != "all" {
-		v := filters.Building
-		var parsed map[string]interface{}
-		if err := json.Unmarshal([]byte(v), &parsed); err == nil {
-			incSlice := toSliceOfStrings(parsed["include"])
-			if len(incSlice) > 0 {
-				qMarks := strings.Repeat("?,", len(incSlice))
-				qMarks = qMarks[:len(qMarks)-1]
-				buildingFilter += fmt.Sprintf(`
-					AND (
-						(sm.movement_type = 'INBOUND' AND tl.building IN (%s))
-						OR
-						(sm.movement_type IN ('SALE', 'OUT') AND fl.building IN (%s))
-					)
-				`, qMarks, qMarks)
-				for _, s := range incSlice {
-					queryParams = append(queryParams, s)
-				}
-				for _, s := range incSlice {
-					queryParams = append(queryParams, s)
-				}
-			}
-			excSlice := toSliceOfStrings(parsed["exclude"])
-			if len(excSlice) > 0 {
-				qMarks := strings.Repeat("?,", len(excSlice))
-				qMarks = qMarks[:len(qMarks)-1]
-				buildingFilter += fmt.Sprintf(`
-					AND (
-						(sm.movement_type = 'INBOUND' AND (tl.building IS NULL OR tl.building NOT IN (%s)))
-						OR
-						(sm.movement_type IN ('SALE', 'OUT') AND (fl.building IS NULL OR fl.building NOT IN (%s)))
-					)
-				`, qMarks, qMarks)
-				for _, s := range excSlice {
-					queryParams = append(queryParams, s)
-				}
-				for _, s := range excSlice {
-					queryParams = append(queryParams, s)
-				}
-			}
-		} else {
-			incSlice := toSliceOfStrings(v)
-			if len(incSlice) > 0 {
-				qMarks := strings.Repeat("?,", len(incSlice))
-				qMarks = qMarks[:len(qMarks)-1]
-				buildingFilter += fmt.Sprintf(`
-					AND (
-						(sm.movement_type = 'INBOUND' AND tl.building IN (%s))
-						OR
-						(sm.movement_type IN ('SALE', 'OUT') AND fl.building IN (%s))
-					)
-				`, qMarks, qMarks)
-				for _, s := range incSlice {
-					queryParams = append(queryParams, s)
-				}
-				for _, s := range incSlice {
-					queryParams = append(queryParams, s)
-				}
-			}
-		}
-	}
+	ext := database.GetExt(ctx, r.db)
+	queryParams := []any{filters.StartDate, filters.EndDate}
+	buildingFilter := buildMovementBuildingFilter(filters.Building, &queryParams)
 
 	searchJoin := ""
 	searchFilter := ""
-
 	if filters.SearchQuery != "" || (filters.CategoryId != "" && filters.CategoryId != "all") {
 		searchJoin = "JOIN products p ON sm.product_id = p.id"
+		searchFilter = " AND p.deleted_at IS NULL"
 		if filters.SearchQuery != "" {
 			searchFilter += " AND (p.sku LIKE ? OR p.name LIKE ?)"
 			likeTerm := "%" + filters.SearchQuery + "%"
@@ -368,7 +268,7 @@ func (r *statisticRepositoryImpl) GetMovementTimelineStats(ctx context.Context, 
 
 	query := fmt.Sprintf(`
 		SELECT
-			%s as date,
+			%s AS date,
 			SUM(CASE WHEN sm.movement_type IN ('SALE', 'OUT') THEN sm.quantity ELSE 0 END) AS total_out,
 			SUM(CASE WHEN sm.movement_type = 'INBOUND' THEN sm.quantity ELSE 0 END) AS total_in
 		FROM stock_movements sm
@@ -383,60 +283,71 @@ func (r *statisticRepositoryImpl) GetMovementTimelineStats(ctx context.Context, 
 	`, dateSelect, searchJoin, buildingFilter, searchFilter, dateSelect)
 
 	var rows []analytics_dto.StockMovementTimelineResponse
-	err := r.db.SelectContext(ctx, &rows, query, queryParams...)
-	return rows, err
+	if err := ext.SelectContext(ctx, &rows, query, queryParams...); err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []analytics_dto.StockMovementTimelineResponse{}
+	}
+	return rows, nil
 }
 
+// GetInventoryValueStats computes active inventory quantities and monetary valuation per non-deleted product.
 func (r *statisticRepositoryImpl) GetInventoryValueStats(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.InventoryValueResponse, error) {
-	whereClauses := []string{"p.is_active = 1"}
-	var queryParams []interface{}
+	ext := database.GetExt(ctx, r.db)
+	whereClauses := []string{
+		"p.is_active = 1",
+		"p.deleted_at IS NULL",
+		"(l.id IS NULL OR l.deleted_at IS NULL)",
+	}
+	var queryParams []any
 
-	if filters.StockStatus != "" {
-		if filters.StockStatus != "all" {
-			vStr := filters.StockStatus
-			var parsed map[string]interface{}
-			if err := json.Unmarshal([]byte(vStr), &parsed); err == nil {
-				incSlice := toSliceOfStrings(parsed["include"])
-				if len(incSlice) > 0 {
-					var conds []string
-					for _, st := range incSlice {
-						if st == "positive" {
-							conds = append(conds, "COALESCE(sl.quantity, 0) > 0")
-						} else if st == "negative" {
-							conds = append(conds, "COALESCE(sl.quantity, 0) < 0")
-						} else if st == "zero" {
-							conds = append(conds, "COALESCE(sl.quantity, 0) = 0")
-						}
-					}
-					if len(conds) > 0 {
-						whereClauses = append(whereClauses, fmt.Sprintf("(%s)", strings.Join(conds, " OR ")))
+	if filters.StockStatus != "" && filters.StockStatus != "all" {
+		vStr := filters.StockStatus
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(vStr), &parsed); err == nil {
+			incSlice := toSliceOfStrings(parsed["include"])
+			if len(incSlice) > 0 {
+				var conds []string
+				for _, st := range incSlice {
+					switch st {
+					case "positive":
+						conds = append(conds, "COALESCE(sl.quantity, 0) > 0")
+					case "negative":
+						conds = append(conds, "COALESCE(sl.quantity, 0) < 0")
+					case "zero":
+						conds = append(conds, "COALESCE(sl.quantity, 0) = 0")
 					}
 				}
-				excSlice := toSliceOfStrings(parsed["exclude"])
-				if len(excSlice) > 0 {
-					var conds []string
-					for _, st := range excSlice {
-						if st == "positive" {
-							conds = append(conds, "COALESCE(sl.quantity, 0) <= 0")
-						} else if st == "negative" {
-							conds = append(conds, "COALESCE(sl.quantity, 0) >= 0")
-						} else if st == "zero" {
-							conds = append(conds, "COALESCE(sl.quantity, 0) != 0")
-						}
-					}
-					if len(conds) > 0 {
-						whereClauses = append(whereClauses, fmt.Sprintf("(%s)", strings.Join(conds, " AND ")))
+				if len(conds) > 0 {
+					whereClauses = append(whereClauses, fmt.Sprintf("(%s)", strings.Join(conds, " OR ")))
+				}
+			}
+			excSlice := toSliceOfStrings(parsed["exclude"])
+			if len(excSlice) > 0 {
+				var conds []string
+				for _, st := range excSlice {
+					switch st {
+					case "positive":
+						conds = append(conds, "COALESCE(sl.quantity, 0) <= 0")
+					case "negative":
+						conds = append(conds, "COALESCE(sl.quantity, 0) >= 0")
+					case "zero":
+						conds = append(conds, "COALESCE(sl.quantity, 0) != 0")
 					}
 				}
-				// 			} else {
-				// Simple string
-				if vStr == "positive" {
-					whereClauses = append(whereClauses, "COALESCE(sl.quantity, 0) > 0")
-				} else if vStr == "negative" {
-					whereClauses = append(whereClauses, "COALESCE(sl.quantity, 0) < 0")
-				} else if vStr == "zero" {
-					whereClauses = append(whereClauses, "COALESCE(sl.quantity, 0) = 0")
+				if len(conds) > 0 {
+					whereClauses = append(whereClauses, fmt.Sprintf("(%s)", strings.Join(conds, " AND ")))
 				}
+			}
+		} else {
+			switch vStr {
+			case "positive":
+				whereClauses = append(whereClauses, "COALESCE(sl.quantity, 0) > 0")
+			case "negative":
+				whereClauses = append(whereClauses, "COALESCE(sl.quantity, 0) < 0")
+			case "zero":
+				whereClauses = append(whereClauses, "COALESCE(sl.quantity, 0) = 0")
 			}
 		}
 	}
@@ -469,11 +380,11 @@ func (r *statisticRepositoryImpl) GetInventoryValueStats(ctx context.Context, fi
 
 	query := fmt.Sprintf(`
 		SELECT
-			p.id as product_id,
+			p.id AS product_id,
 			p.sku,
 			p.name,
-			p.category_id,
-			c.name as category,
+			NULLIF(p.category_id, '') AS category_id,
+			c.name AS category,
 			p.price,
 			SUM(COALESCE(sl.quantity, 0)) AS total_quantity,
 			(SUM(COALESCE(sl.quantity, 0)) * p.price) AS total_value
@@ -487,62 +398,50 @@ func (r *statisticRepositoryImpl) GetInventoryValueStats(ctx context.Context, fi
 	`, strings.Join(whereClauses, " AND "))
 
 	var rows []analytics_dto.InventoryValueResponse
-	err := r.db.SelectContext(ctx, &rows, query, queryParams...)
-	return rows, err
+	if err := ext.SelectContext(ctx, &rows, query, queryParams...); err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []analytics_dto.InventoryValueResponse{}
+	}
+	return rows, nil
 }
 
-func buildShopFilters(filters analytics_dto.StatisticFilterRequest, queryParams *[]interface{}) string {
-	var clauses []string
-
-	sourceClauses := buildStatisticTriStateWhere("pl.source", filters.Source, queryParams)
-	if len(sourceClauses) > 0 {
-		clauses = append(clauses, sourceClauses...)
-	}
-
-	shopClauses := buildStatisticTriStateWhere("pl.shop_name", filters.ShopName, queryParams)
-	if len(shopClauses) > 0 {
-		clauses = append(clauses, shopClauses...)
-	}
-
-	if len(clauses) > 0 {
-		return " AND " + strings.Join(clauses, " AND ")
-	}
-	return ""
-}
-
+// GetShopPerformanceStats returns shop performance summaries (currently disabled pending sales domain migration).
 func (r *statisticRepositoryImpl) GetShopPerformanceStats(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.ShopPerformanceSummary, error) {
-	// TODO: Disabled during Fulfilment Teardown (Moved to Sales/Order Domain)
-	return nil, nil
+	return []analytics_dto.ShopPerformanceSummary{}, nil
 }
 
+// GetDailySalesTrend returns daily sales trends (currently disabled pending sales domain migration).
 func (r *statisticRepositoryImpl) GetDailySalesTrend(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.DailySalesTrend, error) {
-	// TODO: Disabled during Fulfilment Teardown (Moved to Sales/Order Domain)
-	return nil, nil
+	return []analytics_dto.DailySalesTrend{}, nil
 }
 
+// GetTopSellingProducts returns top selling products (currently disabled pending sales domain migration).
 func (r *statisticRepositoryImpl) GetTopSellingProducts(ctx context.Context, filters analytics_dto.StatisticFilterRequest, limit int) ([]analytics_dto.TopSellingProduct, error) {
-	// TODO: Disabled during Fulfilment Teardown (Moved to Sales/Order Domain)
-	return nil, nil
+	return []analytics_dto.TopSellingProduct{}, nil
 }
 
+// GetFulfillmentHealth returns fulfillment health metrics (currently disabled pending sales domain migration).
 func (r *statisticRepositoryImpl) GetFulfillmentHealth(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.FulfillmentHealth, error) {
-	// TODO: Disabled during Fulfilment Teardown (Moved to Sales/Order Domain)
-	return nil, nil
+	return []analytics_dto.FulfillmentHealth{}, nil
 }
 
+// GetPeriodComparison returns period-over-period sales metrics (currently disabled pending sales domain migration).
 func (r *statisticRepositoryImpl) GetPeriodComparison(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.PeriodComparison, error) {
-	// TODO: Disabled during Fulfilment Teardown (Moved to Sales/Order Domain)
-	return nil, nil
+	return []analytics_dto.PeriodComparison{}, nil
 }
 
+// GetPackageComponentAnalysis returns package component sales rows (currently disabled pending sales domain migration).
 func (r *statisticRepositoryImpl) GetPackageComponentAnalysis(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.PackageComponentDBRow, error) {
-	// TODO: Disabled during Fulfilment Teardown (Moved to Sales/Order Domain)
-	return nil, nil
+	return []analytics_dto.PackageComponentDBRow{}, nil
 }
 
+// GetLocationLoads aggregates product count, stock quantity, total weight, and total CBM across active, non-deleted locations.
 func (r *statisticRepositoryImpl) GetLocationLoads(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.LocationLoad, error) {
-	queryParams := []interface{}{}
-	whereClauses := []string{"l.is_active = 1"}
+	ext := database.GetExt(ctx, r.db)
+	queryParams := []any{}
+	whereClauses := []string{"l.is_active = 1", "l.deleted_at IS NULL"}
 
 	bClauses := buildStatisticTriStateWhere("l.building", filters.Building, &queryParams)
 	if len(bClauses) > 0 {
@@ -572,39 +471,49 @@ func (r *statisticRepositoryImpl) GetLocationLoads(ctx context.Context, filters 
 		queryParams = append(queryParams, searchLike, searchLike)
 	}
 
-	filterSql := ""
-	if len(whereClauses) > 0 {
-		filterSql = "WHERE " + strings.Join(whereClauses, " AND ")
-	}
+	filterSQL := "WHERE " + strings.Join(whereClauses, " AND ")
 
 	query := fmt.Sprintf(`
-		SELECT 
-			l.id as location_id,
+		SELECT
+			l.id AS location_id,
 			l.code,
-			l.name,
+			COALESCE(l.name, '') AS name,
 			l.building,
 			l.floor,
 			l.purpose,
-			COUNT(DISTINCT sl.product_id) as total_products,
-			COALESCE(SUM(sl.quantity), 0) as total_quantity,
-			COALESCE(SUM((CASE WHEN sl.quantity > 0 THEN sl.quantity ELSE 0 END) * COALESCE(p.weight, 0)), 0) as total_weight,
-			COALESCE(SUM((CASE WHEN sl.quantity > 0 THEN sl.quantity ELSE 0 END) * (COALESCE(p.length, 0) * COALESCE(p.width, 0) * COALESCE(p.height, 0))) / 1000000, 0) as total_cbm
+			COUNT(DISTINCT CASE WHEN p.id IS NOT NULL THEN sl.product_id END) AS total_products,
+			COALESCE(SUM(CASE WHEN p.id IS NOT NULL THEN sl.quantity ELSE 0 END), 0) AS total_quantity,
+			COALESCE(SUM((CASE WHEN p.id IS NOT NULL AND sl.quantity > 0 THEN sl.quantity ELSE 0 END) * COALESCE(p.weight, 0)), 0) AS total_weight,
+			COALESCE(SUM((CASE WHEN p.id IS NOT NULL AND sl.quantity > 0 THEN sl.quantity ELSE 0 END) * (COALESCE(p.length, 0) * COALESCE(p.width, 0) * COALESCE(p.height, 0))) / 1000000, 0) AS total_cbm
 		FROM locations l
 		LEFT JOIN stock_locations sl ON l.id = sl.location_id
-		LEFT JOIN products p ON sl.product_id = p.id
+		LEFT JOIN products p ON sl.product_id = p.id AND p.deleted_at IS NULL
 		%s
 		GROUP BY l.id
 		ORDER BY l.building ASC, l.floor ASC, l.code ASC
-	`, filterSql)
+	`, filterSQL)
 
 	var rows []analytics_dto.LocationLoad
-	err := r.db.SelectContext(ctx, &rows, query, queryParams...)
-	return rows, err
+	if err := ext.SelectContext(ctx, &rows, query, queryParams...); err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []analytics_dto.LocationLoad{}
+	}
+	return rows, nil
 }
 
+// GetDuplicateLocations identifies active, non-deleted SKUs stored in multiple active locations sharing the same purpose.
 func (r *statisticRepositoryImpl) GetDuplicateLocations(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.DuplicateProductLocation, error) {
-	queryParams := []interface{}{}
-	whereClauses := []string{"l.is_active = 1", "sl.quantity > 0"}
+	ext := database.GetExt(ctx, r.db)
+	queryParams := []any{}
+	whereClauses := []string{
+		"p.is_active = 1",
+		"p.deleted_at IS NULL",
+		"l.is_active = 1",
+		"l.deleted_at IS NULL",
+		"sl.quantity > 0",
+	}
 
 	bClauses := buildStatisticTriStateWhere("l.building", filters.Building, &queryParams)
 	if len(bClauses) > 0 {
@@ -621,19 +530,16 @@ func (r *statisticRepositoryImpl) GetDuplicateLocations(ctx context.Context, fil
 		whereClauses = append(whereClauses, pClauses...)
 	}
 
-	filterSql := ""
-	if len(whereClauses) > 0 {
-		filterSql = "WHERE " + strings.Join(whereClauses, " AND ")
-	}
+	filterSQL := "WHERE " + strings.Join(whereClauses, " AND ")
 
 	query := fmt.Sprintf(`
 		SELECT
-			p.id as product_id,
+			p.id AS product_id,
 			p.sku,
 			p.name,
 			l.purpose,
-			COUNT(DISTINCT sl.location_id) as location_count,
-			GROUP_CONCAT(DISTINCT l.code ORDER BY l.code ASC SEPARATOR ', ') as location_codes
+			COUNT(DISTINCT sl.location_id) AS location_count,
+			GROUP_CONCAT(DISTINCT l.code ORDER BY l.code ASC SEPARATOR ', ') AS location_codes
 		FROM products p
 		JOIN stock_locations sl ON p.id = sl.product_id
 		JOIN locations l ON sl.location_id = l.id
@@ -641,16 +547,23 @@ func (r *statisticRepositoryImpl) GetDuplicateLocations(ctx context.Context, fil
 		GROUP BY p.id, l.purpose
 		HAVING location_count > 1
 		ORDER BY location_count DESC, p.sku ASC
-	`, filterSql)
+	`, filterSQL)
 
 	var rows []analytics_dto.DuplicateProductLocation
-	err := r.db.SelectContext(ctx, &rows, query, queryParams...)
-	return rows, err
+	if err := ext.SelectContext(ctx, &rows, query, queryParams...); err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []analytics_dto.DuplicateProductLocation{}
+	}
+	return rows, nil
 }
 
-func (r *statisticRepositoryImpl) GetLocationCapacityDetails(ctx context.Context, locationId int, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.LocationCapacityDetailResponse, error) {
-	queryParams := []interface{}{locationId}
-	whereClauses := []string{"sl.location_id = ?"}
+// GetLocationCapacityDetails returns per-SKU quantity, weight (kg), and CBM stored at a specific location.
+func (r *statisticRepositoryImpl) GetLocationCapacityDetails(ctx context.Context, locationID int, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.LocationCapacityDetailResponse, error) {
+	ext := database.GetExt(ctx, r.db)
+	queryParams := []any{locationID}
+	whereClauses := []string{"sl.location_id = ?", "p.deleted_at IS NULL"}
 
 	if filters.CategoryId != "" {
 		cClauses := buildStatisticTriStateWhere("p.category_id", filters.CategoryId, &queryParams)
@@ -665,39 +578,39 @@ func (r *statisticRepositoryImpl) GetLocationCapacityDetails(ctx context.Context
 		queryParams = append(queryParams, searchLike, searchLike)
 	}
 
-	filterSql := ""
-	if len(whereClauses) > 0 {
-		filterSql = "WHERE " + strings.Join(whereClauses, " AND ")
-	}
+	filterSQL := "WHERE " + strings.Join(whereClauses, " AND ")
 
 	query := fmt.Sprintf(`
 		SELECT
-			p.id as product_id,
+			p.id AS product_id,
 			p.sku,
 			p.name,
-			p.category_id,
-			COALESCE(c.name, '-') as category_name,
-			COALESCE(SUM(sl.quantity), 0) as quantity,
-			COALESCE(SUM((CASE WHEN sl.quantity > 0 THEN sl.quantity ELSE 0 END) * COALESCE(p.weight, 0)), 0) / 1000 as total_weight,
-			COALESCE(SUM((CASE WHEN sl.quantity > 0 THEN sl.quantity ELSE 0 END) * (COALESCE(p.length, 0) * COALESCE(p.width, 0) * COALESCE(p.height, 0))) / 1000000, 0) as total_cbm
+			COALESCE(CAST(NULLIF(p.category_id, '') AS UNSIGNED), 0) AS category_id,
+			COALESCE(c.name, '-') AS category_name,
+			COALESCE(SUM(sl.quantity), 0) AS quantity,
+			COALESCE(SUM((CASE WHEN sl.quantity > 0 THEN sl.quantity ELSE 0 END) * COALESCE(p.weight, 0)), 0) / 1000 AS total_weight,
+			COALESCE(SUM((CASE WHEN sl.quantity > 0 THEN sl.quantity ELSE 0 END) * (COALESCE(p.length, 0) * COALESCE(p.width, 0) * COALESCE(p.height, 0))) / 1000000, 0) AS total_cbm
 		FROM products p
 		JOIN stock_locations sl ON p.id = sl.product_id
 		LEFT JOIN categories c ON p.category_id = c.id
 		%s
 		GROUP BY p.id
 		ORDER BY p.sku ASC
-	`, filterSql)
+	`, filterSQL)
 
 	var rows []analytics_dto.LocationCapacityDetailResponse
-	err := r.db.SelectContext(ctx, &rows, query, queryParams...)
+	if err := ext.SelectContext(ctx, &rows, query, queryParams...); err != nil {
+		return nil, err
+	}
 	if rows == nil {
 		rows = []analytics_dto.LocationCapacityDetailResponse{}
 	}
-	return rows, err
+	return rows, nil
 }
 
-// GetStockBuildingBreakdown returns stock distribution per building for a single product.
+// GetStockBuildingBreakdown returns stock distribution and movement totals per building for a single product.
 func (r *statisticRepositoryImpl) GetStockBuildingBreakdown(ctx context.Context, productID int, startDate, endDate string) ([]analytics_dto.StockBuildingBreakdownResponse, error) {
+	ext := database.GetExt(ctx, r.db)
 	query := `
 		SELECT
 			b.building,
@@ -708,7 +621,7 @@ func (r *statisticRepositoryImpl) GetStockBuildingBreakdown(ctx context.Context,
 			SELECT DISTINCT l.building
 			FROM stock_locations sl
 			JOIN locations l ON sl.location_id = l.id
-			WHERE sl.product_id = ?
+			WHERE sl.product_id = ? AND l.deleted_at IS NULL
 			UNION
 			SELECT DISTINCT COALESCE(fl.building, tl.building) AS building
 			FROM stock_movements sm
@@ -721,7 +634,7 @@ func (r *statisticRepositoryImpl) GetStockBuildingBreakdown(ctx context.Context,
 			SELECT l.building, SUM(sl.quantity) AS current_stock
 			FROM stock_locations sl
 			JOIN locations l ON sl.location_id = l.id
-			WHERE sl.product_id = ?
+			WHERE sl.product_id = ? AND l.deleted_at IS NULL
 			GROUP BY l.building
 		) s_loc ON b.building = s_loc.building
 		LEFT JOIN (
@@ -746,7 +659,7 @@ func (r *statisticRepositoryImpl) GetStockBuildingBreakdown(ctx context.Context,
 		ORDER BY b.building ASC
 	`
 
-	params := []interface{}{
+	params := []any{
 		productID,                     // buildings from stock_locations
 		productID, startDate, endDate, // buildings from stock_movements
 		productID,                     // s_loc subquery
@@ -755,9 +668,11 @@ func (r *statisticRepositoryImpl) GetStockBuildingBreakdown(ctx context.Context,
 	}
 
 	var rows []analytics_dto.StockBuildingBreakdownResponse
-	err := r.db.SelectContext(ctx, &rows, query, params...)
+	if err := ext.SelectContext(ctx, &rows, query, params...); err != nil {
+		return nil, err
+	}
 	if rows == nil {
 		rows = []analytics_dto.StockBuildingBreakdownResponse{}
 	}
-	return rows, err
+	return rows, nil
 }

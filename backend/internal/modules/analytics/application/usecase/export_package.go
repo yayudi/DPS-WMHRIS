@@ -7,10 +7,10 @@ import (
 
 	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
-
 	"github.com/xuri/excelize/v2"
 )
 
+// ProcessExportPackage generates a package catalog Excel workbook with component columns and a category reference sheet.
 func (s *exportServiceImpl) ProcessExportPackage(ctx context.Context, jobID int, filtersJSON string) error {
 	parsedFilter, err := parseCatalogExportFilter(filtersJSON, true)
 	if err != nil {
@@ -42,7 +42,7 @@ func (s *exportServiceImpl) ProcessExportPackage(ctx context.Context, jobID int,
 		}
 	}()
 
-	sheetName := i18n.T(ctx, "analytics.export.sheet_package_data")
+	sheetName := sanitizeExcelSheetName(i18n.T(ctx, "analytics.export.sheet_package_data"), "Package Data")
 	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 	styles := utils.InitExcelStyles(f)
 
@@ -66,9 +66,9 @@ func (s *exportServiceImpl) ProcessExportPackage(ctx context.Context, jobID int,
 			catName = *row.CategoryName
 		}
 
-		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{row.SKU, row.Name, catName, row.Price}) // #nosec G104
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]any{row.SKU, row.Name, catName, row.Price}) // #nosec G104
 
-		var compRow []interface{}
+		compRow := make([]any, 0, len(row.Components)*2)
 		for _, comp := range row.Components {
 			compRow = append(compRow, comp.SKU, comp.Quantity)
 		}
@@ -78,7 +78,7 @@ func (s *exportServiceImpl) ProcessExportPackage(ctx context.Context, jobID int,
 	}
 
 	// Categories Reference Sheet
-	catSheetName := i18n.T(ctx, "analytics.export.sheet_category_reference")
+	catSheetName := sanitizeExcelSheetName(i18n.T(ctx, "analytics.export.sheet_category_reference"), "Category Reference")
 	_, _ = f.NewSheet(catSheetName) // #nosec G104
 	categories, err := s.categoryRepo.FindAllActive(ctx)
 	if err == nil {
@@ -91,7 +91,7 @@ func (s *exportServiceImpl) ProcessExportPackage(ctx context.Context, jobID int,
 		_ = f.SetRowHeight(catSheetName, 1, 20) // #nosec G104
 
 		for r, c := range categories {
-			_ = f.SetSheetRow(catSheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{c.ID, c.Name}) // #nosec G104
+			_ = f.SetSheetRow(catSheetName, fmt.Sprintf("A%d", r+2), &[]any{c.ID, c.Name}) // #nosec G104
 		}
 	} else {
 		log.Printf("Failed to fetch categories for export: %v", err)

@@ -7,20 +7,18 @@ import (
 	"strings"
 
 	analytics_dto "github.com/dps-wmhris/backend/internal/modules/analytics/application/dto"
-
-	analytics_mysql "github.com/dps-wmhris/backend/internal/modules/analytics/adapter/outbound/mysql"
+	analytics_port "github.com/dps-wmhris/backend/internal/modules/analytics/port"
 )
 
-type ReportService interface {
-	GetReportFilters(ctx context.Context) (analytics_dto.ReportFilterResponse, error)
-	GetUserExportJobs(ctx context.Context, userID int) ([]analytics_dto.UserExportJobResponse, error)
-}
+// ReportService is a compatibility alias for analytics/port.ReportService.
+type ReportService = analytics_port.ReportService
 
 type reportServiceImpl struct {
-	reportRepo analytics_mysql.ReportRepository
+	reportRepo analytics_port.ReportRepository
 }
 
-func NewReportService(reportRepo analytics_mysql.ReportRepository) ReportService {
+// NewReportService creates a ReportService backed by ReportRepository.
+func NewReportService(reportRepo analytics_port.ReportRepository) analytics_port.ReportService {
 	return &reportServiceImpl{reportRepo: reportRepo}
 }
 
@@ -29,7 +27,6 @@ func (s *reportServiceImpl) GetReportFilters(ctx context.Context) (analytics_dto
 	if err != nil {
 		return analytics_dto.ReportFilterResponse{}, err
 	}
-
 	if buildings == nil {
 		buildings = []string{}
 	}
@@ -38,7 +35,6 @@ func (s *reportServiceImpl) GetReportFilters(ctx context.Context) (analytics_dto
 	if err != nil {
 		return analytics_dto.ReportFilterResponse{}, err
 	}
-
 	if purposes == nil {
 		purposes = []string{}
 	}
@@ -50,11 +46,10 @@ func (s *reportServiceImpl) GetReportFilters(ctx context.Context) (analytics_dto
 
 	buildingsByPurpose := make(map[string][]string)
 	for _, row := range relations {
-		purpose := row["purpose"].(string)
-		building := row["building"].(string)
-
-		if _, exists := buildingsByPurpose[purpose]; !exists {
-			buildingsByPurpose[purpose] = []string{}
+		purpose, okP := row["purpose"].(string)
+		building, okB := row["building"].(string)
+		if !okP || !okB || purpose == "" || building == "" {
+			continue
 		}
 		buildingsByPurpose[purpose] = append(buildingsByPurpose[purpose], building)
 	}
@@ -72,11 +67,11 @@ func (s *reportServiceImpl) GetUserExportJobs(ctx context.Context, userID int) (
 		return nil, err
 	}
 
-	var response []analytics_dto.UserExportJobResponse
+	response := make([]analytics_dto.UserExportJobResponse, 0, len(jobs))
 	for _, job := range jobs {
 		exportType := strings.TrimSpace(job.JobType)
 		if exportType == "" && job.Filters != nil {
-			var parsed map[string]interface{}
+			var parsed map[string]any
 			if err := json.Unmarshal([]byte(*job.Filters), &parsed); err == nil {
 				if t, ok := parsed["exportType"].(string); ok && t != "" {
 					exportType = t
@@ -87,28 +82,25 @@ func (s *reportServiceImpl) GetUserExportJobs(ctx context.Context, userID int) (
 			exportType = "STOCK_REPORT"
 		}
 
-		// download_url mengarah ke endpoint presigned download API
+		// download_url points to the authenticated presigned-redirect download endpoint
 		var downloadURL *string
 		if job.Status == "COMPLETED" && job.FilePath != nil && *job.FilePath != "" {
 			url := fmt.Sprintf("/api/exports/download/%d", job.ID)
 			downloadURL = &url
 		}
 
+		createdAt := job.CreatedAt
 		response = append(response, analytics_dto.UserExportJobResponse{
 			ID:           job.ID,
 			Status:       job.Status,
 			FilePath:     job.FilePath,
 			ErrorMessage: job.ErrorMessage,
-			CreatedAt:    &job.CreatedAt,
+			CreatedAt:    &createdAt,
 			Filters:      job.Filters,
 			JobType:      exportType,
 			Type:         exportType,
 			DownloadURL:  downloadURL,
 		})
-	}
-
-	if response == nil {
-		response = []analytics_dto.UserExportJobResponse{}
 	}
 
 	return response, nil

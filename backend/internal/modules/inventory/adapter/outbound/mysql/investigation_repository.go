@@ -7,11 +7,9 @@ import (
 	"strings"
 
 	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
-
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
-	database "github.com/dps-wmhris/backend/internal/shared/database"
-
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -19,13 +17,14 @@ type investigationRepositoryImpl struct {
 	db *sqlx.DB
 }
 
+// NewInvestigationRepository creates a MySQL-backed InvestigationRepository.
 func NewInvestigationRepository(db *sqlx.DB) inventory_port.InvestigationRepository {
 	return &investigationRepositoryImpl{db: db}
 }
 
-// buildDuplicateQueryHelper builds the common CTEs and WHERE/HAVING clauses
-func buildDuplicateQueryHelper(req inventory_dto.GetDuplicateTransactionsRequest) (string, string, string, []interface{}, []interface{}) {
-	var params []interface{}
+// buildDuplicateQueryHelper builds the common CTEs and WHERE/HAVING clauses for duplicate movement investigation.
+func buildDuplicateQueryHelper(req inventory_dto.GetDuplicateTransactionsRequest) (string, string, string, []any, []any) {
+	var params []any
 	conditions := []string{"sm.notes IS NOT NULL", "sm.notes != ''"}
 
 	if req.StartDate != "" && req.EndDate != "" {
@@ -34,6 +33,9 @@ func buildDuplicateQueryHelper(req inventory_dto.GetDuplicateTransactionsRequest
 	} else if req.StartDate != "" {
 		conditions = append(conditions, "DATE(sm.created_at) >= ?")
 		params = append(params, req.StartDate)
+	} else if req.EndDate != "" {
+		conditions = append(conditions, "DATE(sm.created_at) <= ?")
+		params = append(params, req.EndDate)
 	}
 
 	if req.MovementType != nil && *req.MovementType != "" {
@@ -60,7 +62,6 @@ func buildDuplicateQueryHelper(req inventory_dto.GetDuplicateTransactionsRequest
 				conditions = append(conditions, fmt.Sprintf("sm.movement_type NOT IN (%s)", strings.Join(placeholders, ",")))
 			}
 		} else {
-			// it's just a string
 			conditions = append(conditions, "sm.movement_type = ?")
 			params = append(params, *req.MovementType)
 		}
@@ -94,7 +95,7 @@ func buildDuplicateQueryHelper(req inventory_dto.GetDuplicateTransactionsRequest
 		whereClause = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	var havingParams []interface{}
+	var havingParams []any
 	havingConditions := []string{}
 
 	if req.MinOccurrences != nil {
@@ -134,20 +135,20 @@ func buildDuplicateQueryHelper(req inventory_dto.GetDuplicateTransactionsRequest
 
 	revertStatusClause := ""
 	switch req.RevertStatus {
-		case "REVERTED":
-			revertStatusClause = "AND SUM(CASE WHEN notes LIKE '%[REVERTED]%' THEN 1 ELSE 0 END) > 0"
-		case "NOT_REVERTED":
-			revertStatusClause = "AND SUM(CASE WHEN notes LIKE '%[REVERTED]%' THEN 1 ELSE 0 END) = 0"
+	case "REVERTED":
+		revertStatusClause = "AND SUM(CASE WHEN notes LIKE '%[REVERTED]%' THEN 1 ELSE 0 END) > 0"
+	case "NOT_REVERTED":
+		revertStatusClause = "AND SUM(CASE WHEN notes LIKE '%[REVERTED]%' THEN 1 ELSE 0 END) = 0"
 	}
 
 	cte := fmt.Sprintf(`
 		WITH filtered_movements AS (
-			SELECT 
+			SELECT
 				sm.id, sm.product_id, sm.quantity, sm.from_location_id, sm.to_location_id, sm.movement_type, sm.user_id, sm.notes, sm.created_at,
-				p.name as product_name, p.sku, 
-				u.username, 
-				fl.code as from_location_code, 
-				tl.code as to_location_code
+				COALESCE(p.name, '') AS product_name, COALESCE(p.sku, '') AS sku,
+				u.username,
+				fl.code AS from_location_code,
+				tl.code AS to_location_code
 			FROM stock_movements sm
 			LEFT JOIN products p ON sm.product_id = p.id
 			LEFT JOIN users u ON sm.user_id = u.id
@@ -156,9 +157,9 @@ func buildDuplicateQueryHelper(req inventory_dto.GetDuplicateTransactionsRequest
 			%s
 		),
 		duplicate_products AS (
-			SELECT 
-				SUBSTRING_INDEX(notes, ' (Item', 1) as base_note, 
-				product_id, 
+			SELECT
+				SUBSTRING_INDEX(notes, ' (Item', 1) AS base_note,
+				product_id,
 				movement_type
 				%s
 			FROM filtered_movements
@@ -171,17 +172,18 @@ func buildDuplicateQueryHelper(req inventory_dto.GetDuplicateTransactionsRequest
 	return cte, havingClause, exactQuantityJoinClause, params, havingParams
 }
 
+// GetDuplicateGroups fetches paginated duplicate stock movement rows ordered by the requested metric.
 func (r *investigationRepositoryImpl) GetDuplicateGroups(ctx context.Context, req inventory_dto.GetDuplicateTransactionsRequest) ([]domain.DuplicateTransactionItem, error) {
 	cte, havingClause, exactQuantityJoinClause, params, havingParams := buildDuplicateQueryHelper(req)
 
 	orderCol := "latest_created_at"
 	switch req.SortBy {
-		case "OCCURRENCES":
-			orderCol = "occurrences"
-		case "TOTAL_SKU":
-			orderCol = "total_sku"
-		case "TOTAL_QTY":
-			orderCol = "total_qty"
+	case "OCCURRENCES":
+		orderCol = "occurrences"
+	case "TOTAL_SKU":
+		orderCol = "total_sku"
+	case "TOTAL_QTY":
+		orderCol = "total_qty"
 	}
 
 	sortDir := "DESC"
@@ -195,15 +197,15 @@ func (r *investigationRepositoryImpl) GetDuplicateGroups(ctx context.Context, re
 	query := fmt.Sprintf(`
 		%s,
 		duplicate_groups AS (
-			SELECT 
+			SELECT
 				dp.base_note,
 				dp.movement_type,
-				COUNT(DISTINCT fm.product_id) as total_sku,
-				COUNT(DISTINCT fm.created_at) as occurrences,
-				SUM(fm.quantity) as total_qty,
-				MAX(fm.created_at) as latest_created_at
+				COUNT(DISTINCT fm.product_id) AS total_sku,
+				COUNT(DISTINCT fm.created_at) AS occurrences,
+				SUM(fm.quantity) AS total_qty,
+				MAX(fm.created_at) AS latest_created_at
 			FROM duplicate_products dp
-			JOIN filtered_movements fm 
+			JOIN filtered_movements fm
 				ON dp.base_note = SUBSTRING_INDEX(fm.notes, ' (Item', 1)
 				AND dp.product_id = fm.product_id
 				AND dp.movement_type = fm.movement_type
@@ -213,7 +215,7 @@ func (r *investigationRepositoryImpl) GetDuplicateGroups(ctx context.Context, re
 			%s
 			LIMIT ? OFFSET ?
 		)
-		SELECT 
+		SELECT
 			fm.id,
 			fm.product_id,
 			fm.quantity,
@@ -229,13 +231,13 @@ func (r *investigationRepositoryImpl) GetDuplicateGroups(ctx context.Context, re
 			fm.sku,
 			fm.product_name
 		FROM filtered_movements fm
-		JOIN duplicate_products dp 
-			ON SUBSTRING_INDEX(fm.notes, ' (Item', 1) = dp.base_note 
-			AND fm.product_id = dp.product_id 
+		JOIN duplicate_products dp
+			ON SUBSTRING_INDEX(fm.notes, ' (Item', 1) = dp.base_note
+			AND fm.product_id = dp.product_id
 			AND fm.movement_type = dp.movement_type
 			%s
-		JOIN duplicate_groups dg 
-			ON dp.base_note = dg.base_note 
+		JOIN duplicate_groups dg
+			ON dp.base_note = dg.base_note
 			AND dp.movement_type = dg.movement_type
 		ORDER BY dg.%s %s, SUBSTRING_INDEX(fm.notes, ' (Item', 1) ASC, fm.created_at DESC
 	`, cte, exactQuantityJoinClause, havingClause, orderByClause, exactQuantityJoinClause, orderCol, sortDir)
@@ -243,23 +245,29 @@ func (r *investigationRepositoryImpl) GetDuplicateGroups(ctx context.Context, re
 	finalParams := append(params, havingParams...)
 	finalParams = append(finalParams, req.Limit, offset)
 
-	var results []domain.DuplicateTransactionItem
+	results := make([]domain.DuplicateTransactionItem, 0)
 	ext := database.GetExt(ctx, r.db)
-	err := ext.SelectContext(ctx, &results, query, finalParams...)
-	return results, err
+	if err := ext.SelectContext(ctx, &results, query, finalParams...); err != nil {
+		return nil, err
+	}
+	if results == nil {
+		return []domain.DuplicateTransactionItem{}, nil
+	}
+	return results, nil
 }
 
+// CountDuplicateGroups returns the total number of duplicate movement groups matching the query filters.
 func (r *investigationRepositoryImpl) CountDuplicateGroups(ctx context.Context, req inventory_dto.GetDuplicateTransactionsRequest) (int, error) {
 	cte, havingClause, exactQuantityJoinClause, params, havingParams := buildDuplicateQueryHelper(req)
 
 	query := fmt.Sprintf(`
 		%s,
 		duplicate_groups AS (
-			SELECT 
-				COUNT(DISTINCT fm.product_id) as total_sku,
-				COUNT(DISTINCT fm.created_at) as occurrences
+			SELECT
+				COUNT(DISTINCT fm.product_id) AS total_sku,
+				COUNT(DISTINCT fm.created_at) AS occurrences
 			FROM duplicate_products dp
-			JOIN filtered_movements fm 
+			JOIN filtered_movements fm
 				ON dp.base_note = SUBSTRING_INDEX(fm.notes, ' (Item', 1)
 				AND dp.product_id = fm.product_id
 				AND dp.movement_type = fm.movement_type
@@ -267,7 +275,7 @@ func (r *investigationRepositoryImpl) CountDuplicateGroups(ctx context.Context, 
 			GROUP BY dp.base_note, dp.movement_type
 			%s
 		)
-		SELECT COUNT(*) as total FROM duplicate_groups
+		SELECT COUNT(*) AS total FROM duplicate_groups
 	`, cte, exactQuantityJoinClause, havingClause)
 
 	finalParams := append(params, havingParams...)
@@ -277,3 +285,35 @@ func (r *investigationRepositoryImpl) CountDuplicateGroups(ctx context.Context, 
 	return total, err
 }
 
+// GetMovementByIDForRevert retrieves and locks a stock_movements row FOR UPDATE inside the active reversal transaction.
+func (r *investigationRepositoryImpl) GetMovementByIDForRevert(ctx context.Context, transactionID int) (*domain.RevertableMovement, error) {
+	ext := database.GetExt(ctx, r.db)
+	var mov domain.RevertableMovement
+	query := `
+		SELECT id, product_id, quantity, from_location_id, to_location_id, movement_type, notes
+		FROM stock_movements
+		WHERE id = ?
+		FOR UPDATE`
+	if err := ext.GetContext(ctx, &mov, query, transactionID); err != nil {
+		return nil, err
+	}
+	return &mov, nil
+}
+
+// IsMovementReverted checks whether a REVERSAL movement already exists for transactionID using an exact delimiter pattern.
+func (r *investigationRepositoryImpl) IsMovementReverted(ctx context.Context, transactionID int) (bool, error) {
+	ext := database.GetExt(ctx, r.db)
+	var count int
+	pattern := fmt.Sprintf("Reversal of Trx #%d -%%", transactionID)
+	if err := ext.GetContext(ctx, &count, `SELECT COUNT(*) FROM stock_movements WHERE movement_type = 'REVERSAL' AND notes LIKE ?`, pattern); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// MarkMovementReverted appends [REVERTED] to the original stock_movements notes inside the active transaction.
+func (r *investigationRepositoryImpl) MarkMovementReverted(ctx context.Context, transactionID int) error {
+	ext := database.GetExt(ctx, r.db)
+	_, err := ext.ExecContext(ctx, `UPDATE stock_movements SET notes = CONCAT(IFNULL(notes, ''), ' [REVERTED]') WHERE id = ?`, transactionID)
+	return err
+}

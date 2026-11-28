@@ -12,7 +12,7 @@ import (
 
 // InvestigationUseCase defines inbound operations for detecting and reverting duplicate inventory transactions.
 type InvestigationUseCase interface {
-	GetDuplicateTransactions(ctx context.Context, req inventory_dto.GetDuplicateTransactionsRequest) (any, error)
+	GetDuplicateTransactions(ctx context.Context, req inventory_dto.GetDuplicateTransactionsRequest) (*domain.DuplicateTransactionsResponse, error)
 	RevertTransaction(ctx context.Context, transactionID int, userID int) error
 }
 

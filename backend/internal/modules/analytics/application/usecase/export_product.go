@@ -7,10 +7,10 @@ import (
 
 	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
-
 	"github.com/xuri/excelize/v2"
 )
 
+// ProcessExportProduct generates a product master Excel workbook and uploads it for the given export job.
 func (s *exportServiceImpl) ProcessExportProduct(ctx context.Context, jobID int, filtersJSON string) error {
 	parsedFilter, err := parseCatalogExportFilter(filtersJSON, false)
 	if err != nil {
@@ -32,7 +32,7 @@ func (s *exportServiceImpl) ProcessExportProduct(ctx context.Context, jobID int,
 		}
 	}()
 
-	sheetName := i18n.T(ctx, "analytics.export.sheet_product_master")
+	sheetName := sanitizeExcelSheetName(i18n.T(ctx, "analytics.export.sheet_product_master"), "Product Master")
 	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 	styles := utils.InitExcelStyles(f)
 
@@ -60,7 +60,7 @@ func (s *exportServiceImpl) ProcessExportProduct(ctx context.Context, jobID int,
 		if row.IsPackage {
 			isPkg = 1
 		}
-		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{ // #nosec G104
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]any{ // #nosec G104
 			row.SKU, row.Name, catName, row.Price, row.Weight, row.TotalStock, isActive, isPkg,
 		})
 	}

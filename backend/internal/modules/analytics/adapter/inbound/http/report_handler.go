@@ -1,24 +1,28 @@
+// Package http provides Gin HTTP handlers for the analytics bounded context.
 package http
 
 import (
-	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
-
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 
-	analytics_usecase "github.com/dps-wmhris/backend/internal/modules/analytics/application/usecase"
-	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
+	analytics_port "github.com/dps-wmhris/backend/internal/modules/analytics/port"
+	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
+	system_port "github.com/dps-wmhris/backend/internal/modules/system/port"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
 
+// ReportHandler handles HTTP endpoints for stock report exports, export job listing/downloads, and report filters.
 type ReportHandler struct {
-	reportService  analytics_usecase.ReportService
-	jobService     system_usecase.JobService
-	storageService system_usecase.StorageService
+	reportService  analytics_port.ReportService
+	jobService     system_port.JobService
+	storageService system_port.StorageService
 }
 
-func NewReportHandler(reportService analytics_usecase.ReportService, jobService system_usecase.JobService, storageService system_usecase.StorageService) *ReportHandler {
+// NewReportHandler constructs a ReportHandler wired to analytics and system inbound ports.
+func NewReportHandler(reportService analytics_port.ReportService, jobService system_port.JobService, storageService system_port.StorageService) *ReportHandler {
 	return &ReportHandler{
 		reportService:  reportService,
 		jobService:     jobService,
@@ -26,20 +30,25 @@ func NewReportHandler(reportService analytics_usecase.ReportService, jobService 
 	}
 }
 
+// RequestStockReport enqueues an asynchronous stock report Excel export job for the authenticated user.
 func (h *ReportHandler) RequestStockReport(c *gin.Context) {
 	userID, ok := utils.RequireUserID(c)
 	if !ok {
 		return
 	}
 
-	var filters map[string]interface{}
-	if err := c.ShouldBindJSON(&filters); err != nil {
-		filters = make(map[string]interface{})
+	var filters map[string]any
+	if err := c.ShouldBindJSON(&filters); err != nil || filters == nil {
+		filters = make(map[string]any)
 	}
 
-	filters["exportType"] = "STOCK_REPORT" // force exportType in filters
+	filters["exportType"] = "STOCK_REPORT"
 
-	filtersBytes, _ := json.Marshal(filters)
+	filtersBytes, err := json.Marshal(filters)
+	if err != nil {
+		utils.HandleDomainError(c, err)
+		return
+	}
 	filtersStr := string(filtersBytes)
 
 	req := system_dto.CreateExportJobRequest{
@@ -57,6 +66,7 @@ func (h *ReportHandler) RequestStockReport(c *gin.Context) {
 	utils.JobCreatedResponse(c, http.StatusAccepted, "analytics.report.export_requested", jobID)
 }
 
+// GetUserExportJobs lists the authenticated user's recent report export jobs.
 func (h *ReportHandler) GetUserExportJobs(c *gin.Context) {
 	userID, ok := utils.RequireUserID(c)
 	if !ok {
@@ -72,8 +82,7 @@ func (h *ReportHandler) GetUserExportJobs(c *gin.Context) {
 	utils.SuccessDataResponse(c, http.StatusOK, jobs)
 }
 
-// DownloadExportJob menghasilkan presigned URL untuk mendownload file export,
-// lalu redirect browser ke URL tersebut. URL expire setelah 5 menit.
+// DownloadExportJob generates a short-lived presigned download URL for a completed export job owned by the caller and redirects to it.
 func (h *ReportHandler) DownloadExportJob(c *gin.Context) {
 	userID, ok := utils.RequireUserID(c)
 	if !ok {
@@ -87,11 +96,18 @@ func (h *ReportHandler) DownloadExportJob(c *gin.Context) {
 
 	job, err := h.jobService.GetExportJobByID(c.Request.Context(), jobID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.LocalizedError(c, http.StatusNotFound, "system.jobs.not_found", nil, "NOT_FOUND")
+			return
+		}
+		utils.HandleDomainError(c, err)
+		return
+	}
+	if job == nil {
 		utils.LocalizedError(c, http.StatusNotFound, "system.jobs.not_found", nil, "NOT_FOUND")
 		return
 	}
 
-	// Pastikan user hanya bisa download job miliknya
 	if job.UserID != userID {
 		utils.LocalizedError(c, http.StatusForbidden, "errors.forbidden", nil, "FORBIDDEN")
 		return
@@ -111,6 +127,7 @@ func (h *ReportHandler) DownloadExportJob(c *gin.Context) {
 	c.Redirect(http.StatusFound, presignedURL)
 }
 
+// FetchReportFilters returns available buildings, purposes, and purpose-to-building filter metadata.
 func (h *ReportHandler) FetchReportFilters(c *gin.Context) {
 	filters, err := h.reportService.GetReportFilters(c.Request.Context())
 	if err != nil {

@@ -9,10 +9,13 @@ import (
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 )
 
-// InvestigationRepository defines outbound persistence operations for duplicate transaction investigations.
+// InvestigationRepository defines outbound persistence operations for duplicate transaction investigations and reversals.
 type InvestigationRepository interface {
 	GetDuplicateGroups(ctx context.Context, req inventory_dto.GetDuplicateTransactionsRequest) ([]domain.DuplicateTransactionItem, error)
 	CountDuplicateGroups(ctx context.Context, req inventory_dto.GetDuplicateTransactionsRequest) (int, error)
+	GetMovementByIDForRevert(ctx context.Context, transactionID int) (*domain.RevertableMovement, error)
+	IsMovementReverted(ctx context.Context, transactionID int) (bool, error)
+	MarkMovementReverted(ctx context.Context, transactionID int) error
 }
 
 // LocationRepository defines outbound persistence operations for locations and per-location stock balances.
@@ -21,7 +24,6 @@ type LocationRepository interface {
 	Create(ctx context.Context, location *domain.Location) error
 	Update(ctx context.Context, location *domain.Location) error
 	GetStockSample(ctx context.Context, locationID int) ([]inventory_dto.StockSampleResponse, error)
-	// Stock management helpers
 	GetStockAtLocation(ctx context.Context, productID int, locationID int, lockForUpdate bool) (int, error)
 	FindBestStock(ctx context.Context, productID int, qtyNeeded int, purpose string) (*int, error)
 	FindAvailableStockLocations(ctx context.Context, productID int, purpose string, building string) ([]domain.AvailableLocationStock, error)

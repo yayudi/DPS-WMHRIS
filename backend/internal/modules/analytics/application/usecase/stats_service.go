@@ -9,8 +9,7 @@ import (
 	"time"
 
 	analytics_dto "github.com/dps-wmhris/backend/internal/modules/analytics/application/dto"
-
-	analytics_mysql "github.com/dps-wmhris/backend/internal/modules/analytics/adapter/outbound/mysql"
+	analytics_port "github.com/dps-wmhris/backend/internal/modules/analytics/port"
 )
 
 const (
@@ -19,18 +18,16 @@ const (
 	doiWindowDays           = 30.0
 )
 
-// StatsService defines use cases for the analytics command center dashboard.
-type StatsService interface {
-	GetKpiSummary(ctx context.Context) (analytics_dto.KpiSummaryResponse, error)
-}
+// StatsService is a compatibility alias for analytics/port.StatsService.
+type StatsService = analytics_port.StatsService
 
 type statsServiceImpl struct {
-	statsRepo analytics_mysql.StatsRepository
+	statsRepo analytics_port.StatsRepository
 	nowFunc   func() time.Time
 }
 
 // NewStatsService creates a new StatsService instance.
-func NewStatsService(statsRepo analytics_mysql.StatsRepository) StatsService {
+func NewStatsService(statsRepo analytics_port.StatsRepository) analytics_port.StatsService {
 	return &statsServiceImpl{
 		statsRepo: statsRepo,
 		nowFunc:   time.Now,

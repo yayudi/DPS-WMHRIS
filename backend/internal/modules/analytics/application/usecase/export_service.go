@@ -1,21 +1,17 @@
 package usecase
 
 import (
-	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
-
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	analytics_dto "github.com/dps-wmhris/backend/internal/modules/analytics/application/dto"
-
-	analytics_mysql "github.com/dps-wmhris/backend/internal/modules/analytics/adapter/outbound/mysql"
-	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
-
-	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
-
+	analytics_port "github.com/dps-wmhris/backend/internal/modules/analytics/port"
 	catalog_port "github.com/dps-wmhris/backend/internal/modules/catalog/port"
+	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
+	system_port "github.com/dps-wmhris/backend/internal/modules/system/port"
 	"github.com/dps-wmhris/backend/internal/shared/i18n"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/xuri/excelize/v2"
@@ -40,27 +36,29 @@ func translateStockMovementStatus(ctx context.Context, status string) string {
 	}
 }
 
-type ExportService interface {
-	ProcessExportStockMovement(ctx context.Context, jobID int, filtersJSON string) error
-	ProcessExportStockTimeline(ctx context.Context, jobID int, filtersJSON string) error
-	ProcessExportBatchLog(ctx context.Context, jobID int, filtersJSON string) error
-	ProcessExportStockReport(ctx context.Context, jobID int, filtersJSON string) error
-	ProcessExportLocationCapacity(ctx context.Context, jobID int, filtersJSON string) error
-	ProcessExportProduct(ctx context.Context, jobID int, filtersJSON string) error
-	ProcessExportPackage(ctx context.Context, jobID int, filtersJSON string) error
-}
+// ExportService is a compatibility alias for analytics/port.ExportService.
+type ExportService = analytics_port.ExportService
 
 type exportServiceImpl struct {
-	jobRepo          system_mysql.JobRepository
-	statisticService StatisticService
-	storageService   system_usecase.StorageService
+	jobRepo          system_port.JobRepository
+	statisticService analytics_port.StatisticService
+	storageService   system_port.StorageService
 	stockRepo        inventory_port.StockRepository
-	reportRepo       analytics_mysql.ReportRepository
+	reportRepo       analytics_port.ReportRepository
 	productRepo      catalog_port.ProductRepository
 	categoryRepo     catalog_port.CategoryRepository
 }
 
-func NewExportService(jobRepo system_mysql.JobRepository, statisticService StatisticService, storageService system_usecase.StorageService, stockRepo inventory_port.StockRepository, reportRepo analytics_mysql.ReportRepository, productRepo catalog_port.ProductRepository, categoryRepo catalog_port.CategoryRepository) ExportService {
+// NewExportService creates an ExportService wired with ports for background worker Excel exports.
+func NewExportService(
+	jobRepo system_port.JobRepository,
+	statisticService analytics_port.StatisticService,
+	storageService system_port.StorageService,
+	stockRepo inventory_port.StockRepository,
+	reportRepo analytics_port.ReportRepository,
+	productRepo catalog_port.ProductRepository,
+	categoryRepo catalog_port.CategoryRepository,
+) analytics_port.ExportService {
 	return &exportServiceImpl{
 		jobRepo:          jobRepo,
 		statisticService: statisticService,
@@ -72,27 +70,32 @@ func NewExportService(jobRepo system_mysql.JobRepository, statisticService Stati
 	}
 }
 
+func closeWorkbook(f *excelize.File) {
+	if err := f.Close(); err != nil {
+		log.Printf("failed to close excel workbook: %v", err)
+	}
+}
+
 func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobID int, filtersJSON string) error {
-	req := analytics_dto.StatisticFilterRequest{}
-	_ = json.Unmarshal([]byte(filtersJSON), &req)
+	var req analytics_dto.StatisticFilterRequest
+	if filtersJSON != "" {
+		if err := json.Unmarshal([]byte(filtersJSON), &req); err != nil {
+			return fmt.Errorf("invalid stock movement export filters: %w", err)
+		}
+	}
 
 	data, err := s.statisticService.GetStockMovementStatistics(ctx, req)
 	if err != nil {
 		return err
 	}
 
-	// Buat file Excel
 	f := excelize.NewFile()
-	defer func() {
-		if err := f.Close(); err != nil {
-		}
-	}()
+	defer closeWorkbook(f)
 	styles := utils.InitExcelStyles(f)
 
-	sheetName := i18n.T(ctx, "analytics.export.sheet_stock_movements")
+	sheetName := sanitizeExcelSheetName(i18n.T(ctx, "analytics.export.sheet_stock_movements"), "Stock Movements")
 	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
-	// Set Headers
 	utils.SetLocalizedHeaders(ctx, f, sheetName, []string{
 		"common.label.sku",
 		"common.label.product_name",
@@ -104,7 +107,6 @@ func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobI
 		"common.label.status",
 	}, styles.Header)
 
-	// Set Data
 	for r, row := range data.Summary {
 		var estimasi string
 		if row.DaysOfInventory != nil {
@@ -115,7 +117,7 @@ func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobI
 			}
 		}
 
-		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{ // #nosec G104
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]any{ // #nosec G104
 			row.SKU, row.Name, row.CurrentStock, row.TotalSold, row.TotalInbound, row.AvgDailySales, estimasi, translateStockMovementStatus(ctx, row.Status),
 		})
 	}
@@ -130,13 +132,19 @@ func (s *exportServiceImpl) ProcessExportStockMovement(ctx context.Context, jobI
 }
 
 func (s *exportServiceImpl) ProcessExportStockTimeline(ctx context.Context, jobID int, filtersJSON string) error {
-	req := analytics_dto.StatisticFilterRequest{}
-	_ = json.Unmarshal([]byte(filtersJSON), &req)
+	var req analytics_dto.StatisticFilterRequest
+	if filtersJSON != "" {
+		if err := json.Unmarshal([]byte(filtersJSON), &req); err != nil {
+			return fmt.Errorf("invalid stock timeline export filters: %w", err)
+		}
+	}
 
-	// Untuk timeline asumsikan rentang diambil secara dinamis atau hardcode,
-	// karena getStockTimeline tidak selalu minta startDate.
-	req.StartDate = "2020-01-01"
-	req.EndDate = "2030-01-01"
+	if req.StartDate == "" {
+		req.StartDate = "2020-01-01"
+	}
+	if req.EndDate == "" {
+		req.EndDate = "2030-01-01"
+	}
 
 	data, err := s.statisticService.GetStockTimelineStatistics(ctx, req)
 	if err != nil {
@@ -144,10 +152,10 @@ func (s *exportServiceImpl) ProcessExportStockTimeline(ctx context.Context, jobI
 	}
 
 	f := excelize.NewFile()
-	defer f.Close()
+	defer closeWorkbook(f)
 	styles := utils.InitExcelStyles(f)
 
-	sheetName := i18n.T(ctx, "analytics.timeline.title")
+	sheetName := sanitizeExcelSheetName(i18n.T(ctx, "analytics.timeline.title"), "Stock Timeline")
 	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
 	utils.SetLocalizedHeaders(ctx, f, sheetName, []string{
@@ -158,11 +166,11 @@ func (s *exportServiceImpl) ProcessExportStockTimeline(ctx context.Context, jobI
 	}, styles.Header)
 
 	for r, row := range data {
-		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{row.Date, row.TotalIn, row.TotalOut, row.NetChange}) // #nosec G104
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]any{row.Date, row.TotalIn, row.TotalOut, row.NetChange}) // #nosec G104
 	}
 
 	utils.SetColStyles(f, sheetName, map[string]int{"B": styles.NumInt, "C": styles.NumInt, "D": styles.NumInt})
-	_ = f.SetCellStyle(sheetName, "A1", "D1", styles.Header) // Re-apply header style after ColStyle // #nosec G104
+	_ = f.SetCellStyle(sheetName, "A1", "D1", styles.Header) // #nosec G104
 
 	utils.SetColWidths(f, sheetName, map[string]float64{"A": 20, "B": 20, "C": 20, "D": 20})
 
@@ -173,14 +181,14 @@ func (s *exportServiceImpl) ProcessExportStockTimeline(ctx context.Context, jobI
 func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int, filtersJSON string) error {
 	var filter inventory_dto.BatchLogFilter
 	if filtersJSON != "" {
-		_ = json.Unmarshal([]byte(filtersJSON), &filter)
+		if err := json.Unmarshal([]byte(filtersJSON), &filter); err != nil {
+			return fmt.Errorf("invalid batch log export filters: %w", err)
+		}
 	}
 
-	// Override limit to get all logs
 	filter.Page = 1
 	filter.Limit = 999999
 
-	// Default dates if not set
 	if filter.StartDate == "" {
 		filter.StartDate = "2020-01-01"
 	}
@@ -195,8 +203,9 @@ func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int
 	logs := result.Data
 
 	f := excelize.NewFile()
+	defer closeWorkbook(f)
 	styles := utils.InitExcelStyles(f)
-	sheetName := i18n.T(ctx, "analytics.export.sheet_batch_log")
+	sheetName := sanitizeExcelSheetName(i18n.T(ctx, "analytics.export.sheet_batch_log"), "Batch Log")
 	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
 	utils.SetLocalizedHeaders(ctx, f, sheetName, []string{
@@ -214,13 +223,13 @@ func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int
 
 	for i, logItem := range logs {
 		row := i + 2
-		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", row), &[]interface{}{ // #nosec G104
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", row), &[]any{ // #nosec G104
 			i + 1, logItem.CreatedAt, logItem.SKU, logItem.ProductName, logItem.MovementType, logItem.Quantity, logItem.FromLocation, logItem.ToLocation, logItem.Notes, logItem.User,
 		})
 	}
 
 	utils.SetColStyles(f, sheetName, map[string]int{"F": styles.NumInt})
-	_ = f.SetCellStyle(sheetName, "A1", "J1", styles.Header) // Re-apply header style after ColStyle // #nosec G104
+	_ = f.SetCellStyle(sheetName, "A1", "J1", styles.Header) // #nosec G104
 
 	utils.SetColWidths(f, sheetName, map[string]float64{
 		"A": 5, "B": 20, "C": 15, "D": 35, "E": 30,
@@ -233,8 +242,10 @@ func (s *exportServiceImpl) ProcessExportBatchLog(ctx context.Context, jobID int
 
 func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID int, filtersJSON string) error {
 	var filter analytics_dto.StockReportFilter
-	if err := json.Unmarshal([]byte(filtersJSON), &filter); err != nil {
-		return fmt.Errorf("failed to parse filters: %w", err)
+	if filtersJSON != "" {
+		if err := json.Unmarshal([]byte(filtersJSON), &filter); err != nil {
+			return fmt.Errorf("failed to parse filters: %w", err)
+		}
 	}
 
 	data, err := s.reportRepo.GetStockReportData(ctx, filter)
@@ -243,14 +254,10 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 	}
 
 	f := excelize.NewFile()
-	defer func() {
-		if err := f.Close(); err != nil {
-			fmt.Println(err)
-		}
-	}()
+	defer closeWorkbook(f)
 	styles := utils.InitExcelStyles(f)
 
-	rawSheet := i18n.T(ctx, "analytics.export.sheet_raw_data")
+	rawSheet := sanitizeExcelSheetName(i18n.T(ctx, "analytics.export.sheet_raw_data"), "Raw Data")
 	_ = f.SetSheetName("Sheet1", rawSheet) // #nosec G104
 
 	utils.SetLocalizedHeaders(ctx, f, rawSheet, []string{
@@ -264,16 +271,14 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 	redStyle, _ := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{Color: "#9C0006"},
 	})
-
 	boldRedStyle, _ := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{Color: "#9C0006", Bold: true},
 	})
-
 	boldStyle, _ := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{Bold: true},
 	})
 
-	pivotData := make(map[string]map[string]interface{})
+	pivotData := make(map[string]map[string]any)
 	var skus []string
 	var locationCodes []string
 	locSet := make(map[string]bool)
@@ -285,18 +290,18 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 			lokasi = *row.Lokasi
 		}
 
-		_ = f.SetSheetRow(rawSheet, fmt.Sprintf("A%d", rowIdx), &[]interface{}{row.Sku, row.NamaProduk, lokasi, row.Kuantitas}) // #nosec G104
+		_ = f.SetSheetRow(rawSheet, fmt.Sprintf("A%d", rowIdx), &[]any{row.Sku, row.NamaProduk, lokasi, row.Kuantitas}) // #nosec G104
 
 		if row.Kuantitas < 0 {
 			_ = f.SetCellStyle(rawSheet, fmt.Sprintf("D%d", rowIdx), fmt.Sprintf("D%d", rowIdx), redStyle) // #nosec G104
 		}
 
-		// Pivot processing
 		if _, exists := pivotData[row.Sku]; !exists {
-			pivotData[row.Sku] = make(map[string]interface{})
-			pivotData[row.Sku]["SKU"] = row.Sku
-			pivotData[row.Sku]["NamaProduk"] = row.NamaProduk
-			pivotData[row.Sku]["GrandTotal"] = 0
+			pivotData[row.Sku] = map[string]any{
+				"SKU":        row.Sku,
+				"NamaProduk": row.NamaProduk,
+				"GrandTotal": 0,
+			}
 			skus = append(skus, row.Sku)
 		}
 
@@ -315,8 +320,8 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 		rowIdx++
 	}
 
-	// Create Pivot Sheet
-	pivotSheet := i18n.T(ctx, "analytics.export.sheet_stock_summary")
+	// Create Pivot Summary Sheet
+	pivotSheet := sanitizeExcelSheetName(i18n.T(ctx, "analytics.export.sheet_stock_summary"), "Stock Summary")
 	_, _ = f.NewSheet(pivotSheet) // #nosec G104
 
 	_ = f.MergeCell(pivotSheet, "A1", "B1")                                                     // #nosec G104
@@ -327,8 +332,7 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 	})
 	_ = f.SetCellStyle(pivotSheet, "A1", "A1", titleStyle) // #nosec G104
 
-	// Headers
-	headers := []interface{}{
+	headers := []any{
 		i18n.T(ctx, "common.label.sku"),
 		i18n.T(ctx, "common.label.product_name"),
 	}
@@ -343,16 +347,15 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 	colName, _ := excelize.ColumnNumberToName(colIdx)
 	_ = f.SetColWidth(pivotSheet, colName, colName, 15) // #nosec G104
 
-	_ = f.SetSheetRow(pivotSheet, "A2", &headers) // #nosec G104
-
+	_ = f.SetSheetRow(pivotSheet, "A2", &headers)                                     // #nosec G104
 	_ = f.SetCellStyle(pivotSheet, "A2", fmt.Sprintf("%s2", colName), styles.Header) // #nosec G104
-	_ = f.SetColWidth(pivotSheet, "A", "A", 20)                                      // #nosec G104
-	_ = f.SetColWidth(pivotSheet, "B", "B", 50)                                      // #nosec G104
+	_ = f.SetColWidth(pivotSheet, "A", "A", 20)                                       // #nosec G104
+	_ = f.SetColWidth(pivotSheet, "B", "B", 50)                                       // #nosec G104
 
 	pRowIdx := 3
 	for _, sku := range skus {
 		pData := pivotData[sku]
-		row := []interface{}{pData["Sku"], pData["NamaProduk"]}
+		row := []any{pData["SKU"], pData["NamaProduk"]}
 
 		cIdx := 3
 		for _, loc := range locationCodes {
@@ -385,7 +388,6 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 		pRowIdx++
 	}
 
-	// Make Pivot Sheet active
 	if idx, err := f.GetSheetIndex(pivotSheet); err == nil {
 		f.SetActiveSheet(idx)
 	}
@@ -396,42 +398,41 @@ func (s *exportServiceImpl) ProcessExportStockReport(ctx context.Context, jobID 
 
 func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, jobID int, filtersJSON string) error {
 	var req analytics_dto.ExportLocationCapacityRequest
-	_ = json.Unmarshal([]byte(filtersJSON), &req)
+	if filtersJSON != "" {
+		if err := json.Unmarshal([]byte(filtersJSON), &req); err != nil {
+			return fmt.Errorf("invalid location capacity export filters: %w", err)
+		}
+	}
 
+	stringifyFilter := func(val any) (string, error) {
+		if val == nil {
+			return "", nil
+		}
+		if str, ok := val.(string); ok {
+			return str, nil
+		}
+		b, err := json.Marshal(val)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+
+	var err error
 	statFilters := analytics_dto.StatisticFilterRequest{
 		SearchQuery: req.SearchQuery,
 	}
-	if req.CategoryId != nil {
-		if str, ok := req.CategoryId.(string); ok {
-			statFilters.CategoryId = str
-		} else {
-			b, _ := json.Marshal(req.CategoryId)
-			statFilters.CategoryId = string(b)
-		}
+	if statFilters.CategoryId, err = stringifyFilter(req.CategoryId); err != nil {
+		return err
 	}
-	if req.Purpose != nil {
-		if str, ok := req.Purpose.(string); ok {
-			statFilters.Purpose = str
-		} else {
-			b, _ := json.Marshal(req.Purpose)
-			statFilters.Purpose = string(b)
-		}
+	if statFilters.Purpose, err = stringifyFilter(req.Purpose); err != nil {
+		return err
 	}
-	if req.Building != nil {
-		if str, ok := req.Building.(string); ok {
-			statFilters.Building = str
-		} else {
-			b, _ := json.Marshal(req.Building)
-			statFilters.Building = string(b)
-		}
+	if statFilters.Building, err = stringifyFilter(req.Building); err != nil {
+		return err
 	}
-	if req.Floor != nil {
-		if str, ok := req.Floor.(string); ok {
-			statFilters.Floor = str
-		} else {
-			b, _ := json.Marshal(req.Floor)
-			statFilters.Floor = string(b)
-		}
+	if statFilters.Floor, err = stringifyFilter(req.Floor); err != nil {
+		return err
 	}
 
 	data, err := s.statisticService.GetLocationAnalysis(ctx, statFilters)
@@ -440,10 +441,10 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 	}
 
 	f := excelize.NewFile()
-	defer f.Close()
+	defer closeWorkbook(f)
 	styles := utils.InitExcelStyles(f)
 
-	sheetName := i18n.T(ctx, "analytics.export.sheet_location_capacity")
+	sheetName := sanitizeExcelSheetName(i18n.T(ctx, "analytics.export.sheet_location_capacity"), "Location Capacity")
 	_ = f.SetSheetName("Sheet1", sheetName) // #nosec G104
 
 	isDetailed := req.ExportFormat == "detailed"
@@ -478,7 +479,7 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 				purpose = *row.Purpose
 			}
 
-			_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]interface{}{ // #nosec G104
+			_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", r+2), &[]any{ // #nosec G104
 				row.Code, building, floor, purpose, row.TotalProducts, row.TotalQuantity, row.TotalWeight / 1000, row.TotalCBM,
 			})
 
@@ -489,29 +490,19 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 		}
 
 		lastRow := len(data.LocationLoads) + 2
-		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", lastRow), &[]interface{}{i18n.T(ctx, "analytics.export.col_grand_total"), "", "", "", totalSKU, totalQty, totalWeight, totalCBM}) // #nosec G104
-		_ = f.MergeCell(sheetName, fmt.Sprintf("A%d", lastRow), fmt.Sprintf("D%d", lastRow))                                                            // #nosec G104
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", lastRow), &[]any{i18n.T(ctx, "analytics.export.col_grand_total"), "", "", "", totalSKU, totalQty, totalWeight, totalCBM}) // #nosec G104
+		_ = f.MergeCell(sheetName, fmt.Sprintf("A%d", lastRow), fmt.Sprintf("D%d", lastRow))                                                                                    // #nosec G104
 
 		utils.SetColStyles(f, sheetName, map[string]int{
 			"E": styles.NumInt, "F": styles.NumInt,
 			"G": styles.NumDec, "H": styles.NumDec,
 		})
 
-		// Fix header style overridden by ColStyle
-		_ = f.SetCellStyle(sheetName, "A1", "H1", styles.Header) // #nosec G104
-
-		_ = f.SetCellStyle(sheetName, fmt.Sprintf("A%d", lastRow), fmt.Sprintf("D%d", lastRow), styles.Total)    // #nosec G104
-		_ = f.SetCellStyle(sheetName, fmt.Sprintf("E%d", lastRow), fmt.Sprintf("F%d", lastRow), styles.TotalInt) // #nosec G104
-		_ = f.SetCellStyle(sheetName, fmt.Sprintf("G%d", lastRow), fmt.Sprintf("H%d", lastRow), styles.TotalDec) // #nosec G104
-
-		_ = f.SetColWidth(sheetName, "A", "A", 20) // #nosec G104
-		_ = f.SetColWidth(sheetName, "B", "B", 20) // #nosec G104
-		_ = f.SetColWidth(sheetName, "C", "C", 15) // #nosec G104
-		_ = f.SetColWidth(sheetName, "D", "D", 20) // #nosec G104
-		_ = f.SetColWidth(sheetName, "E", "E", 20) // #nosec G104
-		_ = f.SetColWidth(sheetName, "F", "F", 20) // #nosec G104
-		_ = f.SetColWidth(sheetName, "G", "G", 20) // #nosec G104
-		_ = f.SetColWidth(sheetName, "H", "H", 20) // #nosec G104
+		_ = f.SetCellStyle(sheetName, "A1", "H1", styles.Header)                                                      // #nosec G104
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("A%d", lastRow), fmt.Sprintf("D%d", lastRow), styles.Total)         // #nosec G104
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("E%d", lastRow), fmt.Sprintf("F%d", lastRow), styles.TotalInt)      // #nosec G104
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("G%d", lastRow), fmt.Sprintf("H%d", lastRow), styles.TotalDec)      // #nosec G104
+		utils.SetColWidths(f, sheetName, map[string]float64{"A": 20, "B": 20, "C": 15, "D": 20, "E": 20, "F": 20, "G": 20, "H": 20})
 	} else {
 		headers := []string{
 			"analytics.capacity.col_location_code",
@@ -533,6 +524,9 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 		for _, loc := range data.LocationLoads {
 			details, err := s.statisticService.GetLocationCapacityDetails(ctx, loc.LocationID, statFilters)
 			if err != nil {
+				return fmt.Errorf("failed to fetch location capacity details for location %d: %w", loc.LocationID, err)
+			}
+			if len(details) == 0 {
 				continue
 			}
 
@@ -545,12 +539,8 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 				floor = *loc.Floor
 			}
 
-			if len(details) == 0 {
-				continue
-			}
-
 			for _, det := range details {
-				_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", currentRow), &[]interface{}{ // #nosec G104
+				_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", currentRow), &[]any{ // #nosec G104
 					loc.Code, building, floor, det.SKU, det.Name, det.CategoryName, det.Quantity, det.TotalWeight / 1000, det.TotalCBM,
 				})
 
@@ -561,17 +551,15 @@ func (s *exportServiceImpl) ProcessExportLocationCapacity(ctx context.Context, j
 			}
 		}
 
-		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", currentRow), &[]interface{}{i18n.T(ctx, "analytics.export.col_grand_total"), "", "", "", "", "", totalQty, totalWeight, totalCBM}) // #nosec G104
-		_ = f.MergeCell(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("F%d", currentRow))                                                       // #nosec G104
+		_ = f.SetSheetRow(sheetName, fmt.Sprintf("A%d", currentRow), &[]any{i18n.T(ctx, "analytics.export.col_grand_total"), "", "", "", "", "", totalQty, totalWeight, totalCBM}) // #nosec G104
+		_ = f.MergeCell(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("F%d", currentRow))                                                                                // #nosec G104
 
 		utils.SetColStyles(f, sheetName, map[string]int{
 			"G": styles.NumInt, "H": styles.NumDec, "I": styles.NumDec,
 		})
 
-		// Fix header style overridden by ColStyle
-		_ = f.SetCellStyle(sheetName, "A1", "I1", styles.Header) // #nosec G104
-
-		_ = f.SetCellStyle(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("F%d", currentRow), styles.Total)    // #nosec G104
+		_ = f.SetCellStyle(sheetName, "A1", "I1", styles.Header)                                                      // #nosec G104
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("F%d", currentRow), styles.Total)   // #nosec G104
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("G%d", currentRow), fmt.Sprintf("G%d", currentRow), styles.TotalInt) // #nosec G104
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("H%d", currentRow), fmt.Sprintf("I%d", currentRow), styles.TotalDec) // #nosec G104
 

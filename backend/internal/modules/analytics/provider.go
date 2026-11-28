@@ -1,3 +1,4 @@
+// Package analytics wires dependency injection providers for reporting, statistics, KPI stats, and background exports.
 package analytics
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/google/wire"
 )
 
+// ProviderSet wires all analytics repositories, use cases, export processors, and HTTP handlers.
 var ProviderSet = wire.NewSet(
 	mysql.NewReportRepository,
 	mysql.NewStatisticRepository,

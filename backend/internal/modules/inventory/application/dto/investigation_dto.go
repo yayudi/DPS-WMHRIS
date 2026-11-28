@@ -1,5 +1,6 @@
 package inventory_dto
 
+// GetDuplicateTransactionsRequest defines query parameters for detecting and filtering duplicate stock movements.
 type GetDuplicateTransactionsRequest struct {
 	StartDate           string  `form:"startDate"`
 	EndDate             string  `form:"endDate"`
@@ -26,6 +27,5 @@ type GetDuplicateTransactionsRequest struct {
 	Limit               int     `form:"limit,default=10"`
 }
 
-type RevertTransactionRequest struct {
-	// Usually empty because ID is in params, but just in case we need a body later
-}
+// RevertTransactionRequest is reserved for optional future payload fields when reverting a movement.
+type RevertTransactionRequest struct{}

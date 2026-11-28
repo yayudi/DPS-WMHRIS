@@ -1,6 +1,30 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+
+	"github.com/dps-wmhris/backend/internal/shared/apperror"
+)
+
+// Valid manual return condition values matching manual_returns.condition ENUM('GOOD','BAD').
+const (
+	ManualReturnConditionGood = "GOOD"
+	ManualReturnConditionBad  = "BAD"
+)
+
+// ErrInvalidReturnCondition is returned when a return condition is not GOOD or BAD.
+var ErrInvalidReturnCondition = apperror.Validation("wms.return.err_invalid_condition", "Kondisi barang retur harus GOOD atau BAD")
+
+// ValidateReturnCondition verifies that condition is either GOOD or BAD.
+func ValidateReturnCondition(condition string) error {
+	switch strings.ToUpper(strings.TrimSpace(condition)) {
+	case ManualReturnConditionGood, ManualReturnConditionBad:
+		return nil
+	default:
+		return ErrInvalidReturnCondition
+	}
+}
 
 // ManualReturn represents manual customer return records.
 // keep: JSON contract camelCase (userId, productId, createdAt, updatedAt) for frontend compatibility.
@@ -17,6 +41,7 @@ type ManualReturn struct {
 	UpdatedAt time.Time `db:"updated_at" json:"updatedAt"`
 }
 
+// MarketplaceReturnItem represents a historical marketplace return entry.
 type MarketplaceReturnItem struct {
 	Type         string    `db:"type" json:"type"` // Always "MARKETPLACE"
 	ID           int       `db:"id" json:"id"`
@@ -31,6 +56,7 @@ type MarketplaceReturnItem struct {
 	Source       string    `db:"source" json:"source"`
 }
 
+// ManualReturnItem represents a historical manual return entry joined with product metadata.
 type ManualReturnItem struct {
 	Type        string    `db:"type" json:"type"` // Always "MANUAL"
 	ID          int       `db:"id" json:"id"`

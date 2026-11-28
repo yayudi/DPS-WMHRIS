@@ -5,13 +5,36 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	catalog_dto "github.com/dps-wmhris/backend/internal/modules/catalog/application/dto"
-	system_mysql "github.com/dps-wmhris/backend/internal/modules/system/adapter/outbound/mysql"
-	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
+	system_port "github.com/dps-wmhris/backend/internal/modules/system/port"
 	"github.com/xuri/excelize/v2"
 )
 
+var excelSheetReplacer = strings.NewReplacer(
+	":", " ", "\\", " ", "/", " ", "?", " ", "*", " ", "[", " ", "]", " ",
+)
+
+// sanitizeExcelSheetName enforces Excel's 31-character and forbidden-character rules for worksheet names,
+// falling back to a concise default when an i18n key is untranslated.
+func sanitizeExcelSheetName(name, fallback string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" || strings.HasPrefix(trimmed, "analytics.") {
+		trimmed = fallback
+	}
+	trimmed = strings.TrimSpace(excelSheetReplacer.Replace(trimmed))
+	if trimmed == "" {
+		trimmed = "Sheet1"
+	}
+	runes := []rune(trimmed)
+	if len(runes) > 31 {
+		trimmed = strings.TrimSpace(string(runes[:31]))
+	}
+	return trimmed
+}
+
+// CatalogExportFilterResult holds parsed product/package filter criteria and custom export naming.
 type CatalogExportFilterResult struct {
 	FilterReq  catalog_dto.ProductFilterRequest
 	Status     string
@@ -59,8 +82,16 @@ func parseCatalogExportFilter(filtersJSON string, forcePackageOnly bool) (Catalo
 	}, nil
 }
 
-// finalizeExportJob menangani penulisan ke buffer, upload ke R2, dan update status job hingga selesai.
-func finalizeExportJob(ctx context.Context, f *excelize.File, jobID int, fileName string, folder string, jobRepo system_mysql.JobRepository, storageService system_usecase.StorageService) error {
+// finalizeExportJob writes the Excel workbook to memory, uploads it to object storage, and marks the export job COMPLETED.
+func finalizeExportJob(
+	ctx context.Context,
+	f *excelize.File,
+	jobID int,
+	fileName string,
+	folder string,
+	jobRepo system_port.JobRepository,
+	storageService system_port.StorageService,
+) error {
 	var b bytes.Buffer
 	if err := f.Write(&b); err != nil {
 		return err
@@ -71,6 +102,5 @@ func finalizeExportJob(ctx context.Context, f *excelize.File, jobID int, fileNam
 		return err
 	}
 
-	_ = jobRepo.UpdateExportJobStatus(ctx, jobID, "COMPLETED", &url, nil) // #nosec G104
-	return nil
+	return jobRepo.UpdateExportJobStatus(ctx, jobID, "COMPLETED", &url, nil)
 }

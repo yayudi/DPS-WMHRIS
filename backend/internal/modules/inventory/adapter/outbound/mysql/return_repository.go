@@ -1,15 +1,13 @@
 package mysql
 
 import (
-	database "github.com/dps-wmhris/backend/internal/shared/database"
-
 	"context"
 	"fmt"
 	"strings"
 
 	"github.com/dps-wmhris/backend/internal/modules/inventory/domain"
 	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
-
+	"github.com/dps-wmhris/backend/internal/shared/database"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/jmoiron/sqlx"
 )
@@ -18,25 +16,29 @@ type returnRepositoryImpl struct {
 	db *sqlx.DB
 }
 
+// NewReturnRepository creates a MySQL-backed ReturnRepository.
 func NewReturnRepository(db *sqlx.DB) inventory_port.ReturnRepository {
 	return &returnRepositoryImpl{db: db}
 }
 
-func (r *returnRepositoryImpl) GetPendingReturns(ctx context.Context, params map[string]interface{}) ([]map[string]interface{}, int, error) {
-	return []map[string]interface{}{}, 0, nil
+// GetPendingReturns returns empty results following legacy fulfilment teardown.
+func (r *returnRepositoryImpl) GetPendingReturns(_ context.Context, _ map[string]any) ([]map[string]any, int, error) {
+	return []map[string]any{}, 0, nil
 }
 
-func (r *returnRepositoryImpl) GetMarketplaceReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[domain.MarketplaceReturnItem], error) {
+// GetMarketplaceReturnHistory returns an empty paginated result following legacy fulfilment teardown.
+func (r *returnRepositoryImpl) GetMarketplaceReturnHistory(_ context.Context, _, _ int, _ string) (utils.PaginatedResult[domain.MarketplaceReturnItem], error) {
 	return utils.PaginatedResult[domain.MarketplaceReturnItem]{Data: []domain.MarketplaceReturnItem{}, Total: 0}, nil
 }
 
+// GetManualReturnHistory retrieves paginated manual return entries joined with non-deleted products.
 func (r *returnRepositoryImpl) GetManualReturnHistory(ctx context.Context, page, limit int, search string) (utils.PaginatedResult[domain.ManualReturnItem], error) {
-	whereClauses := []string{"1=1"}
-	queryParams := []interface{}{}
+	whereClauses := []string{"p.deleted_at IS NULL"}
+	var queryParams []any
 
-	if search != "" {
+	if trimmed := strings.TrimSpace(search); trimmed != "" {
 		whereClauses = append(whereClauses, "(mr.reference LIKE ? OR p.name LIKE ? OR p.sku LIKE ?)")
-		searchVal := "%" + search + "%"
+		searchVal := "%" + trimmed + "%"
 		queryParams = append(queryParams, searchVal, searchVal, searchVal)
 	}
 
@@ -44,16 +46,16 @@ func (r *returnRepositoryImpl) GetManualReturnHistory(ctx context.Context, page,
 
 	query := fmt.Sprintf(`
 		SELECT
-			'MANUAL' as type,
+			'MANUAL' AS type,
 			mr.id,
 			mr.reference,
-			p.name as product_name,
+			p.name AS product_name,
 			p.sku,
 			mr.quantity,
-			mr.`+"`condition`"+` as `+"`condition`"+`,
+			mr.`+"`condition`"+` AS `+"`condition`"+`,
 			mr.notes,
-			mr.created_at as date,
-			'MANUAL' as source
+			mr.created_at AS date,
+			'MANUAL' AS source
 		FROM manual_returns mr
 		JOIN products p ON mr.product_id = p.id
 		WHERE %s
@@ -63,15 +65,14 @@ func (r *returnRepositoryImpl) GetManualReturnHistory(ctx context.Context, page,
 	return database.FetchPaginated[domain.ManualReturnItem](ctx, r.db, query, page, limit, queryParams...)
 }
 
-
+// CreateManualReturn inserts an approved manual_returns row inside the active transaction and sets manualReturn.ID.
 func (r *returnRepositoryImpl) CreateManualReturn(ctx context.Context, manualReturn *domain.ManualReturn) error {
 	query := `
 		INSERT INTO manual_returns
 			(user_id, product_id, quantity, ` + "`condition`" + `, reference, notes, status, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, 'APPROVED', NOW())
 	`
-	// Fallbacks for nullables
-	var ref, notes interface{}
+	var ref, notes any
 	if manualReturn.Reference != nil {
 		ref = *manualReturn.Reference
 	}

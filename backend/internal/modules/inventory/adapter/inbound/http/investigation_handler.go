@@ -1,35 +1,36 @@
 package http
 
 import (
-	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
-	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
-
 	"net/http"
 
+	inventory_dto "github.com/dps-wmhris/backend/internal/modules/inventory/application/dto"
+	inventory_port "github.com/dps-wmhris/backend/internal/modules/inventory/port"
 	"github.com/dps-wmhris/backend/internal/shared/utils"
 	"github.com/gin-gonic/gin"
 )
 
+// InvestigationHandler exposes HTTP endpoints for investigating duplicate movements and reverting stock transactions.
 type InvestigationHandler struct {
 	investigationService inventory_port.InvestigationUseCase
 }
 
+// NewInvestigationHandler creates a new InvestigationHandler.
 func NewInvestigationHandler(investigationService inventory_port.InvestigationUseCase) *InvestigationHandler {
 	return &InvestigationHandler{investigationService: investigationService}
 }
 
+// GetDuplicateTransactions lists grouped duplicate stock movement candidates with pagination metadata.
 func (h *InvestigationHandler) GetDuplicateTransactions(c *gin.Context) {
-	req_ptr, ok := utils.BindQueryAndValidate[inventory_dto.GetDuplicateTransactionsRequest](c)
+	reqPtr, ok := utils.BindQueryAndValidate[inventory_dto.GetDuplicateTransactionsRequest](c)
 	if !ok {
 		return
 	}
-	req := *req_ptr
+	req := *reqPtr
 
-	// Gin's DefaultQuery handles simple cases, but if we used struct binding with default tags, it might work too.
-	if req.Page == 0 {
+	if req.Page < 1 {
 		req.Page = 1
 	}
-	if req.Limit == 0 {
+	if req.Limit < 1 {
 		req.Limit = 10
 	}
 
@@ -39,14 +40,14 @@ func (h *InvestigationHandler) GetDuplicateTransactions(c *gin.Context) {
 		return
 	}
 
-	resMap := result.(map[string]interface{})
 	utils.RawResponse(c, http.StatusOK, gin.H{
 		"success": true,
-		"data":    resMap["data"],
-		"meta":    resMap["meta"],
+		"data":    result.Data,
+		"meta":    result.Meta,
 	})
 }
 
+// RevertTransaction reverses a stock movement by ID and records an immutable REVERSAL ledger entry.
 func (h *InvestigationHandler) RevertTransaction(c *gin.Context) {
 	id, ok := utils.ParseIntParam(c, "id")
 	if !ok {
@@ -58,8 +59,7 @@ func (h *InvestigationHandler) RevertTransaction(c *gin.Context) {
 		return
 	}
 
-	err := h.investigationService.RevertTransaction(c.Request.Context(), id, userID)
-	if err != nil {
+	if err := h.investigationService.RevertTransaction(c.Request.Context(), id, userID); err != nil {
 		utils.HandleDomainError(c, err)
 		return
 	}

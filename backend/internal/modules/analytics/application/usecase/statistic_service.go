@@ -3,38 +3,29 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	analytics_dto "github.com/dps-wmhris/backend/internal/modules/analytics/application/dto"
+	analytics_port "github.com/dps-wmhris/backend/internal/modules/analytics/port"
 	system_dto "github.com/dps-wmhris/backend/internal/modules/system/application/dto"
-	system_usecase "github.com/dps-wmhris/backend/internal/modules/system/application/usecase"
-
-	analytics_mysql "github.com/dps-wmhris/backend/internal/modules/analytics/adapter/outbound/mysql"
+	system_port "github.com/dps-wmhris/backend/internal/modules/system/port"
 )
 
-type StatisticService interface {
-	GetStockMovementStatistics(ctx context.Context, filters analytics_dto.StatisticFilterRequest) (*analytics_dto.StockMovementResponse, error)
-	RequestStockMovementsExport(ctx context.Context, userID int, req analytics_dto.ExportStatisticRequest) (int, error)
-	GetStockTimelineStatistics(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.StockTimelineResponse, error)
-	RequestStockTimelineExport(ctx context.Context, userID int, req analytics_dto.ExportTimelineRequest) (int, error)
-	GetInventoryValueStatistics(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.InventoryValueResponse, error)
-	GetShopPerformanceStats(ctx context.Context, filters analytics_dto.StatisticFilterRequest) (*analytics_dto.ShopPerformanceResponse, error)
-	GetPackageComponentAnalysis(ctx context.Context, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.PackageComponentAnalysisResponse, error)
-	GetLocationAnalysis(ctx context.Context, filters analytics_dto.StatisticFilterRequest) (*analytics_dto.LocationAnalysisResponse, error)
-	GetLocationCapacityDetails(ctx context.Context, locationId int, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.LocationCapacityDetailResponse, error)
-	RequestLocationCapacityExport(ctx context.Context, userID int, req analytics_dto.ExportLocationCapacityRequest) (int, error)
-	GetStockBuildingBreakdown(ctx context.Context, productID int, startDate, endDate string) ([]analytics_dto.StockBuildingBreakdownResponse, error)
-}
+// StatisticService is a compatibility alias for analytics/port.StatisticService.
+type StatisticService = analytics_port.StatisticService
 
 type statisticServiceImpl struct {
-	repo       analytics_mysql.StatisticRepository
-	jobService system_usecase.JobService
+	repo       analytics_port.StatisticRepository
+	jobService system_port.JobService
 }
 
-func NewStatisticService(repo analytics_mysql.StatisticRepository, jobService system_usecase.JobService) StatisticService {
+// NewStatisticService creates a StatisticService wired with StatisticRepository and JobService.
+func NewStatisticService(repo analytics_port.StatisticRepository, jobService system_port.JobService) analytics_port.StatisticService {
 	return &statisticServiceImpl{
 		repo:       repo,
 		jobService: jobService,
@@ -78,19 +69,17 @@ func (s *statisticServiceImpl) GetStockMovementStatistics(ctx context.Context, f
 	end := parseDate(filters.EndDate)
 	diffTime := end.Sub(start).Hours() / 24
 	days := math.Floor(math.Abs(diffTime)) + 1
-	if days == 0 {
+	if days <= 0 {
 		days = 1
 	}
 
-	var formattedSummary []analytics_dto.StockMovementSummaryResponse
+	formattedSummary := make([]analytics_dto.StockMovementSummaryResponse, 0, len(summaryRows))
 	for _, row := range summaryRows {
 		avgDailySales := row.TotalSold / days
 		currentStock := row.CurrentStock
 		var daysOfInventory *float64
 		if avgDailySales > 0 {
-			val := currentStock / avgDailySales
-			// round to 1 decimal
-			val = math.Round(val*10) / 10
+			val := math.Round((currentStock/avgDailySales)*10) / 10
 			daysOfInventory = &val
 		} else {
 			val := -1.0
@@ -106,7 +95,7 @@ func (s *statisticServiceImpl) GetStockMovementStatistics(ctx context.Context, f
 			status = "CRITICAL"
 		} else if *daysOfInventory > 7 && *daysOfInventory <= 14 {
 			status = "WARNING"
-		} else if *daysOfInventory == -1 && currentStock > 0 && currentStock >= 100 {
+		} else if *daysOfInventory == -1 && currentStock >= 100 {
 			status = "OVERSTOCK"
 		}
 
@@ -117,11 +106,10 @@ func (s *statisticServiceImpl) GetStockMovementStatistics(ctx context.Context, f
 		formattedSummary = append(formattedSummary, row)
 	}
 
-	// Filter logic post-process (mimic Node behavior if complex status filtering was requested)
 	if filters.Status != "" && filters.Status != "all" {
 		var inc, exc []string
 		v := filters.Status
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		if err := json.Unmarshal([]byte(v), &parsed); err == nil {
 			if parsedInc, ok := parsed["include"]; ok {
 				inc = toSliceOfStrings(parsedInc)
@@ -134,36 +122,31 @@ func (s *statisticServiceImpl) GetStockMovementStatistics(ctx context.Context, f
 		}
 
 		if len(inc) > 0 || len(exc) > 0 {
-			var filtered []analytics_dto.StockMovementSummaryResponse
+			incSet := make(map[string]bool, len(inc))
+			for _, st := range inc {
+				incSet[strings.ToUpper(st)] = true
+			}
+			excSet := make(map[string]bool, len(exc))
+			for _, st := range exc {
+				excSet[strings.ToUpper(st)] = true
+			}
+
+			filtered := make([]analytics_dto.StockMovementSummaryResponse, 0, len(formattedSummary))
 			for _, item := range formattedSummary {
-				includeIt := true
-				if len(inc) > 0 {
-					includeIt = false
-					for _, s := range inc {
-						if item.Status == strings.ToUpper(s) {
-							includeIt = true
-							break
-						}
-					}
+				if len(incSet) > 0 && !incSet[item.Status] {
+					continue
 				}
-				if len(exc) > 0 {
-					for _, s := range exc {
-						if item.Status == strings.ToUpper(s) {
-							includeIt = false
-							break
-						}
-					}
+				if excSet[item.Status] {
+					continue
 				}
-				if includeIt {
-					filtered = append(filtered, item)
-				}
+				filtered = append(filtered, item)
 			}
 			formattedSummary = filtered
 		}
 	}
 
 	if filters.Movement != "" && filters.Movement != "all" {
-		var filtered []analytics_dto.StockMovementSummaryResponse
+		filtered := make([]analytics_dto.StockMovementSummaryResponse, 0, len(formattedSummary))
 		for _, item := range formattedSummary {
 			switch filters.Movement {
 			case "active":
@@ -179,9 +162,6 @@ func (s *statisticServiceImpl) GetStockMovementStatistics(ctx context.Context, f
 		formattedSummary = filtered
 	}
 
-	if formattedSummary == nil {
-		formattedSummary = []analytics_dto.StockMovementSummaryResponse{}
-	}
 	if timelineRows == nil {
 		timelineRows = []analytics_dto.StockMovementTimelineResponse{}
 	}
@@ -193,7 +173,7 @@ func (s *statisticServiceImpl) GetStockMovementStatistics(ctx context.Context, f
 }
 
 func (s *statisticServiceImpl) RequestStockMovementsExport(ctx context.Context, userID int, req analytics_dto.ExportStatisticRequest) (int, error) {
-	filtersJSON, _ := json.Marshal(map[string]interface{}{
+	filtersJSON, err := json.Marshal(map[string]any{
 		"startDate":   req.StartDate,
 		"endDate":     req.EndDate,
 		"searchQuery": req.SearchQuery,
@@ -205,6 +185,9 @@ func (s *statisticServiceImpl) RequestStockMovementsExport(ctx context.Context, 
 		"exportType":  "STATISTICS_STOCK_MOVEMENT",
 		"exportName":  req.ExportName,
 	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal stock movements export filters: %w", err)
+	}
 	fString := string(filtersJSON)
 
 	return s.jobService.CreateExportJob(ctx, system_dto.CreateExportJobRequest{
@@ -220,7 +203,7 @@ func (s *statisticServiceImpl) GetStockTimelineStatistics(ctx context.Context, f
 		return nil, err
 	}
 
-	var data []analytics_dto.StockTimelineResponse
+	data := make([]analytics_dto.StockTimelineResponse, 0, len(rows))
 	for _, r := range rows {
 		data = append(data, analytics_dto.StockTimelineResponse{
 			Date:      r.Date,
@@ -229,17 +212,13 @@ func (s *statisticServiceImpl) GetStockTimelineStatistics(ctx context.Context, f
 			NetChange: r.TotalIn - r.TotalOut,
 		})
 	}
-	if data == nil {
-		data = []analytics_dto.StockTimelineResponse{}
-	}
 	return data, nil
 }
 
 func (s *statisticServiceImpl) RequestStockTimelineExport(ctx context.Context, userID int, req analytics_dto.ExportTimelineRequest) (int, error) {
 	status := "all"
 	if req.Status != nil {
-		statusStr, ok := req.Status.(string)
-		if ok {
+		if statusStr, ok := req.Status.(string); ok {
 			status = statusStr
 		}
 	}
@@ -248,7 +227,7 @@ func (s *statisticServiceImpl) RequestStockTimelineExport(ctx context.Context, u
 		movement = req.Movement
 	}
 
-	filtersJSON, _ := json.Marshal(map[string]interface{}{
+	filtersJSON, err := json.Marshal(map[string]any{
 		"searchQuery": req.SearchQuery,
 		"status":      status,
 		"movement":    movement,
@@ -257,6 +236,9 @@ func (s *statisticServiceImpl) RequestStockTimelineExport(ctx context.Context, u
 		"exportType":  "STATISTICS_STOCK_TIMELINE",
 		"exportName":  req.ExportName,
 	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal stock timeline export filters: %w", err)
+	}
 	fString := string(filtersJSON)
 
 	return s.jobService.CreateExportJob(ctx, system_dto.CreateExportJobRequest{
@@ -277,7 +259,7 @@ func (s *statisticServiceImpl) GetInventoryValueStatistics(ctx context.Context, 
 		globalTotalValue += row.TotalValue
 	}
 
-	var data []analytics_dto.InventoryValueResponse
+	data := make([]analytics_dto.InventoryValueResponse, 0, len(rows))
 	for _, row := range rows {
 		var percentage float64
 		if globalTotalValue > 0 {
@@ -285,26 +267,22 @@ func (s *statisticServiceImpl) GetInventoryValueStatistics(ctx context.Context, 
 		}
 		row.Percentage = math.Round(percentage*100) / 100
 
-		status := "SAFE"
-		if row.TotalQuantity == 0 {
-			status = "EMPTY"
-		} else if row.TotalQuantity < 0 {
-			status = "NEGATIVE"
-		} else if row.TotalQuantity > 100 {
-			status = "OVERSTOCK"
-		} else if row.TotalQuantity > 50 && row.TotalQuantity < 100 {
-			status = "WARNING"
-		} else if row.TotalQuantity > 0 && row.TotalQuantity < 50 {
-			status = "CRITICAL"
+		switch {
+		case row.TotalQuantity < 0:
+			row.Status = "NEGATIVE"
+		case row.TotalQuantity == 0:
+			row.Status = "EMPTY"
+		case row.TotalQuantity >= 100:
+			row.Status = "OVERSTOCK"
+		case row.TotalQuantity >= 50:
+			row.Status = "WARNING"
+		default:
+			row.Status = "CRITICAL"
 		}
-		row.Status = status
 
 		data = append(data, row)
 	}
 
-	if data == nil {
-		data = []analytics_dto.InventoryValueResponse{}
-	}
 	return data, nil
 }
 
@@ -405,13 +383,17 @@ func (s *statisticServiceImpl) GetPackageComponentAnalysis(ctx context.Context, 
 		return nil, err
 	}
 
-	var pInclude, pExclude []int
+	pIncludeSet := make(map[int]bool)
+	pExcludeSet := make(map[int]bool)
 	if filters.PackageCategoryId != "" {
-		vStr := filters.PackageCategoryId
 		var parsed map[string][]int
-		if err := json.Unmarshal([]byte(vStr), &parsed); err == nil {
-			pInclude = parsed["include"]
-			pExclude = parsed["exclude"]
+		if err := json.Unmarshal([]byte(filters.PackageCategoryId), &parsed); err == nil {
+			for _, id := range parsed["include"] {
+				pIncludeSet[id] = true
+			}
+			for _, id := range parsed["exclude"] {
+				pExcludeSet[id] = true
+			}
 		}
 	}
 
@@ -435,24 +417,11 @@ func (s *statisticServiceImpl) GetPackageComponentAnalysis(ctx context.Context, 
 		pid := row.PackageCategoryID
 
 		includePackage := true
-		if len(pInclude) > 0 {
-			includePackage = false
-			if pid != nil {
-				for _, id := range pInclude {
-					if id == *pid {
-						includePackage = true
-						break
-					}
-				}
-			}
+		if len(pIncludeSet) > 0 {
+			includePackage = pid != nil && pIncludeSet[*pid]
 		}
-		if len(pExclude) > 0 && pid != nil {
-			for _, id := range pExclude {
-				if id == *pid {
-					includePackage = false
-					break
-				}
-			}
+		if includePackage && len(pExcludeSet) > 0 && pid != nil && pExcludeSet[*pid] {
+			includePackage = false
 		}
 
 		if includePackage {
@@ -468,25 +437,27 @@ func (s *statisticServiceImpl) GetPackageComponentAnalysis(ctx context.Context, 
 		}
 	}
 
-	var sInclude, sExclude []string
+	sIncludeSet := make(map[string]bool)
+	sExcludeSet := make(map[string]bool)
 	if filters.StockStatus != "" {
-		vStr := filters.StockStatus
 		var parsed map[string][]string
-		if err := json.Unmarshal([]byte(vStr), &parsed); err == nil {
-			sInclude = parsed["include"]
-			sExclude = parsed["exclude"]
+		if err := json.Unmarshal([]byte(filters.StockStatus), &parsed); err == nil {
+			for _, st := range parsed["include"] {
+				sIncludeSet[st] = true
+			}
+			for _, st := range parsed["exclude"] {
+				sExcludeSet[st] = true
+			}
 		}
 	}
 
-	var data []analytics_dto.PackageComponentAnalysisResponse
+	data := make([]analytics_dto.PackageComponentAnalysisResponse, 0, len(compMap))
 	for _, comp := range compMap {
 		deficit := comp.TotalNeeded - comp.CurrentStock
 		comp.Deficit = deficit
 
 		status := "SAFE"
-		if deficit > 0 {
-			status = "DEFICIT"
-		} else if comp.CurrentStock == 0 && comp.TotalNeeded > 0 {
+		if deficit > 0 || (comp.CurrentStock == 0 && comp.TotalNeeded > 0) {
 			status = "DEFICIT"
 		} else if deficit <= 0 && deficit >= -20 {
 			status = "WARNING"
@@ -497,48 +468,29 @@ func (s *statisticServiceImpl) GetPackageComponentAnalysis(ctx context.Context, 
 			continue
 		}
 
-		includeComp := true
-		if len(sInclude) > 0 {
-			includeComp = false
-			for _, s := range sInclude {
-				if s == comp.Status {
-					includeComp = true
-					break
-				}
-			}
+		if len(sIncludeSet) > 0 && !sIncludeSet[comp.Status] {
+			continue
 		}
-		if len(sExclude) > 0 {
-			for _, s := range sExclude {
-				if s == comp.Status {
-					includeComp = false
-					break
-				}
-			}
+		if sExcludeSet[comp.Status] {
+			continue
 		}
 
-		if includeComp {
-			data = append(data, *comp)
-		}
+		data = append(data, *comp)
 	}
 
-	// sort by total_needed desc manually
-	for i := 0; i < len(data)-1; i++ {
-		for j := i + 1; j < len(data); j++ {
-			if data[j].TotalNeeded > data[i].TotalNeeded {
-				data[i], data[j] = data[j], data[i]
-			}
+	// O(n log n) deterministic sort by TotalNeeded DESC, SKU ASC
+	sort.Slice(data, func(i, j int) bool {
+		if data[i].TotalNeeded == data[j].TotalNeeded {
+			return data[i].SKU < data[j].SKU
 		}
-	}
-
-	if data == nil {
-		data = []analytics_dto.PackageComponentAnalysisResponse{}
-	}
+		return data[i].TotalNeeded > data[j].TotalNeeded
+	})
 
 	return data, nil
 }
 
 func (s *statisticServiceImpl) RequestLocationCapacityExport(ctx context.Context, userID int, req analytics_dto.ExportLocationCapacityRequest) (int, error) {
-	filtersJSON, _ := json.Marshal(map[string]interface{}{
+	filtersJSON, err := json.Marshal(map[string]any{
 		"searchQuery":  req.SearchQuery,
 		"categoryId":   req.CategoryId,
 		"purpose":      req.Purpose,
@@ -548,6 +500,9 @@ func (s *statisticServiceImpl) RequestLocationCapacityExport(ctx context.Context
 		"exportName":   req.ExportName,
 		"exportFormat": req.ExportFormat,
 	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal location capacity export filters: %w", err)
+	}
 	fString := string(filtersJSON)
 
 	return s.jobService.CreateExportJob(ctx, system_dto.CreateExportJobRequest{
@@ -596,14 +551,14 @@ func (s *statisticServiceImpl) GetLocationAnalysis(ctx context.Context, filters 
 	}, nil
 }
 
-func (s *statisticServiceImpl) GetLocationCapacityDetails(ctx context.Context, locationId int, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.LocationCapacityDetailResponse, error) {
-	return s.repo.GetLocationCapacityDetails(ctx, locationId, filters)
+func (s *statisticServiceImpl) GetLocationCapacityDetails(ctx context.Context, locationID int, filters analytics_dto.StatisticFilterRequest) ([]analytics_dto.LocationCapacityDetailResponse, error) {
+	return s.repo.GetLocationCapacityDetails(ctx, locationID, filters)
 }
 
-func toSliceOfStrings(val interface{}) []string {
+func toSliceOfStrings(val any) []string {
 	var result []string
 	switch v := val.(type) {
-	case []interface{}:
+	case []any:
 		for _, item := range v {
 			if s, ok := item.(string); ok {
 				result = append(result, s)
